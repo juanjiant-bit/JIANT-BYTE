@@ -17,7 +17,7 @@ Estado (rama `phase2-engines`, que contiene todo lo anterior):
 | 5 Proyectos con fórmulas, edición en el aparato | pendiente (el texto propio de una pista ya se guarda; falta editarlo) |
 | 6 Modificadores, cross-mod, ecuación de mezcla | primera forma (las macros como ecuaciones) |
 | 7 Efectos de fórmula con memoria | primera forma (insertos de fórmula por pista, sin memoria larga todavía) |
-| 8 Punch-ins de fórmula, secuenciadores de fórmula | primer paso (CAOS MAX) |
+| 8 Punch-ins de fórmula, secuenciadores de fórmula | primera forma (CAOS MAX; el ARP de fórmula) |
 | 9 Generador de ecuaciones | primera forma (MATH USER: semilla y CAOS) |
 | 10 Estética | primer paso (paleta BYTE por defecto) |
 | 11 FM-F, GLITCH | pendiente |
@@ -426,6 +426,12 @@ DIST 0 es la señal seca bit a bit, cada tipo cambia el sonido acotado, LPF oscu
 motores retirados suenan como WAVE o MATH (`engines.c` `ENG_LIVE`; un número inválido también, como el 0). `sing.c` sigue
 en el build por `lyr_txt`, el lugar de la fórmula propia de cada pista. Flash libre: 42 KB. Cambian las tres renders que
 usaban presets de ANALOG (la mezcla de 4 pistas y dos del SLICER); la regresión ya no mide el tope de voces de VOICE.
+
+**Fase 8: el secuenciador de fórmula** (`seq.c` `ARP_EQ`, `arp_eq`): el ARP suma 8 modos E: (E:3X E:XOR E:SQR E:GRAY E:TAB
+E:GROW E:JUMP E:HASH). En cada paso, una ecuación del paso `s` y de la cantidad de notas `a` elige cuál de las notas
+mantenidas suena (su resultado módulo `a`): un bytebeat de los pasos, una línea que casi no se repite, o una melodía de
+una tabla. Las notas que se mantienen son el material; la ecuación, el orden. `tests/arp_eq_test.c`: E:3X da 0 3 2 1..,
+E:TAB su tabla, siempre dentro de las notas y estable, los 8 modos distintos.
 
 ## 6. Datos: proyectos y almacenamiento
 

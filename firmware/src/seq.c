@@ -594,7 +594,7 @@ static int pfx_rec_ok(void) { return song.rec && song.playing && !chain.running;
  * notes together (the first 4), an octave higher each step through OCT */
 enum { AM_OFF, AM_UP, AM_DN, AM_UPDN, AM_RND, AM_ORD, AM_REPEAT, AM_DNUP, AM_UP8, AM_CONV, AM_DIVG, AM_PINKY,
        AM_THUMB, AM_WALK, AM_CHORD,
-       AM_TRNS };   /* (JIANT) TRNS: a key no note but the track's sequence transposed by its interval from C4 (t->trn, kept
+       AM_TRNS, AM_EQ0 };   /* (JIANT) TRNS: a key no note but the track's sequence transposed by its interval from C4 (t->trn, kept
                      * when let go: the next key moves it), MIDI in too; the steps' notes, never the lane hits */
 
 static void arp_forget(track_t *t)               /* (its notes ended otherwise: trk_all_off) */
@@ -654,6 +654,38 @@ static void arp_off(track_t *t)                  /* the sounding arp note(s) end
     t->arp_note = 0;
 }
 
+/* (JIANT BYTE, phase 8) the formula sequencer: ARP's E: modes, the place in the held notes an equation of the step: s the
+ * step since the notes were taken, a how many notes; its INT result modulo a (a bytebeat of the steps: a pattern that
+ * never quite repeats, or a tune of a table). One program for all, compiled when the mode changes (the sequencer's
+ * core, between the renders) */
+static const char *const ARP_EQ[] = {"s*3", "s^s>>2", "s*s", "(s>>1)^s", "\"0213\"[s&3]-48+(s>>2)", "s*(s>>3|1)",
+                                     "s+(s>>2)*2", "rnd(s>>1)"};
+#define ARP_NEQ (sizeof ARP_EQ / sizeof ARP_EQ[0])
+static fvm_prog_t arp_prg;
+static fvm_ins_t arp_ins[20];
+static uint8_t arp_id;
+static uint32_t arp_eq(uint32_t m, uint32_t i, uint32_t len)
+{
+    lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
+    uint32_t o = 0;
+    fvm_env_t en = {{0}, {0}, 0};
+    if (!arp_prg.ins)
+        fvm_prog_init(&arp_prg, arp_ins, 20u);
+    if (arp_id != m) {
+        const char *s = ARP_EQ[(m - AM_EQ0) % ARP_NEQ];
+        uint32_t k = 0;
+        while (s[k]) k++;
+        if (fvm_compile(&wk->c, &arp_prg, s, k, 0) || arp_prg.nstate)
+            arp_prg.n = 0;
+        arp_id = (uint8_t)m;
+    }
+    en.u[FU_STEP] = i;
+    en.u[FU_A] = len;
+    fvm_run(&arp_prg, &en, &wk->s, 1u, &o);
+    if (arp_prg.ty == FT_FIX)
+        o = (uint32_t)((int32_t)o >> 16);
+    return len ? o % len : 0u;
+}
 /* the place in the note list (len notes) the step arp_idx plays (not inlined, as arp_chord); UP+8 adds its note */
 static __attribute__((noinline)) uint32_t arp_pick(track_t *t, uint32_t *list, uint32_t len)
 {
@@ -662,6 +694,8 @@ static __attribute__((noinline)) uint32_t arp_pick(track_t *t, uint32_t *list, u
         list[len++] = (uint32_t)clamp((int32_t)list[0] + 12 * t->p[P_AOCT], 0, 127);
     cyc = len > 1u ? 2u * len - 2u : 1u;
     k = i % cyc;
+    if (m >= AM_EQ0 && m < AM_EQ0 + ARP_NEQ)         /* (JIANT BYTE) an equation of the step */
+        return arp_eq(m, i, len);
     switch (m) {
     case AM_DN:
         return len - 1u - i % len;

@@ -9,7 +9,9 @@ static const char *const N_LSYNC[14] = {"4BAR", "2BAR", "1BAR", "1/2", "1/4", "1
                                         "1/16T", "1/32", "8BAR", "16BAR"};   /* (V10.27: -13 8BAR, -14 16BAR, a tester's) */
 static const char *const N_AMODE[] = {"OFF", "UP", "DN", "UPDN", "RND", "ORD", "REPEAT",   /* (append-only: seq.c AM_*) */
                                        "DNUP", "UP+8", "CONV", "DIVG", "PINKY", "THUMB", "WALK", "CHORD",
-                                       "TRNS"};                         /* (JIANT: seq.c AM_TRNS) */
+                                       "TRNS",                          /* (JIANT: seq.c AM_TRNS) */
+                                       "E:3X", "E:XOR", "E:SQR", "E:GRAY", "E:TAB", "E:GROW", "E:JUMP", "E:HASH"};   /* (JIANT
+                                                         * BYTE) the step's note an equation of it: seq.c ARP_EQ */
 static const char *const N_DIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1/1", "2BAR", "4BAR"};
 /* (JIANT 0.4) the delay's TIME: N_DIV's ten, then free times past the last division (5 ms .. 1.48 s, exponential;
  * fx.c delay_samples, DTIME_MS); (0.8.4) appended up to the longest the line holds at a quarter rate (the values

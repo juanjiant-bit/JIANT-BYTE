@@ -411,6 +411,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "the macros as equations (JIANT BYTE): the knob as ever, TRI STEP S&H, the knob into the equations, the matrix, stored" "$OUT/macro_eq_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fx_eq_test" tests/fx_eq_test.c -lm
     run "the formula effects (JIANT BYTE): DIST's TYPEs 6.., DIST 0 dry bit for bit, each another sound and bounded, LPF" "$OUT/fx_eq_test"
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/arp_eq_test" tests/arp_eq_test.c -lm
+    run "the formula sequencer (JIANT BYTE): ARP's E: modes, each step's note an equation of it" "$OUT/arp_eq_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/regress" tests/regress.c -lm
     run "regression: golden renders, health, voices, CPU budget" "$OUT/regress" tests/golden.txt tests/cpu_baseline.txt
     # (V10.7.34) LIFE 0: every golden render of before LIFE bit for bit (tests/golden_life0.txt, never rewritten)
