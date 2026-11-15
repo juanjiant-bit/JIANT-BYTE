@@ -227,6 +227,48 @@ static __attribute__((noinline)) int32_t lofi_float(uint32_t f, uint32_t t, uint
 #undef S
 #undef PM
 
+/* (JIANT BYTE, phase 2) MATH plays its formulas through the FVM (fvm.c): BYTE's 48 and FLOAT's 48 as text
+ * (fvm_bank.c), each part's compiled when its WAVE or ALGO changes (lofi_prog, in the audio: a few hundred microseconds
+ * once) and run a block at a time. lofi_byte / lofi_float above stay as the reference (tests/fvm_test.c). The
+ * machine's work space and the compiler's share one area a core (they never run at once): fvm_cc_t's ~2 KB. A formula
+ * keeps at most LOFI_NSTATE states (ph lp hp) in the voice (v->s[6], v->s[7]); one with more is refused (silent) */
+#define LOFI_NSTATE 2u
+typedef union { fvm_scratch_t s; fvm_cc_t c; } lofi_work_t;
+static lofi_work_t lofi_work[2];                     /* one a core (MC_CPU) */
+static fvm_prog_t lofi_prg[NTRK];
+static uint16_t lofi_prg_id[NTRK];                   /* 1 + 64 x FLOAT + ALGO / 4 (0: none yet) */
+#include "fvm_bank.c"
+#define LOFI_N 64u                                   /* a render's samples at most (CTL); the FVM runs FVM_BLK at once */
+_Static_assert(CTL <= LOFI_N, "MATH: a render longer than its arrays");
+/* the formula over m samples (the variables' arrays m long), FVM_BLK at a time */
+static void lofi_run(const fvm_prog_t *pg, fvm_env_t *en, lofi_work_t *wk, uint32_t m, uint32_t *out)
+{
+    uint32_t o, k;
+    const uint32_t *a0[FA_N];
+    for (k = 0; k < FA_N; k++)
+        a0[k] = en->arr[k];
+    for (o = 0; o < m; o += FVM_BLK) {
+        for (k = 0; k < FA_N; k++)
+            en->arr[k] = a0[k] ? a0[k] + o : 0;
+        fvm_run(pg, en, &wk->s, m - o < FVM_BLK ? m - o : FVM_BLK, out + o);
+    }
+    for (k = 0; k < FA_N; k++)
+        en->arr[k] = a0[k];
+}
+static const fvm_prog_t *lofi_prog(const track_t *t, lofi_work_t *w, uint32_t flt, uint32_t f)
+{
+    uint32_t tr = (uint32_t)(t - trk) % NTRK, id = 1u + (flt ? 64u : 0u) + f;
+    if (lofi_prg_id[tr] != id) {
+        const char *s = flt ? FVM_FLOAT_BANK[f % FVM_NFLOAT] : FVM_BYTE_BANK[f % FVM_NBYTE];
+        uint32_t n = 0;
+        while (s[n]) n++;
+        if (fvm_compile(&w->c, &lofi_prg[tr], s, n, 0) || lofi_prg[tr].nstate > LOFI_NSTATE)
+            memset(&lofi_prg[tr], 0, sizeof lofi_prg[tr]);
+        lofi_prg_id[tr] = (uint16_t)id;
+    }
+    return &lofi_prg[tr];
+}
+
 /* (0.9.11) LOFI's level and its edges. Through the master's leveler (fx.c lev_block: peaks to ~-9 dBFS, 2:1) LOFI measured
  * as loud as the others in LUFS (-12.4 against the melodic engines' -12.3, the factory presets' medians, C4 at 100), but
  * it was heard far louder and piercing: its waves are full-scale and dense (square-ish bytebeat, naive pulses and saws:
@@ -260,16 +302,44 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
     uint32_t t0 = (uint32_t)(f < 32u ? BYTE_T0[f] : 0u) << 9;    /* (0.5.1: the formula's start) */
     uint32_t mul = lofi_motion(p[P_E4]), ts = v->ph[1], var = vr;   /* (0.5.4) MOTN: the slow time, Q8 */
     uint32_t sy = p[P_E4] >= 128, sr = 0, sb = sy ? lofi_sync(&sr) : 0u;   /* (p6) SYNC */
+    lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
+    const fvm_prog_t *pg = lofi_prog(t, wk, 0, f);
+    uint32_t tws[LOFI_N], vals[LOFI_N], ne = 0, k = 0;
     hold *= 1 + (p[P_E5] >> 3);                         /* (0.5.4) GRIT: each sample held up to 16 x longer */
-    for (i = 0; i < n; i++) {
+    if (n > LOFI_N)
+        n = LOFI_N;
+    {   /* (JIANT BYTE) pass 1: MATH's time as ever, the times the formula is read at (a new held sample) gathered */
+        uint32_t ctt = tt, ctf = tf, cts = ts;
+        int32_t cc = cnt;
+        for (i = 0; i < n; i++) {
+            if (--cc <= 0) {
+                uint32_t te, tl;
+                if (sy)                                  /* (SYNC: the slow bits at the bar's position) */
+                    cts = (sb + ((i * sr) >> 16)) * mul;
+                te = mul == 256u && !sy ? ctt : (ctt & 255u) | ((cts >> 8) & ~255u);   /* (MOTN: the slow bits at
+                                                         * their own speed; 64: t as written) */
+                tl = lofi_mut((te & lm) + t0, var);      /* (VAR: mutated) */
+                tws[ne++] = bs ? tl ^ (tl >> bs) : tl;
+                cc = hold;
+            }
+            ctf += ti;
+            ctt += ctf >> 24;
+            ctf &= 0xFFFFFFu;
+            cts += ((ti >> 8) * mul) >> 16;
+        }
+    }
+    if (ne) {                                            /* the formula at those times, in one run */
+        fvm_env_t en = {{tws, 0, 0, 0, 0}, {0}, &v->s[6]};
+        en.u[FU_A] = a;
+        en.u[FU_NOTE] = v->note;
+        en.u[FU_VEL] = v->vel;
+        lofi_run(pg, &en, wk, ne, vals);
+    }
+    for (i = 0; i < n; i++) {                            /* pass 2: the held samples, the bits, the filters */
         if (--cnt <= 0) {
-            uint32_t te;
-            if (sy)                                      /* (SYNC: the slow bits at the bar's position) */
+            int32_t s = (int32_t)((k < ne ? vals[k++] : 0u) & 255u) * 256 - 32640;
+            if (sy)
                 ts = (sb + ((i * sr) >> 16)) * mul;
-            te = mul == 256u && !sy ? tt : (tt & 255u) | ((ts >> 8) & ~255u);   /* (MOTN: the slow bits at their own
-                                                         * speed; 64: t as written) */
-            uint32_t tl = lofi_mut((te & lm) + t0, var), tw = bs ? tl ^ (tl >> bs) : tl;   /* (VAR: mutated) */
-            int32_t s = (int32_t)(lofi_byte(f, tw, a) & 255u) * 256 - 32640;
             cnt = hold;
             if (bits < 8)
                 s = ((s + (1 << (15 - bits))) >> (16 - bits)) << (16 - bits);
@@ -311,8 +381,35 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     uint32_t lm = p[P_E7] ? (1u << (17u - (uint32_t)p[P_E7] * 12u / 127u)) - 1u : 0xFFFFFFFFu;   /* LOOP: t's window */
     uint32_t ft = ft_voice(p);
     int32_t rs = p[P_FRES] > 50 ? p[P_FRES] : 50, kd = 8192 - rs * 7600 / 127, y1 = v->s[4], y2 = v->s[5];
-    int32_t aux = v->s[3], fb = v->s[0], fbk = p[P_E5], sm = (int32_t)v->ph[2];   /* (sm: LOFI_SOFT's state) */
+    int32_t aux = v->s[3], fb = v->s[0], fbk = p[P_E5], sm = (int32_t)v->ph[2];   /* (sm: LOFI_SOFT's state; aux:
+                                                         * MATH's, the FVM's states are v->s[6], v->s[7]) */
     uint32_t chip = (uint32_t)p[P_E0], qs = chip == CHIP_8BIT ? 0u : chip == CHIP_1BIT ? 15u : 12u;   /* (CHIP: the bits) */
+    lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
+    const fvm_prog_t *pg = lofi_prog(t, wk, 1, f);
+    uint32_t T[LOFI_N], W[LOFI_N], vals[LOFI_N];
+    fvm_env_t en = {{T, W, 0, 0, 0}, {0}, &v->s[6]};
+    en.u[FU_NOTE] = v->note;
+    en.u[FU_VEL] = v->vel;
+    if (n > LOFI_N)
+        n = LOFI_N;
+    if (!fbk) {                                          /* (JIANT BYTE) the block's times, then the formula at once */
+        uint32_t ctt = tt, ctf = tf, cts = ts;
+        for (i = 0; i < n; i++) {
+            uint32_t te, tl, tw;
+            if (sy)
+                cts = (sb + ((i * sr) >> 16)) * mul;
+            te = mul == 256u && !sy ? ctt : (ctt & 255u) | ((cts >> 8) & ~255u);
+            tl = lofi_mut(te & lm, var);
+            tw = bs ? tl ^ (tl >> bs) : tl;
+            T[i] = tw;
+            W[i] = (tw << 8 | ctf >> 16) << 3;           /* (the note's phase: MATH's x, in turns) */
+            ctf += ti;
+            ctt += ctf >> 24;
+            ctf &= 0xFFFFFFu;
+            cts += ((ti >> 8) * mul) >> 16;
+        }
+        lofi_run(pg, &en, wk, n, vals);
+    }
     for (i = 0; i < n; i++) {
         uint32_t te, tl, tw;
         int32_t s;
@@ -322,11 +419,17 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
         tl = lofi_mut(te & lm, var);
         tw = bs ? tl ^ (tl >> bs) : tl;
         if (fbk) {                                        /* FBK: the last output moves t, up to +-16 t (half a turn of
-                                                         * the sines, Q8): the formula modulates itself, FM-like */
+                                                         * the sines, Q8): the formula modulates itself, FM-like; the
+                                                         * output of a sample feeds the next: one sample a run */
             int32_t d = (fb * fbk) >> 10;
-            s = lofi_float(f, tw + (uint32_t)(d >> 8), (tw << 8 | tf >> 16) + (uint32_t)d, &aux);
+            uint32_t T1 = tw + (uint32_t)(d >> 8), W1 = ((tw << 8 | tf >> 16) + (uint32_t)d) << 3, o1;
+            fvm_env_t e1 = {{&T1, &W1, 0, 0, 0}, {0}, &v->s[6]};
+            e1.u[FU_NOTE] = v->note;
+            e1.u[FU_VEL] = v->vel;
+            fvm_run(pg, &e1, &wk->s, 1, &o1);
+            s = (int32_t)o1 >> 1;
         } else {
-            s = lofi_float(f, tw, tw << 8 | tf >> 16, &aux);
+            s = (int32_t)vals[i] >> 1;                   /* (FIX Q16 -> MATH's Q15) */
         }
         if (qs)
             s = ((s + (1 << (qs - 1u))) >> qs) << qs;
@@ -368,6 +471,7 @@ static void lofi_note_on(track_t *t, voice_t *v)
     v->s[3] = 0;                 /* (BYTE: its smoothing's first pole) */
     v->ph[2] = 0;                /* (.. its second; FLOAT: its patch's own state) */
     v->s[4] = v->s[5] = 0;       /* (JIANT 0.4) the filter's two states */
+    v->s[6] = v->s[7] = 0;       /* (JIANT BYTE) the formula's own states (fvm.c ph lp hp) */
     if (t->p[P_E1] == RW_FLOAT)                         /* (0.5.6: its t from 0, its fraction too) */
         v->ph[0] = 0;
 }

@@ -359,6 +359,12 @@ static int fvm_eat(fvm_cc_t *c, const char *t)       /* the token t next? (taken
     c->i += k;
     return 1;
 }
+static int fvm_cmp(const char *a, const char *b)   /* (strcmp: the firmware's libc has none) */
+{
+    while (*a && *a == *b)
+        a++, b++;
+    return (uint8_t)*a - (uint8_t)*b;
+}
 static int fvm_isal(uint32_t ch) { return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'; }
 static int fvm_isdg(uint32_t ch) { return ch >= '0' && ch <= '9'; }
 
@@ -505,7 +511,7 @@ static uint32_t fvm_primary(fvm_cc_t *c)
             uint32_t ar[2] = {0, 0}, na = 0;
             c->i++;
             for (k = 0; k < NELEM(FVM_CALLS); k++)
-                if (!strcmp(FVM_CALLS[k].nm, nm))
+                if (!fvm_cmp(FVM_CALLS[k].nm, nm))
                     break;
             if (k == NELEM(FVM_CALLS)) {
                 c->i = s0;
@@ -529,10 +535,10 @@ static uint32_t fvm_primary(fvm_cc_t *c)
             }
             return fvm_call(c, FVM_CALLS[k].id, ar);
         }
-        if (!strcmp(nm, "PI"))
+        if (!fvm_cmp(nm, "PI"))
             return fvm_num(c, FT_FIX, 205887u);      /* (3.14159 in Q16) */
         for (k = 0; k < NELEM(FVM_VARS); k++)
-            if (!strcmp(FVM_VARS[k].nm, nm)) {
+            if (!fvm_cmp(FVM_VARS[k].nm, nm)) {
                 if (FVM_VARS[k].kind == NK_ARR)
                     c->p->uses |= (uint8_t)(1u << FVM_VARS[k].ix);
                 return fvm_new(c, FVM_VARS[k].kind, 0, FVM_VARS[k].ty, 0, 0, 0, FVM_VARS[k].ix);

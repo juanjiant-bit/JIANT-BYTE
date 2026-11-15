@@ -1031,7 +1031,8 @@ int main(int argc, char **argv)
     /* 1 + 2: the golden renders */
     g0 = nj;
     for (e = 0; e < NENGINES; e++)
-        for (pi = 0; pi < ENGINES[e]->npresets; pi++) {
+        for (pi = 0; eng_idx(e) == e && pi < ENGINES[e]->npresets; pi++) {   /* (JIANT BYTE: a retired engine's
+                                                         * number plays as MATH: its presets once, at MATH's own) */
             job_t *j;
             slug(s, ENGINES[e]->presets[pi].name, sizeof s);
             snprintf(name, sizeof name, "preset/%s/%02u_%s", ENGINES[e]->name, pi, s);
@@ -1094,7 +1095,8 @@ int main(int argc, char **argv)
     /* 3: CPU, one child at a time (the ns are for information; the instruction counts do not care) */
     c0 = nj;
     for (e = 0; e < NENGINES; e++)
-        for (pi = 0; pi < ENGINES[e]->npresets; pi++) {
+        for (pi = 0; eng_idx(e) == e && pi < ENGINES[e]->npresets; pi++) {   /* (JIANT BYTE: a retired engine's
+                                                         * number plays as MATH: its presets once, at MATH's own) */
             job_t *j;
             slug(s, ENGINES[e]->presets[pi].name, sizeof s);
             snprintf(name, sizeof name, "cpu/%s/%02u_%s", ENGINES[e]->name, pi, s);
