@@ -136,7 +136,7 @@ static __attribute__((noinline)) int song_save_as(uint32_t target, const char *n
 }
 
 /* Drop rows which would reference an erased part, moving scene/source/variation together. */
-BTAPP_FN static void song_remove_parts(song_index_t *index, uint32_t target, uint32_t mask)
+static void song_remove_parts(song_index_t *index, uint32_t target, uint32_t mask)
 {
     chain_config_t *c = &index->rows[target];
     uint32_t r, w = 0, k;

@@ -2487,7 +2487,7 @@ BTAPP_FN static void gx_prog(uint32_t fam)    /* (V10.6y: gen_pick's, in the seg
  * texture (gen_sound: ANIMAL and VOICE once a piece) */
 static int8_t gx_engine(uint32_t r)
 {
-    static const uint8_t E[7] = {ENGI_ANIMAL, EG_WH, EG_LO, ENGI_ADD, EG_FM, EG_PH, EG_VO};
+    static const uint8_t E[7] = {ENGI_ANIMAL, EG_LO, EG_LO, EG_LO, EG_FM, EG_PH, EG_VO}   /* (JIANT BYTE: WHEEL ADD retired) */;
     uint32_t e;
     if (((gx.odd & GXO_TIMBRE) == 0u || r != gx.orole) && !gch(r == RL_BASS ? 20 : 40)) return -1;
     e = E[gr() % (r == RL_LEAD || r == RL_TEX ? 7u : 6u)];

@@ -9,13 +9,11 @@
 #include "eng_phase.c"
 #include "eng_lofi.c"
 #include "eng_formant.c"
-#include "eng_wheel.c"
 #include "eng_drum.c"           /* DRUM: the 8-lane DRUM-X kit (drumx_voice.c) */
 #include "eng_west.c"           /* (V10.7.36) WEST: west coast (fold, low-pass gate, dust), NOISE's slot (engine 11) */
 #include "eng_fm6.c"            /* FM6: 6-operator FM, msfa ported (fm6_core.c, Apache-2.0) */
 #include "eng_animal.c"         /* (JIANT 0.8.3) ANIMAL: animal calls (CMOS PULSE WHSTL WING GLOTT) */
 #include "eng_string.c"         /* (JIANT 0.9.9-snd5) STRING: Karplus-Strong, in the COMB's lines (engine 8) */
-#include "eng_add.c"            /* (JIANT 0.9.9-snd5) ADD: additive, nine partials, in WHEEL's voice state (engine 13) */
 #include "eng_input.c"          /* (V10.54) INPUT: the audio input on a track (engine 15) */
 #include "fm4_convert.c"        /* DIGITAL's tables, and its sounds -> FM6 */
 #if FELUCCA_FM4
@@ -60,19 +58,23 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_GONE,                   /* 4: reserved (SAMPLE, retired in JIANT) */
     &ENG_FORMANT,                /* 5 VOICE (eng_formant.c: "voice" is a sounding note in voice.c) */
     &ENG_GONE,                   /* 6: reserved (TRIO, folded into ANALOG in JIANT 0.4: core.h analog_from_trio) */
-    &ENG_WHEEL,                  /* 7 */
+    &ENG_LOFI,                   /* 7: (JIANT BYTE) WHEEL retired: its number plays as MATH (GEN's picks, a pattern's sound) */
     &ENG_STRING,                 /* 8 (ENGI_STRING, 0.9.9-snd5; GRAIN's, retired in JIANT: its sounds play as STRING's) */
     &ENG_GONE,                   /* 9: reserved (PHYS, retired in TONIC: its sounds play as ANALOG) */
     &ENG_DRUM,                   /* 10 (ENGI_DRUM) */
     &ENG_WEST,                   /* 11 (ENGI_WEST, V10.7.36; NOISE's until V10.7.35: its sounds open as WEST's) */
-    &ENG_FM6,                    /* 12 (ENGI_FM6) */
-    &ENG_ADD,                    /* 13 (ENGI_ADD, 0.9.9-snd5; SLICE's, retired in JIANT: its sounds play as ADD's) */
+    &ENG_LOFI,                   /* 12: (JIANT BYTE) FM6 retired (its synthesis and voice state gone; its patches kept
+                                  * for the stores): plays as MATH */
+    &ENG_LOFI,                   /* 13: (JIANT BYTE) ADD retired (it shared WHEEL's voice state): plays as MATH */
     &ENG_ANIMAL,                 /* 14 (ENGI_ANIMAL, JIANT 0.8.3) */
     &ENG_INPUT,                  /* 15 (ENGI_INPUT, V10.54) */
 };
 
+/* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
+ * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
+static const uint8_t ENG_LIVE[NENGINES] = {0, 1, 2, 3, 4, 5, 6, 3, 8, 9, 10, 11, 3, 3, 14, 15};
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
-static inline uint32_t eng_idx(uint32_t e) { return e < NENGINES ? e : 0u; }
+static inline uint32_t eng_idx(uint32_t e) { return e < NENGINES ? ENG_LIVE[e] : 0u; }
 
 /* the order the engines are shown in (PRESETS browsing and its ENG knob, the EDIT layer's keys, the editor's list):
  * engine indices, never DIGITAL's reserved 1 (with FELUCCA_FM4 it comes last). The indices stay as they are (the
@@ -84,12 +86,12 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     ENGI_DRUM,                   /* DRUM (DRUM-X) */
     ENGI_ANALOG,                 /* ANALOG */
     ENGI_PHASE,                  /* PHASE */
-    ENGI_FM6,                    /* FM6 */
+    /* (JIANT BYTE) FM6 retired */
     ENGI_VOICE,                  /* VOICE */
     ENGI_ANIMAL,                 /* ANIMAL */
-    ENGI_LOFI, ENGI_WHEEL,       /* MATH (was LOFI) WHEEL */
+    ENGI_LOFI,                   /* MATH (was LOFI); (JIANT BYTE) WHEEL retired */
     ENGI_WEST,                   /* WEST (V10.7.36: NOISE's place) */
-    ENGI_STRING, ENGI_ADD,       /* (0.9.9-snd5) STRING ADD */
+    ENGI_STRING,                 /* (0.9.9-snd5) STRING; (JIANT BYTE) ADD retired */
     ENGI_INPUT,                  /* (V10.54) the audio input */
 #if FELUCCA_FM4
     ENGI_DIGITAL,                /* DIGITAL (retired, FELUCCA_FM4 builds only): after the rest */
@@ -99,12 +101,12 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
  * numbers kept), so a MIDI rig's program numbers name the sounds they named before the display order changed; the
  * PRESETS list itself follows ENGINE_ORDER (ui.c preset_all_at_in) */
 static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
-    ENGI_ANALOG, ENGI_FM6,
+    ENGI_ANALOG,                 /* (JIANT BYTE: FM6 retired) */
 #if FELUCCA_FM4
     ENGI_DIGITAL,
 #endif
-    ENGI_PHASE, ENGI_LOFI, ENGI_VOICE, ENGI_WHEEL, ENGI_WEST, ENGI_DRUM, ENGI_ANIMAL,
-    ENGI_STRING, ENGI_ADD,       /* (0.9.9-snd5: after ANIMAL, every number before kept) */
+    ENGI_PHASE, ENGI_LOFI, ENGI_VOICE, ENGI_WEST, ENGI_DRUM, ENGI_ANIMAL,
+    ENGI_STRING,                 /* (0.9.9-snd5: after ANIMAL, every number before kept; JIANT BYTE: WHEEL ADD out) */
     ENGI_INPUT,                  /* (V10.54) */
 };
 

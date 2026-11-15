@@ -1524,7 +1524,7 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
         h = (h ^ ((uint32_t)cs->carg2 | (uint32_t)cs->cnm[0] << 8 | (uint32_t)cs->cnm[1] << 16 | comp_slot() << 24)) *
             16777619u;                                  /* (0.6.82) COMP 2; (seq2d) the N:Ms */
     }
-    if (pg->scope == SC_ENGINE && (trk_engp(t) == &ENG_WHEEL || trk_eng(t) == ENGI_FM6 ||
+    if (pg->scope == SC_ENGINE && (trk_eng(t) == ENGI_FM6 ||
                                    (FELUCCA_FM4 && trk_eng(t) == ENGI_DIGITAL)))
         h ^= (ui.hot_t ? ui.hot_col + 1u : 0u) * 65537u;
     if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_DRUM)
@@ -2209,10 +2209,10 @@ static void draw_graph(void)
             break;
         case GR_FMOP:                                /* (0.6.10) FM6's operators: (0.9.6) the colony (ui_engvis.c), the operator */
         case GR_FMOP2:                               /* picked lit */
-            if (fop_ok()) vx_fm6_page(t, fop_op % 6u, pg->graph == GR_FMOP2);
+            /* (JIANT BYTE: FM6 retired, its pages never open) */
             break;
         case GR_FMENV:                               /* .. its envelope, its bicho riding it */
-            if (fop_ok()) vx_fm6env(t);
+            /* (JIANT BYTE: FM6 retired) */
             break;
         case GR_DXSND:                               /* EDIT > SOUND: the kit's lanes, the sound edited singled out */
             cv_oy = 0;

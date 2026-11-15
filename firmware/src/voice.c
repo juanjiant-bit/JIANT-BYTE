@@ -939,7 +939,7 @@ static uint32_t load_cost_q8(const track_t *t)          /* a voice more of part 
         uint32_t half = mc_tk[ti] * (HALF_FRAMES / CTL) / nv;
         c = half * 25600u / (HALF_FRAMES * LOAD_FRAME_TICKS);
     } else
-        c = (e == &ENG_FM6 ? 4u : e == &ENG_LOFI ? 2u : 3u) * LOAD_W_PCT * 256u;
+        c = (e == &ENG_LOFI ? 2u : 3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
     return load_cores2 ? (c * LOAD_SHARE_Q8) >> 8 : c;
 }
 static void load_take(const track_t *t)                 /* a voice added: into the prediction */
@@ -1016,7 +1016,7 @@ static uint32_t load_victim(track_t *self, track_t **pp)
 static int32_t voice_lvl(const track_t *t, const voice_t *v)   /* (codex/voices) how loud a voice is, Q15: its amplitude;
                                                          * FM6 (its envelopes are the operators'): its last block's peak */
 {
-    return ENGINES[t->engine] == &ENG_FM6 ? v->s[0] : v->env_out;
+    return v->env_out;                              /* (JIANT BYTE: FM6, its own level in s[0], retired) */
 }
 /* (codex/voices) before a block's events (seq.c events_block: core 0, the other core idle), every fourth block (5.8 ms:
  * one pass over the voices, ~1 % of what the sequencer's block takes): the soft measures (see VSOFT) from here on. What
@@ -2234,7 +2234,7 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     if (nr && e == &ENG_DRUM)                           /* (0.6.16) DRUM-X: DRV and the knee on the kit's sum */
         drum_bus(t, out, n);
     if (nr && (t->p[P_FTYPE] || t->p[P_FCUT] < 127 || t->p[P_FRES] || tf_on[(uint32_t)(t - trk) % NTRK] ||
-               ((e == &ENG_WHEEL || e == &ENG_DRUM) && (t->p[P_LD_FLT] || t->p[P_ED_FLT])) ||   /* (0.6.81: their
+               ((e == &ENG_DRUM) && (t->p[P_LD_FLT] || t->p[P_ED_FLT])) ||   /* (0.6.81: their
                                                          * only filter, for the LFO / ENV -> FILTER) */
                tf_xb[(uint32_t)(t - trk) % NTRK] || tf_cmb[(uint32_t)(t - trk) % NTRK]))
         /* (JIANT 0.5) the FILTER (track_post); 0.6.8: and a block more to leave the chain (track_filter's fade) */

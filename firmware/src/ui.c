@@ -10,7 +10,7 @@
 static track_t *tsel_p(void) { return &trk[song.sel]; }
 #undef TSEL
 #define TSEL tsel_p()
-static uint32_t trk_eng(const track_t *t) { return t->eng_req % NENGINES; }   /* (0.9.7, flash) a track's engine */
+static uint32_t trk_eng(const track_t *t) { return eng_idx(t->eng_req % NENGINES); }   /* (JIANT BYTE: the live one) */   /* (0.9.7, flash) a track's engine */
 static const engine_t *trk_engp(const track_t *t) { return ENGINES[trk_eng(t)]; }   /* .. its engine's table */
 static int project_save(uint32_t slot);
 static int song_save_as(uint32_t target, const char *name);
@@ -662,8 +662,8 @@ static int page_visible(uint32_t i)
         return te != ENGI_DRUM;
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)   /* (0.6.10) OPERATOR, OP ENV, OPERATOR 2: FM6's */
         return te == ENGI_FM6;
-    if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_WRDEP)   /* (0.7.8) ROTOR: WHEEL's */
-        return trk_engp(TSEL) == &ENG_WHEEL;
+    if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_WRDEP)   /* (0.7.8) ROTOR: WHEEL's (JIANT BYTE: retired) */
+        return 0;
     if (PAGES[i].id[0] == P_LRTRG && PAGES[i].id[1] == 0xFFu)   /* (0.6.12) RETRIG: LOFI BYTE / FLOAT's */
         return trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE;
     if (PAGES[i].scope == SC_ENGINE && PAGES[i].fam == FAM_EDIT)   /* (V10.7.21) ANALOG: its own EDIT 1 (INT in NOISE's
@@ -1554,11 +1554,8 @@ static const uint8_t *preset_order(const engine_t *e, uint32_t *n)
     if (e == &ENG_ANALOG) { *n = sizeof ANALOG_ORDER; return ANALOG_ORDER; }
     if (e == &ENG_FORMANT) { *n = sizeof VOICE_ORDER; return VOICE_ORDER; }
     if (e == &ENG_STRING) { *n = sizeof STRING_ORDER; return STRING_ORDER; }
-    if (e == &ENG_ADD) { *n = sizeof ADD_ORDER; return ADD_ORDER; }
     if (e == &ENG_PHASE) { *n = sizeof PHASE_ORDER; return PHASE_ORDER; }
     if (e == &ENG_WEST) { *n = sizeof WEST_ORDER; return WEST_ORDER; }
-    if (e == &ENG_FM6) { *n = sizeof FM6_ORDER; return FM6_ORDER; }
-    if (e == &ENG_WHEEL) { *n = sizeof WHEEL_ORDER; return WHEEL_ORDER; }
     *n = 0;
     return 0;
 }
@@ -1806,7 +1803,7 @@ static void power_on_parts(void)
         track_t *t = &trk[i];
         track_defaults(t);
         power_sound_of(t, i);
-        t->engine = t->eng_req;
+        t->engine = (uint8_t)eng_idx(t->eng_req);   /* (JIANT BYTE: a retired engine's number plays as MATH) */
         track_defaults_steps(t);              /* (a sound load never touches them) */
         if (TRK_DEF[i][2])
             load_pat16(t, PATTERNS[TRK_DEF[i][2] - 1u].note, PATTERNS[TRK_DEF[i][2] - 1u].flags);

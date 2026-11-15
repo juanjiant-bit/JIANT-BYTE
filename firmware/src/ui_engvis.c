@@ -1136,37 +1136,7 @@ typedef struct {
     uint8_t m[6];
 } vxfm_t;
 /* the operators of track t now: the sounding notes' envelopes (the loudest), each one's level, ratio, size, place */
-static void vx_fm_ops(const track_t *t, vxfm_t *o)
-{
-    uint32_t tr = (uint32_t)(t - trk) % NTRK, k, v, hi = 0, top = 0;
-    o->p = fm6_eff[tr].ok ? fm6_eff[tr].p : fm6_patch[tr];
-    o->alg = fm6_alg_of(t);
-    o->car = fm6_car_ops(o->alg);
-    o->fbo = fm6_fb_op(o->alg);
-    fm6_routes(o->alg, o->m);
-    for (k = 0; k < 6u; k++) {
-        const uint8_t *op = o->p + (5u - k) * FP_OP;
-        int32_t e = 0, ol = op[FP_OL] % 100u, a = ol * 256 / 99, c = op[FP_FC] & 31;
-        o->st[k] = 4;
-        for (v = 0; v < FM6_POLY; v++) {                 /* (msfa's level: scaleout units 0..127, the stage's L 0..99) */
-            const fm6_env_t *n = &fm6_note[tr][v].env[5u - k];
-            int32_t s = (((n->level >> 16) - n->outlevel + 4256) / 32 - 28) * 256 / 99;
-            if (!fm6_note[tr][v].live || !t->v[v].active) continue;
-            if (s > e || o->st[k] == 4u) { o->st[k] = n->ix | (n->down ? 0u : 8u); }
-            e = s > e ? s : e;
-        }
-        o->env[k] = clamp(e, 0, 256);
-        o->amp[k] = ol ? (a * ((a * 154 >> 8) + 102) / 256) * o->env[k] / 256 : 0;   /* ((ol / 99) ^ 1.6) x env */
-        o->rat[k] = op[FP_MODE] ? 256 : (c ? c * 256 : 128) * (100 + op[FP_FF] % 100u) / 100;
-        o->rad[k] = 120 * (141 + 141 * ol / 99) / 256 * (200 + (o->env[k] * 82 >> 8)) / 256;
-        hi = (FM6_CELL[o->alg][k] & 7u) > hi ? FM6_CELL[o->alg][k] & 7u : hi;
-        top = (uint32_t)(FM6_CELL[o->alg][k] >> 4) > top ? (uint32_t)FM6_CELL[o->alg][k] >> 4 : top;
-    }
-    for (k = 0; k < 6u; k++) {                           /* (fmPos: columns 26 apart, the carriers on the floor 38) */
-        o->x[k] = ((int32_t)(FM6_CELL[o->alg][k] & 7u) * 2 - (int32_t)hi) * 13 * 16;
-        o->y[k] = 28 * 16 - (int32_t)(FM6_CELL[o->alg][k] >> 4) * (top >= 3u ? 324 : 352);
-    }
-}
+/* (JIANT BYTE) vx_fm_ops: FM6 retired */
 /* operator k's bicho at (x, y): spikes its ratio, size and heat its level now, breathing with its envelope; sel: the
  * operator picked (the accent); sh: DETUNE's shimmer (Q4 units) */
 static VX_CODE void vx_fm_bicho(const vxf_t *f, const vxfm_t *o, uint32_t k, int32_t x, int32_t y, int32_t r, uint32_t age, uint32_t mt,
@@ -1204,245 +1174,19 @@ static void vx_fm_num(const vxf_t *f, const vxfm_t *o, uint32_t k, int32_t x, in
 }
 /* COLONIA: the operators wired as the algorithm, the carriers standing on the output; sel the operator picked (or 6),
  * op2: OPERATOR 2 (its DETUNE a shimmer) */
-static VX_CODE void vx_fm6(const track_t *t, const int32_t *A, int32_t en_home, uint32_t sel, int op2)
-{
-    vxfm_t o;
-    vxf_t f = vx_uf(A, 100, 0);
-    int32_t en = vx_level(t, 4, en_home), x0 = 9999, x1 = -9999, y0 = 9999, s, l = 9999, r = -9999, k, j, fb;
-    uint32_t mt = vxs.mt[4], age = vx_age(t, 4, 0);
-    vxs.kc = 1;
-    vx_fm_ops(t, &o);
-    for (k = 0; k < 6; k++) {
-        x0 = o.x[k] < x0 ? o.x[k] : x0; x1 = o.x[k] > x1 ? o.x[k] : x1; y0 = o.y[k] < y0 ? o.y[k] : y0;
-        if (o.car >> k & 1u) { l = o.x[k] < l ? o.x[k] : l; r = o.x[k] > r ? o.x[k] : r; }
-    }
-    x0 -= 16 * 16; x1 += 18 * 16; y0 -= 13 * 16;         /* (fitTo: the colony fills the frame, at most 1.75 x) */
-    s = f.s * 124 * 16 / (x1 - x0);
-    j = f.s * 94 * 16 / (47 * 16 - y0);
-    s = s < j ? s : j;
-    s = s < f.s * 7 / 4 ? s : f.s * 7 / 4;
-    f.cx -= ((x0 + x1) / 2 * s) >> 8;
-    f.cy -= ((y0 + 47 * 16) / 2 * s) >> 8;
-    f.s = s;
-    l = (l < -160 ? l : -160) - 128;                    /* the output: the floor, an arrow out */
-    r = (r > 160 ? r : 160) + 192;
-    vx_line(&f, l, 38 * 16, r, 38 * 16, 36 + en / 2);
-    vx_line(&f, r - 48, 36 * 16, r, 38 * 16, 77 + en / 2);
-    vx_line(&f, r - 48, 40 * 16, r, 38 * 16, 77 + en / 2);
-    for (k = 0; k < 6; k++)                              /* the wires: down, across, down; pulses as fast as the ratio */
-        for (j = 0; j < 6; j++)
-            if (o.m[k] >> j & 1u) {
-                int32_t a = o.amp[j], ya = o.y[j] + o.rad[j], yb = o.y[k] - o.rad[k], my = (ya + yb) / 2, q[8];
-                q[0] = o.x[j]; q[1] = ya; q[2] = o.x[j]; q[3] = my; q[4] = o.x[k]; q[5] = my; q[6] = o.x[k]; q[7] = yb;
-                vx_curve(&f, q, 4, 0, 31 + (a * 154 >> 8));
-                if (a > 8) {                             /* (two pulses along it, as fast as the modulator's ratio) */
-                    int32_t n, dx = o.x[k] > o.x[j] ? o.x[k] - o.x[j] : o.x[j] - o.x[k], len = (my - ya) + dx + (yb - my);
-                    int32_t rr = f.s * 7 >> 8, mr = o.rat[j] < 14 * 256 ? o.rat[j] : 14 * 256;
-                    for (n = 0; n < 2; n++) {
-                        int32_t d = (int32_t)(((mt * (uint32_t)(256 + mr / 4) * 786u >> 16) + (uint32_t)n * 128u) & 255u) * len / 256;
-                        if (d < my - ya) vx_dot(&f, o.x[j], ya + d, rr, 154 + (a * 102 >> 8));
-                        else if ((d -= my - ya) < dx) vx_dot(&f, o.x[j] + (o.x[k] > o.x[j] ? d : -d), my, rr, 154 + (a * 102 >> 8));
-                        else vx_dot(&f, o.x[k], my + d - dx, rr, 154 + (a * 102 >> 8));
-                    }
-                }
-            }
-    for (k = 0; k < 6; k++)                              /* the carriers' legs, on the floor */
-        if (o.car >> k & 1u)
-            for (j = -1; j <= 1; j += 2)
-                vx_line(&f, o.x[k] + (j * o.rad[k] * 115 >> 8), o.y[k] + (o.rad[k] * 179 >> 8), o.x[k] + (j * o.rad[k] * 154 >> 8), 38 * 16,
-                        51 + (o.amp[k] * 77 >> 8));
-    fb = clamp(o.p[FP_FB] + t->p[P_E1], 0, 7);           /* FB: a curled tail */
-    {
-        int32_t X = o.x[o.fbo], Y = o.y[o.fbo], rd = o.rad[o.fbo], q[10];
-        q[0] = X + (rd * 205 >> 8); q[1] = Y - (rd * 102 >> 8);
-        q[2] = X + rd + 48 + fb * 48 / 7; q[3] = Y - rd - 32 - fb * 32 / 7;
-        q[4] = X + rd + 96 + fb * 64 / 7; q[5] = Y + ((og_sin(vx_ang(mt, 200)) * fb * 32 / 7) >> 15);
-        q[6] = X + rd + 32; q[7] = Y + (rd * 179 >> 8);
-        q[8] = X + (rd * 179 >> 8); q[9] = Y + rd / 4;
-        vx_curve(&f, q, 5, 0, fb ? 64 + fb * 154 / 7 : 20);
-        if (fb) vx_dot(&f, q[4], q[5], f.s >> 5, 154 + fb * 102 / 7);
-    }
-    for (k = 0; k < 6; k++) {
-        const uint8_t *op = o.p + (5u - (uint32_t)k) * FP_OP;
-        int32_t sh = op2 && (uint32_t)k == sel ? (op[FP_DET] > 7u ? op[FP_DET] - 7 : 7 - op[FP_DET]) * 8 : 0;
-        vx_fm_bicho(&f, &o, (uint32_t)k, o.x[k], o.y[k], o.rad[k], age, mt, (uint32_t)k == sel, sh);
-        if (A[2] >= 80)                                  /* (V10.8: small, LARGE's strip, the numbers left out) */
-            vx_fm_num(&f, &o, (uint32_t)k, o.x[k] - o.rad[k] - 64, o.y[k] - o.rad[k] + 16, (uint32_t)k == sel);
-        VX_FM6_HOOK(k, f.cx + ((o.x[k] * f.s) >> 8), f.cy + ((o.y[k] * f.s) >> 8), (145 * f.s) >> 8);   /* (the largest it gets) */
-    }
-    vxs.kc = 0;
-}
+/* (JIANT BYTE) vx_fm6: FM6 retired */
 /* OPERATOR / OPERATOR 2: the colony on the whole panel, the operator picked lit; "ALG 05" over it on the left, its
  * frequency on the right ("OP3 x1.50") */
-static VX_CODE void vx_fm6_page(const track_t *t, uint32_t sel, int op2)
-{
-    static const int32_t A[4] = {4, 14, 232, 124};
-    const uint8_t *pt = fm6_patch[(t - trk) % NTRK];
-    uint32_t alg = fm6_alg_of(t);
-    uint32_t hot = ui.hot_t ? (uint32_t)cur_page()->id[ui.hot_col & 3u] : 0u;
-    char b[16] = {'A', 'L', 'G', ' ', (char)('0' + (alg + 1u) / 10u), (char)('0' + (alg + 1u) % 10u), 0};
-    char fq[16] = {'O', 'P', (char)('1' + sel), ' ', 0};
-    cv_oy = 0;
-    vx_fm6(t, A, -1, sel, op2);
-    if (!t->p[P_E0])
-        str_cpy(b + 6, " PAT", 5);
-    cv_text(10, 4, &AF_S, b, hot == P_E0 || hot == P_E7 ? T_ACCENT : T_TEXT);
-    fop_freq(pt + (5u - sel) * FP_OP, fq + 4);
-    cv_text_r(228, 4, &AF_S, fq, T_TEXT, T_SURF);
-}
+/* (JIANT BYTE) vx_fm6_page: FM6 retired */
 /* OP ENV: the picked operator's envelope as the patch has it (from L4 to L1 at R1, L2 at R2, L3 at R3, held while the key
  * is down: a dashed line where it is let go, back to L4 at R4; a stage as wide as its rate is slow), the stage KNOB 3 / 4
  * edit in the accent, its bicho riding the curve where the operator is now; "OP3" top left, the stage's R and L right */
-static VX_CODE void vx_fm6env(const track_t *t)
-{
-    static const char *const STG[4] = {"ATK", "DEC", "SUS", "REL"};
-    static const int32_t A[4] = {4, 12, 232, 126};
-    const uint8_t *op = fop_bytes((uint32_t)(t - trk));
-    vxfm_t o;
-    vxf_t f = vx_uf(A, 100, 0);
-    int32_t x[6], y[6], k, i, en = vx_level(t, 4, -1), px, py, e, a, r, u, sg = fop_stg & 3u;
-    uint32_t mt = vxs.mt[4], age = vx_age(t, 4, 0), ko = fop_op % 6u, st;
-    char b[24] = {'O', 'P', (char)('1' + ko), 0};
-    (void)en;
-    cv_oy = 0;
-    vxs.kc = 1;
-    vx_fm_ops(t, &o);
-#define VFY(l) (22 * 16 - (int32_t)(l) * 42 * 16 / 99)
-#define VFW(r) ((4 + (99 - (int32_t)(r)) * (99 - (int32_t)(r)) * 44 / 9801) * 112 * 16 / 216)
-    x[0] = -56 * 16;
-    y[0] = VFY(op[FP_L1 + 3]);
-    for (k = 0; k < 3; k++) {
-        x[k + 1] = x[k] + VFW(op[FP_R1 + k]);
-        y[k + 1] = VFY(op[FP_L1 + k]);
-    }
-    x[5] = 56 * 16;
-    x[4] = x[5] - VFW(op[FP_R1 + 3]);
-    y[4] = y[3];
-    y[5] = y[0];
-    vx_line(&f, -60 * 16, 26 * 16, 60 * 16, 26 * 16, 26);
-    for (i = -20 * 16; i < 22 * 16; i += 48)             /* the key let go */
-        vx_line(&f, x[4], i, x[4], i + 22, 31);
-    for (k = 0; k < 5; k++)                              /* (3: the hold, no stage of its own) */
-        for (i = 0; i < 10; i++) {
-            int32_t on = k != 3 && (k < 3 ? k : 3) == sg, dx = x[k + 1] - x[k], dy = y[k + 1] - y[k];
-            int32_t ya = y[k] + dy * i / 10, d;
-            for (d = 0; d <= on * 12; d += 12)
-                vx_line(&f, x[k] + dx * i / 10, ya + d, x[k] + dx * (i + 1) / 10, y[k] + dy * (i + 1) / 10 + d,
-                        on ? -2 : 38 + ((22 * 16 - ya) * 154 / (42 * 16)));
-        }
-    k = sg < 3 ? sg + 1 : 5;
-    vx_ring(&f, x[k], y[k], 32, 32, -2);
-    vx_ring(&f, x[k], y[k], 40, 40, -2);
-    e = o.env[ko];                                       /* where the operator is now: on its stage, as far as its level */
-    st = o.st[ko];                                       /* came (held: along the hold, 1.5 s across) */
-    py = VFY(e * 99 / 256);
-    k = (st & 7u) >= 4u ? 5 : st == 3u ? 3 : st < 3u ? (int32_t)st : 4;
-    if (k == 3) {
-        if (!vxs.fhold) vxs.fhold = fm1_ms | 1u;
-        u = clamp((int32_t)(fm1_ms - vxs.fhold) * 256 / 1500, 0, 256);
-    } else {
-        int32_t l0 = k == 4 ? vxs.frel * 99 / 256 : op[FP_L1 + ((k + 3) & 3)], l1 = op[FP_L1 + (k < 4 ? k : 3)];
-        vxs.fhold = 0;
-        u = l1 != l0 ? clamp((e * 99 / 256 - l0) * 256 / (l1 - l0), 0, 256) : 256;
-    }
-    if (k == 5) { k = 4; u = 256; }
-    if (k != 4) vxs.frel = (int16_t)e;                   /* (the level its release sets out from) */
-    px = x[k] + (x[k + 1] - x[k]) * u / 256;
-    a = o.amp[ko];
-    r = 64 + (96 * e >> 8);
-    {
-        int32_t sp = clamp((o.rat[ko] + 128) >> 8, 1, 9);
-        uint32_t tt = mt * 90u >> 8;
-        vxb_t g = {px, 0, py - r, 256, 256, 256, sp, 12 + (a * 50 >> 8), 40 + (a * 110 >> 8), (a * 80 >> 8), 3, 4};
-        vx_body(&f, &g, r, (r * 159 >> 8), tt, -2, 90 + a / 2, 48, 28);
-        vx_bface(&f, px, py - r, r, a * 7 / 5, age < 90u, 0);
-    }
-    k = sg < 3 ? (x[sg] + x[sg + 1]) / 2 : (x[4] + x[5]) / 2;
-    k = clamp(k, -49 * 16, 49 * 16);                     /* (the stage's name under it, inside the curve's ends) */
-    vx_text(f.cx + ((k * f.s) >> 8),
-            f.cy + ((31 * 16 * f.s) >> 8) - 112, STG[sg], T_THEME);
-#undef VFY
-#undef VFW
-    vxs.kc = 0;
-    cv_text(10, 4, &AF_S, b, T_TEXT);
-    str_cpy(b, STG[sg], sizeof b);
-    str_cpy(b + str_len(b), "  R ", 5);
-    fmt_int(b + str_len(b), op[FP_R1 + sg]);
-    str_cpy(b + str_len(b), "  L ", 5);
-    fmt_int(b + str_len(b), op[FP_L1 + sg]);
-    cv_text_r(228, 4, &AF_S, b, T_TEXT, T_SURF);
-}
+/* (JIANT BYTE) vx_fm6env: FM6 retired */
 
 /* -------------------------------------------------------------------------------------------- WHEEL --- */
 static const uint8_t VW_RAT[9] = {8, 24, 16, 32, 48, 64, 80, 96, 128};   /* the bars' harmonics, x16 */
 /* TUBÍCOLAS */
-static VX_CODE void vx_wheel(const track_t *t, const int32_t *A, int32_t en_home)
-{
-    const int16_t *p = t->p;
-    const drw_trk_t *T = &drw_t[drw_part(t)];
-    vxf_t f = vx_uf(A, 100, 0);
-    uint32_t n0 = vxs.nms[5], mt = vxs.mt[5], i, j;
-    int32_t en = vx_level(t, 5, en_home), dr = (p[P_E6] * 516 >> 8), hb = (dr * 56 >> 8), perc = 0, pk, dep, click = (p[P_E5] * 516 >> 8);
-    uint32_t age = vx_age(t, 5, 0), pc = (uint32_t)p[P_E4] % 7u;
-    vxs.kc = 1;
-    if (en) { vxs.rph[0] = T->rph[0]; vxs.rph[1] = T->rph[1]; }   /* (the rotors as they turn while it sounds) */
-    dep = (clamp(p[P_WRDEP], 0, 127) + 1) * (T->rwet >> 7) >> 7;  /* (0..256: DEPTH, the rotor on) */
-    pk = pc ? 3 + (int32_t)((pc - 1u) & 1u) : -1;
-    for (i = 0; i < NVOICE; i++)
-        if (t->v[i].active && drw_v[drw_part(t)][i].perc > perc) perc = drw_v[drw_part(t)][i].perc;
-    perc >>= 7;                                          /* (PERC's envelope, 0..256) */
-    if (vxs.nms[5] != n0)                                /* a note: CLICK's bubbles out of the worms' mouths */
-        for (i = 0; i < 9u; i++)
-            if (drw_level(p, i) && vx_hash(i + vxs.nage[5] * 9u) < click) vxs.bub[i] = fm1_ms | 1u;
-    vx_line(&f, -62 * 16, 30 * 16, 62 * 16, 30 * 16, 31 + (en * 77 >> 8));
-    for (i = 0; i < 9u; i++) {
-        int32_t l = drw_level(p, i), X = (-48 + (int32_t)i * 12) * 16, pp = (int32_t)i == pk ? perc : 0;
-        int32_t h = 48 + l * 102 + (pp * 160 >> 8) + (en * l * 10 >> 8), th = 64 + l * 35, c0 = (en * 51 >> 8) + hb + (pp * 102 >> 8);
-        int32_t bend = ((og_sin((vxs.rph[1] >> 16) - i * 5734u) * dep) >> 15) * h / 60 * 6 / 256;
-        int32_t am = 128 + ((og_sin((vxs.rph[0] >> 16) - i * 8344u) * dep) >> 16), hx = 0, hy = 0, k, m;
-        char d[2] = {(char)('0' + l), 0};
-        th = th < h ? th : h;
-        for (k = -1; k <= 1; k += 2)                     /* the tube, its mouth */
-            vx_line(&f, X + k * 42, 30 * 16, X + k * 38, 30 * 16 - th, 46 + c0);
-        vx_ring(&f, X, 30 * 16 - th, 42, 14, 64 + c0);
-        vx_text(f.cx + ((X * f.s) >> 8), f.cy + ((30 * 16 * f.s) >> 8) + 64, d, l ? T_TEXT : T_DIM);
-        if (!l) continue;
-        for (k = 0; k <= 10; k++) {                      /* the worm out of it, waving at its harmonic */
-            int32_t yy = 30 * 16 - th - k * (h - th) / 10, xx = X + bend * k * k / 100 +
-                         ((((og_sin((uint32_t)(k * VW_RAT[i] * 65536 / 320) - vx_ang(mt, 200 + (int32_t)i * 16)) * 10) >> 15) * (77 + en)) >> 8);
-            for (m = -26; k && m <= 26; m += 52)
-                vx_line(&f, hx + m, hy, xx + m, yy, 51 + l * 77 / 8 * am / 256 + c0);
-            hx = xx; hy = yy;
-        }
-        hx = X + bend;
-        hy = 30 * 16 - h - 42;
-        m = (int32_t)(VW_RAT[i] + 4) / 8;                /* its crown: as many tentacles as its harmonic */
-        m = clamp(m, 2, 8);
-        for (j = 0; j < (uint32_t)m; j++) {
-            uint32_t a = 65536u - (uint32_t)(4915 + 22938 * (int32_t)j / (m - 1));
-            int32_t wl = 38 + ((og_sin(vx_ang(mt, 200) + (j + i) * 10430u) * 13 >> 15) * en >> 8);
-            vx_line(&f, hx + ((og_cos(a) * 45) >> 15), hy + ((og_sin(a) * 45) >> 15), hx + ((og_cos(a) * (45 + wl)) >> 15),
-                    hy + ((og_sin(a) * (45 + wl)) >> 15), 77 + l * 102 / 8 + c0);
-        }
-        vx_ring(&f, hx, hy, 51, 48, 82 + l * 102 / 8 + c0);
-        m = en * l / 8 * ((int32_t)i == pk ? 256 + perc : 256) / 256;   /* its face: shouting with its bar */
-        vx_face(&f, hx, hy - 6, 18, 16, age < 90u && l > 3, m > 64 ? hy + 21 - (m * 7 >> 8) : hy + 19, 10, m > 64 ? (m * 14 >> 8) : 0,
-                10 + (m * 8 >> 8), 243, 218, 154);
-    }
-    for (i = 0; i < 9u; i++)                             /* CLICK's bubbles, rising */
-        if (vxs.bub[i] && fm1_ms - vxs.bub[i] < 1200u) {
-            int32_t a = (int32_t)(fm1_ms - vxs.bub[i]) * 256 / 1000, l = drw_level(p, i);
-            vxs.dal = (int16_t)clamp(a, 0, 256);
-            vx_ring(&f, (-48 + (int32_t)i * 12) * 16 + ((og_sin((uint32_t)a * 367u) * 24) >> 15),
-                    30 * 16 - (3 + l * 7) * 16 - 96 - (a * 30 * 16 >> 8), 16 + a / 16, 16 + a / 16, 128);
-            vxs.dal = 0;
-        }
-    if (T->dust)                                         /* DUST: motes drifting */
-        for (i = 0; i < (uint32_t)((T->dust * 40 >> 8)); i++)
-            vx_dot(&f, (vx_hash(i * 9u + 1u) * 124 / 256 - 62) * 16,
-                   (int32_t)(((uint32_t)vx_hash(i * 3u + 2u) * 6u + (mt >> 4) * (uint32_t)(77 + vx_hash(i) / 2) / 256u) % 1504u) - 752, 16, 90);
-    vxs.kc = 0;
-}
+/* (JIANT BYTE) vx_wheel: WHEEL retired */
 
 /* --------------------------------------------------------------------------------------------- WEST --- */
 /* (V10.7.36, NOISE's swarm before) the folded wave itself, two cycles of it as the engine folds them (FOLD SYMM, MOD
@@ -1914,7 +1658,7 @@ static int32_t vx_fit(int32_t w, int32_t h, int32_t uw, int32_t uh)   /* a unit'
     return w * 256 / uw < h * 256 / uh ? w * 256 / uw : h * 256 / uh;
 }
 typedef struct { const engine_t *e; void (*f)(const track_t *, const int32_t *, int32_t); } vxe_t;
-static const vxe_t VX_F[] = {{&ENG_ANALOG, vx_analog}, {&ENG_WHEEL, vx_wheel}, {&ENG_WEST, vx_west}, {&ENG_PHASE, vx_phase},
+static const vxe_t VX_F[] = {{&ENG_ANALOG, vx_analog}, {&ENG_WEST, vx_west}, {&ENG_PHASE, vx_phase},
                              {&ENG_LOFI, vx_lofi}, {&ENG_STRING, vx_string}};   /* (0.9.9-snd5; V10.7.13+: ADD's gone, room for
                                                          * FORM MY LOOP: it draws the being) */
 static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h, int32_t en_home)
@@ -1935,8 +1679,7 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
         vx_input(t, A, en_home);
     } else if (e == &ENG_ANIMAL)                        /* (the animal ~103 x 78) */
         vx_animal(t, cx, cy, vx_fit(w, h, 103, 78), en_home);
-    else if (trk_eng(t) == ENGI_FM6)
-        vx_fm6(t, A, en_home, 6u, 0);
+    /* (JIANT BYTE: FM6 retired: its colony vx_fm6 gone) */
     else {                                               /* (0.9.9-snd5: the creatures drawn the same way, a table) */
         uint32_t i;
         for (i = 0; i < NELEM(VX_F) && VX_F[i].e != e; i++) {}
