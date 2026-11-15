@@ -335,6 +335,25 @@ fuentes, porque el sonido es una función de `t`:
   golpe, DECAY sigue mandando, y el kit con sus fórmulas va y vuelve por el proyecto.
 - Quedan 2,7 KB de flash y 2,5 KB de RAM: lo próximo es sacar más motores de JIANT FM.
 
+**Fase 9, hecha en su primera forma** (`firmware/src/fvm_gen.c`; MATH WAVE = USER):
+- Una pista de MATH en USER toca su propia fórmula: el texto de la pista (el lugar de las letras de VOICE, que el
+  proyecto ya guarda) o, si no tiene, la que inventa el generador con ALGO como semilla (SEED, 0..191) y CAOS:
+  - CAOS 0..42, tonal: floatbeats afinados (senos en razones enteras de la nota, la envolvente del paso, melodías de una
+    tabla) y bytebeats melódicos;
+  - CAOS 43..85: las familias del bytebeat clásico;
+  - CAOS 86..127: un árbol de operadores al azar, más profundo cuanto más alto.
+  A veces suma una capa del mismo tipo (un parcial afinado, un `|t>>N`) para que cada semilla sea la suya.
+- Cada fórmula pasa por un juez antes de sonar (se corre sobre un tramo de tiempo, al principio y más tarde): se
+  rechaza la que sale en silencio, trabada, con mucho DC o sin cambio, y se prueba la semilla siguiente.
+- La misma semilla y la misma zona de CAOS dan siempre la misma fórmula: el proyecto guarda la perilla, no el texto.
+- Corre en el loop principal (`math_poll`), con el espacio de trabajo prestado de `proj_scratch`; el audio solo
+  recompila cuando cambia la versión del texto.
+- `tests/gen_formula_test.c`: en las tres zonas, 189..192 de 192 semillas pasan el juez a la primera; 153..170 de
+  192 son distintas; la zona tonal sale casi toda en floatbeat (174 de 192) y la salvaje toda en bytebeat; una pista
+  USER suena, cambia con la semilla y toca el texto propio tal cual.
+- Falta: mutar y cruzar dos fórmulas desde la interfaz, el mismo generador para modificadores, efectos y mezcla, y
+  editar el texto en el aparato.
+
 ## 6. Datos: proyectos y almacenamiento
 
 - **Identidad del paquete** (`FM-1_909`, `tools/build.py` `PRODUCT`): por ahora la misma que JIANT FM.

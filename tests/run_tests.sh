@@ -405,6 +405,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "WAVE (JIANT BYTE): the formulas, every preset, in tune, POS, WARP, DETUNE, SUB" "$OUT/wave_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/dxform_test" tests/dxform_test.c -lm
     run "DRUM-X formula lanes (JIANT BYTE): every formula sounds bounded, t from 0 at each hit, DECAY, stored in the project" "$OUT/dxform_test"
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/gen_formula_test" tests/gen_formula_test.c -lm
+    run "the equations' generator (JIANT BYTE): every seed at every CAOS band playable, the same each time, varied; MATH USER" "$OUT/gen_formula_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/regress" tests/regress.c -lm
     run "regression: golden renders, health, voices, CPU budget" "$OUT/regress" tests/golden.txt tests/cpu_baseline.txt
     # (V10.7.34) LIFE 0: every golden render of before LIFE bit for bit (tests/golden_life0.txt, never rewritten)

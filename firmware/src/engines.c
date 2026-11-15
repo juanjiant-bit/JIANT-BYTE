@@ -5,6 +5,7 @@
  * factory patterns (SEQ > PATTERNS) and the parts' sounds at power-on. */
 #include "dsp.c"
 #include "fvm.c"             /* (JIANT BYTE) the formula machine (fvm_bank.c: the factory formulas, phase 2) */
+#include "fvm_gen.c"         /* (JIANT BYTE) the equations' generator (MATH's USER) */
 #include "eng_analog.c"
 #include "eng_phase.c"
 #include "eng_lofi.c"
@@ -201,3 +202,43 @@ static const uint8_t TRK_OLD[NPART][3] = {{0, 4, 0}, {ENGI_FM6, 4, 0}, {0, 24, 0
 /* (V10.6h) LOFI PULSE LD (a chip sound, retired with MATH) as ANALOG ORGAN SQR: its square, one oscillator */
 static uint32_t trk_old_engine(uint32_t i) { return TRK_OLD[i % NPART][0]; }
 static uint32_t trk_def_engine(uint32_t i) { return TRK_DEF[i % NPART][0]; }
+
+/* (JIANT BYTE) MATH's USER parts, in the main loop (project.c math_poll: the project scratch its work space): a part's
+ * text (lyr_txt: the project keeps it) or, without one, the formula ALGO's seed and CAOS's third invent (fvm_gen.c);
+ * a new one when either moves. The text, its type, then its version: the audio compiles it then (eng_lofi.c lofi_prog) */
+static int16_t math_seed[NTRK] = {-1, -1, -1, -1, -1, -1};
+static uint8_t math_band[NTRK], math_hash[NTRK];
+static void math_poll_ws(gq_work_t *w)
+{
+    uint32_t tr;
+    for (tr = 0; tr < NTRK; tr++) {
+        const track_t *t = &trk[tr];
+        const char *lt = lyr_txt[tr];
+        uint32_t seed, band, h = 0, k;
+        if (eng_idx(t->eng_req) != ENGI_LOFI || t->p[P_E1] != RW_USER)
+            continue;
+        seed = (uint32_t)clamp(t->p[P_E2], 0, 191);
+        band = (uint32_t)clamp(t->p[P_CAOS], 0, 127) / 43u;   /* (tonal, classic, wild: a new formula when it changes) */
+        for (k = 0; lt[k] && k < 63u; k++)
+            h = (h * 31u + (uint8_t)lt[k]) & 255u;
+        if (math_seed[tr] == (int16_t)seed && math_band[tr] == band && math_hash[tr] == (uint8_t)(h | (lt[0] != 0)))
+            continue;
+        if (lt[0]) {                                     /* the part's own text */
+            uint32_t n = 0;
+            fvm_err_t e;
+            while (lt[n] && n < 63u) { math_txt[tr][n] = lt[n]; n++; }
+            math_txt[tr][n] = 0;
+            math_ty[tr] = fvm_compile(&w->cc, FVM_FULL(&w->pg), math_txt[tr], n, &e) ? FT_INT : w->pg.p.ty;
+        } else {
+            static const uint8_t BAND_C[3] = {20, 64, 106};
+            fvm_invent(w, math_txt[tr], seed, BAND_C[band]);
+            math_ty[tr] = w->pg.p.ty;
+        }
+        math_seed[tr] = (int16_t)seed;
+        math_band[tr] = (uint8_t)band;
+        math_hash[tr] = (uint8_t)(h | (lt[0] != 0));
+        math_ver[tr]++;                                  /* (last: the audio compiles it from here) */
+    }
+}
+
+static void math_poll(void);                            /* (JIANT BYTE: project.c, the main loop calls it: ui_input.c) */

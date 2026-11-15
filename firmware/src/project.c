@@ -1290,6 +1290,9 @@ static void proj_legacy_drums(track_t *t)
 
 static project_t proj_scratch __attribute__((section(".pool")));   /* (0.8.5: the pool again, LOWBUF full with the steps'
                                                          * lane modes; 0.6.78 .. 0.8.4 LOWBUF) */   /* decoded main-loop work, never audio ISR (0.6: pool) */
+/* (JIANT BYTE) MATH's USER parts (engines.c math_poll_ws): the scratch its work space, between the main loop's jobs */
+_Static_assert(sizeof(gq_work_t) <= sizeof(project_t), "the generator's work space in the project scratch");
+static void math_poll(void) { math_poll_ws((gq_work_t *)(void *)&proj_scratch); }
 static char proj_name[PROJ_NAME_LEN + 1u]    /* the name of the music as it is now (loaded, saved, the editor's */
     __attribute__((section(".pool")));       /* runtime restore); "" = none. A save takes it unless one is given */
 #define PROJ_NO_SLOT 0xFFu
