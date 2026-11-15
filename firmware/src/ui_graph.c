@@ -334,7 +334,7 @@ static __attribute__((noinline)) void graph_morph(const track_t *t)
     const char *n0 = "", *n1 = "";
     char b[24];
     pd_t pa, pb;
-    if (ENGINES[e] == &ENG_PHASE) {
+    if (0) {                                         /* (JIANT BYTE: PHASE retired: its wave not drawn) */
         uint32_t dcw = (uint32_t)(p[P_E2] << 8) * 65535u / (127u << 8);
         pos = (int32_t)(p[P_E0] & 7) * 256 + p[P_MORPH] * 768 / 127;
         dcw = (dcw * 56000u) >> 16;
@@ -367,7 +367,7 @@ static __attribute__((noinline)) void graph_morph(const track_t *t)
     for (i = 0; i <= 110u; i++) {
         uint32_t ph = (uint32_t)(i % 110u) * (0xFFFFFFFFu / 110u), inc = 0xFFFFFFFFu / 220u;
         int32_t s, x = PANEL_X0 + (int32_t)i * 2, y;
-        if (ENGINES[e] == &ENG_PHASE) {
+        if (0) {                                     /* (JIANT BYTE: PHASE retired) */
             s = pd_wave(&pa, ph >> 16);
             if (f) s += ((pd_wave(&pb, ph >> 16) - s) * f) >> 8;
         } else

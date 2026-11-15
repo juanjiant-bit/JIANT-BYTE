@@ -637,7 +637,7 @@ static int page_visible(uint32_t i)
         return 0;                                       /* (0.6.30) LOAD ECO: no SLICER, no chorus: their pages gone */
     if (PAGES[i].graph == GR_MORPH) {                   /* (0.6.45) MORPH: ANALOG's waves, PHASE (V10.6d: MATH none) */
         uint32_t e = te;
-        return e == ENGI_ANALOG || ENGINES[e] == &ENG_PHASE;   /* (0.6.81: every ANALOG WAVE) */
+        return e == ENGI_ANALOG;                        /* (0.6.81: every ANALOG WAVE; JIANT BYTE: PHASE retired) */
     }
     if(PAGES[i].graph==GR_TRACKGEN) return trackgen_ok(TSEL);
     if (PAGES[i].graph == GR_SWARM)                     /* (V10.6z6) FAR / NEAR: a SWARM track's */
@@ -1553,12 +1553,8 @@ static const uint8_t *preset_order(const engine_t *e, uint32_t *n)
 {
     if (e == &ENG_LOFI) { *n = sizeof MATH_ORDER; return MATH_ORDER; }   /* (eng_lofi.c) */
     if (e == &ENG_WAVE) { *n = sizeof WAVE_ORDER; return WAVE_ORDER; }   /* (JIANT BYTE, eng_wave.c) */
-    if (e == &ENG_ANIMAL) { *n = sizeof ANIMAL_ORDER; return ANIMAL_ORDER; }
     if (e == &ENG_ANALOG) { *n = sizeof ANALOG_ORDER; return ANALOG_ORDER; }
     if (e == &ENG_FORMANT) { *n = sizeof VOICE_ORDER; return VOICE_ORDER; }
-    if (e == &ENG_STRING) { *n = sizeof STRING_ORDER; return STRING_ORDER; }
-    if (e == &ENG_PHASE) { *n = sizeof PHASE_ORDER; return PHASE_ORDER; }
-    if (e == &ENG_WEST) { *n = sizeof WEST_ORDER; return WEST_ORDER; }
     *n = 0;
     return 0;
 }
@@ -1848,7 +1844,7 @@ static uint32_t preset_all_pos(uint32_t *total)          /* list index of the se
  * list), WEST its first 8 (V10.7.36: NOISE's eight, remade; the west coast's appended, by the list); the user presets
  * after them as before */
 static const uint8_t LOFI_PC[18] = {0, 1, 2, 8, 9, 10, 11, 3, 4, 5, 6, 7, 5, 3, 4, 4, 3, 6};
-static uint32_t pc_shown(uint32_t e, int pc) { return !pc ? preset_shown(e) : e == ENGI_LOFI ? 18u : e == ENGI_ANIMAL ? 24u : e == ENGI_STRING ? 16u : e == ENGI_WEST ? WEST_PC : preset_shown(e); }
+static uint32_t pc_shown(uint32_t e, int pc) { return !pc ? preset_shown(e) : e == ENGI_LOFI ? 18u : preset_shown(e); }   /* (JIANT BYTE: ANIMAL STRING WEST retired) */
 static uint32_t preset_all_at_in(uint32_t n, uint32_t *k, const uint8_t *order)
 {
     uint32_t e, r;

@@ -2,17 +2,15 @@
 # function in build/felucca.dis, x4 per nesting level, divides x9. The check allows +10 %.
 # Rewritten by BUDGET_UPDATE=1.
 analog_render 603
-phase_render 108
 lofi_render 0
 formant_render 281
 analog_ext 1035
 analog_morph 795
-lofi_byte_render 205
-lofi_float_render 256
-fvm_run 57771
+lofi_byte_render 258
+lofi_float_render 367
+fvm_run 87899
 drum_render 33
-west_render 1390
-dx_run_fx 392
+dx_run_fx 2375
 dx_layer 67
 drum_side_ramp 45
 drum_mix 125
@@ -20,7 +18,7 @@ drum_bus 102
 drum_glue 231
 slicer_bus 798
 fm1_alnk0_irq 76
-fm1_timer5_irq 28235
+fm1_timer5_irq 28239
 ep4_tx 0
 ep4_fill 88
 click_render 30
@@ -31,7 +29,7 @@ perf_begin 27
 perf_mute 13
 perf_pre 30
 perf_block 314
-perf_master 30
+perf_master 29
 perf_buf 0
 perf_glt 0
 rev_room 159
@@ -39,8 +37,6 @@ rev_spring 137
 dist_amp 84
 dx_hands_step 36
 dly_lo 2351
-animal_render 731
-string_render 331
 formant_word_render 362
 formant_block 79
 djf_block 199

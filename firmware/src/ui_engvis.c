@@ -1658,14 +1658,14 @@ static int32_t vx_fit(int32_t w, int32_t h, int32_t uw, int32_t uh)   /* a unit'
     return w * 256 / uw < h * 256 / uh ? w * 256 / uw : h * 256 / uh;
 }
 typedef struct { const engine_t *e; void (*f)(const track_t *, const int32_t *, int32_t); } vxe_t;
-static const vxe_t VX_F[] = {{&ENG_ANALOG, vx_analog}, {&ENG_WEST, vx_west}, {&ENG_PHASE, vx_phase},
-                             {&ENG_LOFI, vx_lofi}, {&ENG_STRING, vx_string}};   /* (0.9.9-snd5; V10.7.13+: ADD's gone, room for
+static const vxe_t VX_F[] = {{&ENG_ANALOG, vx_analog}, {&ENG_LOFI, vx_lofi}, {&ENG_WAVE, vx_lofi}};   /* (JIANT BYTE:
+                                                         * WEST PHASE STRING retired; WAVE drawn as MATH's) */   /* (0.9.9-snd5; V10.7.13+: ADD's gone, room for
                                                          * FORM MY LOOP: it draws the being) */
 static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h, int32_t en_home)
 {
     const engine_t *e = trk_engp(t);
     int32_t A[4] = {x, y, w, h}, cx = x * 16 + w * 8, cy = y * 16 + h * 8, s;
-    if (!bt_hw_seg() && (e == &ENG_LOFI || e == &ENG_ANIMAL || e == &ENG_STRING || e == &ENG_PHASE))
+    if (!bt_hw_seg() && (e == &ENG_LOFI || e == &ENG_WAVE))
         return 0;                                        /* (V10.48: those creatures live in the segment; V10.6g PHASE's too) */
     if (e == &ENG_FORMANT) {                             /* (the tract ~80 x 62 units about (-20, 37): the crown off) */
         s = vx_fit(w, h, 80, 62);
@@ -1677,8 +1677,7 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
         if (!bt_hw_seg())
             return 0;
         vx_input(t, A, en_home);
-    } else if (e == &ENG_ANIMAL)                        /* (the animal ~103 x 78) */
-        vx_animal(t, cx, cy, vx_fit(w, h, 103, 78), en_home);
+    }                                                    /* (JIANT BYTE: ANIMAL retired, its animal gone) */
     /* (JIANT BYTE: FM6 retired: its colony vx_fm6 gone) */
     else {                                               /* (0.9.9-snd5: the creatures drawn the same way, a table) */
         uint32_t i;

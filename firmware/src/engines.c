@@ -54,26 +54,26 @@ static const engine_t *const ENGINES[NENGINES] = {
 #else
     &ENG_FM4_GONE,               /* 1: reserved (DIGITAL, retired: its sounds convert to FM6, fm4_convert.c) */
 #endif
-    &ENG_PHASE,                  /* 2 */
+    &ENG_WAVE,                   /* 2: (JIANT BYTE) PHASE retired: plays as WAVE */
     &ENG_LOFI,                   /* 3 */
     &ENG_GONE,                   /* 4: reserved (SAMPLE, retired in JIANT) */
     &ENG_FORMANT,                /* 5 VOICE (eng_formant.c: "voice" is a sounding note in voice.c) */
     &ENG_GONE,                   /* 6: reserved (TRIO, folded into ANALOG in JIANT 0.4: core.h analog_from_trio) */
     &ENG_LOFI,                   /* 7: (JIANT BYTE) WHEEL retired: its number plays as MATH (GEN's picks, a pattern's sound) */
-    &ENG_STRING,                 /* 8 (ENGI_STRING, 0.9.9-snd5; GRAIN's, retired in JIANT: its sounds play as STRING's) */
+    &ENG_WAVE,                   /* 8: (JIANT BYTE) STRING retired (its COMB lines stay the filter's): plays as WAVE */
     &ENG_GONE,                   /* 9: reserved (PHYS, retired in TONIC: its sounds play as ANALOG) */
     &ENG_DRUM,                   /* 10 (ENGI_DRUM) */
-    &ENG_WEST,                   /* 11 (ENGI_WEST, V10.7.36; NOISE's until V10.7.35: its sounds open as WEST's) */
+    &ENG_WAVE,                   /* 11: (JIANT BYTE) WEST retired: plays as WAVE */
     &ENG_LOFI,                   /* 12: (JIANT BYTE) FM6 retired (its synthesis and voice state gone; its patches kept
                                   * for the stores): plays as MATH */
     &ENG_WAVE,                   /* 13: (JIANT BYTE) WAVE (eng_wave.c), in the retired ADD's number */
-    &ENG_ANIMAL,                 /* 14 (ENGI_ANIMAL, JIANT 0.8.3) */
+    &ENG_LOFI,                   /* 14: (JIANT BYTE) ANIMAL retired: plays as MATH */
     &ENG_INPUT,                  /* 15 (ENGI_INPUT, V10.54) */
 };
 
 /* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
  * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
-static const uint8_t ENG_LIVE[NENGINES] = {0, 1, 2, 3, 4, 5, 6, 3, 8, 9, 10, 11, 3, 13, 14, 15};   /* (13: WAVE) */
+static const uint8_t ENG_LIVE[NENGINES] = {0, 1, 13, 3, 4, 5, 6, 3, 13, 9, 10, 13, 3, 13, 3, 15};   /* (13: WAVE) */
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
 static inline uint32_t eng_idx(uint32_t e) { return e < NENGINES ? ENG_LIVE[e] : 0u; }
 
@@ -84,17 +84,13 @@ static inline uint32_t eng_idx(uint32_t e) { return e < NENGINES ? ENG_LIVE[e] :
  * LOFI ANALOG FM6); 0.9.8's ANALOG FM6 PHASE LOFI VOICE WHEEL NOISE (WEST now) DRUM ANIMAL is what PROGRAM CHANGE keeps
  * (ENGINE_PC_ORDER) */
 static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
-    ENGI_DRUM,                   /* DRUM (DRUM-X) */
-    ENGI_ANALOG,                 /* ANALOG */
-    ENGI_PHASE,                  /* PHASE */
-    /* (JIANT BYTE) FM6 retired */
-    ENGI_VOICE,                  /* VOICE */
-    ENGI_ANIMAL,                 /* ANIMAL */
-    ENGI_LOFI,                   /* MATH (was LOFI); (JIANT BYTE) WHEEL retired */
+    ENGI_DRUM,                   /* DRUM (DRUM-X, its formula lanes) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE */
-    ENGI_WEST,                   /* WEST (V10.7.36: NOISE's place) */
-    ENGI_STRING,                 /* (0.9.9-snd5) STRING; (JIANT BYTE) ADD retired */
+    ENGI_LOFI,                   /* MATH (BYTE FLOAT) */
+    ENGI_ANALOG,                 /* ANALOG */
+    ENGI_VOICE,                  /* VOICE */
     ENGI_INPUT,                  /* (V10.54) the audio input */
+    /* (JIANT BYTE) retired, their numbers MATH's or WAVE's (ENG_LIVE): WHEEL ADD FM6 PHASE STRING WEST ANIMAL */
 #if FELUCCA_FM4
     ENGI_DIGITAL,                /* DIGITAL (retired, FELUCCA_FM4 builds only): after the rest */
 #endif
@@ -107,8 +103,7 @@ static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
 #if FELUCCA_FM4
     ENGI_DIGITAL,
 #endif
-    ENGI_PHASE, ENGI_LOFI, ENGI_VOICE, ENGI_WEST, ENGI_DRUM, ENGI_ANIMAL,
-    ENGI_STRING,                 /* (0.9.9-snd5: after ANIMAL, every number before kept; JIANT BYTE: WHEEL ADD out) */
+    ENGI_LOFI, ENGI_VOICE, ENGI_DRUM,   /* (JIANT BYTE: PHASE WEST ANIMAL STRING WHEEL ADD out) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE: after the rest */
     ENGI_INPUT,                  /* (V10.54) */
 };
@@ -193,9 +188,10 @@ static const struct {
 #define TRK_PR_FM6 2u            /* FM BASS (eng_fm6.c); was 0 TINE EP */
 #define TRK_PR_VOICE 5u          /* CHANT (eng_formant.c); was 0 CHOIR AAH */
 #define TRK_PR_ANIMAL 24u        /* WHISTLE (eng_animal.c) */
-static const uint8_t TRK_DEF[NPART][3] = {{ENGI_DRUM, TRK_PR_DRUM, 0}, {ENGI_ANALOG, TRK_PR_ANALOG, 0},
-                                          {ENGI_PHASE, TRK_PR_PHASE, 0}, {ENGI_FM6, TRK_PR_FM6, 0}, {ENGI_VOICE, TRK_PR_VOICE, 0},
-                                          {ENGI_ANIMAL, TRK_PR_ANIMAL, 0}};
+/* (JIANT BYTE) every part a formula's: T1 DRUM-X's ACOUSTIC kit, T2 WAVE's SUB BASS, T3 MATH KEYS (FLOAT), T4 WAVE's FM
+ * KEYS, T5 WAVE's SAW PAD, T6 MATH's BYTEBEAT */
+static const uint8_t TRK_DEF[NPART][3] = {{ENGI_DRUM, TRK_PR_DRUM, 0}, {ENGI_WAVE, 4, 0}, {ENGI_LOFI, 3, 0},
+                                          {ENGI_WAVE, 1, 0}, {ENGI_WAVE, 2, 0}, {ENGI_LOFI, 0, 0}};
 /* (V10.7.11, the owner's choice) ACOUSTIC, ANALOG PLUCK, PHASE INIT SAW, FM BASS, CHANT, WHISTLE (was FAT BASS,
  * GLASS PAD, TINE EP, CHOIR AAH) */
 /* the parts at power-on through 0.9.8 (the same columns): what an old project's tracks it had no room for load as
