@@ -137,8 +137,10 @@ static void vg_seq(int heavy)
 int main(void)
 {
     static const struct { const char *eng, *pre; uint32_t notes; } E[] = {
-        {"ANALOG", "FAT BASS", 8}, {"PHASE", "STRING", 8}, {"LOFI", "BYTE BENT", 8}, {"VOICE", "WOW BASS", 4},
-        {"WHEEL", "ROCK DRIVE", 8}, {"DRUM", "", 8}, {"WEST", "METAL", 8}, {"FM6", "BRASS", 8}, {"ANIMAL", "ROAR", 8}};
+        {"ANALOG", "FAT BASS", 8}, {"PHASE", "STRING", 8}, {"MATH", "BYTE BENT", 8}, {"VOICE", "WOW BASS", 4},
+        {"DRUM", "", 8}, {"WEST", "METAL", 8}, {"ANIMAL", "ROAR", 8},
+        {"MATH", "FLOAT PAD", 8}, {"WAVE", "WAVE SAW PAD", 8}};   /* (JIANT BYTE: MATH by its name, its FLOAT too, WAVE;
+                                                         * WHEEL and FM6 retired) */
     static const int16_t AM[AN_NMODE][8] = {           /* (0.8.3) ANIMAL's modes, every option on, no gaps */
         {AN_CMOS, 127, 127, 64, 63, 127, 0, 40}, {AN_PULSE, 127, 127, 26, 63, 127, 0, 22},
         {AN_WHSTL, 127, 127, 40, 63, 127, 0, 22}, {AN_WING, 127, 127, 64, 63, 127, 0, 22},
@@ -152,7 +154,7 @@ int main(void)
         if (e == NENGINES) continue;
         vg_quiet();
         vg_part(0, e, vg_preset(e, E[i].pre), E[i].notes);
-        snprintf(name, sizeof name, "eng/%s", E[i].eng);
+        snprintf(name, sizeof name, "eng/%s%s", E[i].eng, i == 7u ? ".FLOAT" : "");
         vg_section(name);
         if (!i) {                                   /* (a self-check: the part does sound) */
             uint32_t k, n = 0;

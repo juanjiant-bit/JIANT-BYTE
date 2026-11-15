@@ -1,0 +1,198 @@
+/* SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
+/* (JIANT BYTE, phase 3) WAVE: a parametric wavetable, after the software wavetable synths' layout (two oscillators,
+ * a position through the table, a warp of the phase, unison, a sub), every piece of it an equation. The table is not
+ * stored: each oscillator is a formula f(w, A) of the FVM (fvm.c), w the phase of the cycle in turns and A the
+ * position POS (0 .. 1), run a block at a time; moving POS moves through the "frames" the formula draws.
+ *   A      the first oscillator's formula (WAVE_BANK)       POS    the position (A in the formula), the matrix's SHAPE
+ *   WARP   the phase bent before the formula: OFF SYNC BEND MIRROR QUANT FM (B into A's phase)        AMT its amount
+ *   B      the second oscillator's formula                   MIX    A .. B
+ *   DETUNE 0 one voice; up three, spread around the note     SUB    a sine an octave down
+ * CAOS (P_CAOS, MATH's) moves POS with a bytebeat of the note's time: 0 still, up to POS run by the formula's bits.
+ * State: v->ph[0..2] the three phases (32 bits a turn), v->s[2] t (the note's clock, 32 t a cycle), v->s[3] the sub's
+ * phase, v->s[6] / s[7] A's and B's states (ph lp hp: one each). Memory: one more program a part (wave_prg_b); A's in
+ * MATH's (lofi_prg: a part is MATH or WAVE). Not yet: a table captured from a running formula (CAPTURA) and band-
+ * limited copies of it (they need RAM the effects' lines hold today: JIANT-BYTE.md 5) */
+#define ENGI_WAVE 13u                                /* (the retired ADD's number: engines.c ENGINES[13]) */
+static const char *const WAVE_BANK[] = {
+    "sin(w)",                                        /* SINE */
+    "sin(w+sin(w*2)*A*2)",                           /* FM2: a 2:1 modulator, its index POS */
+    "sin(w+sin(w*(1+floor(A*7)))*A)",                /* FMR: the ratio and the index up with POS */
+    "tri(w*(1+A*7))",                                /* TRISY: a triangle synced up */
+    "saw(w)*(1-A)+sqr(w)*A",                         /* SAWSQ: saw into square */
+    "sat(sin(w)*(1+A*12))",                          /* DRIVE: a sine driven */
+    "sin(w)*sin(w*(2+floor(A*6)))",                  /* RING: ringed with a partial */
+    "sin(sin(w)*(1+A*4))",                           /* FOLD: folded */
+    "sin(w)+sin(w*3)*A/3+sin(w*5)*A/5+sin(w*7)*A/7", /* ODD: odd partials grown */
+    "(sqr(w)-sqr(w+A/2))/2",                         /* PULSE: its width POS */
+    "sin(floor(w*(4+A*28))/(4+A*28))",               /* STEP: a stepped sine, fewer steps down */
+    "fix((int(w*256)^int(A*255))&255)/128-1",        /* BITS: the phase's byte xor POS's */
+    "sin(w*(1+A*15))*(1-saw(w))/2",                  /* FORMT: a synced sine in a window */
+    "rnd(floor(w*(8+A*248)))",                       /* NOISE: a cycle of noise, finer up */
+    "sin(w)*(1-A)+tri(w*2)*A",                       /* SINTR: sine into a triangle an octave up */
+    "sat((sin(w)+sin(w*2+A))*(1+A*3))",              /* SATUR: two partials, phased, saturated */
+};
+static const char *const N_WAVEF[] = {"SINE", "FM2", "FMR", "TRISY", "SAWSQ", "DRIVE", "RING", "FOLD", "ODD", "PULSE",
+                                      "STEP", "BITS", "FORMT", "NOISE", "SINTR", "SATUR", 0};
+#define WAVE_NF (sizeof WAVE_BANK / sizeof WAVE_BANK[0])
+_Static_assert(WAVE_NF == 16u && sizeof N_WAVEF / sizeof N_WAVEF[0] == WAVE_NF + 1u, "WAVE: a name a formula");
+static const char *const N_WARP[] = {"OFF", "SYNC", "BEND", "MIRROR", "QUANT", "FM", 0};
+enum { WW_OFF, WW_SYNC, WW_BEND, WW_MIRROR, WW_QUANT, WW_FM };
+static fvm_prog_t wave_prg_b[NTRK];                  /* B's program a part (A's: lofi_prg) */
+static uint16_t wave_id_b[NTRK];
+
+static const fvm_prog_t *wave_prog(fvm_prog_t *pg, uint16_t *id, uint32_t f, lofi_work_t *w)
+{
+    uint32_t want = 0x100u + f % WAVE_NF;
+    if (*id != want) {
+        const char *s = WAVE_BANK[f % WAVE_NF];
+        uint32_t n = 0;
+        while (s[n]) n++;
+        if (fvm_compile(&w->c, pg, s, n, 0) || pg->nstate > 1u)
+            memset(pg, 0, sizeof *pg);
+        *id = (uint16_t)want;
+    }
+    return pg;
+}
+/* the phase w (Q16 turns, 0 .. 65535) bent by WARP, its amount k (0 .. 127) */
+static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
+{
+    switch (mode) {
+    case WW_SYNC: return (w * (16u + k * 112u / 127u) >> 4) & 0xFFFFu;   /* x1 .. x8 the cycle */
+    case WW_BEND: {                                  /* the half-cycle's point moved: 0.5 .. 0.05 */
+        uint32_t m = 32768u - k * 29491u / 127u;
+        return w < m ? w * 32768u / m : 32768u + (w - m) * 32768u / (65536u - m);
+    }
+    case WW_MIRROR: {                                /* folded back on itself, the fold's point by AMT */
+        uint32_t m = 65535u - k * 32767u / 127u;
+        return w < m ? w * 65535u / m : (65535u - w) * 65535u / (65536u - m);
+    }
+    case WW_QUANT: {                                 /* 64 .. 4 steps a cycle */
+        uint32_t s = 65536u / (64u - k * 60u / 127u);
+        return w / s * s;
+    }
+    }
+    return w;
+}
+
+static void wave_note_on(track_t *t, voice_t *v)
+{
+    (void)t;
+    v->ph[0] = v->ph[1] = v->ph[2] = 0;
+    v->s[2] = v->s[3] = 0;
+    v->s[6] = v->s[7] = 0;
+}
+
+static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
+{
+    const int16_t *p = t->p;
+    uint32_t tr = (uint32_t)(t - trk) % NTRK, i, u;
+    lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
+    uint32_t fa = (uint32_t)p[P_E0] % WAVE_NF, fb = (uint32_t)p[P_E4] % WAVE_NF;
+    uint32_t warp = (uint32_t)clamp(p[P_E2], 0, WW_FM), amt = (uint32_t)clamp(p[P_E3], 0, 127);
+    uint32_t mix = (uint32_t)clamp(p[P_E5], 0, 127), det = (uint32_t)clamp(p[P_E6], 0, 127);
+    uint32_t sub = (uint32_t)clamp(p[P_E7], 0, 127), caos = (uint32_t)clamp(p[P_CAOS], 0, 127);
+    int32_t pos = clamp(p[P_E1] + ((m->shape - (64 << 8)) >> 8), 0, 127);   /* (the matrix's SHAPE moves POS) */
+    uint32_t inc = pitch_inc(clamp(m->pitch16, 0, 2047)), nu = det ? 3u : 1u, need_b = mix || warp == WW_FM;
+    const fvm_prog_t *pa, *pb;
+    uint32_t W[LOFI_N], T[LOFI_N], ya[LOFI_N], yb[LOFI_N];
+    int32_t acc[LOFI_N];
+    fvm_env_t ea = {{T, W, 0, 0, 0}, {0}, &v->s[6]}, eb = {{T, W, 0, 0, 0}, {0}, &v->s[7]};
+    if (n > LOFI_N)
+        n = LOFI_N;
+    pa = lofi_prg_id[tr] == 0x100u + fa ? &lofi_prg[tr] : wave_prog(&lofi_prg[tr], &lofi_prg_id[tr], fa, wk);
+    pb = need_b ? wave_prog(&wave_prg_b[tr], &wave_id_b[tr], fb, wk) : 0;
+    for (i = 0; i < n; i++) {
+        uint32_t tt = (uint32_t)v->s[2] + i, ps = (uint32_t)pos;
+        T[i] = tt >> 2;                              /* (t: ~11 kHz from the note's start) */
+        if (caos)                                    /* CAOS: POS moved by the time's bits, more and faster up */
+            ps = (ps + (((tt >> (13u - caos / 16u)) * (tt >> 9) & 127u) * caos >> 7)) & 127u;
+        acc[i] = (int32_t)(ps * 516u);               /* (POS in FIX, 0 .. 65532: kept here a moment) */
+    }
+    ea.u[FU_AF] = eb.u[FU_AF] = (uint32_t)acc[0];
+    ea.u[FU_NOTE] = eb.u[FU_NOTE] = v->note;
+    ea.u[FU_VEL] = eb.u[FU_VEL] = v->vel;
+    {
+        uint32_t posa[LOFI_N];                       /* POS per sample (CAOS moves it): the formula reads A a block,
+                                                      * so a CAOS block splits in runs of FVM_BLK at its first value */
+        for (i = 0; i < n; i++)
+            posa[i] = (uint32_t)acc[i], acc[i] = 0;
+        for (u = 0; u < nu; u++) {
+            uint32_t ph = v->ph[u], ui = u == 0u ? inc : u == 1u ? inc + (inc >> 16) * det * 3u : inc - (inc >> 16) * det * 3u;
+            uint32_t o;
+            for (i = 0; i < n; i++) {
+                W[i] = wave_warp(ph >> 16, warp == WW_FM ? WW_OFF : warp, amt);
+                ph += ui;
+            }
+            for (o = 0; o < n; o += FVM_BLK) {
+                uint32_t c = n - o < FVM_BLK ? n - o : FVM_BLK, k;
+                ea.arr[FA_T] = eb.arr[FA_T] = T + o;
+                ea.arr[FA_W] = eb.arr[FA_W] = W + o;
+                ea.u[FU_AF] = eb.u[FU_AF] = posa[o];
+                if (pb) {
+                    fvm_run(pb, &eb, &wk->s, c, yb + o);
+                    if (warp == WW_FM)                   /* FM: B into A's phase, AMT the index (up to a turn) */
+                        for (k = 0; k < c; k++)
+                            W[o + k] = (W[o + k] + (uint32_t)(((int32_t)yb[o + k] * (int32_t)amt) >> 7)) & 0xFFFFu;
+                }
+                fvm_run(pa, &ea, &wk->s, c, ya + o);
+            }
+            for (i = 0; i < n; i++) {
+                int32_t a = (int32_t)ya[i], b = pb ? (int32_t)yb[i] : 0;
+                acc[i] += a + (int32_t)(((int64_t)(b - a) * (int32_t)mix) >> 7);   /* (Q16: A .. B) */
+            }
+            v->ph[u] = ph;
+        }
+    }
+    for (i = 0; i < n; i++) {
+        int32_t s = acc[i] / (int32_t)nu >> 1;       /* (Q16 -> Q15, the unison's mean) */
+        if (sub) {
+            uint32_t sp = (uint32_t)v->s[3];
+            s += sine_i(sp) * (int32_t)sub >> 8;
+            v->s[3] = (int32_t)(sp + (inc >> 1));
+        }
+        out[i] += voice_amp(soft_knee(s >> 1, 16000) << 1, m, i);
+    }
+    v->s[2] = (int32_t)((uint32_t)v->s[2] + n);
+}
+
+static const preset_t WAVE_PRESETS[] = {
+    /* name, {A, POS, WARP, AMT, B, MIX, DETUNE, SUB}, {ATK DEC SUS REL}, ... (MATH's presets' layout) */
+    {"WAVE INIT", {0, 0, 0, 0, 0, 0, 0, 0}, {0, 64, 100, 30}, 0, TAG(KEYS), FX(0, 0, 0, 0)},
+    {"WAVE FM KEYS", {1, 40, 0, 0, 0, 0, 0, 0}, {0, 70, 60, 40}, 0, TAG(KEYS), FX(0, 15, 25, 30), PAT(6),
+     MODS(MENV2(0, 60, 0, 30), MMOD(1, PS_ENV2, PD_SHP, 30))},          /* POS opens with the note, closes */
+    {"WAVE SAW PAD", {4, 20, 0, 0, 3, 50, 40, 0}, {80, 90, 100, 95}, 0, TAG(PAD), FX(0, 40, 30, 60), PAT(5),
+     MODS(P_LRATE, 12, MMOD(1, PS_LFO, PD_SHP, 20))},                  /* three voices, POS breathing */
+    {"WAVE SYNC LEAD", {3, 30, 1, 60, 0, 0, 12, 0}, {2, 70, 100, 40}, 0, 1 | TAG(LEAD), FX(0, 0, 35, 25), PAT(4),
+     MODS(MMOD(1, PS_MODW, PD_SHP, 40), P_GLIDE, 10)},
+    {"WAVE SUB BASS", {7, 30, 2, 40, 0, 0, 0, 80}, {0, 60, 90, 20}, 0, 1 | TAG(BASS), FX(0, 0, 5, 0), PAT(2),
+     MODS(P_GLIDE, 8)},
+    {"WAVE BITS", {11, 64, 4, 50, 13, 30, 0, 0}, {0, 75, 80, 40}, 0, 1 | TAG(FX), FX(0, 10, 30, 30), PAT(3),
+     MODS(P_LWAVE, LW_SH, P_LRATE, -8, MMOD(1, PS_LFO, PD_SHP, 40))},  /* POS jumps each 1/8 */
+    {"WAVE FM BELL", {0, 0, 5, 70, 2, 0, 0, 0}, {0, 88, 0, 70}, 12, TAG(BELL), FX(0, 20, 35, 55), PAT(7),
+     MODS(MMOD(1, PS_VEL, PD_SHP, 30))},                               /* B into A's phase */
+    {"WAVE FORMANT", {12, 50, 0, 0, 8, 40, 20, 0}, {30, 80, 90, 60}, 0, TAG(PAD), FX(0, 30, 30, 50), PAT(5),
+     MODS(P_LRATE, 6, MMOD(1, PS_LFO, PD_SHP, 35))},
+};
+static const uint8_t WAVE_ORDER[] = {1, 2, 3, 4, 6, 7, 5, 0};
+_Static_assert(sizeof WAVE_ORDER == NELEM(WAVE_PRESETS), "WAVE's browsing order: every preset once");
+
+static const engine_t ENG_WAVE = {
+    .name = "WAVE",
+    .page_title = {"WAVE", "OSC B"},
+    .edit = {
+        {"A", F_ENUM, 0, WAVE_NF - 1u, 0, N_WAVEF},
+        {"POS", F_PCT, 0, 127, 0, 0},
+        {"WARP", F_ENUM, 0, WW_FM, 0, N_WARP},
+        {"AMT", F_PCT, 0, 127, 0, 0},
+        {"B", F_ENUM, 0, WAVE_NF - 1u, 0, N_WAVEF},
+        {"MIX", F_PCT, 0, 127, 0, 0},
+        {"DETUNE", F_PCT, 0, 127, 0, 0},
+        {"SUB", F_PCT, 0, 127, 0, 0},
+    },
+    .presets = WAVE_PRESETS,
+    .npresets = NELEM(WAVE_PRESETS),
+    .note_on = wave_note_on,
+    .render = wave_render,
+    .knob = {P_E0, P_E1, P_E2, P_E3},
+};

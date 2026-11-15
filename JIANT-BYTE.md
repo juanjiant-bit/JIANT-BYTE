@@ -183,6 +183,8 @@ La reverb larga es el caso más caro: escrita como fórmula puede no entrar en C
     el ritmo queda fijo y la tecla cambia la altura) y FIJO (la tecla solo dispara).
   - `tests/byte_test.c` lo comprueba sonando: con FIJO, C4 y G4 suenan idénticos; con ALT9, el ritmo coincide y la altura
     es la de la tecla (x1,43 de C4 a G4).
+- **Costo por motor** (valgrind, 8 notas, `tests/cpu_baseline_vg.txt`): MATH BYTE 2.273 instrucciones por muestra,
+  MATH FLOAT 3.768, ANALOG 2.334, WEST 2.590 (antes MATH no se medía: la lista lo buscaba por su nombre viejo, LOFI).
 - **Falta en esta fase**: sacar ANALOG, PHASE, VOICE, STRING, WEST, ANIMAL y EXT, y reescribir los tests que prueban lo
   retirado. Hoy fallan, además de los 10 de la base: DIGITAL→FM6 y la UI con `FELUCCA_FM4=1`; GEN (volumen de los
   géneros); la UI (páginas de FM6, LOAD LITE/ECO con "FM6 dos voces", la lista de presets); CC74/CC71 sobre FM6 y WHEEL;
@@ -306,6 +308,18 @@ fuentes, porque el sonido es una función de `t`:
 **Secuenciadores:**
 - pasos que bloquean `a b c d` y saltos de `t`;
 - **fórmula como secuenciador**: una expresión (`t>>12`, `"…"[s]`) genera notas cuantizadas a la escala.
+
+**Fase 3, hecha en su primera forma** (`firmware/src/eng_wave.c`, motor 13, el número de ADD):
+- Dos osciladores, A y B, cada uno una fórmula `f(w, A)` de un banco de 16 (SINE FM2 FMR TRISY SAWSQ DRIVE RING FOLD ODD
+  PULSE STEP BITS FORMT NOISE SINTR SATUR): `w` es la fase del ciclo y `A` la posición POS, que recorre los "cuadros"
+  que la fórmula dibuja. POS la mueve la matriz (SHAPE) y CAOS (un bytebeat del tiempo de la nota).
+- WARP de la fase: OFF SYNC BEND MIRROR QUANT FM (B en la fase de A), con AMT. MIX de A a B, DETUNE (tres voces), SUB.
+- 8 presets. `tests/wave_test.c`: afinado (A4 440 Hz), POS, cada WARP, DETUNE y SUB comprobados sonando.
+- Costo: 4.721 instrucciones por muestra con 8 notas en el preset más pesado (tres voces, dos osciladores), unas dos
+  veces ANALOG.
+- **Cambio de diseño por la RAM**: la tabla no se guarda, la fórmula se evalúa por muestra (una tabla de 64 cuadros son
+  32 KB y quedan ~3 KB libres). Por eso faltan CAPTURA (grabar un floatbeat en la tabla) y las copias por octava contra
+  el aliasing: vuelven cuando la fase 7 libere las líneas de los efectos fijos (decenas de KB en el pool).
 
 ## 6. Datos: proyectos y almacenamiento
 

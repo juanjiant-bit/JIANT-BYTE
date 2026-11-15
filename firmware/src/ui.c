@@ -664,8 +664,8 @@ static int page_visible(uint32_t i)
         return te == ENGI_FM6;
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_WRDEP)   /* (0.7.8) ROTOR: WHEEL's (JIANT BYTE: retired) */
         return 0;
-    if (PAGES[i].id[0] == P_CAOS)                       /* (JIANT BYTE) CAOS: MATH's */
-        return trk_engp(TSEL) == &ENG_LOFI;
+    if (PAGES[i].id[0] == P_CAOS)                       /* (JIANT BYTE) CAOS: MATH's and WAVE's */
+        return trk_engp(TSEL) == &ENG_LOFI || trk_engp(TSEL) == &ENG_WAVE;
     if (PAGES[i].id[0] == P_LRTRG && PAGES[i].id[1] == 0xFFu)   /* (0.6.12) RETRIG: LOFI BYTE / FLOAT's */
         return trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE;
     if (PAGES[i].scope == SC_ENGINE && PAGES[i].fam == FAM_EDIT)   /* (V10.7.21) ANALOG: its own EDIT 1 (INT in NOISE's
@@ -1552,6 +1552,7 @@ _Static_assert(sizeof ANIMAL_ORDER == NELEM(ANIMAL_PRESETS), "ANIMAL's browsing 
 static const uint8_t *preset_order(const engine_t *e, uint32_t *n)
 {
     if (e == &ENG_LOFI) { *n = sizeof MATH_ORDER; return MATH_ORDER; }   /* (eng_lofi.c) */
+    if (e == &ENG_WAVE) { *n = sizeof WAVE_ORDER; return WAVE_ORDER; }   /* (JIANT BYTE, eng_wave.c) */
     if (e == &ENG_ANIMAL) { *n = sizeof ANIMAL_ORDER; return ANIMAL_ORDER; }
     if (e == &ENG_ANALOG) { *n = sizeof ANALOG_ORDER; return ANALOG_ORDER; }
     if (e == &ENG_FORMANT) { *n = sizeof VOICE_ORDER; return VOICE_ORDER; }

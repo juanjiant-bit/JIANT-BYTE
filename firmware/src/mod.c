@@ -486,7 +486,7 @@ BTAPP_FN static int mod_dst_ok(const track_t *t, uint32_t d)
     uint32_t e = eng_idx(t->eng_req), k;
     if (d >= MD_N) return 0;
     if (d == MD_CUT) {
-        if (e == ENGI_ADD || (e == ENGI_VOICE && t->p[P_VLANG])) return 0;
+        if (e == ENGI_VOICE && t->p[P_VLANG]) return 0;   /* (JIANT BYTE: 13 is WAVE now, ADD retired) */
         if (e == ENGI_ANIMAL) return t->p[P_E0] == AN_PULSE || t->p[P_E0] >= AN_WING;
     }
     if (d == MD_SHP && (e == ENGI_DRUM || e == ENGI_ANIMAL || e == ENGI_INPUT)) return 0;

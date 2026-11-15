@@ -8,6 +8,7 @@
 #include "eng_analog.c"
 #include "eng_phase.c"
 #include "eng_lofi.c"
+#include "eng_wave.c"            /* (JIANT BYTE) WAVE: a parametric wavetable of formulas (engine 13, ADD's) */
 #include "eng_formant.c"
 #include "eng_drum.c"           /* DRUM: the 8-lane DRUM-X kit (drumx_voice.c) */
 #include "eng_west.c"           /* (V10.7.36) WEST: west coast (fold, low-pass gate, dust), NOISE's slot (engine 11) */
@@ -65,14 +66,14 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_WEST,                   /* 11 (ENGI_WEST, V10.7.36; NOISE's until V10.7.35: its sounds open as WEST's) */
     &ENG_LOFI,                   /* 12: (JIANT BYTE) FM6 retired (its synthesis and voice state gone; its patches kept
                                   * for the stores): plays as MATH */
-    &ENG_LOFI,                   /* 13: (JIANT BYTE) ADD retired (it shared WHEEL's voice state): plays as MATH */
+    &ENG_WAVE,                   /* 13: (JIANT BYTE) WAVE (eng_wave.c), in the retired ADD's number */
     &ENG_ANIMAL,                 /* 14 (ENGI_ANIMAL, JIANT 0.8.3) */
     &ENG_INPUT,                  /* 15 (ENGI_INPUT, V10.54) */
 };
 
 /* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
  * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
-static const uint8_t ENG_LIVE[NENGINES] = {0, 1, 2, 3, 4, 5, 6, 3, 8, 9, 10, 11, 3, 3, 14, 15};
+static const uint8_t ENG_LIVE[NENGINES] = {0, 1, 2, 3, 4, 5, 6, 3, 8, 9, 10, 11, 3, 13, 14, 15};   /* (13: WAVE) */
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
 static inline uint32_t eng_idx(uint32_t e) { return e < NENGINES ? ENG_LIVE[e] : 0u; }
 
@@ -90,6 +91,7 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     ENGI_VOICE,                  /* VOICE */
     ENGI_ANIMAL,                 /* ANIMAL */
     ENGI_LOFI,                   /* MATH (was LOFI); (JIANT BYTE) WHEEL retired */
+    ENGI_WAVE,                   /* (JIANT BYTE) WAVE */
     ENGI_WEST,                   /* WEST (V10.7.36: NOISE's place) */
     ENGI_STRING,                 /* (0.9.9-snd5) STRING; (JIANT BYTE) ADD retired */
     ENGI_INPUT,                  /* (V10.54) the audio input */
@@ -107,6 +109,7 @@ static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
 #endif
     ENGI_PHASE, ENGI_LOFI, ENGI_VOICE, ENGI_WEST, ENGI_DRUM, ENGI_ANIMAL,
     ENGI_STRING,                 /* (0.9.9-snd5: after ANIMAL, every number before kept; JIANT BYTE: WHEEL ADD out) */
+    ENGI_WAVE,                   /* (JIANT BYTE) WAVE: after the rest */
     ENGI_INPUT,                  /* (V10.54) */
 };
 
