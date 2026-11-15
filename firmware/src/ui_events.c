@@ -30,7 +30,7 @@ static int ev_id_ok(const track_t *t, uint32_t id)
                                                               id != P_HVEL && id != P_HTIM && id != P_HGAT && id != P_HRQ && id != P_TVEL))
         return 0;
     if (id >= P_LN0 && id <= P_LN7 && !(((id >= P_FKEY && id <= P_FDRV) || (id == P_FDST &&
-                                        ENGINES[eng_idx(t->eng_req)] != &ENG_FORMANT)) && !drum_track(t) &&
+                                        ENGINES[eng_idx(t->eng_req)] != &ENG_VOX_GONE)) && !drum_track(t) &&
                                         ENGINES[eng_idx(t->eng_req)] != &ENG_EXT_GONE))   /* (filters2: a synth's FILTER 2;
                                                          * filter2-mod: DEST, not VOICE's CONS) */
         return drum_track(t);

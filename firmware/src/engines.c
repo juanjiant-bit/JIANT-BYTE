@@ -46,13 +46,17 @@ static const engine_t ENG_GONE = {
     .knob = {P_E0, P_E1, P_E2, P_E3},
 };
 /* (JIANT BYTE) INPUT (EXT and SWARM) retired: what compared a part's engine with it compares with this one, in no slot */
+static const engine_t ENG_ANA_GONE = {.name = "-", .page_title = {"-", "-"}, .note_on = phys_gone_note_on,
+                                      .render = phys_gone_render};   /* (JIANT BYTE: ANALOG retired, as INPUT) */
+static const engine_t ENG_VOX_GONE = {.name = "-", .page_title = {"-", "-"}, .note_on = phys_gone_note_on,
+                                      .render = phys_gone_render};   /* (.. VOICE) */
 static const engine_t ENG_EXT_GONE = {.name = "-", .page_title = {"-", "-"}, .note_on = phys_gone_note_on,
                                       .render = phys_gone_render};
 #define ENGI_PHYS_TO 0u          /* the engine a retired engine's sound plays as: ANALOG (its first preset) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
 static const engine_t *const ENGINES[NENGINES] = {
-    &ENG_ANALOG,                 /* 0 */
+    &ENG_WAVE,                   /* 0: (JIANT BYTE) ANALOG retired: plays as WAVE (a bad number too: eng_idx) */
 #if FELUCCA_FM4
     &ENG_DIGITAL,                /* 1 (ENGI_DIGITAL) */
 #else
@@ -61,7 +65,7 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_WAVE,                   /* 2: (JIANT BYTE) PHASE retired: plays as WAVE */
     &ENG_LOFI,                   /* 3 */
     &ENG_GONE,                   /* 4: reserved (SAMPLE, retired in JIANT) */
-    &ENG_FORMANT,                /* 5 VOICE (eng_formant.c: "voice" is a sounding note in voice.c) */
+    &ENG_WAVE,                   /* 5: (JIANT BYTE) VOICE retired (its lyric's place now a part's own formula): WAVE */
     &ENG_GONE,                   /* 6: reserved (TRIO, folded into ANALOG in JIANT 0.4: core.h analog_from_trio) */
     &ENG_LOFI,                   /* 7: (JIANT BYTE) WHEEL retired: its number plays as MATH (GEN's picks, a pattern's sound) */
     &ENG_WAVE,                   /* 8: (JIANT BYTE) STRING retired (its COMB lines stay the filter's): plays as WAVE */
@@ -77,9 +81,9 @@ static const engine_t *const ENGINES[NENGINES] = {
 
 /* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
  * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
-static const uint8_t ENG_LIVE[NENGINES] = {0, 1, 13, 3, 4, 5, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3};   /* (13: WAVE) */
+static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3};   /* (13: WAVE) */
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
-static inline uint32_t eng_idx(uint32_t e) { return e < NENGINES ? ENG_LIVE[e] : 0u; }
+static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 0u]; }
 
 /* the order the engines are shown in (PRESETS browsing and its ENG knob, the EDIT layer's keys, the editor's list):
  * engine indices, never DIGITAL's reserved 1 (with FELUCCA_FM4 it comes last). The indices stay as they are (the
@@ -91,8 +95,6 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     ENGI_DRUM,                   /* DRUM (DRUM-X, its formula lanes) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE */
     ENGI_LOFI,                   /* MATH (BYTE FLOAT) */
-    ENGI_ANALOG,                 /* ANALOG */
-    ENGI_VOICE,                  /* VOICE */
     /* (JIANT BYTE) retired, their numbers MATH's or WAVE's (ENG_LIVE): WHEEL ADD FM6 PHASE STRING WEST ANIMAL */
 #if FELUCCA_FM4
     ENGI_DIGITAL,                /* DIGITAL (retired, FELUCCA_FM4 builds only): after the rest */
@@ -102,11 +104,10 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
  * numbers kept), so a MIDI rig's program numbers name the sounds they named before the display order changed; the
  * PRESETS list itself follows ENGINE_ORDER (ui.c preset_all_at_in) */
 static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
-    ENGI_ANALOG,                 /* (JIANT BYTE: FM6 retired) */
 #if FELUCCA_FM4
     ENGI_DIGITAL,
 #endif
-    ENGI_LOFI, ENGI_VOICE, ENGI_DRUM,   /* (JIANT BYTE: PHASE WEST ANIMAL STRING WHEEL ADD out) */
+    ENGI_LOFI, ENGI_DRUM,        /* (JIANT BYTE: every engine of JIANT FM's out but DRUM-X; MATH's place kept first) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE: after the rest */
 };
 

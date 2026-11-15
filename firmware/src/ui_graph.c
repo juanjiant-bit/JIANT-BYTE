@@ -1471,7 +1471,7 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
             h = (h ^ ((uint32_t)fg_set[ti][k].rate | (uint32_t)fg_set[ti][k].dir << 4 | (uint32_t)(uint8_t)fg_set[ti][k].ivl << 8 |
                       (song.playing ? (uint32_t)fg_head[ti][k].idx << 16 : 0u))) * 16777619u;
     }
-    if (pg->graph == GR_LYRIC || (pg->scope == SC_ENGINE && trk_engp(t) == &ENG_FORMANT &&
+    if (pg->graph == GR_LYRIC || (pg->scope == SC_ENGINE && trk_engp(t) == &ENG_VOX_GONE &&
                                   t->p[P_VLANG])) {   /* (0.8.5) the syllable, the phoneme, the formants, the gains */
         const sing_t *s = sing_view(t);
         h = (h ^ ((uint32_t)s->nsy << 16 | (uint32_t)s->i << 8 | (uint32_t)s->np)) * 16777619u;
@@ -2225,7 +2225,7 @@ static void draw_graph(void)
             graph_sing(t);
             break;
         default:
-            if (pg->scope == SC_ENGINE && trk_engp(t) == &ENG_FORMANT && t->p[P_VLANG]) {
+            if (pg->scope == SC_ENGINE && trk_engp(t) == &ENG_VOX_GONE && t->p[P_VLANG]) {
                 graph_sing(t);                       /* (0.8.5) VOICE singing: its words on its pages */
                 break;
             }

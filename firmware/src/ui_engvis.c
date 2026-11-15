@@ -1658,7 +1658,7 @@ static int32_t vx_fit(int32_t w, int32_t h, int32_t uw, int32_t uh)   /* a unit'
     return w * 256 / uw < h * 256 / uh ? w * 256 / uw : h * 256 / uh;
 }
 typedef struct { const engine_t *e; void (*f)(const track_t *, const int32_t *, int32_t); } vxe_t;
-static const vxe_t VX_F[] = {{&ENG_ANALOG, vx_analog}, {&ENG_LOFI, vx_lofi}, {&ENG_WAVE, vx_lofi}};   /* (JIANT BYTE:
+static const vxe_t VX_F[] = {{&ENG_ANA_GONE, vx_analog}, {&ENG_LOFI, vx_lofi}, {&ENG_WAVE, vx_lofi}};   /* (JIANT BYTE:
                                                          * WEST PHASE STRING retired; WAVE drawn as MATH's) */   /* (0.9.9-snd5; V10.7.13+: ADD's gone, room for
                                                          * FORM MY LOOP: it draws the being) */
 static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h, int32_t en_home)
@@ -1667,7 +1667,7 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
     int32_t A[4] = {x, y, w, h}, cx = x * 16 + w * 8, cy = y * 16 + h * 8, s;
     if (!bt_hw_seg() && (e == &ENG_LOFI || e == &ENG_WAVE))
         return 0;                                        /* (V10.48: those creatures live in the segment; V10.6g PHASE's too) */
-    if (e == &ENG_FORMANT) {                             /* (the tract ~80 x 62 units about (-20, 37): the crown off) */
+    if (e == &ENG_VOX_GONE) {                             /* (the tract ~80 x 62 units about (-20, 37): the crown off) */
         s = vx_fit(w, h, 80, 62);
         vx_voice(t, cx + 5 * s / 4, cy - 37 * s / 16, s, en_home);
     } else if (trk_eng(t) == ENGI_DRUM) {    /* (the kit ~128 x 92) */

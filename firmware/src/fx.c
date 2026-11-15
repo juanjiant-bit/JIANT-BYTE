@@ -2985,7 +2985,7 @@ static __attribute__((noinline)) uint32_t mc_split(uint32_t c1)   /* c1: what co
         uint32_t bit = 1u << i;
         unit[i] = bit; cost[i] = 0;
         if (ENGINES[t->engine] == &ENG_DRUM) dep[0] |= bit;
-        if (ENGINES[t->engine] == &ENG_FORMANT && mc_voice_noise(t)) dep[1] |= bit;
+        if (ENGINES[t->engine] == &ENG_VOX_GONE && mc_voice_noise(t)) dep[1] |= bit;
         if ((t->p[P_APDEP] && t->p[P_APWAVE] >= 4) || t->xf_on) dep[2] |= bit;
         if (mc_rng_part(i)) fixed |= bit;
         /* Parts put to sleep still fade: render that transition serially, including voice_kill's counters. */

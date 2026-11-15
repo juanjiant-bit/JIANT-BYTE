@@ -23,7 +23,7 @@
 #define NENGINES 16              /* the stores' engine numbers 0..15 (engines.c ENGINES[], append-only; 0.8.3: 14 ANIMAL;
                                   * 0.9.9-snd5: STRING and ADD in the retired GRAIN's 8 and SLICE's 13; V10.54: 15 INPUT) */
 #define ENGI_DIGITAL 1u          /* reserved without FELUCCA_FM4: never selectable (eng_ok), its sounds load as FM6 */
-#define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - 3 - 7)   /* (JIANT BYTE: WHEEL FM6 PHASE STRING WEST ANIMAL INPUT retired, aliased; WAVE in ADD's) */
+#define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - 3 - 9)   /* (JIANT BYTE: DRUM WAVE MATH; JIANT FM's others retired, aliased) */
                                                /*   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
                                                 * in the display order of engines.c ENGINE_ORDER (PHYS 9, and in
                                                 * JIANT SAMPLE 4, GRAIN 8, SLICE 13: retired) */

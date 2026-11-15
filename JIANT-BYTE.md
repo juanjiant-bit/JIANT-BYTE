@@ -11,7 +11,7 @@ Estado (rama `phase2-engines`, que contiene todo lo anterior):
 |---|---|
 | 0 Renombre | hecha |
 | 1 FVM (compilador, máquina, reloj, KEY) | hecha |
-| 2 Motores BYTE / FLOAT sobre la FVM, CAOS, retiro de motores | hecha en gran parte: quedan ANALOG y VOICE de JIANT FM |
+| 2 Motores BYTE / FLOAT sobre la FVM, CAOS, retiro de motores | hecha: de JIANT FM queda solo DRUM-X (con sus lanes de fórmula) |
 | 3 WAVE | primera forma (sin tablas guardadas: sin CAPTURA ni copias por octava) |
 | 4 Batería de fórmulas | primera forma (lanes de fórmula en DRUM-X) |
 | 5 Proyectos con fórmulas, edición en el aparato | pendiente (el texto propio de una pista ya se guarda; falta editarlo) |
@@ -421,6 +421,11 @@ beats), RND (un nivel nuevo cada 1/32), SAT. `I` es la señal (una variable nuev
 pulso; el crossfade de entrada y salida es el de DIST, así que DIST 0 la deja afuera. Sin memoria larga todavía: `z(k)`
 (ecos, combs) pide líneas que el pool no tiene; los filtros con estado (`lp`, `hp`) sí. `tests/fx_eq_test.c`: compilan,
 DIST 0 es la señal seca bit a bit, cada tipo cambia el sonido acotado, LPF oscurece una sierra (x0,02 en los agudos).
+
+**ANALOG y VOICE retirados**: los motores son ahora DRUM (DRUM-X con lanes de fórmula), WAVE y MATH. Los números de los
+motores retirados suenan como WAVE o MATH (`engines.c` `ENG_LIVE`; un número inválido también, como el 0). `sing.c` sigue
+en el build por `lyr_txt`, el lugar de la fórmula propia de cada pista. Flash libre: 42 KB. Cambian las tres renders que
+usaban presets de ANALOG (la mezcla de 4 pistas y dos del SLICER); la regresión ya no mide el tope de voces de VOICE.
 
 ## 6. Datos: proyectos y almacenamiento
 

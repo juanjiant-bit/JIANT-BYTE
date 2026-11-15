@@ -225,13 +225,13 @@ static __attribute__((noinline)) void fn_tick(const track_t *t, const engine_t *
     fnb_t *b = &fnb[ti];
     int32_t d = ok ? fn_inv(t->p, P_FNZ) : 0, r = fn_inv(t->p, P_FNRT), v, dep;
     uint32_t o = s->ph, m = fn_mode(t->p), z, pw;
-    b->kq = !ok ? 0 : (int32_t)(e == &ENG_ANALOG ? fkey_rank(t->p[P_FKEY]) : (uint32_t)fn_inv(t->p, P_FKEY)) * 1024 / 27;
-    b->drv = (uint8_t)(e == &ENG_ANALOG ? t->p[P_E6] & 127 : ok ? fn_inv(t->p, P_FDRV) : 0);
+    b->kq = !ok ? 0 : (int32_t)(e == &ENG_ANA_GONE ? fkey_rank(t->p[P_FKEY]) : (uint32_t)fn_inv(t->p, P_FKEY)) * 1024 / 27;
+    b->drv = (uint8_t)(e == &ENG_ANA_GONE ? t->p[P_E6] & 127 : ok ? fn_inv(t->p, P_FDRV) : 0);
     b->cut = b->span = b->pit = b->pmd = s->mdep = s->src = 0;
     b->amt = (uint8_t)((d * (d + 127)) >> 8);
     if (!ok)
         return;
-    pw = e == &ENG_FORMANT ? 0 : (4 - (((uint32_t)t->p[P_FDST] & 127u) * 5u >> 7)) * 32u;   /* (DEST: the pitch's share,
+    pw = e == &ENG_VOX_GONE ? 0 : (4 - (((uint32_t)t->p[P_FDST] & 127u) * 5u >> 7)) * 32u;   /* (DEST: the pitch's share,
                                                          * Q7; VOICE's FILTER, its CONS there) */
     s->ph += LFO_INC[r] << 3;                           /* (0.4 .. 320 Hz) */
     if (s->ph < o) {
@@ -326,8 +326,8 @@ static __attribute__((noinline)) int32_t fn_voice(const track_t *t, int32_t p16,
         return 0;
     if ((p[P_FNZ] & p[P_FDRV] & p[P_FKEY]) < 127 && !tf_on[ti])
         tf_on[ti] = 2;
-    return e != &ENG_ANALOG && e != &ENG_LOFI ? 0 : (p[P_FNZ] < 127 ? fnb[ti].cut : 0) +
-           (p[P_FKEY] < 127 ? ((p16 - 60 * 16) * (fnb[ti].kq - (e == &ENG_ANALOG ? 1024 : 0))) >> 8 : 0);
+    return e != &ENG_ANA_GONE && e != &ENG_LOFI ? 0 : (p[P_FNZ] < 127 ? fnb[ti].cut : 0) +
+           (p[P_FKEY] < 127 ? ((p16 - 60 * 16) * (fnb[ti].kq - (e == &ENG_ANA_GONE ? 1024 : 0))) >> 8 : 0);
 }
 /* (codex/filters2) FILTER's DRIVE on a part (every engine but ANALOG, whose DRIVE drives each voice): its sum into the
  * soft clip before the filter, x1 .. x6 (filter2-mod: was x3) */
@@ -586,9 +586,9 @@ static __attribute__((noinline)) void track_post(track_t *t, const engine_t *e, 
     uint32_t ti = (uint32_t)(t - trk) % NTRK, ok = e != &ENG_DRUM && e != &ENG_EXT_GONE;
     fn_tick(t, e, ti, ok);                              /* (filters2) FILTER 2, a block (on the voices' own filters the
                                                          * next block: voice_block) */
-    if (e != &ENG_ANALOG && fnb[ti].drv)                /* FILTER's DRIVE: into the filter (ANALOG's: its voices') */
+    if (e != &ENG_ANA_GONE && fnb[ti].drv)                /* FILTER's DRIVE: into the filter (ANALOG's: its voices') */
         fn_drive(out, n, fnb[ti].drv);
-    if (e == &ENG_ANALOG)
+    if (e == &ENG_ANA_GONE)
         track_filter(t, out, n, 1, t->p[P_E4], t->p[P_E5]);
     else
         track_filter(t, out, n, e == &ENG_LOFI, t->p[P_FCUT], t->p[P_FRES]);
@@ -1276,7 +1276,7 @@ static void glide_from(voice_t *v)
 }
 static __attribute__((noinline)) void glide_from_trk(const track_t *t, voice_t *v)   /* (a legato note, a chord glide) */
 {
-    if (ENGINES[t->engine % NENGINES] == &ENG_FORMANT)
+    if (ENGINES[t->engine % NENGINES] == &ENG_VOX_GONE)
         glide_from(v);
 }
 
@@ -1330,7 +1330,7 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
     v->stage = 1;
     v->env2_st = 1;                                     /* (V10.22) ENV 2 from where it is */
     v->age = age;
-    if (e == &ENG_FORMANT)
+    if (e == &ENG_VOX_GONE)
         glide_from(v);
     v->fin_d = 0;
     v->gacc = 0;
@@ -1376,7 +1376,7 @@ static void voice_begin(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
 {
     const engine_t *e = ENGINES[t->engine];
     uint32_t k = ev_off > CTL ? CTL : ev_off, age = ++vage, old = v->active && v->stage != 0 && v->stage != 4u;
-    vs_rnd = e == &ENG_FORMANT ? noise32(&formant_nz) : 0u;   /* (its RAND vowel: drawn here, on core 0) */
+    vs_rnd = e == &ENG_VOX_GONE ? noise32(&formant_nz) : 0u;   /* (its RAND vowel: drawn here, on core 0) */
     if (e->whole)
         k = k >= CTL / 2u ? CTL : 0u;                   /* the nearer block edge (CTL: the next block's) */
     if (!k || !old) {                                   /* now, or a free slot: the voice as started (what reads it
@@ -1519,7 +1519,7 @@ static void mono_play(track_t *t, uint32_t note, uint32_t vel, int retrig, int g
             if (vel > v->vel && nv == 1u)
                 v->vel = (uint8_t)vel;
             /* (0.9.8) VOICE singing words: a legato note glides a little even with GLIDE 0 (a singer's ~60 ms) */
-            glide_set(t, v, glide ? glide : ENGINES[t->engine % NENGINES] == &ENG_FORMANT && t->p[P_VLANG] ? 2 : 0);
+            glide_set(t, v, glide ? glide : ENGINES[t->engine % NENGINES] == &ENG_VOX_GONE && t->p[P_VLANG] ? 2 : 0);
         }
     }
     t->mono_note = (uint8_t)note;

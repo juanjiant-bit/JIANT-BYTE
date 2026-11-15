@@ -327,14 +327,14 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
                                                          * PLAY 2's KNOB 4; EXT: none, its voice is one) */
         return en == &ENG_EXT_GONE ? &NONE_DESC : &SIMG_DESC;
     if (id == P_DKEYMODE && en == &ENG_DRUM) return &DKEYMODE_DESC;
-    if ((id == P_VLANG || id == P_VLYR || id == P_VCONS) && en == &ENG_FORMANT)
+    if ((id == P_VLANG || id == P_VLYR || id == P_VCONS) && en == &ENG_VOX_GONE)
         return id == P_VLANG ? &VLANG_DESC : id == P_VLYR ? &VLYR_DESC : &VCONS_DESC;
     if (id == P_FDST && en != &ENG_DRUM && en != &ENG_EXT_GONE)   /* (filter2-mod) a synth's DEST (VOICE's CONS above) */
         return &FN_DESC[8];
     if (id >= P_FKEY && id <= P_FDRV && en != &ENG_DRUM && en != &ENG_EXT_GONE)   /* (filters2) a synth's FILTER 2, DRIVE */
     {
         uint32_t m = id == P_FNRT ? ((uint32_t)t->p[P_FNMD] & 127u) * 5u >> 7 : 0u;   /* (filter2-mod: RATE by the MODE) */
-        return id == P_FKEY && en == &ENG_ANALOG ? &FKEYA_DESC : m == 2u ? &FN_DESC[6] : m == 1u ? &FN_DESC[7] :
+        return id == P_FKEY && en == &ENG_ANA_GONE ? &FKEYA_DESC : m == 2u ? &FN_DESC[6] : m == 1u ? &FN_DESC[7] :
                &FN_DESC[id - P_FKEY];
     }
     if (id >= P_E0 && id <= P_E7) {                   /* the engine asked for (t->engine follows after a fade) */

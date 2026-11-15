@@ -15,8 +15,7 @@ import os
 import re
 import sys
 
-FUNCS = ["analog_render", "digital_render", "digital_render_legacy", "digital_render_custom", "lofi_render", "formant_render",
-         "analog_ext", "analog_morph", "lofi_byte_render",   # (JIANT 0.4: SYNC RING SAW3, BYTE; JIANT BYTE: WHEEL retired)
+FUNCS = ["digital_render", "digital_render_legacy", "digital_render_custom", "lofi_render", "lofi_byte_render",   # (JIANT 0.4: SYNC RING SAW3, BYTE; JIANT BYTE: WHEEL retired)
          "lofi_float_render", "fvm_run",                    # (JIANT BYTE) MATH through the FVM: its machine (each operator a loop)
          "drum_render",                                      # (JIANT BYTE: FM6 WEST retired)
          "dx_run_fx", "dx_layer",                           # DRUM-X (drumx_voice.c): a hit, osc + noise (V10.6q: dx_run_fx, was dx_run); (0.6.49) LAYER
@@ -35,7 +34,7 @@ FUNCS = ["analog_render", "digital_render", "digital_render_legacy", "digital_re
          "dly_lo",                                          # (0.8.4) the delay at half / a quarter rate (fx.c)
          # (JIANT 0.8.3) ANIMAL (eng_animal.c): its five sources (one loop a voice)
          # (0.9.9-snd5) STRING (its loop at 1 / 2^d), ADD (nine partials)
-         "formant_word_render", "formant_block",           # (JIANT 0.8.5) VOICE singing words (eng_formant.c, sing.c)
+         # (JIANT 0.8.5) VOICE singing words (eng_formant.c, sing.c)
          "djf_block",                                      # (0.9.1) the master DJ FILTER (fx.c), while it is off the middle
          "eq_block",                                       # (p9) the master EQ (fx.c), while a band is off 0
          "track_comb", "tf_run", "tf_lp24",                # (0.9.9-snd1) the FILTER after the voices: COMB / COMB-, the SVF,

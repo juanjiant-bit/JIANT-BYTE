@@ -643,7 +643,7 @@ static int page_visible(uint32_t i)
     if (PAGES[i].graph == GR_SWARM)                     /* (V10.6z6) FAR / NEAR: a SWARM track's */
         return te == ENGI_INPUT && TSEL->p[P_E0] == AIN_SW;
     if (PAGES[i].graph == GR_LYRIC || PAGES[i].graph == GR_LYRSTEP)
-        return trk_engp(TSEL) == &ENG_FORMANT;
+        return trk_engp(TSEL) == &ENG_VOX_GONE;
     if (PAGES[i].graph == GR_PATS_ || PAGES[i].graph == GR_CHANCE_)   /* (0.6.37) PHRASES, a step's CHANCE: out of the */
         return FELUCCA_PHRASES && !ui.home && ui.page == i;   /* SEQ pages' cycle (only where code put the screen;
                                                          * V10.7.33: out, core.h) */
@@ -1553,8 +1553,8 @@ static const uint8_t *preset_order(const engine_t *e, uint32_t *n)
 {
     if (e == &ENG_LOFI) { *n = sizeof MATH_ORDER; return MATH_ORDER; }   /* (eng_lofi.c) */
     if (e == &ENG_WAVE) { *n = sizeof WAVE_ORDER; return WAVE_ORDER; }   /* (JIANT BYTE, eng_wave.c) */
-    if (e == &ENG_ANALOG) { *n = sizeof ANALOG_ORDER; return ANALOG_ORDER; }
-    if (e == &ENG_FORMANT) { *n = sizeof VOICE_ORDER; return VOICE_ORDER; }
+    if (e == &ENG_ANA_GONE) { *n = sizeof ANALOG_ORDER; return ANALOG_ORDER; }
+    if (e == &ENG_VOX_GONE) { *n = sizeof VOICE_ORDER; return VOICE_ORDER; }
     *n = 0;
     return 0;
 }
@@ -1664,7 +1664,7 @@ static void apply_preset_to(track_t *t, uint32_t pi)
         t->p[P_TVEL] = 0;                             /* every note at 100, its ACCENTs still 127 */
     if (e == &ENG_LOFI || e == &ENG_DRUM)             /* (V10.6d) MATH: RTRG on, each note the formula from its start */
         t->p[P_LRTRG] = e == &ENG_DRUM ? km : 1;
-    if (e == &ENG_FORMANT) {                          /* (0.8.5) VOICE's words: LANG, LYRIC (0: its vowels) */
+    if (e == &ENG_VOX_GONE) {                          /* (0.8.5) VOICE's words: LANG, LYRIC (0: its vowels) */
         t->p[P_VLANG] = (int16_t)(e->presets[pi].xp & 3u);
         t->p[P_VLYR] = (int16_t)(e->presets[pi].xp >> 2);
         t->p[P_VCONS] = 127;                            /* (V10.6y) CONS 100 % (a DRUM part's lane level before) */

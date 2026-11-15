@@ -1088,7 +1088,8 @@ int main(int argc, char **argv)
     add(J_CHECK, "voices: MONO keeps its note")->check = chk_keep_mono;
     add(J_CHECK, "voices: LEGATO keeps its note")->check = chk_keep_legato;
     add(J_CHECK, "voices: UNISON keeps its note")->check = chk_keep_unison;
-    add(J_CHECK, "voices: VOICE engine cap")->check = chk_voice_cap;
+    if (eng_idx(ENGI_VOICE) == ENGI_VOICE)            /* (JIANT BYTE: VOICE retired, its cap with it) */
+        add(J_CHECK, "voices: VOICE engine cap")->check = chk_voice_cap;
     add(J_CHECK, "routing: no hanging notes")->check = chk_hang;
     run_jobs(J, nj, jobs_at_once);
 
