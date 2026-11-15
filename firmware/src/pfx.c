@@ -35,6 +35,7 @@ static uint8_t pfx_in;                /* a repeat's own note-on (pfx_note lets i
 static uint8_t pfx_any;               /* a track has something running (or to put back) */
 static uint32_t pfx_blk;              /* blocks: the notes of one block were struck together */
 static uint32_t pfx_seed = 0x9E3779B9u;
+static struct { int16_t caos[NTRK]; uint8_t on; } pfx_caos;   /* (JIANT BYTE) CAOS MAX: the parts' CAOS, kept a block */
 static struct { int16_t keep[4]; uint8_t on; } pfx_life __attribute__((section(".pool")));   /* (V10.7.36) LIFE MAX: the
                                                          * user's LIFE FILTER PITCH FX while it holds them at 100 */
 
@@ -153,6 +154,17 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
 {
     uint32_t k, b = beat_samples(), lane = 0, raw = held & pfx_rec_held, nw;
     pfx_blk++;
+    if (held & PF_BIT(PF_RING)) {                       /* (JIANT BYTE) CAOS MAX: every formula part at CAOS 127 for this
+                                                         * block (pfx_end: back) */
+        for (k = 0; k < NTRK; k++) {
+            uint32_t e = eng_idx(trk[k].engine);
+            pfx_caos.caos[k] = trk[k].p[P_CAOS];
+            if (e == ENGI_LOFI || e == ENGI_WAVE)
+                trk[k].p[P_CAOS] = 127;
+        }
+        pfx_caos.on = 1;
+        held &= ~PF_BIT(PF_RING);
+    }
     if (held & PF_BIT(PF_LMAX)) {                       /* (V10.7.36) LIFE MAX: 100 % for this block (pfx_end: back) */
         for (k = 0; k < 4u; k++) {
             pfx_life.keep[k] = life_v[k];
@@ -257,6 +269,11 @@ static __attribute__((noinline)) void pfx_end(void)
         for (k = 0; k < 4u; k++)
             life_v[k] = pfx_life.keep[k];
         pfx_life.on = 0;
+    }
+    if (pfx_caos.on) {                                  /* (JIANT BYTE) CAOS MAX's, back */
+        for (k = 0; k < NTRK; k++)
+            trk[k].p[P_CAOS] = pfx_caos.caos[k];
+        pfx_caos.on = 0;
     }
     for (k = 0; k < NTRK; k++)
         if ((trk[k].pfx & PFX_ATK) && trk[k].engine != ENGI_DRUM)

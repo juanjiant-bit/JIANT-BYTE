@@ -24,8 +24,8 @@
  *                   wrapping (to a random place), their places jittered ~1.5 ms; the live mix muted while it holds
  *         C#4 D#4   REV ALL / DLY ALL: full wet, every track into the reverb / the delay, the dry muted; let go, the
  *                   dry back, the tail rings on
- *         F#4       RING: the master ring-modulated by a sine two octaves over the scale's root (C5 .. B5), its
- *                   depth wobbling once a bar
+ *         F#4       (JIANT BYTE) CAOS MAX: every formula part (MATH, WAVE) at CAOS 127 while held (pfx.c: put back
+ *                   after each block, never saved, as LIFE MAX); was RING (the master ring-modulated)
  *         G#4 C#5 D#5 LOOP 3 / 5 / 7 (pfx.c, seq.c seq_tick): every track its last 3 / 5 / 7 steps again, on the 1/16
  *         A#4       LIFE MAX: HOME > LIFE at 100 % (LIFE FILTER PITCH FX) while held (pfx.c: put back after each block,
  *                   never saved)
@@ -66,7 +66,8 @@ static const uint8_t PF_BK[11] = {PF_PUP, PF_PDN, PF_FRZ, PF_RVA, PF_DLA, PF_RIN
 #define PF_LOOPS (PF_BIT(PF_LP3) | PF_BIT(PF_LP5) | PF_BIT(PF_LP7))             /* (snd2) on the sequencer (pfx.c), as the MIDI ones */
 #define PF_MIDI ((((1u << (PF_RND + 1)) - 1u) & ~((1u << PF_OCTD) - 1u)) & ~(PF_BIT(PF_WOB) | PF_BIT(PF_D16)))   /* PF_OCTD ..
                                                                * PF_RND, on the notes (pfx.c), less WOBBLE and DLY 1/16 */
-#define PF_NOTES (PF_MIDI | PF_LOOPS | PF_BIT(PF_LMAX))        /* pfx.c's, not perform's */
+#define PF_NOTES (PF_MIDI | PF_LOOPS | PF_BIT(PF_LMAX) | PF_BIT(PF_RING))   /* pfx.c's, not perform's (JIANT BYTE: F#4,
+                                                         * RING's key, is CAOS MAX: pfx.c) */
 _Static_assert(PF_N <= 32 && PF_OCTD == 5 && PF_RND == 14 && PF_GLT == 21 && PF_LP7 == 24, "PF bits: the lane, the scenes, the PUNCH push");
 #define PB_FRAMES SL_FR                       /* stereo frames in sl_buf (a power of 2: the mask), 371 ms at 22.05 kHz */
 _Static_assert(PB_FRAMES <= SL_FR && !(PB_FRAMES & (PB_FRAMES - 1u)), "the REPEAT loop in sl_buf");
@@ -992,7 +993,7 @@ static __attribute__((noinline)) void perf_block(int32_t *bl, int32_t *br, uint3
         bl[i] = l;
         br[i] = r;
     }
-    if ((pf.act & PF_BIT(PF_RING)) || pfw.rg) {    /* (V10.7.36, as perf_gfx: through a register) */
+    if (0) {                                         /* (JIANT BYTE: RING retired, its key CAOS MAX: pfx.c) */
         void (*f)(int32_t *, int32_t *, uint32_t) = perf_ring;
         FM1_OPAQUE(f);
         f(bl, br, n);

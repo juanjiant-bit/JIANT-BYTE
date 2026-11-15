@@ -3127,8 +3127,8 @@ static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (
     if (fx_bad)
         fx_trip(c1j, n);
     mc_mask_last = (uint8_t)c1m;
-    if (pfx_any || pfx_life.on)
-        pfx_end();                                      /* (DEC- / DEC+ back; LIFE MAX's) */
+    if (pfx_any || pfx_life.on || pfx_caos.on)
+        pfx_end();                                      /* (DEC- / DEC+ back; LIFE MAX's; JIANT BYTE: CAOS MAX's) */
     if (perf)
         perf_pre(mix_l, mix_r, sl_l, sl_r, send_d, send_r, n);   /* (THROW: the SLICER's bus too) */
     for (i = 0; i < n; i++) {                           /* (0.6.75) the buses' return and sides (the block before's sends); */

@@ -354,6 +354,14 @@ fuentes, porque el sonido es una función de `t`:
 - Falta: mutar y cruzar dos fórmulas desde la interfaz, el mismo generador para modificadores, efectos y mezcla, y
   editar el texto en el aparato.
 
+**Fase 8, primer paso: CAOS MAX** (`pfx.c`, la tecla F#4 del layer FX, que era RING):
+- Mientras se mantiene, todas las pistas de fórmula (MATH, WAVE) van a CAOS 127. Como LIFE MAX, se aplica bloque a
+  bloque y se repone al final de cada uno, así que nunca queda guardado: al soltar, cada pista vuelve a su CAOS.
+- `tests/byte_test.c` lo comprueba a través de la mezcla completa: suena como CAOS 127 (correlación ~0,97; no bit a bit
+  porque con una tecla del layer FX apretada su cadena corre, neutra pero sin saltearse) y el CAOS vuelve exacto.
+- Los punch-in de buffer (REVERSE, TAPE STOP, REPEAT, GLITCH, FREEZE) ya actúan sobre el audio de las pistas de
+  fórmula. Falta: punch-ins que deformen `t` directamente y los secuenciadores de fórmula.
+
 ## 6. Datos: proyectos y almacenamiento
 
 - **Identidad del paquete** (`FM-1_909`, `tools/build.py` `PRODUCT`): por ahora la misma que JIANT FM.

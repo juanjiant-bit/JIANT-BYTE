@@ -971,7 +971,7 @@ static uint32_t layer_leds(uint32_t *br)
  * the Felucca map.) The keys and knobs do what they did: only the drawing is new */
 static const char *const PF_NAME[PF_N] = {"RPT 1/8", "RPT 1/16", "RPT 1/32", "REVERSE", "TAPESTOP",   /* (perform.c PF_*) */
     "OCT-", "OCT+", "1/2 TEMPO", "WOBBLE", "DLY 1/16", "STUT 1/8", "STUT 1/16", "ATK+", "ARP", "RANDOM",   /* the MIDI ones (pfx.c) */
-    "PITCH UP", "PITCH DN", "FREEZE", "REV ALL", "DLY ALL", "RING", "GLITCH", "LOOP 3", "LOOP 5", "LOOP 7", "LIFE MAX",
+    "PITCH UP", "PITCH DN", "FREEZE", "REV ALL", "DLY ALL", "CAOS MAX", "GLITCH", "LOOP 3", "LOOP 5", "LOOP 7", "LIFE MAX",
     "COMB"};
 static const char W_NOTE[16] = {'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G'};
 static const char B_NOTE[11] = {'F', 'G', 'A', 'C', 'D', 'F', 'G', 'A', 'C', 'D', 'F'};   /* black keys 1..11: F# G# .. F#5 */

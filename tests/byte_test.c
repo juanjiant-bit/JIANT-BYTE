@@ -25,6 +25,16 @@ static void ok(int c, const char *fmt, ...)
         fails++;
 }
 
+static void perf_reset(void)                         /* (the FX layer idle, as tests/perform_test.c's) */
+{
+    uint32_t m;
+    memset(&pf, 0, sizeof pf);
+    pf.src = pf.next = PF_N;
+    pf.lc = PF_TOP;
+    for (m = 0; m < NTRK; m++) pf.mg[m] = 32768;
+    perf_held = perf_act = 0;
+    perf_kill = 0;
+}
 #define NS (FS * 2u)                                 /* two seconds */
 static double ya[NS], yb[NS];
 
@@ -168,6 +178,40 @@ int main(int argc, char **argv)
         render(3, 60, 127, 0, ya);
         ok(peak(ya, NS) <= 1.0 && rms(ya, NS) > 0.005, "FLOAT CAOS 127: bounded (peak %.3f), sounding (rms %.3f)",
            peak(ya, NS), rms(ya, NS));
+    }
+    {   /* (JIANT BYTE) the punch-in CAOS MAX (F#4, pfx.c): the mix as with CAOS 127 while held, CAOS back after */
+        enum { NB = 200u };
+        static int32_t ma[NB * 2u * CTL], mb[NB * 2u * CTL];
+        uint32_t pass, b;
+        for (pass = 0; pass < 2u; pass++) {
+            int32_t *m = pass ? mb : ma;
+            memset(trk, 0, sizeof trk);
+            host_tracks_init();
+            perf_reset();
+            host_preset(&trk[0], ENGI_LOFI, 2);      /* (BYTE BENT) */
+            trk[0].p[P_CAOS] = pass ? 0 : 127;
+            beat_pos = beat_n = bar_n = 0;
+            trk_note_on(&trk[0], 60, 100);
+            if (pass)
+                perf_press(PF_RING, 1);
+            for (b = 0; b < NB; b++)
+                mix_block(m + b * 2u * CTL, CTL);
+            if (pass)
+                perf_press(PF_RING, 0);
+        }
+        {   /* (the FX layer busy while a key is held: its chain runs, neutral but not skipped: the sound, not the bits) */
+            double ab = 0, aa = 0, bb = 0, c;
+            uint32_t i;
+            for (i = 0; i < NB * 2u * CTL; i++)
+                ab += (double)ma[i] * mb[i], aa += (double)ma[i] * ma[i], bb += (double)mb[i] * mb[i];
+            c = aa > 0 && bb > 0 ? ab / sqrt(aa * bb) : 0;
+            ok(c > 0.9, "CAOS MAX held: the mix as with CAOS 127 (correlation %.4f over %u blocks; ~0.97 alone)", c, NB);
+        }
+        {
+            static int32_t o[2u * CTL];
+            mix_block(o, CTL);
+            ok(trk[0].p[P_CAOS] == 0, "CAOS MAX let go: the part's CAOS back as it was (%d)", trk[0].p[P_CAOS]);
+        }
     }
     printf(fails ? "byte: %d FAILED\n" : "byte: all ok\n", fails);
     return fails != 0;
