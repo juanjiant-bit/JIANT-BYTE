@@ -325,13 +325,15 @@ Cada fase termina sonando y probada en el emulador web antes de pensar en flashe
 ## 10. Estado de la base (verificado el 2026-11-15)
 
 - V10.7.37 compila: imagen 583.424 B de 584.336 B; RAM `.data+.bss` 98.120 B de 98.304 B.
-- Suite completa: pasan las 219 renders de referencia bit a bit, la salud del audio, las voces, el CPU, el
-  almacenamiento, el backup, la interfaz, cada motor y el emulador (2,0 % del tiempo real).
-- Fallan 6 tests, los mismos en la estable V10.7.23. Son tests que quedaron atrás del firmware o problemas del
-  entorno, no defectos nuevos:
-  - el guardado de preset del emulador (la secuencia SAVE, OCT+, OCT+ cambió en V10.2);
-  - T4 en los stems del emulador;
-  - `tests/text_spacing_test.py`, que no lee el formato actual de las fuentes;
+- Suite completa (`tests/run_tests.sh`, con el emulador): pasan las 219 renders de referencia bit a bit, la salud del
+  audio, las voces, el almacenamiento, el backup, los proyectos, MIDI, USB, el instalador, la interfaz y cada motor.
+- Fallan 10 tests en la base V10.7.37, los mismos con la fase 0 (el renombre no agrega ninguno). Varios fallan igual
+  en la estable V10.7.23; son tests que quedaron atrás del firmware o del entorno:
+  - `text_spacing_test.py`, que no lee el formato actual de las fuentes;
+  - el render de la interfaz (también con `FELUCCA_FM4=1`): 51 avisos de diseño ya presentes en V10.7.36;
+  - dos de CPU (cpu5): cuatro pistas de una nota al 70..90 %, y fx-rest en la build de referencia `-DFX_REST_OFF`;
+  - el costo de los loops de render en el binario del chip (`tests/target_budget.py`);
   - el mapa de navegación de `docs/`, desactualizado;
-  - fx-rest, que falla solo en la build de referencia `-DFX_REST_OFF`;
-  - la app Android, que no compila sin red a Maven.
+  - la app Android (JIANT Stems), que no compila sin red a Maven;
+  - el emulador: el guardado de preset (la secuencia SAVE, OCT+, OCT+ cambió en V10.2) y T4 en sus stems.
+- JIANT BYTE no se juzga contra esta lista: a medida que las fases reemplazan partes, sus tests se reescriben.
