@@ -82,9 +82,17 @@ static __attribute__((noinline)) void dx_knob(const page_t *pg, uint32_t k, int3
         return;
     }
     if (pn == 3u) {                                     /* SOUND 3: MODE, the pitch modulation's type, DRIVE */
-        if (k == 1u)
-            L->mode = (uint8_t)((L->mode & 0xE0u) |
-                                (dx_mode_of((uint32_t)clamp((int32_t)dx_mode_ix(L->mode) + (s > 0 ? 1 : -1), 0, 31)) & 0x1Fu));
+        if (k == 1u) {                              /* MODE: the 32 of DRUM-X, then (JIANT BYTE) its formulas (dx_form) */
+            uint32_t ln = dx_ui_lane & 7u;
+            int32_t ix = dx_form[ln] ? 31 + (int32_t)dx_form[ln] : (int32_t)dx_mode_ix(L->mode);
+            ix = clamp(ix + (s > 0 ? 1 : -1), 0, 31 + (int32_t)DX_NFORM);
+            if (ix > 31) {
+                dx_form[ln] = (uint8_t)(ix - 31);
+            } else {
+                dx_form[ln] = 0;
+                L->mode = (uint8_t)((L->mode & 0xE0u) | (dx_mode_of((uint32_t)ix) & 0x1Fu));
+            }
+        }
         else if (k == 2u)
             L->mode = (uint8_t)((L->mode & ~0x60u) | (uint32_t)clamp((int32_t)((L->mode >> 5) & 3u) + (s > 0 ? 1 : -1), 0, 3) << 5);
         else
@@ -188,8 +196,15 @@ static void dx_cards(const page_t *pg)
     }
     if (pn == 3u) {                                     /* SOUND 3 */
         static const char *const PM[4] = {"DECAY", "LONG", "NOISE", "SINE"};
-        dx_mode_name(val, L->mode);
-        hot_gauge_column(1, "MODE", val, (int32_t)dx_mode_ix(L->mode) * 1000 / 31);
+        uint32_t fm = dx_form[dx_ui_lane & 7u];
+        if (fm) {                                       /* (JIANT BYTE) a formula lane: F and its name */
+            val[0] = 'F';
+            val[1] = ':';
+            str_cpy(val + 2, N_DXFORM[(fm - 1u) % DX_NFORM], sizeof val - 2u);
+        } else {
+            dx_mode_name(val, L->mode);
+        }
+        hot_gauge_column(1, "MODE", val, (fm ? 31 + (int32_t)fm : (int32_t)dx_mode_ix(L->mode)) * 1000 / (31 + (int32_t)DX_NFORM));
         hot_gauge_column(2, "PM.TYPE", PM[(L->mode >> 5) & 3u], (int32_t)((L->mode >> 5) & 3u) * 333);
         gauge_column(3, "DRIVE", L->mode & DX_DRIVE ? "ON" : "OFF", L->mode & DX_DRIVE ? VAL(3u) : T_DIM, L->mode & DX_DRIVE ? 1000 : 0);
         return;
@@ -217,7 +232,7 @@ static uint32_t dx_sig(void)
     h ^= (uint32_t)dx_mot[0] << 24 ^ (uint32_t)dx_mot[1] << 16 ^ (uint32_t)dx_mot[2] << 8 ^ dx_mot[3];   /* (X-MOD) */
     h = (h ^ (uint32_t)TSEL->p[P_DKEYMODE] << 24 ^ dx_tone ^ (uint32_t)dx_hands << 8 ^ (uint32_t)dx_glue << 12) * 2654435761u;   /* (TONE, HANDS, GLUE) */
     for (i = 0; i < DV_NLANE; i++)                      /* (0.6.48) the SENDs, (0.6.49) the LAYERs */
-        h = (h ^ dx_snd[i] ^ (uint32_t)dx_lay[i] << 8) * 16777619u;
+        h = (h ^ dx_snd[i] ^ (uint32_t)dx_lay[i] << 8 ^ (uint32_t)dx_form[i] << 16) * 16777619u;   /* (JIANT BYTE: FORM) */
     for (i = 0; i < DXP_N; i++)
         h = (h ^ (uint32_t)L->a[i] << 8 ^ L->b[i]) * 16777619u;
     return h;

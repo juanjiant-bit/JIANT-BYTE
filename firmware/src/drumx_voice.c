@@ -41,6 +41,8 @@ typedef struct {                                         /* a hit */
     uint8_t sv;                                          /* (V10.7.8) the hit's velocity (eng_drum.c; 0 a full one): GR's
                                                           * stroke, long or short (in the struct's padding) */
     uint16_t hpos, hsum, hseed;
+    uint32_t fturn;                                      /* (JIANT BYTE) a formula lane's whole turns since the hit (w) */
+    int32_t fst[2];                                      /* .. its formula's states (ph lp hp) */
     int16_t mo1;                                         /* (0.9.9-snd1) FEEDBK: the output a sample before mo (the mean
                                                           * of the two fed back; in the struct's padding) */                          /* (0.7.9) CLAP's HANDS: half-rate samples since the hit, the
                                                           * hands come in so far (Q12, over the hit's own), this hit's dice */
@@ -182,6 +184,53 @@ static dx_lane_t dx_kit[8] __attribute__((section(".data.dx_kit")));            
  * stays out of the harmony); high nibble FEEDBK, the sound's own oscillator fed back (on top of TONE's, the kit's) */
 static uint8_t dx_lay[8] __attribute__((section(".data.dx_lay")));                                /* (V10.6o: no initializer; the power-on and a project set it: the
                                                           * factory kit's, DX_LAY_DEF) */
+/* (JIANT BYTE, phase 4) a formula lane: dx_form[lane] 0 the oscillator as DRUM-X's, 1..DX_NFORM a formula of DX_FORMS for
+ * it (SOUND 3's MODE past its 32: ui_dx.c), its time from 0 at each hit: w the turns at the lane's pitch (PITCH, PMOD's
+ * sweep on it), t 32 a turn, T the seconds since the hit, A COLOR (0 .. 1), v the hit's velocity. The rest of the lane as
+ * ever: DECAY's envelope, the noise and its filter, MORPH between A and B, the SENDs, the group mutes. Stored in the
+ * project's 'D' 'F' block (project.c), 0 before. Each lane's program compiled when its formula changes (dx_fprog) */
+static const char *const DX_FORMS[] = {
+    "sin(w)",                                        /* SINE */
+    "sat(sin(w)*(1+A*15))",                          /* SAT: a sine driven */
+    "sin(w+sin(w*2)*A*3)",                           /* FM */
+    "sin(w)*sqr(w*1.4142)*sqr(w*1.8221)",            /* METAL: three ratios */
+    "fix(t*(t>>5|t>>8)&255)/128-1",                  /* BITS: a bytebeat at the pitch */
+    "fix((t^t>>3)&255)/128-1",                       /* XOR */
+    "rnd(floor(w*(64-A*60)))",                       /* NOISE: held a share of a turn, coarser with COLOR */
+    "sin(w/(1+T*16))",                               /* CHIRP: the pitch falling as it rings */
+    "sin(floor(w*4)/4+sin(w)*A)",                    /* STEP */
+    "sin(w)*rnd(floor(w*8))",                        /* RING: ringed with noise */
+    "sin(w)*(t>>9&1?1:A)",                           /* STUT: gated in time, COLOR the gap's level */
+    "sin(sin(w)*(2+A*6))",                           /* FOLD */
+    "floor(sin(w)*(2+A*14))/(2+A*14)",               /* CRUSH: a few levels */
+    "(sin(w)+sin(w*1.5))/2",                         /* TONE2: a fifth */
+    "rnd(fix(t))*sqr(w*3.7)",                        /* HAT: noise through a square */
+    "fix(t*(42&t>>10)&255)/128-1",                   /* BYTE: the classic, at the pitch */
+};
+static const char *const N_DXFORM[] = {"SINE", "SAT", "FM", "METAL", "BITS", "XOR", "NOISE", "CHIRP", "STEP", "RING",
+                                       "STUT", "FOLD", "CRUSH", "TONE2", "HAT", "BYTE"};
+#define DX_NFORM (sizeof DX_FORMS / sizeof DX_FORMS[0])
+_Static_assert(DX_NFORM == sizeof N_DXFORM / sizeof N_DXFORM[0], "DRUM-X: a name a formula");
+static uint8_t dx_form[8];                           /* (JIANT BYTE) 0, or 1 + the formula of DX_FORMS */
+static fvm_prog_t dx_fprg[8];
+static fvm_ins_t dx_fins[8][24];                     /* (a lane's formula: 24 instructions at most) */
+static uint8_t dx_fid[8];                            /* the formula compiled in dx_fprg (0: none yet) */
+static const fvm_prog_t *dx_fprog(uint32_t ln, lofi_work_t *w)
+{
+    uint32_t f = dx_form[ln & 7u];
+    fvm_prog_t *p = &dx_fprg[ln & 7u];
+    if (!p->ins)
+        fvm_prog_init(p, dx_fins[ln & 7u], 24u);
+    if (dx_fid[ln & 7u] != f) {
+        const char *s = f && f <= DX_NFORM ? DX_FORMS[f - 1u] : "0";
+        uint32_t n = 0;
+        while (s[n]) n++;
+        if (fvm_compile(&w->c, p, s, n, 0) || p->nstate > 2u)
+            p->n = 0;                                    /* (silent) */
+        dx_fid[ln & 7u] = (uint8_t)f;
+    }
+    return p;
+}
 #define DX_LAY_L(x) ((uint32_t)(x) & 15u)
 #define DX_LAY_FB(x) ((uint32_t)(x) >> 4)
 #define DX_TONE_BP(t) ((uint32_t)(t) & 15u)
@@ -281,6 +330,11 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
                                                           * rises from where it was over the block, its phases and
                                                           * filters as they were (a jump to 0 clicked: x35 a step) */
     if (v->trig) {                                       /* the hit: from the top */
+        v->fturn = 0;                                    /* (JIANT BYTE) a formula's time from 0 at each hit (its phase
+                                                          * too: the formula the same at every hit) */
+        v->fst[0] = v->fst[1] = 0;
+        if (dx_form[ln])
+            v->ph = 0;
         if (!v->live) {
             v->ph = v->ph2 = v->ph4 = 0;
             v->ic1 = v->ic2 = 0;
@@ -358,7 +412,35 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
     }
     inc = (int32_t)(v->inc >> 4) * 2;                    /* (>> 4: the step fits; x 2: half rate) */
     dinc = ((int32_t)(inc1 >> 4) * 2 - inc) / (int32_t)n;
-    if (og) {                                            /* the oscillator */
+    if (og && dx_form[ln]) {                             /* (JIANT BYTE) a formula lane: its formula for the oscillator */
+        uint32_t ph = v->ph, W[FVM_BLK], T[FVM_BLK], S[FVM_BLK], o[FVM_BLK], m = n > FVM_BLK ? FVM_BLK : n, nt = v->fturn;
+        lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
+        const fvm_prog_t *pg = dx_fprog(ln, wk);
+        fvm_env_t en = {{T, W, S, 0, 0}, {0}, v->fst};
+        en.u[FU_A] = (uint32_t)q[DXP_COLOR];
+        en.u[FU_AF] = (uint32_t)q[DXP_COLOR] * 516u;
+        en.u[FU_VEL] = v->sv ? v->sv : 127u;
+        for (i = 0; i < m; i++) {                        /* w: the turns since the hit at the pitch (its envelope on it),
+                                                          * t 32 a turn, T the seconds (half-rate samples since the hit) */
+            uint32_t p2 = ph + ((uint32_t)inc << 4);
+            W[i] = nt << 16 | ph >> 16;
+            T[i] = W[i] >> 11;
+            S[i] = (uint32_t)(((uint64_t)(sp + i) * 194783u) >> 16);
+            nt += p2 < ph;
+            ph = p2;
+            inc += dinc;
+        }
+        fvm_run(pg, &en, &wk->s, m, o);
+        for (i = 0; i < m; i++, ga += dga) {
+            int32_t s = ((int32_t)o[i] >> 1) * 3 >> 2;      /* (x 3/4: a formula's wave fuller than the sine the lane's
+                                                          * level was made for) */
+            y[i] = mulq15(s > 32767 ? 32767 : s < -32767 ? -32767 : s, ga >> 8);
+        }
+        for (; i < n; i++)
+            y[i] = 0;
+        v->ph = ph;
+        v->fturn = nt;
+    } else if (og) {                                     /* the oscillator */
         uint32_t ph = v->ph;
         int32_t fold = clamp(warp, 0, 127);
         fm = clamp(fm, 0, 127);

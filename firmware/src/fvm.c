@@ -31,7 +31,7 @@
 #define FVM_MAXINS 64u           /* instructions a program */
 #define FVM_DEPTH 12u            /* its stack (blocks of FVM_BLK) */
 #define FVM_MAXSTATE 8u          /* calls with a state of their own (ph lp hp) */
-#define FVM_POOL 64u             /* bytes of string tables */
+#define FVM_POOL 32u             /* bytes of string tables (the same string once: fvm_primary) */
 #define FVM_MAXNODE 160u         /* the compiler's tree */
 #define FVM_PH_K ((uint32_t)(0x100000000ull / FS))   /* ph(): a turn (2^32) over the sample rate */
 
@@ -47,13 +47,24 @@ typedef struct {
 } fvm_ins_t;
 enum { FM_STK, FM_IMM, FM_UNI, FM_ARR };
 
+/* a program: its instructions in the caller's storage (ins, cap of them: a part's MATH formula 64, a drum lane's 24),
+ * so a short formula costs only its own room */
 typedef struct {
-    fvm_ins_t ins[FVM_MAXINS];
-    uint8_t n, depth, nstate, ty;   /* ty: the result's type */
+    fvm_ins_t *ins;
+    uint8_t cap, n, depth, nstate, ty;   /* ty: the result's type */
     uint8_t uses;                /* the per-sample variables it reads (1 << FA_..): the host makes only those */
     uint8_t npool;
     uint8_t pool[FVM_POOL];
 } fvm_prog_t;
+static inline void fvm_prog_init(fvm_prog_t *p, fvm_ins_t *ins, uint32_t cap)
+{
+    p->ins = ins;
+    p->cap = (uint8_t)(cap > FVM_MAXINS ? FVM_MAXINS : cap);
+    p->n = 0;
+}
+/* a program with room for the longest */
+typedef struct { fvm_prog_t p; fvm_ins_t ins[FVM_MAXINS]; } fvm_full_t;
+#define FVM_FULL(x) (fvm_prog_init(&(x)->p, (x)->ins, FVM_MAXINS), &(x)->p)
 
 typedef struct {
     const uint32_t *arr[FA_N];   /* per sample (only those in prog.uses need to be there) */
@@ -467,7 +478,7 @@ static uint32_t fvm_primary(fvm_cc_t *c)
         return k;
     }
     if (ch == '"' || ch == '\'') {                   /* a string as a table: "..."[i] */
-        uint32_t q = ch, st = c->p->npool, len = 0, ix;
+        uint32_t q = ch, st = c->p->npool, len = 0, ix, k0;
         c->i++;
         while (c->i < c->len && (uint8_t)c->s[c->i] != q) {
             if (c->p->npool >= FVM_POOL) {
@@ -482,6 +493,15 @@ static uint32_t fvm_primary(fvm_cc_t *c)
             return 0u;
         }
         c->i++;
+        for (k0 = 0; k0 + len <= st; k0++) {         /* (the same string once: its earlier copy, the new one dropped) */
+            uint32_t j = 0;
+            while (j < len && c->p->pool[k0 + j] == c->p->pool[st + j]) j++;
+            if (j == len) {
+                c->p->npool = (uint8_t)st;
+                st = k0;
+                break;
+            }
+        }
         if (!fvm_eat(c, "[")) {
             fvm_fail(c, FE_SYNTAX);
             return 0u;
@@ -625,7 +645,7 @@ static uint32_t fvm_expr(fvm_cc_t *c)
 static void fvm_emit(fvm_cc_t *c, uint32_t op, uint32_t md, uint32_t k, uint32_t sl)
 {
     fvm_ins_t *in;
-    if (c->p->n >= FVM_MAXINS) {
+    if (c->p->n >= c->p->cap) {
         fvm_fail(c, FE_LONG);
         return;
     }
@@ -736,8 +756,11 @@ static void fvm_gen(fvm_cc_t *c, uint32_t x)
 /* compile src (len bytes) into p; FE_OK (0) or the error, its place in e */
 static uint32_t fvm_compile(fvm_cc_t *c, fvm_prog_t *p, const char *src, uint32_t len, fvm_err_t *e)
 {
-    uint32_t root;
+    uint32_t root, cap = p->cap;
+    fvm_ins_t *ins = p->ins;
     memset(p, 0, sizeof *p);
+    p->ins = ins;
+    p->cap = (uint8_t)(ins ? cap : 0u);
     c->s = src;
     c->i = 0;
     c->len = len;
@@ -765,6 +788,8 @@ static uint32_t fvm_compile(fvm_cc_t *c, fvm_prog_t *p, const char *src, uint32_
         *e = c->err;
     if (c->err.code) {
         memset(p, 0, sizeof *p);
+        p->ins = ins;
+        p->cap = (uint8_t)(ins ? cap : 0u);
         return c->err.code;
     }
     p->depth = (uint8_t)c->maxsp;

@@ -236,7 +236,14 @@ static __attribute__((noinline)) int32_t lofi_float(uint32_t f, uint32_t t, uint
 typedef union { fvm_scratch_t s; fvm_cc_t c; } lofi_work_t;
 static lofi_work_t lofi_work[2];                     /* one a core (MC_CPU) */
 static fvm_prog_t lofi_prg[NTRK];
+static fvm_ins_t lofi_ins[NTRK][FVM_MAXINS];         /* (its instructions: a part's formula the longest, 64) */
 static uint16_t lofi_prg_id[NTRK];                   /* 1 + 64 x FLOAT + ALGO / 4 (0: none yet) */
+static fvm_prog_t *lofi_slot(uint32_t tr)            /* a part's program, its storage given once */
+{
+    if (!lofi_prg[tr].ins)
+        fvm_prog_init(&lofi_prg[tr], lofi_ins[tr], FVM_MAXINS);
+    return &lofi_prg[tr];
+}
 #include "fvm_bank.c"
 #define LOFI_N 64u                                   /* a render's samples at most (CTL); the FVM runs FVM_BLK at once */
 _Static_assert(CTL <= LOFI_N, "MATH: a render longer than its arrays");
@@ -290,8 +297,8 @@ static const fvm_prog_t *lofi_prog(const track_t *t, lofi_work_t *w, uint32_t fl
         const char *s = flt ? FVM_FLOAT_BANK[f % FVM_NFLOAT] : FVM_BYTE_BANK[f % FVM_NBYTE];
         uint32_t n = 0;
         while (s[n]) n++;
-        if (fvm_compile(&w->c, &lofi_prg[tr], s, n, 0) || lofi_prg[tr].nstate > LOFI_NSTATE)
-            memset(&lofi_prg[tr], 0, sizeof lofi_prg[tr]);
+        if (fvm_compile(&w->c, lofi_slot(tr), s, n, 0) || lofi_prg[tr].nstate > LOFI_NSTATE)
+            lofi_prg[tr].n = 0;                      /* (silent) */
         lofi_prg_id[tr] = (uint16_t)id;
     }
     return &lofi_prg[tr];

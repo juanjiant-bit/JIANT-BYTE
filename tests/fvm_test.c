@@ -34,8 +34,12 @@ static fvm_cc_t cc;
 static fvm_scratch_t scr;
 static int32_t st[FVM_MAXSTATE];
 
+static fvm_ins_t ins_pool[128][FVM_MAXINS];         /* (the programs' storage: fvm_prog_t points at it) */
+static uint32_t ins_used;
 static int comp(fvm_prog_t *p, const char *s, fvm_err_t *e)
 {
+    if (!p->ins && ins_used < 128u)
+        fvm_prog_init(p, ins_pool[ins_used++], FVM_MAXINS);
     return (int)fvm_compile(&cc, p, s, (uint32_t)strlen(s), e);
 }
 /* one value of a formula at t (a block of one), the variables given */
@@ -60,7 +64,7 @@ static uint32_t eval1(const char *s, uint32_t t, uint32_t a, uint32_t *ty)
 static void test_language(void)
 {
     uint32_t ty, t;
-    fvm_prog_t p;
+    fvm_prog_t p = {0};
     fvm_err_t e;
     int good = 1;
     /* precedence and C's unsigned arithmetic, against the compiler's own C */

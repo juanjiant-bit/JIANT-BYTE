@@ -39,6 +39,7 @@ _Static_assert(WAVE_NF == 16u && sizeof N_WAVEF / sizeof N_WAVEF[0] == WAVE_NF +
 static const char *const N_WARP[] = {"OFF", "SYNC", "BEND", "MIRROR", "QUANT", "FM", 0};
 enum { WW_OFF, WW_SYNC, WW_BEND, WW_MIRROR, WW_QUANT, WW_FM };
 static fvm_prog_t wave_prg_b[NTRK];                  /* B's program a part (A's: lofi_prg) */
+static fvm_ins_t wave_ins_b[NTRK][32];               /* (its instructions: the bank's longest fits in 32) */
 static uint16_t wave_id_b[NTRK];
 
 static const fvm_prog_t *wave_prog(fvm_prog_t *pg, uint16_t *id, uint32_t f, lofi_work_t *w)
@@ -49,7 +50,7 @@ static const fvm_prog_t *wave_prog(fvm_prog_t *pg, uint16_t *id, uint32_t f, lof
         uint32_t n = 0;
         while (s[n]) n++;
         if (fvm_compile(&w->c, pg, s, n, 0) || pg->nstate > 1u)
-            memset(pg, 0, sizeof *pg);
+            pg->n = 0;                               /* (silent) */
         *id = (uint16_t)want;
     }
     return pg;
@@ -100,7 +101,9 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     fvm_env_t ea = {{T, W, 0, 0, 0}, {0}, &v->s[6]}, eb = {{T, W, 0, 0, 0}, {0}, &v->s[7]};
     if (n > LOFI_N)
         n = LOFI_N;
-    pa = lofi_prg_id[tr] == 0x100u + fa ? &lofi_prg[tr] : wave_prog(&lofi_prg[tr], &lofi_prg_id[tr], fa, wk);
+    if (!wave_prg_b[tr].ins)
+        fvm_prog_init(&wave_prg_b[tr], wave_ins_b[tr], 32u);
+    pa = wave_prog(lofi_slot(tr), &lofi_prg_id[tr], fa, wk);
     pb = need_b ? wave_prog(&wave_prg_b[tr], &wave_id_b[tr], fb, wk) : 0;
     for (i = 0; i < n; i++) {
         uint32_t tt = (uint32_t)v->s[2] + i, ps = (uint32_t)pos;

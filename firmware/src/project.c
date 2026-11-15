@@ -120,6 +120,7 @@ typedef struct {
                                                 * block, 0 before */
     uint8_t dx_snd[8];                         /* (0.6.48) its sounds' SENDs (eng_drum.c): FUNC's 'D' 'S' block, 0 before */
     uint8_t dx_lay[8];                         /* (0.6.49) its sounds' LAYER, FEEDBK (drumx_voice.c): 'D' 'L', 0 before */
+    uint8_t dx_form[8];                        /* (JIANT BYTE) its sounds' formulas (drumx_voice.c dx_form): 'D' 'F', 0 before */
     uint8_t fugue[NTRK][3][2];                 /* (0.6.52) SEQ > FUGUE's heads (fugue.c): RATE | DIR << 4, INTERVAL (int8);
                                                 * FUNC's 'F' 'G' block, none before */
     uint8_t pfx_lane[32], pfx_ltgt;            /* the punch-in lane (pfx.c), in FUN9's spare bytes (PROJ_PFX_OFF) */
@@ -666,6 +667,8 @@ static uint32_t proj_packed_size(const project_t *q)
         if (q->dx_snd[i]) { n += 2u + sizeof q->dx_snd; break; }
     for (i = 0; i < sizeof q->dx_lay; i++)              /* (0.6.49) the LAYERs' */
         if (q->dx_lay[i]) { n += 2u + sizeof q->dx_lay; break; }
+    for (i = 0; i < sizeof q->dx_form; i++)             /* (JIANT BYTE) the formulas' */
+        if (q->dx_form[i]) { n += 2u + sizeof q->dx_form; break; }
     if (proj_fg_used(q))                                /* (0.6.52) FUGUE's */
         n += 2u + sizeof q->fugue;
     for (t = 0; t < NTRK; t++)                          /* (0.8.5) the lyrics' */
@@ -795,6 +798,13 @@ static int proj_pack(project_store_t *out, const project_t *q)
         b[pos++] = 'D'; b[pos++] = 'L';
         memcpy(b + pos, q->dx_lay, sizeof q->dx_lay);
         pos += sizeof q->dx_lay;
+    }
+    for (i = 0; i < sizeof q->dx_form && !q->dx_form[i]; i++)
+        ;
+    if (i < sizeof q->dx_form) {                        /* (JIANT BYTE) the kit's formula lanes */
+        b[pos++] = 'D'; b[pos++] = 'F';
+        memcpy(b + pos, q->dx_form, sizeof q->dx_form);
+        pos += sizeof q->dx_form;
     }
     if (proj_fg_used(q)) {                              /* (0.6.52) FUGUE's heads */
         b[pos++] = 'F'; b[pos++] = 'G';
@@ -1084,6 +1094,14 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
     if (pos + 2u + sizeof q->dx_lay <= room && b[pos] == 'D' && b[pos + 1u] == 'L') {   /* (0.6.49) its LAYERs */
         memcpy(q->dx_lay, b + pos + 2u, sizeof q->dx_lay);
         pos += 2u + sizeof q->dx_lay;
+    }
+    memset(q->dx_form, 0, sizeof q->dx_form);
+    if (pos + 2u + sizeof q->dx_form <= room && b[pos] == 'D' && b[pos + 1u] == 'F') {   /* (JIANT BYTE) its formulas */
+        uint32_t k;
+        memcpy(q->dx_form, b + pos + 2u, sizeof q->dx_form);
+        for (k = 0; k < sizeof q->dx_form; k++)
+            if (q->dx_form[k] > DX_NFORM) q->dx_form[k] = 0;
+        pos += 2u + sizeof q->dx_form;
     }
     memset(q->fugue, 0, sizeof q->fugue);
     if (pos + 2u + sizeof q->fugue <= room && b[pos] == 'F' && b[pos + 1u] == 'G') {   /* (0.6.52) FUGUE's heads */
@@ -1400,6 +1418,7 @@ static void project_capture(project_t *p)
     p->dx_hands = (uint8_t)(dx_hands | dx_glue << 4);   /* (0.7.9; snd1: GLUE) */
     memcpy(p->dx_snd, dx_snd, sizeof p->dx_snd);        /* (0.6.48) */
     memcpy(p->dx_lay, dx_lay, sizeof p->dx_lay);        /* (0.6.49) */
+    memcpy(p->dx_form, dx_form, sizeof p->dx_form);     /* (JIANT BYTE) */
     {                                                   /* (0.6.52) FUGUE */
         uint32_t a, h;
         for (a = 0; a < NTRK; a++)
@@ -1566,6 +1585,7 @@ static void sound_put(project_t *p, uint32_t k)
         dx_glue = p->dx_hands >> 4;
         memcpy(dx_snd, p->dx_snd, sizeof dx_snd);
         memcpy(dx_lay, p->dx_lay, sizeof dx_lay);
+        memcpy(dx_form, p->dx_form, sizeof dx_form);
     }
     fm1_irq_on();
     if (t == TSEL)
@@ -1633,6 +1653,7 @@ static int project_restore_runtime(const project_t *input)
     dx_glue = p->dx_hands >> 4;                         /* (snd1: its GLUE) */
     memcpy(dx_snd, p->dx_snd, sizeof dx_snd);           /* (0.6.48: its SENDs) */
     memcpy(dx_lay, p->dx_lay, sizeof dx_lay);           /* (0.6.49: its LAYERs) */
+    memcpy(dx_form, p->dx_form, sizeof dx_form);        /* (JIANT BYTE: its formula lanes) */
     fg_load(p);                                         /* (0.6.52: its FUGUE) */
     memcpy(pfx_lane, p->pfx_lane, sizeof pfx_lane);    /* (the section's punch-in lane) */
     pfx_ltgt = p->pfx_ltgt > 2u ? 0u : p->pfx_ltgt;
@@ -1761,6 +1782,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     dx_glue = 0;
     memset(dx_snd, 0, sizeof dx_snd);
     memcpy(dx_lay, DX_LAY_DEF, sizeof dx_lay);
+    memset(dx_form, 0, sizeof dx_form);                 /* (JIANT BYTE) no formula lane */
     memset(fg_set, 0, sizeof fg_set);                   /* (0.6.52) no FUGUE */
     live_reset();                                       /* (p2) no LIVE modifier (seq_live.c) */
     dx_mute_set(0);

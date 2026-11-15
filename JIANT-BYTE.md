@@ -321,6 +321,20 @@ fuentes, porque el sonido es una función de `t`:
   32 KB y quedan ~3 KB libres). Por eso faltan CAPTURA (grabar un floatbeat en la tabla) y las copias por octava contra
   el aliasing: vuelven cuando la fase 7 libere las líneas de los efectos fijos (decenas de KB en el pool).
 
+**Fase 4, hecha en su primera forma** (DRUM-X con lanes de fórmula, `firmware/src/drumx_voice.c`):
+- Cada lane puede ser una fórmula (`dx_form`): en EDIT > SOUND 3, la perilla MODE sigue después de sus 32 modos con 16
+  fórmulas de batería (SINE SAT FM METAL BITS XOR NOISE CHIRP STEP RING STUT FOLD CRUSH TONE2 HAT BYTE).
+- La fórmula reemplaza al oscilador afinado y el resto del lane sigue siendo DRUM-X: la envolvente de DECAY, el ruido y
+  su filtro, el MORPH A↔B (que mueve PITCH y COLOR), los SENDs y los mutes por grupo. En la fórmula, `w` son las vueltas
+  desde el golpe a la altura del lane (con el barrido de PMOD), `t` 32 por vuelta, `T` los segundos desde el golpe y
+  `A` el COLOR. El tiempo arranca de 0 en cada golpe (dos golpes suenan idénticos).
+- Se guarda en el proyecto, en un bloque `'D' 'F'` nuevo (0 si no hay ninguno), como los SENDs y los LAYERs.
+- Cada lane tiene su programa de hasta 24 instrucciones: un programa ya no reserva 64 (`fvm_prog_t` apunta a su propio
+  espacio), y una tabla de texto repetida se guarda una sola vez.
+- `tests/dxform_test.c`: las 16 fórmulas compilan, suenan acotadas y distintas del oscilador, `t` vuelve a 0 en cada
+  golpe, DECAY sigue mandando, y el kit con sus fórmulas va y vuelve por el proyecto.
+- Quedan 2,7 KB de flash y 2,5 KB de RAM: lo próximo es sacar más motores de JIANT FM.
+
 ## 6. Datos: proyectos y almacenamiento
 
 - **Identidad del paquete** (`FM-1_909`, `tools/build.py` `PRODUCT`): por ahora la misma que JIANT FM.

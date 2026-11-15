@@ -94,9 +94,11 @@ int main(int argc, char **argv)
 {
     static fvm_cc_t cc;
     static fvm_prog_t pg;
+    static fvm_ins_t pgi[FVM_MAXINS];
     uint32_t f, bad = 0, pi;
     (void)argc;
     (void)argv;
+    fvm_prog_init(&pg, pgi, FVM_MAXINS);
     for (f = 0; f < WAVE_NF; f++) {
         fvm_err_t er;
         const char *s = WAVE_BANK[f];
