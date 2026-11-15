@@ -399,6 +399,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fvm_test" tests/fvm_test.c -lm
     run "FVM (JIANT BYTE): the formula language, MATH's 48 bytebeats bit for bit, its 48 floatbeats in FIX, the clock (KEY LIBRE ALTURA FIJO), the cost" \
         env FVM_NO_COST=1 "$OUT/fvm_test"
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/byte_test" tests/byte_test.c -lm
+    run "MATH through the FVM (JIANT BYTE): CAOS 0 as written, CAOS up another sound and bounded, KEY FIJO / ALTURA / LIBRE" "$OUT/byte_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/regress" tests/regress.c -lm
     run "regression: golden renders, health, voices, CPU budget" "$OUT/regress" tests/golden.txt tests/cpu_baseline.txt
     # (V10.7.34) LIFE 0: every golden render of before LIFE bit for bit (tests/golden_life0.txt, never rewritten)

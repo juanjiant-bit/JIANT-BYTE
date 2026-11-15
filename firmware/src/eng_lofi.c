@@ -255,6 +255,34 @@ static void lofi_run(const fvm_prog_t *pg, fvm_env_t *en, lofi_work_t *wk, uint3
     for (k = 0; k < FA_N; k++)
         en->arr[k] = a0[k];
 }
+/* (JIANT BYTE) KEY (P_KEY): what the keys do to the formula's time. LIBRE: MATH's (the note's speed, MOTION's slow
+ * bits); ALTURA (ALT5 .. ALT19: SPLIT 5 .. 19): the bits above SPLIT from the song's position (lofi_sync: the rhythm and the phrase in time with the
+ * bar, the same whatever the key), those below the note's (its timbre, its pitch); FIJO: every bit the song's (the
+ * keys only start it). tq: the song's t at the sample */
+enum { LK_LIBRE, LK_ALTURA, LK_FIJO };
+static inline uint32_t lofi_key(uint32_t key, uint32_t te, uint32_t tq, uint32_t m)
+{
+    return key == LK_ALTURA ? (tq & ~m) | (te & m) : key == LK_FIJO ? tq : te;
+}
+/* (JIANT BYTE) CAOS (P_CAOS 0..127): 0 the formula's time as written (MATH's, bit for bit). Up from there the time is
+ * cut in stretches of 2048 steps, each its own hash: a share of them (c / 128) folded (t ^ t >> k, deeper as it rises:
+ * k 2 .. 11 at the start, 2 .. 4 at the top), from 48 jumps (a stretch moved by its hash, more of them and further), from
+ * 96 the output back into the time (fb: the voice's last sample, the block's start). A gradual control: a little CAOS a
+ * few stretches bent, all of it nothing as written */
+static inline uint32_t lofi_caos(uint32_t t, uint32_t c, int32_t fb)
+{
+    uint32_t h;
+    if (!c)
+        return t;
+    h = fvm_hash(t >> 11);
+    if ((h & 127u) < c)
+        t ^= t >> (2u + (h >> 8) % (10u - c / 16u));
+    if (c >= 48u && ((h >> 16) & 127u) < (c - 48u) * 3u / 2u)
+        t += h >> (24u - c / 16u);
+    if (c >= 96u)
+        t += (uint32_t)((fb >> 6) * (int32_t)(c - 95u));
+    return t;
+}
 static const fvm_prog_t *lofi_prog(const track_t *t, lofi_work_t *w, uint32_t flt, uint32_t f)
 {
     uint32_t tr = (uint32_t)(t - trk) % NTRK, id = 1u + (flt ? 64u : 0u) + f;
@@ -305,6 +333,10 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
     lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
     const fvm_prog_t *pg = lofi_prog(t, wk, 0, f);
     uint32_t tws[LOFI_N], vals[LOFI_N], ne = 0, k = 0;
+    uint32_t kv = (uint32_t)clamp(p[P_KEY], 0, 16), caos = (uint32_t)clamp(p[P_CAOS], 0, 127), qr = 0, qb;
+    uint32_t key = kv == 0u ? LK_LIBRE : kv > LK_NALT ? LK_FIJO : LK_ALTURA, qm = (1u << (4u + kv)) - 1u;
+    int32_t fb0 = held;
+    qb = key ? lofi_sync(&qr) : 0u;                     /* (KEY ALTURA / FIJO: the song's t) */
     hold *= 1 + (p[P_E5] >> 3);                         /* (0.5.4) GRIT: each sample held up to 16 x longer */
     if (n > LOFI_N)
         n = LOFI_N;
@@ -318,8 +350,9 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
                     cts = (sb + ((i * sr) >> 16)) * mul;
                 te = mul == 256u && !sy ? ctt : (ctt & 255u) | ((cts >> 8) & ~255u);   /* (MOTN: the slow bits at
                                                          * their own speed; 64: t as written) */
+                te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
                 tl = lofi_mut((te & lm) + t0, var);      /* (VAR: mutated) */
-                tws[ne++] = bs ? tl ^ (tl >> bs) : tl;
+                tws[ne++] = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
                 cc = hold;
             }
             ctf += ti;
@@ -387,6 +420,10 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
     const fvm_prog_t *pg = lofi_prog(t, wk, 1, f);
     uint32_t T[LOFI_N], W[LOFI_N], vals[LOFI_N];
+    uint32_t kv = (uint32_t)clamp(p[P_KEY], 0, 16), caos = (uint32_t)clamp(p[P_CAOS], 0, 127), qr = 0;
+    uint32_t key = kv == 0u ? LK_LIBRE : kv > LK_NALT ? LK_FIJO : LK_ALTURA, qm = (1u << (4u + kv)) - 1u;
+    uint32_t qb = key ? lofi_sync(&qr) : 0u;
+    int32_t fb0 = fb;
     fvm_env_t en = {{T, W, 0, 0, 0}, {0}, &v->s[6]};
     en.u[FU_NOTE] = v->note;
     en.u[FU_VEL] = v->vel;
@@ -399,8 +436,9 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
             if (sy)
                 cts = (sb + ((i * sr) >> 16)) * mul;
             te = mul == 256u && !sy ? ctt : (ctt & 255u) | ((cts >> 8) & ~255u);
+            te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
             tl = lofi_mut(te & lm, var);
-            tw = bs ? tl ^ (tl >> bs) : tl;
+            tw = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
             T[i] = tw;
             W[i] = (tw << 8 | ctf >> 16) << 3;           /* (the note's phase: MATH's x, in turns) */
             ctf += ti;
@@ -416,8 +454,9 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
         if (sy)                                          /* (p6 SYNC: the slow bits at the bar's position) */
             ts = (sb + ((i * sr) >> 16)) * mul;
         te = mul == 256u && !sy ? tt : (tt & 255u) | ((ts >> 8) & ~255u);
+        te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
         tl = lofi_mut(te & lm, var);
-        tw = bs ? tl ^ (tl >> bs) : tl;
+        tw = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
         if (fbk) {                                        /* FBK: the last output moves t, up to +-16 t (half a turn of
                                                          * the sines, Q8): the formula modulates itself, FM-like; the
                                                          * output of a sample feeds the next: one sample a run */

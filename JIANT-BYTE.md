@@ -167,6 +167,28 @@ La reverb larga es el caso más caro: escrita como fórmula puede no entrar en C
 - Compila para el chip (clang 4.0.1 de JieLi, `__divdi3` está en su `compiler-rt`); sin usar, no ocupa flash.
 - Fuzz: 200.000 textos al azar no rompen el compilador, y un texto rechazado deja un programa vacío.
 
+**Fase 2, hecha en parte** (rama `phase2-engines`):
+- **Salen WHEEL, ADD y la síntesis de FM6.** Sus números (7, 13, 12) suenan como MATH (`engines.c` `ENG_LIVE`,
+  `eng_idx`, `ui.c` `trk_eng`): un sonido de un patrón o de GEN nunca queda mudo y no se abre una página de un motor que
+  ya no está. De FM6 quedan sus patches, por los almacenamientos. Flash: de 908 B a 19.824 B libres; RAM `.bss`: de
+  98.120 B a 84.008 B.
+- **MATH suena a través de la FVM.** BYTE y FLOAT leen su fórmula de `fvm_bank.c`, compilada por pista cuando cambia
+  WAVE o ALGO. BYTE es bit a bit el de antes (sus renders de referencia no cambian); FLOAT, con sus fórmulas en FIX,
+  cambia apenas (7 presets y 2 mezclas, rehechas en `tests/golden.txt`). Costo: valgrind +4..15 % en las secciones con
+  MATH; en el chip, el loop de `lofi_byte_render` 205 (antes 180). La FVM y el banco cuestan 11 KB de flash y 7 KB de RAM.
+- **CAOS y KEY** (`P_CAOS`, `P_KEY`, en los dos parámetros que dejó el ROTOR de WHEEL; página EDIT > CAOS en MATH):
+  - CAOS 0 es la fórmula tal cual. Al subir, una parte creciente de los tramos de tiempo se pliega, desde 48 aparecen
+    saltos y desde 96 la salida vuelve al tiempo.
+  - KEY: LIBRE (como MATH), ALT5..ALT19 (ALTURA con su SPLIT: los bits de `t` desde ese en adelante vienen de la canción,
+    el ritmo queda fijo y la tecla cambia la altura) y FIJO (la tecla solo dispara).
+  - `tests/byte_test.c` lo comprueba sonando: con FIJO, C4 y G4 suenan idénticos; con ALT9, el ritmo coincide y la altura
+    es la de la tecla (x1,43 de C4 a G4).
+- **Falta en esta fase**: sacar ANALOG, PHASE, VOICE, STRING, WEST, ANIMAL y EXT, y reescribir los tests que prueban lo
+  retirado. Hoy fallan, además de los 10 de la base: DIGITAL→FM6 y la UI con `FELUCCA_FM4=1`; GEN (volumen de los
+  géneros); la UI (páginas de FM6, LOAD LITE/ECO con "FM6 dos voces", la lista de presets); CC74/CC71 sobre FM6 y WHEEL;
+  DJ FILTER y MICRO "bit a bit como 0.9.0" y TRACKS (sus canciones de referencia tienen pistas de FM6 o WHEEL); la
+  animación bajo carga; KEY SPLIT por MIDI.
+
 ## 5. Lo que se construye sobre la FVM
 
 **Motores:**

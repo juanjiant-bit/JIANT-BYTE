@@ -212,6 +212,12 @@ enum {                          /* per-track parameters */
 #define P_DRIFT P_FM3_SUS              /* EDIT > MORPH KNOB 2: each voice's pitch (and filter) wandering slowly, its own way */
 #define P_WDUST P_FM3_LEVEL            /* WHEEL's EDIT > ROTOR: an old organ's crackle and hiss */
 #define P_WRDEP P_FM4_SUS              /* .. the rotor's depth (the Leslie's swirl), 100 % as before */
+/* (JIANT BYTE) WHEEL retired: its ROTOR's two are MATH's CAOS (0 the formula as written .. 127 the wildest) and KEY (what
+ * the keys do to the formula's time: 0 LIBRE, 1..15 ALTURA with t's bits from 5..19 up the song's, 16 FIJO;
+ * eng_lofi.c), stored and automated as they were (an INPUT track keeps them as SWARM's, eng_input.c SW_SLOT) */
+#define P_CAOS P_WRDEP
+#define P_KEY P_WDUST
+#define LK_NALT 15u                            /* KEY: the ALTURA values (SPLIT 5 .. 19) */
 #define P_ELOOP P_ED_FX                /* (JIANT 0.4) ENV LOOP: OFF / ON (voice.c env_tick) */
 /* (JIANT 0.8.5) VOICE's words (sing.c), EDIT > WORDS, in slots of other engines' (0 there in every project and preset
  * before, on a VOICE track: OFF, TEXT): LANG OFF ES EN JA in LOFI's RTRG slot, LYRIC (TEXT, W1..W16, S1..S8) in DRUM's

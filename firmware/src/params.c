@@ -52,6 +52,8 @@ static const char *const N_PFXRES[] = {"1/8", "1/16", "1/32"};     /* (0.6.99) F
 static const char *const N_QUANT[] = {"OFF", "SNAP", "WHITE", "SEQ"};
 static const char *const N_DTYPE[] = {"SOFT", "HARD", "FOLD", "RECT", "AMP"};   /* (JIANT) fx.c DT_*; 0.7.8 AMP; (V10.7.33)
                                                          * CRUSH its own: EDIT > VOICES 3 (a project's migrates: project.c) */
+static const char *const N_KEY[] = {"LIBRE", "ALT5", "ALT6", "ALT7", "ALT8", "ALT9", "ALT10", "ALT11", "ALT12", "ALT13",
+                                   "ALT14", "ALT15", "ALT16", "ALT17", "ALT18", "ALT19", "FIJO", 0};   /* (JIANT BYTE) P_KEY */
 static const char *const N_FTYPE[] = {"LP", "HP", "BP", "COMB", "COMB-", "LP24", "LP24"};   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_*
                                                          * (0.9.9-snd1: COMB- the negative comb, MS20) */
 static const char *const N_VOICE[] = {"POLY", "MONO", "LEG", "UNI", "DRONE"};   /* V_POLY .. V_DRONE (append only) */
@@ -163,6 +165,9 @@ static const param_desc_t TP[P_COUNT] = {
                 [P_FM##k##_REL] = PD("REL", F_TIME, 0, 127, 0), \
                 [P_FM##k##_LEVEL] = PD("LEVEL", F_PCT, 0, 127, 127)
     FMOP(1), FMOP(2), FMOP(3), FMOP(4),
+    [P_CAOS] = PD("CAOS", F_PCT, 0, 127, 0),      /* (JIANT BYTE) WHEEL's ROTOR's two (127 before, its 100 %): MATH's CAOS and */
+    [P_KEY] = PD("KEY", F_INT, 0, 16, 0),         /* KEY start at 0 (the formula as written, LIBRE); MATH_CAOS shows them */
+
 #undef FMOP
     [P_SOFS] = PD("ROTATE", F_INT, -32, 32, 0),    /* the sequence played OFS steps later (seq.c seq_src; 0.6.92: was OFFSET) */
     [P_POFS] = PD("PITCH", F_SEMI, -24, 24, 0),   /* its notes PIT semitones up (not on a kit) */
@@ -285,6 +290,10 @@ static const param_desc_t HUM_DESC[3] = {                /* (0.6.87) SEQ > HUMAN
 static const param_desc_t RECQ_DESC = {"REC Q", F_PCT, 0, 127, 127, 0};   /* (0.6.88) P_HRQ: 100 % on the grid */
 static const param_desc_t DRIFT_DESC = {"DRIFT", F_PCTINV, 0, 127, 127, 0};   /* (0.7.8) P_DRIFT: 127 = 0 % */
 static const param_desc_t TVEL_DESC = {"VEL", F_PCT, 0, 127, 127, 0};   /* (after V10.7.2) P_TVEL: 127 = 100 % (core.h) */
+static const param_desc_t MATH_CAOS[2] = {          /* (JIANT BYTE) MATH's CAOS and KEY (core.h P_CAOS P_KEY) */
+    {"CAOS", F_PCT, 0, 127, 0, 0},
+    {"KEY", F_ENUM, 0, 16, 0, N_KEY},
+};
 static const param_desc_t WROT_DESC[2] = {               /* (0.7.8) WHEEL's ROTOR: P_WRDEP (127 = 100 %, as before), P_WDUST */
     {"DEPTH", F_PCT, 0, 127, 127, 0}, {"DUST", F_PCTINV, 0, 127, 127, 0}};
 static const param_desc_t VLANG_DESC = {"LANG", F_ENUM, 0, LG_N - 1, 0, N_LANG};   /* (0.8.5) VOICE's words: */
@@ -353,8 +362,8 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
         case P_HRQ: return &RECQ_DESC;
         case P_DRIFT: return &DRIFT_DESC;
         case P_TVEL: return &TVEL_DESC;
-        case P_WRDEP: return &WROT_DESC[0];
-        case P_WDUST: return &WROT_DESC[1];
+        case P_CAOS: return &MATH_CAOS[0];          /* (JIANT BYTE: WHEEL's ROTOR's two, MATH's CAOS KEY) */
+        case P_KEY: return &MATH_CAOS[1];
         default: break;
         }
     return &TP[id];
@@ -803,6 +812,7 @@ static const page_t PAGES[] = {
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
     {"RETRIG", FAM_EDIT, SC_TRACK, GR_NONE, {P_LRTRG, 0xFF, 0xFF, 0xFF}},
+    {"CAOS", FAM_EDIT, SC_TRACK, GR_NONE, {P_CAOS, P_KEY, 0xFF, 0xFF}},   /* (JIANT BYTE) MATH: from tonal to wild, the keys */
     {"MORPH", FAM_EDIT, SC_TRACK, GR_MORPH, {P_MORPH, P_DRIFT, 0xFF, 0xFF}},   /* (0.6.45) ANALOG PHASE LOFI: the wave morphs;
                                                          * (0.7.8) DRIFT: the voices wander */
     {"ROTOR", FAM_EDIT, SC_TRACK, GR_NONE, {P_WRDEP, P_WDUST, 0xFF, 0xFF}},   /* (0.7.8) WHEEL: the rotor's depth, DUST */
