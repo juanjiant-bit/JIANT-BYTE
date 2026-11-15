@@ -409,6 +409,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "the equations' generator (JIANT BYTE): every seed at every CAOS band playable, the same each time, varied; MATH USER" "$OUT/gen_formula_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/macro_eq_test" tests/macro_eq_test.c -lm
     run "the macros as equations (JIANT BYTE): the knob as ever, TRI STEP S&H, the knob into the equations, the matrix, stored" "$OUT/macro_eq_test"
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fx_eq_test" tests/fx_eq_test.c -lm
+    run "the formula effects (JIANT BYTE): DIST's TYPEs 6.., DIST 0 dry bit for bit, each another sound and bounded, LPF" "$OUT/fx_eq_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/regress" tests/regress.c -lm
     run "regression: golden renders, health, voices, CPU budget" "$OUT/regress" tests/golden.txt tests/cpu_baseline.txt
     # (V10.7.34) LIFE 0: every golden render of before LIFE bit for bit (tests/golden_life0.txt, never rewritten)

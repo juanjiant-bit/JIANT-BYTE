@@ -50,7 +50,9 @@ static const char *const N_PFXRES[] = {"1/8", "1/16", "1/32"};     /* (0.6.99) F
 /* seq.c kb_map; 1 = SNAP (stored projects: the former ON); 3 = SEQ: SNAP, and the sequencer's notes snap too as
  * they play (seq.c seq_step; the steps keep what was written). Append-only: older projects hold 0..2 */
 static const char *const N_QUANT[] = {"OFF", "SNAP", "WHITE", "SEQ"};
-static const char *const N_DTYPE[] = {"SOFT", "HARD", "FOLD", "RECT", "AMP"};   /* (JIANT) fx.c DT_*; 0.7.8 AMP; (V10.7.33)
+static const char *const N_DTYPE[] = {"SOFT", "HARD", "FOLD", "RECT", "AMP", "-", "RING", "STEPS", "XOR", "GATE", "WOB",
+                                     "SFOLD", "LPF", "LFO.F", "HPF", "RND", "SAT"};   /* (JIANT BYTE: 6.. a formula, fx.c
+                                                         * DIST_EQ; 5 stays CRUSH's old number, never shown) */   /* (JIANT) fx.c DT_*; 0.7.8 AMP; (V10.7.33)
                                                          * CRUSH its own: EDIT > VOICES 3 (a project's migrates: project.c) */
 static const char *const N_KEY[] = {"LIBRE", "ALT5", "ALT6", "ALT7", "ALT8", "ALT9", "ALT10", "ALT11", "ALT12", "ALT13",
                                    "ALT14", "ALT15", "ALT16", "ALT17", "ALT18", "ALT19", "FIJO", 0};   /* (JIANT BYTE) P_KEY */

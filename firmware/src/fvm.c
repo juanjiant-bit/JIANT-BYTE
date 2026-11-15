@@ -38,7 +38,7 @@
 
 enum { FT_INT, FT_FIX };
 /* the per-sample variables (fvm_env_t arr[]) and the block's (u[]) */
-enum { FA_T, FA_W, FA_TS, FA_X, FA_XF, FA_O1, FA_O6 = FA_O1 + 5, FA_N };   /* (FA_O1..: the parts' outputs, cross-mod) */
+enum { FA_T, FA_W, FA_TS, FA_X, FA_XF, FA_O1, FA_O6 = FA_O1 + 5, FA_IN, FA_N };   /* (FA_IN: an effect's input) */   /* (FA_O1..: the parts' outputs, cross-mod) */
 enum { FU_A, FU_B, FU_C, FU_D, FU_AF, FU_BF, FU_CF, FU_DF, FU_NOTE, FU_VEL, FU_STEP, FU_BEAT, FU_N };
 
 typedef struct {
@@ -431,7 +431,8 @@ static const struct { char nm[3]; uint8_t kind, ty, ix; } FVM_VARS[] = {
     {"n", NK_UNI, FT_INT, FU_NOTE}, {"v", NK_UNI, FT_INT, FU_VEL}, {"s", NK_UNI, FT_INT, FU_STEP},
     {"p", NK_UNI, FT_FIX, FU_BEAT},
     {"O1", NK_ARR, FT_FIX, FA_O1}, {"O2", NK_ARR, FT_FIX, FA_O1 + 1}, {"O3", NK_ARR, FT_FIX, FA_O1 + 2},   /* (JIANT BYTE) */
-    {"O4", NK_ARR, FT_FIX, FA_O1 + 3}, {"O5", NK_ARR, FT_FIX, FA_O1 + 4}, {"O6", NK_ARR, FT_FIX, FA_O1 + 5},   /* cross-mod */                  /* (JIANT BYTE) the song's position in beats (a modifier's clock) */
+    {"O4", NK_ARR, FT_FIX, FA_O1 + 3}, {"O5", NK_ARR, FT_FIX, FA_O1 + 4}, {"O6", NK_ARR, FT_FIX, FA_O1 + 5},   /* cross-mod */
+    {"I", NK_ARR, FT_FIX, FA_IN},                    /* (JIANT BYTE) an effect's input (fx.c dist_eq) */                  /* (JIANT BYTE) the song's position in beats (a modifier's clock) */
 };
 enum { FC_SIN, FC_COS, FC_TRI, FC_SAW, FC_SQR, FC_ABS, FC_MIN, FC_MAX, FC_FLOOR, FC_INT, FC_FIX, FC_RND, FC_SAT,
        FC_CLIP, FC_PH, FC_LP, FC_HP };

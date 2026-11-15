@@ -241,6 +241,63 @@ static __attribute__((noinline)) void dist_noise(track_t *t, int32_t *b, uint32_
     dist_nlp[ti] = lp;
     dist_rnd = r;
 }
+/* (JIANT BYTE, phase 7) DIST's TYPE 6 .. the effect a formula: y = f(I) per sample, I the part's signal (FIX, full scale
+ * 1), A DIST (0 .. 1: the amount, its blend in DIST's own), B TONE (0 .. 1), p the song's beats, T seconds; its states
+ * (lp hp ph) the part's own. Each part's program compiled when its TYPE changes */
+#define DT_EQ0 6u
+static const char *const DIST_EQ[] = {
+    "I*sin(ph(110+A*880))",                          /* RING: a ring modulator, its pitch the amount */
+    "floor(I*(2+(1-A)*30))/(2+(1-A)*30)",            /* STEPS: a few levels */
+    "fix(int(I*128)^int(A*127))/128",                /* XOR: the signal's bits xor the amount's */
+    "I*(sqr(p*4)/2+.5)",                             /* GATE: on the 1/16 */
+    "I*(1-A*(tri(p*2)/2+.5))",                       /* WOB: a tremolo on the 1/8 */
+    "sin(I*(1+A*12)/4)",                             /* SFOLD: a sine fold */
+    "lp(I,.02+B*.6)",                                /* LPF: TONE the cut */
+    "lp(I,(tri(p/2)/2+.5)*B+.01)",                   /* LFO.F: the cut swept every two beats */
+    "hp(I,.01+B*.4)",                                /* HPF */
+    "I*rnd(floor(p*8))",                             /* RND: a new level each 1/32 */
+    "sat(I*(1+A*20))*(1-A/2)",                       /* SAT */
+};
+#define DIST_NEQ (sizeof DIST_EQ / sizeof DIST_EQ[0])
+static fvm_prog_t deq_prg[NTRK];
+static fvm_ins_t deq_ins[NTRK][20] __attribute__((section(".pool")));
+static uint8_t deq_id[NTRK];
+static int32_t deq_st[NTRK][2];
+static uint32_t deq_beat;                            /* (the block's beat, mac_tick's) */
+static __attribute__((noinline)) void dist_eq(track_t *t, int32_t *b, uint32_t n, uint32_t type, int32_t w0, int32_t dw)
+{
+    uint32_t ti = (uint32_t)(t - trk) % NTRK, i, o, f = type - DT_EQ0;
+    lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
+    uint32_t I[CTL], y[CTL];
+    fvm_env_t en = {{0}, {0}, deq_st[ti]};
+    if (!deq_prg[ti].ins)
+        fvm_prog_init(&deq_prg[ti], deq_ins[ti], 20u);
+    if (deq_id[ti] != type) {
+        const char *s = DIST_EQ[f % DIST_NEQ];
+        uint32_t k = 0;
+        while (s[k]) k++;
+        if (fvm_compile(&wk->c, &deq_prg[ti], s, k, 0) || deq_prg[ti].nstate > 2u || deq_prg[ti].ty != FT_FIX)
+            deq_prg[ti].n = 0;
+        deq_id[ti] = (uint8_t)type;
+        deq_st[ti][0] = deq_st[ti][1] = 0;
+    }
+    if (n > CTL)
+        n = CTL;
+    en.u[FU_AF] = (uint32_t)clamp(t->p[P_DIST], 0, 127) * 516u;
+    en.u[FU_BF] = (uint32_t)(clamp(t->p[P_DTONE], -64, 63) + 64) * 512u;
+    en.u[FU_BEAT] = deq_beat;
+    for (i = 0; i < n; i++)
+        I[i] = (uint32_t)(b[i] < -65536 ? -131072 : b[i] > 65536 ? 131072 : b[i] * 2);
+    for (o = 0; o < n; o += FVM_BLK) {
+        en.arr[FA_IN] = I + o;
+        fvm_run(&deq_prg[ti], &en, &wk->s, n - o < FVM_BLK ? n - o : FVM_BLK, y + o);
+    }
+    for (i = 0; i < n; i++) {
+        int32_t v = (int32_t)y[i] >> 1;
+        v = v > 98304 ? 98304 : v < -98304 ? -98304 : v;
+        b[i] = b[i] + ((((v - b[i]) >> 2) * (w0 + dw * (int32_t)(i + 1))) >> 10);   /* (DIST's blend: its amount in) */
+    }
+}
 static void track_dist(track_t *t, int32_t *b, uint32_t n)
 {
     int32_t d = t->p[P_DIST], i, g, k, mk, b0 = softclip(2400), w0, w1, dw, full;
@@ -259,6 +316,10 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
     g = 4096 + d * d * 2;                                /* Q12: 1x .. ~9x, gentle at first */
     k = clamp(32000 - d * 95 + t->p[P_DTONE] * 300, 2500, 32767);   /* tone: transparent at low drive .. ~3 kHz, Q15 */
     mk = type == DT_HARD || type == DT_FOLD ? 30000 - d * 60 : 30000 - d * 120;   /* make-up */
+    if (type >= DT_EQ0 && type < DT_EQ0 + DIST_NEQ) {   /* (JIANT BYTE) a formula */
+        dist_eq(t, b, n, type, w0, dw);
+        return;
+    }
     if (type > DT_AMP)
         type = DT_SOFT;
     if (type == DT_AMP) {                               /* the cabinet's corner: ~4.8 kHz, TONE ~3 .. 7 kHz; its make-up */
@@ -3091,6 +3152,7 @@ static __attribute__((noinline)) void mac_tick(uint32_t n)
     else
         b = mac_free += (n << 16) / (beat_samples() | 1u);
     mac_eval(b);
+    deq_beat = b;                                       /* (JIANT BYTE) the formula effects' p */
     xm_turn();                                          /* (JIANT BYTE) cross-mod: the parts' last block for this one */
 }
 static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (0.6.71: kept out of the ISR's

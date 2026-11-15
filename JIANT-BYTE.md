@@ -16,7 +16,7 @@ Estado (rama `phase2-engines`, que contiene todo lo anterior):
 | 4 Batería de fórmulas | primera forma (lanes de fórmula en DRUM-X) |
 | 5 Proyectos con fórmulas, edición en el aparato | pendiente (el texto propio de una pista ya se guarda; falta editarlo) |
 | 6 Modificadores, cross-mod, ecuación de mezcla | primera forma (las macros como ecuaciones) |
-| 7 Efectos de fórmula con memoria | pendiente (libera la RAM que piden CAPTURA y lo demás) |
+| 7 Efectos de fórmula con memoria | primera forma (insertos de fórmula por pista, sin memoria larga todavía) |
 | 8 Punch-ins de fórmula, secuenciadores de fórmula | primer paso (CAOS MAX) |
 | 9 Generador de ecuaciones | primera forma (MATH USER: semilla y CAOS) |
 | 10 Estética | primer paso (paleta BYTE por defecto) |
@@ -413,6 +413,14 @@ el contador animado a mitad de giro: BYTE es la última paleta que el test dibuj
 - Los buffers de la FVM (programas, espacio de trabajo, textos) pasan al pool: la RAM estática libre sube de 1,25 KB a
   12,3 KB; en el pool quedan ~6 KB sobre el mínimo de 8 KB.
 - EXT (INPUT: la entrada de audio USB, SWARM) sale: el número 15 suena como MATH.
+
+**Fase 7, primera forma: efectos de fórmula** (`fx.c` `DIST_EQ`, `dist_eq`): DIST, el inserto de cada pista, suma tipos
+6.. que son una fórmula `y = f(I)`: RING (ring-mod, su altura el monto), STEPS, XOR (los bits de la señal con los del
+monto), GATE (a la 1/16), WOB (trémolo a la 1/8), SFOLD, LPF y HPF (TONE el corte), LFO.F (el corte barrido cada dos
+beats), RND (un nivel nuevo cada 1/32), SAT. `I` es la señal (una variable nueva de la FVM), `A` DIST, `B` TONE, `p` el
+pulso; el crossfade de entrada y salida es el de DIST, así que DIST 0 la deja afuera. Sin memoria larga todavía: `z(k)`
+(ecos, combs) pide líneas que el pool no tiene; los filtros con estado (`lp`, `hp`) sí. `tests/fx_eq_test.c`: compilan,
+DIST 0 es la señal seca bit a bit, cada tipo cambia el sonido acotado, LPF oscurece una sierra (x0,02 en los agudos).
 
 ## 6. Datos: proyectos y almacenamiento
 
