@@ -72,6 +72,96 @@ static inline int32_t gfx_val(uint32_t k)
 }
 #define GFX(k) gfx_val(k)
 static uint8_t macro_v[4];       /* (JIANT) the macros M1..M4, 0..127: the project's (project.c), LFO held turns them */
+/* (JIANT BYTE, phase 6) a macro an equation: macro_f[k] 0 its knob (macro_v, as ever), 1..MAC_NF a formula of MAC_FORMS
+ * run once a block (mac_eval: fx.c mix_block), p the song's position in beats (free-running while stopped), A the
+ * knob's value; its output (0 .. 1) is the macro the matrix reads (macro_e). Chosen on the macro's knob turned left past
+ * 0 (ui_input.c macro_turn); kept in the project's 'M' 'F' block */
+static const char *const MAC_FORMS[] = {
+    "tri(p/4)/2+.5",                                 /* TRI: a bar */
+    "sin(p/2)/2+.5",                                 /* SIN: two beats */
+    "saw(p/4)/2+.5",                                 /* RAMP: up a bar */
+    "1-(p-floor(p))",                                /* DECAY: each beat */
+    "p-floor(p)",                                    /* RISE: each beat */
+    "sqr(p)/2+.5",                                   /* SQR: half a beat on, half off */
+    "fix(\"0369\"[int(p)&3]-48)/9",                  /* STEP: four steps a bar */
+    "rnd(floor(p*2))/2+.5",                          /* S&H: a new value each 1/8 */
+    "rnd(floor(p/4))/2+.5",                          /* S&HBR: each bar */
+    "sin(p/16)*sin(p/7)/2+.5",                       /* DRIFT: slow, never quite again */
+    "fix((int(p*4)^int(p))&7)/7",                    /* BITS: the 1/16s xor the beats */
+    "tri(p*4)/2+.5",                                 /* FAST: four a beat */
+    "fix(int(p*2)*5%8)/7",                           /* SEQ: a line of eighths */
+    "(sin(p/2)>0?1.:0.)*(1-(p-floor(p)))",           /* GATE: decays, a beat on, a beat off */
+};
+static const char *const N_MACF[] = {"TRI", "SIN", "RAMP", "DECAY", "RISE", "SQR", "STEP", "S&H", "S&HBR", "DRIFT", "BITS",
+                                     "FAST", "SEQ", "GATE"};
+#define MAC_NF (sizeof MAC_FORMS / sizeof MAC_FORMS[0])
+_Static_assert(MAC_NF == sizeof N_MACF / sizeof N_MACF[0], "a name a macro formula");
+static uint8_t macro_f[4];                           /* 0, or 1 + the formula of MAC_FORMS */
+static uint8_t macro_e[4];                           /* the macro the matrix reads, 0..127 */
+static fvm_prog_t mac_prg[4];
+static fvm_ins_t mac_ins[4][20];
+static uint8_t mac_id[4];
+static int32_t mac_st[4][2];
+static uint32_t mac_free;                            /* (stopped: beats, Q16, from the blocks) */
+/* a macro's knob turned s (ui_input.c, ui_layer.c): the value as ever; turned left past 0, its equations (1..MAC_NF),
+ * right back down them to the knob (0) */
+static void macro_turn(uint32_t k, int32_t s, int32_t acc)
+{
+    k &= 3u;
+    if (macro_f[k] || (macro_v[k] == 0u && s < 0)) {
+        macro_f[k] = (uint8_t)(s < 0 ? (macro_f[k] < MAC_NF ? macro_f[k] + 1u : MAC_NF) : macro_f[k] - 1u);
+        return;
+    }
+    macro_v[k] = (uint8_t)clamp(macro_v[k] + acc, 0, 127);
+}
+/* its card: EQ:<name> and the equation's value now, or the knob's % */
+static void macro_card(uint32_t c, char *val, uint32_t cap, const char **unit, int32_t *ratio)
+{
+    c &= 3u;
+    if (macro_f[c] && macro_f[c] <= MAC_NF) {
+        val[0] = 'E', val[1] = 'Q', val[2] = ':';
+        str_cpy(val + 3, N_MACF[macro_f[c] - 1u], cap - 3u);
+        *unit = "";
+        *ratio = macro_e[c] * 1000 / 127;
+        return;
+    }
+    fmt_int(val, macro_v[c] * 100 / 127);
+    *unit = "%";
+    *ratio = macro_v[c] * 1000 / 127;
+}
+static void mac_eval(uint32_t beat_q16)
+{
+    uint32_t k;
+    for (k = 0; k < 4u; k++) {
+        uint32_t f = macro_f[k];
+        if (!f || f > MAC_NF) {
+            macro_e[k] = macro_v[k];
+            continue;
+        }
+        if (!mac_prg[k].ins)
+            fvm_prog_init(&mac_prg[k], mac_ins[k], 20u);
+        if (mac_id[k] != f) {
+            const char *s = MAC_FORMS[f - 1u];
+            uint32_t n = 0;
+            while (s[n]) n++;
+            if (fvm_compile(&lofi_work[MC_CPU() & 1u].c, &mac_prg[k], s, n, 0) || mac_prg[k].nstate > 2u)
+                mac_prg[k].n = 0;
+            mac_id[k] = (uint8_t)f;
+        }
+        {
+            uint32_t o;
+            int32_t v;
+            fvm_env_t en = {{0, 0, 0, 0, 0}, {0}, mac_st[k]};
+            en.u[FU_BEAT] = beat_q16;
+            en.u[FU_A] = macro_v[k];
+            en.u[FU_AF] = macro_v[k] * 516u;
+            fvm_run(&mac_prg[k], &en, &lofi_work[MC_CPU() & 1u].s, 1u, &o);
+            v = mac_prg[k].ty == FT_FIX ? (int32_t)o : (int32_t)(o & 255u) << 8;
+            v = v < 0 ? 0 : v > 65536 ? 65536 : v;
+            macro_e[k] = (uint8_t)((v * 127 + 32768) >> 16);
+        }
+    }
+}
 _Static_assert(NELEM(N_MSRC) == MS_N && NELEM(N_MDST) == MD_N, "N_MSRC / N_MDST == MS_* / MD_*");
 _Static_assert(PS_LFO == MS_LFO && PS_ENV2 == MS_ENV2 && PS_NOISE == MS_NOISE && PS_MODW == MS_MODW && PS_RAND == MS_RAND &&
                PD_VIB == MD_VIB && PD_E1 == MD_E1 && PD_FCUT == MD_FCUT && PD_LEVEL == MD_LEVEL && PD_REV == MD_REV,
@@ -244,7 +334,7 @@ static int32_t mod_tsrc(const track_t *t, uint32_t s, int32_t lfo)
     case MS_NOISE:                                      /* (0.7.8) a random wander, a new point every ~46 ms, eased */
         return drift_noise((uint32_t)(t - trk) * 7919u + 0x1234u, mns_clk, 6u - (CTL_LOG2 - 5u));
     default:
-        return s == MS_ENV2 ? t->m_env2 : s == MS_FOLLOW ? mod_follow : macro_v[(s - MS_M1) & 3u] * 258;   /* (V10.22 ENV2: out of the switch's run) */
+        return s == MS_ENV2 ? t->m_env2 : s == MS_FOLLOW ? mod_follow : macro_e[(s - MS_M1) & 3u] * 258;   /* (V10.22 ENV2: out of the switch's run) */
     }
 }
 

@@ -121,6 +121,7 @@ typedef struct {
     uint8_t dx_snd[8];                         /* (0.6.48) its sounds' SENDs (eng_drum.c): FUNC's 'D' 'S' block, 0 before */
     uint8_t dx_lay[8];                         /* (0.6.49) its sounds' LAYER, FEEDBK (drumx_voice.c): 'D' 'L', 0 before */
     uint8_t dx_form[8];                        /* (JIANT BYTE) its sounds' formulas (drumx_voice.c dx_form): 'D' 'F', 0 before */
+    uint8_t mac_form[4];                       /* (JIANT BYTE) the macros' equations (mod.c macro_f): 'M' 'F', 0 before */
     uint8_t fugue[NTRK][3][2];                 /* (0.6.52) SEQ > FUGUE's heads (fugue.c): RATE | DIR << 4, INTERVAL (int8);
                                                 * FUNC's 'F' 'G' block, none before */
     uint8_t pfx_lane[32], pfx_ltgt;            /* the punch-in lane (pfx.c), in FUN9's spare bytes (PROJ_PFX_OFF) */
@@ -669,6 +670,8 @@ static uint32_t proj_packed_size(const project_t *q)
         if (q->dx_lay[i]) { n += 2u + sizeof q->dx_lay; break; }
     for (i = 0; i < sizeof q->dx_form; i++)             /* (JIANT BYTE) the formulas' */
         if (q->dx_form[i]) { n += 2u + sizeof q->dx_form; break; }
+    for (i = 0; i < sizeof q->mac_form; i++)            /* (JIANT BYTE) the macros' equations' */
+        if (q->mac_form[i]) { n += 2u + sizeof q->mac_form; break; }
     if (proj_fg_used(q))                                /* (0.6.52) FUGUE's */
         n += 2u + sizeof q->fugue;
     for (t = 0; t < NTRK; t++)                          /* (0.8.5) the lyrics' */
@@ -805,6 +808,13 @@ static int proj_pack(project_store_t *out, const project_t *q)
         b[pos++] = 'D'; b[pos++] = 'F';
         memcpy(b + pos, q->dx_form, sizeof q->dx_form);
         pos += sizeof q->dx_form;
+    }
+    for (i = 0; i < sizeof q->mac_form && !q->mac_form[i]; i++)
+        ;
+    if (i < sizeof q->mac_form) {                       /* (JIANT BYTE) the macros' equations */
+        b[pos++] = 'M'; b[pos++] = 'F';
+        memcpy(b + pos, q->mac_form, sizeof q->mac_form);
+        pos += sizeof q->mac_form;
     }
     if (proj_fg_used(q)) {                              /* (0.6.52) FUGUE's heads */
         b[pos++] = 'F'; b[pos++] = 'G';
@@ -1102,6 +1112,14 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         for (k = 0; k < sizeof q->dx_form; k++)
             if (q->dx_form[k] > DX_NFORM) q->dx_form[k] = 0;
         pos += 2u + sizeof q->dx_form;
+    }
+    memset(q->mac_form, 0, sizeof q->mac_form);
+    if (pos + 2u + sizeof q->mac_form <= room && b[pos] == 'M' && b[pos + 1u] == 'F') {   /* (JIANT BYTE) the macros' */
+        uint32_t k;
+        memcpy(q->mac_form, b + pos + 2u, sizeof q->mac_form);
+        for (k = 0; k < sizeof q->mac_form; k++)
+            if (q->mac_form[k] > MAC_NF) q->mac_form[k] = 0;
+        pos += 2u + sizeof q->mac_form;
     }
     memset(q->fugue, 0, sizeof q->fugue);
     if (pos + 2u + sizeof q->fugue <= room && b[pos] == 'F' && b[pos + 1u] == 'G') {   /* (0.6.52) FUGUE's heads */
@@ -1422,6 +1440,7 @@ static void project_capture(project_t *p)
     memcpy(p->dx_snd, dx_snd, sizeof p->dx_snd);        /* (0.6.48) */
     memcpy(p->dx_lay, dx_lay, sizeof p->dx_lay);        /* (0.6.49) */
     memcpy(p->dx_form, dx_form, sizeof p->dx_form);     /* (JIANT BYTE) */
+    memcpy(p->mac_form, macro_f, sizeof p->mac_form);   /* (JIANT BYTE) */
     {                                                   /* (0.6.52) FUGUE */
         uint32_t a, h;
         for (a = 0; a < NTRK; a++)
@@ -1657,6 +1676,7 @@ static int project_restore_runtime(const project_t *input)
     memcpy(dx_snd, p->dx_snd, sizeof dx_snd);           /* (0.6.48: its SENDs) */
     memcpy(dx_lay, p->dx_lay, sizeof dx_lay);           /* (0.6.49: its LAYERs) */
     memcpy(dx_form, p->dx_form, sizeof dx_form);        /* (JIANT BYTE: its formula lanes) */
+    memcpy(macro_f, p->mac_form, sizeof macro_f);       /* (JIANT BYTE: its macros' equations) */
     fg_load(p);                                         /* (0.6.52: its FUGUE) */
     memcpy(pfx_lane, p->pfx_lane, sizeof pfx_lane);    /* (the section's punch-in lane) */
     pfx_ltgt = p->pfx_ltgt > 2u ? 0u : p->pfx_ltgt;
@@ -1786,6 +1806,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     memset(dx_snd, 0, sizeof dx_snd);
     memcpy(dx_lay, DX_LAY_DEF, sizeof dx_lay);
     memset(dx_form, 0, sizeof dx_form);                 /* (JIANT BYTE) no formula lane */
+    memset(macro_f, 0, sizeof macro_f);                 /* (JIANT BYTE) every macro its knob */
     memset(fg_set, 0, sizeof fg_set);                   /* (0.6.52) no FUGUE */
     live_reset();                                       /* (p2) no LIVE modifier (seq_live.c) */
     dx_mute_set(0);

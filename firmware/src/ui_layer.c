@@ -833,7 +833,7 @@ static void layer_knob(uint32_t k, int32_t s)
             lys.song = (uint8_t)(clamp((int32_t)(lys.song ? lys.song - 1u : song_cur) + (s > 0 ? 1 : -1), 0,
                                        NSONG - 1) + 1);
     } else if (l == LAYER_MACRO) {                      /* M1..M4 (the project's; the MOD slots that name them) */
-        macro_v[k] = (uint8_t)clamp(macro_v[k] + accel(EN_K1 + k, s, 127), 0, 127);
+        macro_turn(k, s, accel(EN_K1 + k, s, 127));   /* (JIANT BYTE: left past 0, an equation) */
     } else if (l == LAYER_REC) {                        /* K1 CLICK, K2 REC Q */
         if (k == 1u)
             TSEL->p[P_HRQ] = (int16_t)clamp(TSEL->p[P_HRQ] + accel(EN_K2, s, 127), 0, 127);
@@ -1282,8 +1282,10 @@ static __attribute__((noinline)) void layer_cards(uint32_t l)
     } else if (l == LAYER_MACRO) {                      /* M1..M4, 0..100 % */
         static const char *const M[4] = {"M1", "M2", "M3", "M4"};
         for (c = 0; c < 4u; c++) {
-            fmt_int(val, macro_v[c] * 100 / 127);
-            draw_column(c, M[c], val, "%", macro_routes(c, 0, 0) ? VAL(c) : T_DIM, macro_v[c] * 1000 / 127, ICON_MIX);
+            const char *un;
+            int32_t ra;
+            macro_card(c, val, sizeof val, &un, &ra);   /* (JIANT BYTE: an equation's name and value) */
+            draw_column(c, M[c], val, un, macro_routes(c, 0, 0) ? VAL(c) : T_DIM, ra, ICON_MIX);
         }
     } else if (l == LAYER_REC) {                        /* CLICK, then empty cards */
         rec_columns();

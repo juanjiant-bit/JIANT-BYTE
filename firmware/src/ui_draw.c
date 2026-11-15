@@ -1331,8 +1331,10 @@ static void draw_columns(void)
                                                          * route, as the MACRO layer's) */
         static const char *const M[4] = {"M1", "M2", "M3", "M4"};
         for (c = 0; c < 4u; c++) {
-            fmt_int(val, macro_v[c] * 100 / 127);
-            draw_column(c, M[c], val, "%", macro_routes(c, 0, 0) ? VAL(c) : T_DIM, macro_v[c] * 1000 / 127, ICON_MIX);
+            const char *un;
+            int32_t ra;
+            macro_card(c, val, sizeof val, &un, &ra);   /* (JIANT BYTE: an equation's name and value) */
+            draw_column(c, M[c], val, un, macro_routes(c, 0, 0) ? VAL(c) : T_DIM, ra, ICON_MIX);
         }
         return;
     }

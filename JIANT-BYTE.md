@@ -15,7 +15,7 @@ Estado (rama `phase2-engines`, que contiene todo lo anterior):
 | 3 WAVE | primera forma (sin tablas guardadas: sin CAPTURA ni copias por octava) |
 | 4 Batería de fórmulas | primera forma (lanes de fórmula en DRUM-X) |
 | 5 Proyectos con fórmulas, edición en el aparato | pendiente (el texto propio de una pista ya se guarda; falta editarlo) |
-| 6 Modificadores, cross-mod, ecuación de mezcla | pendiente |
+| 6 Modificadores, cross-mod, ecuación de mezcla | primera forma (las macros como ecuaciones) |
 | 7 Efectos de fórmula con memoria | pendiente (libera la RAM que piden CAPTURA y lo demás) |
 | 8 Punch-ins de fórmula, secuenciadores de fórmula | primer paso (CAOS MAX) |
 | 9 Generador de ecuaciones | primera forma (MATH USER: semilla y CAOS) |
@@ -385,6 +385,20 @@ del generador. `tests/ui_render.c` ya no se corta en las colonias de FM6 retirad
 la lista). Falta lo grueso: la fuente pixel, los rasters y glitches, la fórmula y `t` en binario a la vista, y los
 personajes de HOME (todavía los de JIANT FM). Pendiente de revisar: en HOME, con BYTE, un "1" y un "3" se pisan (parece
 el contador animado a mitad de giro: BYTE es la última paleta que el test dibuja).
+
+**Fase 6, primera forma: las macros como ecuaciones** (`mod.c` `macro_f`, `MAC_FORMS`, `mac_eval`; `fx.c` `mac_tick`):
+- Cada macro M1..M4 puede ser su perilla (como siempre) o una de 14 ecuaciones de control: TRI SIN RAMP DECAY RISE SQR STEP
+  S&H S&HBR DRIFT BITS FAST SEQ GATE. Se evalúan una vez por bloque con `p`, la posición de la canción en beats (una
+  variable nueva de la FVM; con la canción parada, su propio reloj), y `A`, la perilla.
+- Como las macros ya llegan a cualquier destino por la matriz, todo lo que una macro mueve queda gobernado por una ecuación.
+- Se eligen con la misma perilla: girando a la izquierda pasado 0 se entra a las ecuaciones (EQ:TRI, EQ:STEP...), a la
+  derecha se vuelve a la perilla. La tarjeta muestra el nombre y su valor en movimiento.
+- Se guardan en el proyecto, bloque `'M' 'F'`.
+- `tests/macro_eq_test.c`: con la perilla todo igual que antes (las renders de referencia no cambian), TRI recorre 0..127
+  en un compás, STEP da cuatro escalones, S&H cambia cada 1/8, la perilla entra y sale, la matriz lo sigue a través de
+  la mezcla y el proyecto lo guarda.
+- Falta: el cross-mod entre pistas (`O1`..`O6`), la ecuación de mezcla y elegir la fórmula de control libre (con el
+  generador).
 
 ## 6. Datos: proyectos y almacenamiento
 

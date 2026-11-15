@@ -14,7 +14,7 @@
  *
  * Variables: per sample t (INT, the formula's clock), w (FIX, the note's phase in turns), T (FIX, seconds), x / X (INT /
  * FIX, the output a block ago); per block a b c d (INT 0 .. 255), A B C D (FIX 0 .. 1), n (the note), v (the velocity),
- * s (the step); PI (FIX).
+ * s (the step), p (FIX: the song's position in beats); PI (FIX).
  * Calls: sin cos tri saw sqr (a period a turn: an INT argument gives a byte, 256 a turn; a FIX one -1 .. 1), abs min max
  * floor int fix rnd (a hash: INT any, FIX -1 .. 1) sat (a soft clip) clip (-1 .. 1); with a state of their own (one a
  * call, per voice): ph(f) (an oscillator's phase at f Hz, in turns: sin(ph(440)); kept in 32 bits, so it is exact
@@ -38,7 +38,7 @@
 enum { FT_INT, FT_FIX };
 /* the per-sample variables (fvm_env_t arr[]) and the block's (u[]) */
 enum { FA_T, FA_W, FA_TS, FA_X, FA_XF, FA_N };
-enum { FU_A, FU_B, FU_C, FU_D, FU_AF, FU_BF, FU_CF, FU_DF, FU_NOTE, FU_VEL, FU_STEP, FU_N };
+enum { FU_A, FU_B, FU_C, FU_D, FU_AF, FU_BF, FU_CF, FU_DF, FU_NOTE, FU_VEL, FU_STEP, FU_BEAT, FU_N };
 
 typedef struct {
     uint8_t op, md;              /* md: the right operand (or a push's value): FM_STK FM_IMM FM_UNI FM_ARR */
@@ -424,6 +424,7 @@ static const struct { char nm[3]; uint8_t kind, ty, ix; } FVM_VARS[] = {
     {"a", NK_UNI, FT_INT, FU_A}, {"b", NK_UNI, FT_INT, FU_B}, {"c", NK_UNI, FT_INT, FU_C}, {"d", NK_UNI, FT_INT, FU_D},
     {"A", NK_UNI, FT_FIX, FU_AF}, {"B", NK_UNI, FT_FIX, FU_BF}, {"C", NK_UNI, FT_FIX, FU_CF}, {"D", NK_UNI, FT_FIX, FU_DF},
     {"n", NK_UNI, FT_INT, FU_NOTE}, {"v", NK_UNI, FT_INT, FU_VEL}, {"s", NK_UNI, FT_INT, FU_STEP},
+    {"p", NK_UNI, FT_FIX, FU_BEAT},                  /* (JIANT BYTE) the song's position in beats (a modifier's clock) */
 };
 enum { FC_SIN, FC_COS, FC_TRI, FC_SAW, FC_SQR, FC_ABS, FC_MIN, FC_MAX, FC_FLOOR, FC_INT, FC_FIX, FC_RND, FC_SAT,
        FC_CLIP, FC_PH, FC_LP, FC_HP };

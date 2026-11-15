@@ -3218,7 +3218,7 @@ static void ui_input_frame(void)
             continue;
         }
         if (mac_latch && !ui.menu && !ui.confirm) {     /* (JIANT 0.4) the MACRO layer latched: M1..M4 */
-            macro_v[k] = (uint8_t)clamp(macro_v[k] + accel(EN_K1 + k, s, 127), 0, 127);
+            macro_turn(k, s, accel(EN_K1 + k, s, 127));   /* (JIANT BYTE: left past 0, an equation) */
             continue;
         }
         if (ui.entry_open && !ui.home && cur_page()->graph == GR_ROLL && !grid_on() && lock_held() &&
@@ -3241,7 +3241,7 @@ static void ui_input_frame(void)
             ui.hot_t = 40, ui.knob_ms = fm1_ms;
         }
         if (home_macros()) {                            /* (0.8.5) HOME's MACROS: M1..M4 */
-            macro_v[k] = (uint8_t)clamp(macro_v[k] + accel(EN_K1 + k, s, 127), 0, 127);
+            macro_turn(k, s, accel(EN_K1 + k, s, 127));   /* (JIANT BYTE: left past 0, an equation) */
         } else if (home_life()) {                       /* (V10.7.34) HOME's LIFE: LIFE FILTER PITCH FX (life.c) */
             life_v[k & 3u] = (int16_t)clamp(life_v[k & 3u] + accel(EN_K1 + k, s, 100), 0, 100);
         } else if (home_tracks()) {                     /* (V10.7.34) HOME > TRACKS: the track, its LEVEL PAN REV */
