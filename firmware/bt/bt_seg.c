@@ -33,7 +33,7 @@
 #define FM1_IRQ_EXTERN 1                       /* (hal/fm1_irq.h: the crash record is the app's) */
 #define RING_PUBLISH() __asm__ volatile("" ::: "memory")
 #define BLE_BARRIER() RING_PUBLISH()
-#define BLE_DEVICE_NAME "JIANT FM-1"
+#define BLE_DEVICE_NAME "JIANT BYTE"
 #define BLE_NAME_HEX 0                         /* the name as it is (no " XXXX") */
 #define BLE_LL_MAX_OCTETS 27u                  /* stock's PDU size, as Melodee (radio-tested) */
 #define BLE_DIAG 0                             /* (no counters, no console: as Melodee) */

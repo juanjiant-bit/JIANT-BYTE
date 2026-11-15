@@ -1,4 +1,26 @@
-# JIANT FM
+# JIANT BYTE
+
+**Bytebeat and floatbeat firmware for the M-VAVE FM-1**: every sound, drum, generator, punch-in and sequence is a
+formula of time.
+
+[![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
+
+> **Status: in development, not for installing yet.** Phase 0 of [the plan](JIANT-BYTE.md): the firmware is still
+> JIANT FM V10.7.37 inside, under its own name. Its projects use their own storage magic, so JIANT BYTE does not read
+> JIANT FM's projects (and JIANT FM does not read JIANT BYTE's): back up with JIANT FM's editor before you install it.
+
+JIANT BYTE is a fork of [JIANT FM](https://github.com/juanjiant-bit/JIANT) V10.7.37 by Juan Jiant, itself a fork of
+[Felucca](https://github.com/hugelton/Felucca) 1.1.5.1 by Hügelton Instruments (GPL-3.0), with the song system of
+[SLOOP](https://github.com/isod89/sloop-fm1). It keeps JIANT FM's foundation (the hardware layer, audio, voices,
+storage, songs, sequencer, MIDI, USB, the updater, the browser emulator and the tests) and replaces what sits on it:
+the engines, the drum machine, the generator, the punch-ins and the look. The plan, in Spanish: [JIANT-BYTE.md](JIANT-BYTE.md).
+Building: [BUILDING.md](BUILDING.md) (the same as JIANT FM's).
+
+---
+
+*What follows is JIANT FM's own documentation, the base this firmware starts from.*
+
+# JIANT FM (the base)
 
 **Bio-synthetic operating system for the M-VAVE FM-1** — synthesis, sequencing, mutation, performance.
 

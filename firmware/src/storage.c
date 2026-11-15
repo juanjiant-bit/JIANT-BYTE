@@ -13,7 +13,8 @@
  * Flash access goes through three hooks (also used by the host test):
  *   st_read(off, dst, n)   st_erase(off)   st_prog(off, src, n)
  */
-#define ST_MAGIC 0x554C4546u                   /* "FELU" */
+#define ST_MAGIC 0x45545942u                   /* "BYTE" (JIANT BYTE: its own; JIANT FM's "FELU" records are not
+                                                 * read, so neither firmware takes the other's projects for its own) */
 #define ST_SECTOR 4096u
 #define ST_PAYLOAD_OFF 256u
 #define ST_PAYLOAD_MAX (ST_SECTOR - ST_PAYLOAD_OFF)

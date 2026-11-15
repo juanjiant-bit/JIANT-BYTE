@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw, ImageFont
 R = Path(__file__).resolve().parents[1]
 U = Path(sys.argv[1] if len(sys.argv) > 1 else R / 'build/ui_new')
 OUT = Path(sys.argv[2] if len(sys.argv) > 2 else R / 'docs')
-VERSION = re.search(r'FELUCCA_VERSION "(v[^"]+)"', (R / 'firmware/src/felucca.c').read_text()).group(1)
+VERSION = re.search(r'FELUCCA_VERSION "([^"]+)"', (R / 'firmware/src/felucca.c').read_text()).group(1)
 F = R / 'assets/fonts'
 def font(w, s): return ImageFont.truetype(str(F / f'ChakraPetch-{w}.ttf'), s)
 H = [(0, 210, 255), (90, 60, 255), (180, 50, 230), (240, 40, 50), (255, 122, 0), (255, 215, 0), (255, 255, 255)]

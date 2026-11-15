@@ -133,8 +133,11 @@ Entran al pulso, como los punch-ins de hoy.
 
 ## 6. Datos: proyectos y almacenamiento
 
-- **Identidad del paquete propia**, para que el instalador y la detección no la confundan con JIANT FM
-  (`tools/fm1pkg_make.py --product`).
+- **Identidad del paquete** (`FM-1_909`, `tools/build.py` `PRODUCT`): por ahora la misma que JIANT FM.
+  [VERIFICAR] El instalador la comprueba después de instalar (`tools/fm1_install.py`, `web/fm1ota.js`), y no está
+  documentado si el FM-1 o el actualizador oficial rechazan otros números. Se cambia recién cuando se pruebe en el
+  aparato. Mientras tanto, JIANT BYTE se distingue por el nombre: el editor recibe "JIANT BYTE v0.1"
+  (`firmware/src/editor.c:489`), y el menú y el Bluetooth dicen JIANT BYTE.
 - **Magia de almacenamiento propia** (hoy `ST_MAGIC` "FELU", `firmware/src/storage.c:16`). JIANT BYTE no lee
   proyectos de JIANT FM ni al revés, así ninguno de los dos interpreta mal los datos del otro. Instalar BYTE encima de
   FM borra en la práctica las canciones de FM, así que el instalador tiene que hacer el backup primero.
