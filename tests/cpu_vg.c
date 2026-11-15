@@ -139,7 +139,7 @@ int main(void)
     static const struct { const char *eng, *pre; uint32_t notes; } E[] = {
         {"ANALOG", "FAT BASS", 8}, {"PHASE", "STRING", 8}, {"MATH", "BYTE BENT", 8}, {"VOICE", "WOW BASS", 4},
         {"DRUM", "", 8}, {"WEST", "METAL", 8}, {"ANIMAL", "ROAR", 8},
-        {"MATH", "FLOAT PAD", 8}, {"WAVE", "WAVE SAW PAD", 8}};   /* (JIANT BYTE: MATH by its name, its FLOAT too, WAVE;
+        {"MATH", "FLOAT PAD", 8}, {"WAVE", "SAW PAD", 8}};   /* (JIANT BYTE: MATH by its name, its FLOAT too, WAVE;
                                                          * WHEEL and FM6 retired) */
     static const int16_t AM[AN_NMODE][8] = {           /* (0.8.3) ANIMAL's modes, every option on, no gaps */
         {AN_CMOS, 127, 127, 64, 63, 127, 0, 40}, {AN_PULSE, 127, 127, 26, 63, 127, 0, 22},

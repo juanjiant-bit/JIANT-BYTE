@@ -161,20 +161,20 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
 
 static const preset_t WAVE_PRESETS[] = {
     /* name, {A, POS, WARP, AMT, B, MIX, DETUNE, SUB}, {ATK DEC SUS REL}, ... (MATH's presets' layout) */
-    {"WAVE INIT", {0, 0, 0, 0, 0, 0, 0, 0}, {0, 64, 100, 30}, 0, TAG(KEYS), FX(0, 0, 0, 0)},
-    {"WAVE FM KEYS", {1, 40, 0, 0, 0, 0, 0, 0}, {0, 70, 60, 40}, 0, TAG(KEYS), FX(0, 15, 25, 30), PAT(6),
+    {"INIT WAVE", {0, 0, 0, 0, 0, 0, 0, 0}, {0, 64, 100, 30}, 0, TAG(KEYS), FX(0, 0, 0, 0)},
+    {"FM KEYS", {1, 40, 0, 0, 0, 0, 0, 0}, {0, 70, 60, 40}, 0, TAG(KEYS), FX(0, 15, 25, 30), PAT(6),
      MODS(MENV2(0, 60, 0, 30), MMOD(1, PS_ENV2, PD_SHP, 30))},          /* POS opens with the note, closes */
-    {"WAVE SAW PAD", {4, 20, 0, 0, 3, 50, 40, 0}, {80, 90, 100, 95}, 0, TAG(PAD), FX(0, 40, 30, 60), PAT(5),
+    {"SAW PAD", {4, 20, 0, 0, 3, 50, 40, 0}, {80, 90, 100, 95}, 0, TAG(PAD), FX(0, 40, 30, 60), PAT(5),
      MODS(P_LRATE, 12, MMOD(1, PS_LFO, PD_SHP, 20))},                  /* three voices, POS breathing */
-    {"WAVE SYNC LEAD", {3, 30, 1, 60, 0, 0, 12, 0}, {2, 70, 100, 40}, 0, 1 | TAG(LEAD), FX(0, 0, 35, 25), PAT(4),
+    {"SYNC LEAD", {3, 30, 1, 60, 0, 0, 12, 0}, {2, 70, 100, 40}, 0, 1 | TAG(LEAD), FX(0, 0, 35, 25), PAT(4),
      MODS(MMOD(1, PS_MODW, PD_SHP, 40), P_GLIDE, 10)},
-    {"WAVE SUB BASS", {7, 30, 2, 40, 0, 0, 0, 80}, {0, 60, 90, 20}, 0, 1 | TAG(BASS), FX(0, 0, 5, 0), PAT(2),
+    {"SUB BASS", {7, 30, 2, 40, 0, 0, 0, 80}, {0, 60, 90, 20}, 0, 1 | TAG(BASS), FX(0, 0, 5, 0), PAT(2),
      MODS(P_GLIDE, 8)},
-    {"WAVE BITS", {11, 64, 4, 50, 13, 30, 0, 0}, {0, 75, 80, 40}, 0, 1 | TAG(FX), FX(0, 10, 30, 30), PAT(3),
+    {"BIT TABLE", {11, 64, 4, 50, 13, 30, 0, 0}, {0, 75, 80, 40}, 0, 1 | TAG(FX), FX(0, 10, 30, 30), PAT(3),
      MODS(P_LWAVE, LW_SH, P_LRATE, -8, MMOD(1, PS_LFO, PD_SHP, 40))},  /* POS jumps each 1/8 */
-    {"WAVE FM BELL", {0, 0, 5, 70, 2, 0, 0, 0}, {0, 88, 0, 70}, 12, TAG(BELL), FX(0, 20, 35, 55), PAT(7),
+    {"FM BELL", {0, 0, 5, 70, 2, 0, 0, 0}, {0, 88, 0, 70}, 12, TAG(BELL), FX(0, 20, 35, 55), PAT(7),
      MODS(MMOD(1, PS_VEL, PD_SHP, 30))},                               /* B into A's phase */
-    {"WAVE FORMANT", {12, 50, 0, 0, 8, 40, 20, 0}, {30, 80, 90, 60}, 0, TAG(PAD), FX(0, 30, 30, 50), PAT(5),
+    {"FORMANT", {12, 50, 0, 0, 8, 40, 20, 0}, {30, 80, 90, 60}, 0, TAG(PAD), FX(0, 30, 30, 50), PAT(5),
      MODS(P_LRATE, 6, MMOD(1, PS_LFO, PD_SHP, 35))},
 };
 static const uint8_t WAVE_ORDER[] = {1, 2, 3, 4, 6, 7, 5, 0};

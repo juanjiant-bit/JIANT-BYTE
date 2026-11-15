@@ -2369,7 +2369,8 @@ int main(int argc, char **argv)
     const char *out = argc > 1 ? argv[1] : "build/ui_new";
     char path[600];
     uint32_t p, s;
-    static const char *const SHOW[] = {"JIANT", "SELVA", "CONTRAST", "BRASA", "ABISAL", "HUESO", "NEON"};   /* (the family: all seven) */
+    static const char *const SHOW[] = {"JIANT", "SELVA", "CONTRAST", "BRASA", "ABISAL", "HUESO", "NEON", "BYTE"};   /* (the family:
+                                                         * all eight, JIANT BYTE's BYTE too) */
     snprintf(path, sizeof path, "%s/report.txt", out);
     rep = fopen(path, "w");
     if (!rep) { fprintf(stderr, "cannot write %s\n", path); return 1; }
@@ -2476,7 +2477,8 @@ int main(int argc, char **argv)
         for (s = 0; s < lg_nsmall; s++) fprintf(rep, " '%s'", lg_small[s]);
         fprintf(rep, "\n");
     }
-    {   /* every FM6 colony (the lint above, fm6_hook, runs on each), in GREY: gray */
+    if (eng_idx(ENGI_FM6) == ENGI_FM6) {   /* every FM6 colony (the lint above, fm6_hook, runs on each), in GREY: gray
+                                                         * (JIANT BYTE: FM6 retired, its colonies and pages not drawn) */
         uint32_t a, c0 = fmp_charts;
         for (a = 1; a <= 32u; a++) {
             char name[32];
@@ -2488,7 +2490,7 @@ int main(int argc, char **argv)
         }
         if (fmp_charts - c0 != 32u) { fprintf(stderr, "ui_render: %u FM6 colonies drawn of 32\n", fmp_charts - c0); return 1; }
     }
-    {   /* (0.9.6) FM6's operator pages with their colony keep every number they showed: ALG, the operator and its frequency
+    if (eng_idx(ENGI_FM6) == ENGI_FM6) {   /* (0.9.6) FM6's operator pages with their colony keep every number they showed: ALG, the operator and its frequency
          * (OPERATOR, OPERATOR 2), OP ENV's stage with its R and L, the four cards */
         static const struct { int s; const char *w[6]; } FT[] = {
             {S_V6_FM6_OP, {"ALG 05 PAT", "OP3 x1.00", "COARSE", "FINE", "OUTPUT", "/6"}},   /* (codex/coherence: COARSE OUTPUT,

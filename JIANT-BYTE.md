@@ -5,7 +5,22 @@ Es un fork de JIANT FM V10.7.37 (commit `c623362`, con toda su historia). JIANT 
 [Felucca](https://github.com/hugelton/Felucca) 1.1.5.1 (Hügelton Instruments) y toma su sistema de canciones de
 [SLOOP](https://github.com/isod89/sloop-fm1). Sigue siendo GPL-3.0-only.
 
-Estado: **plan, sin código todavía**. Cada fase se aprueba antes de empezarla.
+Estado (rama `phase2-engines`, que contiene todo lo anterior):
+
+| Fase | Estado |
+|---|---|
+| 0 Renombre | hecha |
+| 1 FVM (compilador, máquina, reloj, KEY) | hecha |
+| 2 Motores BYTE / FLOAT sobre la FVM, CAOS, retiro de motores | hecha en gran parte: quedan ANALOG, VOICE y EXT de JIANT FM |
+| 3 WAVE | primera forma (sin tablas guardadas: sin CAPTURA ni copias por octava) |
+| 4 Batería de fórmulas | primera forma (lanes de fórmula en DRUM-X) |
+| 5 Proyectos con fórmulas, edición en el aparato | pendiente (el texto propio de una pista ya se guarda; falta editarlo) |
+| 6 Modificadores, cross-mod, ecuación de mezcla | pendiente |
+| 7 Efectos de fórmula con memoria | pendiente (libera la RAM que piden CAPTURA y lo demás) |
+| 8 Punch-ins de fórmula, secuenciadores de fórmula | primer paso (CAOS MAX) |
+| 9 Generador de ecuaciones | primera forma (MATH USER: semilla y CAOS) |
+| 10 Estética | primer paso (paleta BYTE por defecto) |
+| 11 FM-F, GLITCH | pendiente |
 
 ---
 
@@ -361,6 +376,15 @@ fuentes, porque el sonido es una función de `t`:
   porque con una tecla del layer FX apretada su cadena corre, neutra pero sin saltearse) y el CAOS vuelve exacto.
 - Los punch-in de buffer (REVERSE, TAPE STOP, REPEAT, GLITCH, FREEZE) ya actúan sobre el audio de las pistas de
   fórmula. Falta: punch-ins que deformen `t` directamente y los secuenciadores de fórmula.
+
+**Fase 10, primer paso: la paleta BYTE** (`tools/gen_ui_palettes.py`), por defecto en un aparato nuevo
+(`panel.c`, `settings_persist.c`; quien venga de JIANT FM conserva la suya): verde fósforo `#39FF6A` sobre negro,
+magenta `#FF2BD6` para lo activo, las cuatro perillas en fósforo, magenta, cian y amarillo; pasa todos los contrastes
+del generador. `tests/ui_render.c` ya no se corta en las colonias de FM6 retirado y dibuja BYTE en sus hojas
+(`build/ui_new/sheet_BYTE.png`). Los presets de WAVE perdieron el prefijo "WAVE " (se pisaba con la etiqueta del motor en
+la lista). Falta lo grueso: la fuente pixel, los rasters y glitches, la fórmula y `t` en binario a la vista, y los
+personajes de HOME (todavía los de JIANT FM). Pendiente de revisar: en HOME, con BYTE, un "1" y un "3" se pisan (parece
+el contador animado a mitad de giro: BYTE es la última paleta que el test dibuja).
 
 ## 6. Datos: proyectos y almacenamiento
 

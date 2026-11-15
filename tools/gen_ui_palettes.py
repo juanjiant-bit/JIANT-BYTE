@@ -49,6 +49,9 @@ FAMILY = {
                      theme="F4F1EA", sel="BEBCB7", tint="1B1B1A", accent="FF7A00", rec="FF4848"),
     "NEON":     dict(bg="050409", surf="0D0A14", raise_="17121F", line="2A2633", dim="6A6480", mid="A39CBA", text="EFE6C8",
                      theme="FF3EA5", sel="D43589", tint="240A1A", accent="3FE0E6", rec="FF3B2F"),
+    # (JIANT BYTE) BYTE, the default: a phosphor screen's green on black, the demoscene's magenta for the one active thing
+    "BYTE":     dict(bg="000000", surf="050A05", raise_="0C160C", line="1A2E1A", dim="4F8F5F", mid="8FD89F", text="D2FFD8",
+                     theme="39FF6A", sel="2BBF50", tint="06200C", accent="FF2BD6", rec="FF4848"),
 }
 NAMES = ["JIANT"] + list(FAMILY)   # MENU > DISPLAY > COLOR's order; the index is not what is saved (STORED)
 # the stored tokens, in the order of src/gfx.c ux's first fields (palette_set copies them)
@@ -65,6 +68,7 @@ KNOBS = {
     "ABISAL":   ["29BEE6", "7FE3D0", "8FA8FF", "C9E8F5"],      # cyan, aqua, periwinkle, ice
     "HUESO":    ["F4F1EA", "D0CEC8", "ABA9A4", "FF7A00"],      # bone, two greys, the orange
     "NEON":     ["FF3EA5", "B58CFF", "FFE066", "FF9AD2"],      # magenta, violet, yellow, pink
+    "BYTE":     ["39FF6A", "FF2BD6", "2BE0FF", "FFE14A"],      # (JIANT BYTE) phosphor, magenta, cyan, yellow
 }
 # the 20 palettes of the earliest firmware (index order), then the 11 of the firmware up to V10.7.18 (stored
 # PAL_TAG + index: GREY .. JIANT) -> the family
@@ -80,7 +84,7 @@ V10_TO_NEW = {"GREY": "HUESO", "GREEN": "SELVA", "AMBER": "BRASA", "ICE": "ABISA
 # what a palette is saved as: the id of the V10 palette nearest to it, so the firmware up to V10.7.18 reading these
 # settings shows that one (JIANT: JIANT); NEON a new id (that firmware: GREY, its fallback for an id it does not know)
 STORED_AS = {"JIANT": "JIANT", "SELVA": "GREEN", "CONTRAST": "HI-CON", "BRASA": "AMBER", "ABISAL": "ICE", "HUESO": "GREY",
-             "NEON": None}
+             "NEON": None, "BYTE": None}
 PAL_TAG = 64                       # stored id = PAL_TAG + n; below 20: an id of the earliest firmware
 QR_LIGHT, QR_DARK, CRASH_BG, CRASH_INK = (255, 255, 255), (0, 0, 0), (160, 0, 0), (255, 255, 255)
 PCT = {"MID": 70, "DIM": 42, "LINE": 18, "SEL": 80, "TINT": 12, "KEY": 78}
@@ -209,7 +213,8 @@ def main():
         out += ["    {" + ", ".join(f"0x{d[f'k{i}']:04x}" for i in range(4)) + f"}},   /* {name} */" for name, d in rows]
         out += ["};",
                 f"#define UI_NPALETTES {len(NAMES)}u",
-                "#define UI_JIANT_INDEX 0u          /* JIANT FM: the default (src/panel.c) */",
+                "#define UI_JIANT_INDEX 0u          /* JIANT FM's */",
+                f"#define UI_BYTE_INDEX {NAMES.index('BYTE')}u          /* (JIANT BYTE) BYTE: the default (src/panel.c) */",
                 f"#define UI_PAL_TAG {PAL_TAG}u          /* stored id = UI_PAL_TAG + UI_PAL_STORED[index]; below 20: an old id */",
                 "/* what each palette is saved as: the index its nearest one had up to V10.7.18 (" + " ".join(V10) + ") */",
                 "static const uint8_t UI_PAL_STORED[] = {" + ", ".join(str(v) for v in stored) + "};",
