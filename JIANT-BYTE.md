@@ -138,7 +138,7 @@ se guardan como texto y se compilan al cargar.
 | `m1`..`m4` `M1`..`M4` | los modificadores: fórmulas de control que corren una vez por bloque, al ritmo del tempo |
 | `p` `P` | la posición en el compás y en la canción, para que todo pueda ir a tempo |
 | `z(k)` | la señal de hace `k` muestras, leída de una memoria propia de la fórmula (delay, comb, flanger, eco) |
-| `lp(x,k)` `hp(x,k)` | filtros de un polo con estado, dentro de la fórmula |
+| `lp(x,k)` `hp(x,k)` | filtros de un polo con estado, dentro de la fórmula (hechos en la fase 1, con `ph(f)`) |
 | `hold(x,k)` | retención (sample and hold, reducción de frecuencia) |
 
 Con memoria y estado, un efecto es una fórmula como cualquier otra: `I + z(T*4410&16383)*0.6` es un eco,
@@ -149,8 +149,23 @@ realimente en sí misma dentro de la misma fórmula: la realimentación pasa por
 La reverb larga es el caso más caro: escrita como fórmula puede no entrar en CPU. Si no entra, queda como primitiva
 (`rev(x,k)`) que las fórmulas llaman, y su sonido lo sigue gobernando la fórmula.
 
-**Lo que hay que medir en la fase 1**: instrucciones por muestra y por voz frente a las fórmulas fijas actuales
-(`lofi_byte`, `lofi_float`), en el host con valgrind y en el binario del chip (`tests/target_budget.py`).
+**Fase 1, hecha** (`firmware/src/fvm.c`, `firmware/src/fvm_bank.c`, `tools/gen_fvm_bank.py`, `tests/fvm_test.c`):
+- El compilador y la máquina, como se describen arriba. Los operadores se escriben una sola vez (`FVM_OPS2`,
+  `FVM_OPS1`) y los usan tanto el plegado de constantes como la máquina, así que no pueden divergir.
+- Llamadas con estado propio: `ph(f)`, un oscilador de `f` Hz con su fase en 32 bits (exacto también a velocidad de
+  LFO), y `lp(x,k)` / `hp(x,k)`. Hasta 8 por fórmula.
+- Límites: 64 instrucciones, pila de 12 bloques, 64 bytes de tablas de texto. Un programa ocupa ~600 B; el espacio de
+  trabajo de la máquina, 1,5 KB por núcleo.
+- **Las 48 bytebeat de MATH, bit a bit**: el texto sale del C de `lofi_byte` tal cual, y el test compara cada fórmula
+  con cada VAR (`a` 1..16) en `t` 0..2^20 y en tiempos al azar: ~17 millones de muestras por fórmula, ninguna distinta.
+- **Las 48 floatbeat de MATH, reescritas en FIX**: no son bit a bit (MATH las escribió a mano en Q15 con atajos propios),
+  pero suenan igual: correlación media 0,999 y mínima 0,987 con `lofi_float`, el mismo nivel.
+- **El reloj** (`fvm_clock`): KEY LIBRE es el tiempo de MATH bit a bit (con VAR, BEND y LOOP); ALTURA deja el ritmo fijo
+  y la altura en la tecla; FIJO ignora la tecla; RATE, START, LOOP, WARP y SYNC con la posición de la canción.
+- **El costo**: 116 instrucciones por muestra en promedio (valgrind, x86-64), contra 50 de MATH escrito a mano (21 en
+  bytebeat, 79 en floatbeat): ~2,3 veces. El costo en el chip se mide en la fase 2, cuando el motor la use.
+- Compila para el chip (clang 4.0.1 de JieLi, `__divdi3` está en su `compiler-rt`); sin usar, no ocupa flash.
+- Fuzz: 200.000 textos al azar no rompen el compilador, y un texto rechazado deja un programa vacío.
 
 ## 5. Lo que se construye sobre la FVM
 

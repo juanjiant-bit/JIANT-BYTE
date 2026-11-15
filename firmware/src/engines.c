@@ -4,6 +4,7 @@
 /* Engine table (order = PRESETS browsing order and the engine numbers of the editor protocol), the
  * factory patterns (SEQ > PATTERNS) and the parts' sounds at power-on. */
 #include "dsp.c"
+#include "fvm.c"             /* (JIANT BYTE) the formula machine (fvm_bank.c: the factory formulas, phase 2) */
 #include "eng_analog.c"
 #include "eng_phase.c"
 #include "eng_lofi.c"

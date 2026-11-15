@@ -396,6 +396,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -DFX_REST_OFF -Ibuild/gen -Ifirmware/src -o "$OUT/fx_rest_ref" tests/fx_rest_test.c -lm
     run "FX at rest (cpu5): the gate shut, the buses not run and silenced, the same output before, zeros through, the wake" \
         python3 tests/fx_rest_test.py "$OUT/fx_rest_test" "$OUT/fx_rest_ref"
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/fvm_test" tests/fvm_test.c -lm
+    run "FVM (JIANT BYTE): the formula language, MATH's 48 bytebeats bit for bit, its 48 floatbeats in FIX, the clock (KEY LIBRE ALTURA FIJO), the cost" \
+        env FVM_NO_COST=1 "$OUT/fvm_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/regress" tests/regress.c -lm
     run "regression: golden renders, health, voices, CPU budget" "$OUT/regress" tests/golden.txt tests/cpu_baseline.txt
     # (V10.7.34) LIFE 0: every golden render of before LIFE bit for bit (tests/golden_life0.txt, never rewritten)

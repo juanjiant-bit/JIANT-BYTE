@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant)
+"""(JIANT BYTE, phase 1) firmware/src/fvm_bank.c: the factory formulas as text for the FVM (firmware/src/fvm.c).
+
+  tools/gen_fvm_bank.py            writes firmware/src/fvm_bank.c
+
+BYTE: MATH's 48 bytebeats (JIANT FM, firmware/src/eng_lofi.c lofi_byte) read out of its C, as written (the FVM takes C's
+syntax and its u suffixes; tests/fvm_test.c checks them bit for bit). FLOAT: MATH's 48 floatbeats (lofi_float),
+rewritten in the FVM's FIX: MATH's S(x * k) (x the time in Q8, a turn every 32 t) is sin(w * k) (w the note's phase in
+turns, Q16) through the same sine table; the shorthands below are expanded here (the language has no names of its
+own): E the step's envelope (1 at a step's start, 0 at its end, a step 2048 t), R(i) the just ratios (1 9/8 5/4 4/3 3/2
+5/3 15/8 2, in sixteenths), N the formula's own hash noise (-0.5 .. 0.5). MATH's kicks add (k + 40) / 2^19 of a
+turn a sample: ph() takes Hz, so (k + 40) x FS / 2^19 (0.0841140747 Hz each). tests/fvm_test.c compares them with MATH's."""
+import pathlib, re
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+LOFI = ROOT / "firmware/src/eng_lofi.c"
+OUT = ROOT / "firmware/src/fvm_bank.c"
+
+E = "(1-(t&2047)/2048.)"
+N = "(fix((t*2654435761>>17)-16384)/32768)"
+def R(i):
+    return f'("@BDEHKNP"[{i}]-48)'
+
+FLOAT = [
+    f"sin(w*(((t>>11^t>>13)&7)+1))*{E}",
+    "sin(w+sin(w*3)*(t>>10&15)*3/16)",
+    f"sin(w*{R('0x36364689>>((t>>11&7)*4)&7')}/16)*{E}",
+    "sin(w*(1+(t>>12&3)))*sin(w*((t>>9&7)+1))",
+    "((t>>11&1?0.:sin(ph(fix(((t&2047)<1024?(1024-(t&2047))*(1024-(t&2047))>>6:0)+40)*0.0841140747))*(1024-min(t&2047,1024))/1024)+sin(w/2)/2)/2",
+    f"sin(w*((t>>9&t>>11&7)|1))*{E}",
+    "sat(sin(w*(1+(t>>11&1)))*(1+(t>>11&7)*3)/2)",
+    f"sin(w*{R('(t>>11)*3+(t>>13)&7')}*(1+(t>>11&1))/16)",
+    '(sin(w*("23456853"[t>>9&7]-48)/2)+sin(w*("23456853"[t>>11&7]-48)/4))/2',
+    f"((t>>11&1?{N}:0.)*{E}+sin(w))/2",
+    f"sin(w+sin(w*((t>>12&7)+1))*{E}*2)",
+    "sin(w+sin(t/2048.)*6/16)",
+    "sin(sin(w)*(2+(t>>11&7)))",
+    "abs(sin(w*(1+(t>>11&1))))-abs(sin(w*(24+(t>>11&6)*4)/16))",
+    "sin(floor(w*8192/(1<<4+(t>>11&7)))*(1<<4+(t>>11&7))/8192)",
+    f"sin(w*((t>>8)%7+1))*{E}",
+    f"(sin(w*(1+(t>>11&1)))*{E}+sin(w*(24+(t>>11&2)*8)/16)*max(1-fix(t%3072*10)/32768,0.))/2",
+    f"sin(w*(64+(t>>6&255))/64)*{E}",
+    "((t>>10&1?sin(w*(1+(t>>11)%3)):0.)+sin(w+t/2048.))/2",
+    "(sin(w)+((t>>11&3)>0?sin(w*3)/3:0.)+((t>>11&3)>1?sin(w*5)/5:0.)+((t>>11&3)>2?sin(w*7)/7:0.))*3/4",
+    "sin(w*(2+((t>>11)*5&7))/2)",
+    f"((t>>11&3)==0?sin(ph(fix(((t&2047)<768?(768-(t&2047))*(768-(t&2047))>>6:0)+30)*0.0841140747))*(768-min(t&2047,768))/768:0.)/2"
+    f"+((t>>(8+(t>>11&3))&1)?{N}*(1024-(t&1023))/4096:0.)/2+sin(w/2)/8",
+    "sin(w*(1+(t>>9&t>>7&7))+fix(t>>9&t>>7&255)/16)",
+    "sin(w*2+sin(w*5)*(t>>11&3)*8/16)",
+    f"sin(w*(1+(t>>11&3)))*abs(sin(w*(1+(t>>11&3))))*{E}",
+    f"sin(w-fix(t&1<<(t>>11&7))/32)*{E}",
+    f"sin(w*(34-(t>>11&15))/32)*{E}",
+    f"(sin(w)+sin(w*((t>>13&3)+2))*{E})/2",
+    "sin(w+sin(w*2)*sin(t/8192.)*2)",
+    "sin(w*(16+(t>>7&63))/16)",
+    f"sin(w*{R('((t>>11)+1)*2654435761>>29')}/16)*{E}",
+    f"(sin(w*{R('t>>12&7')}/16)+sin(w*{R('t>>12&7')}*20/256)+sin(w*{R('t>>12&7')}*24/256))/4"
+    f"+(((t>>11)*5&7)<5?{N}*(512-(t&511))/2048*{E}:0.)/2",
+    f"sin(w*((t>>11)%5+1))*{E}",
+    f"sin(w+sin(w*7)*{E})",
+    f"(sin(w)+sin(w*3/2)+sin(w*{R('t>>11&7')}/16))/3",
+    f"(t>>11&3)!=3?sin(w*{R('(t>>11)*5&7')}*2/16)*{E}:0.",
+    "sin(w+sin(w/2)*(t>>9&15)*2/16)",
+    "sin(w)>0?sin(w):sin(w)/4",
+    "sin(w*(1+(t>>10&1)*2))*sin(t/4096.)",
+    f"sin(w*(8+(t>>8&7))/8)*{E}",
+    f"(sin(w*2)*{E}+sin(w*3)*(1-{E}))/2",
+    "sin(w+sin(w*5)*(t>>11&7)*4/16)",
+    f"(t&2047)<1024?sin(w*{R('t>>13&7')}/16)*{E}:0.",
+    "sat((sin(w)*3+sin(w*2)*2)/2)",
+    "sin(w*((t>>9^t>>12)&7|1))",
+    f"sin(w*(32+(t>>5&31))/32)*{E}",
+    "sin(w)*sin(w*(1+(t>>11&3)))+sin(w/2)/4",
+    "sin(w+sin(w*3)*sin(t/4096.))",
+]
+
+def byte_forms():
+    src = LOFI.read_text()
+    start = src.index("uint32_t lofi_byte(")
+    body = src[start:src.index("\n}\n", start)]          # (lofi_byte's body alone: lofi_mut's cases come after)
+    forms = {}
+    for m in re.finditer(r"(case (\d+)|default): return (.*?);\s*(/\*.*?\*/)?\s*$", body, re.M):
+        forms[int(m.group(2)) if m.group(2) else "default"] = m.group(3).strip()
+    return [forms.get(i, forms["default"]) for i in range(48)]
+
+def cstr(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+def main():
+    byte = byte_forms()
+    assert len(FLOAT) == 48, len(FLOAT)
+    with open(OUT, "w") as f:
+        f.write("/* SPDX-License-Identifier: GPL-3.0-only\n * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton "
+                "Instruments\n * Portions Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */\n"
+                "/* (JIANT BYTE) the factory formulas, as text for the FVM (fvm.c). Generated by tools/gen_fvm_bank.py: "
+                "do not edit.\n * BYTE: MATH's bytebeats as written (eng_lofi.c); FLOAT: MATH's floatbeats in the FVM's "
+                "FIX. */\n")
+        f.write(f"#define FVM_NBYTE {len(byte)}u\n#define FVM_NFLOAT {len(FLOAT)}u\n")
+        f.write("static const char *const FVM_BYTE_BANK[FVM_NBYTE] = {\n")
+        for i, s in enumerate(byte):
+            f.write(f"    /* B{i + 1:02d} */ {cstr(s)},\n")
+        f.write("};\nstatic const char *const FVM_FLOAT_BANK[FVM_NFLOAT] = {\n")
+        for i, s in enumerate(FLOAT):
+            f.write(f"    /* F{i + 1:02d} */ {cstr(s)},\n")
+        f.write("};\n")
+    print(f"fvm bank: {len(byte)} BYTE, {len(FLOAT)} FLOAT -> {OUT}")
+
+if __name__ == "__main__":
+    main()
