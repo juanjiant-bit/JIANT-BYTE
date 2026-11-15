@@ -109,6 +109,57 @@ int main(int argc, char **argv)
        "USER: the part's own text played as written (%s, rms %.3f)", math_txt[0], rms(ya, NS));
     user_part(7, 120, 0, ya);
     ok(rms(ya, NS) > 0.001 && peak(ya, NS) <= 1.0, "USER: CAOS 120 a wild one, bounded (peak %.3f): %s", peak(ya, NS), math_txt[0]);
+    {   /* (phase 6) cross-mod: track 2 reads track 1's output (O1), a block late, through the mix; each pass in a fresh
+         * child (fork, as tests/regress.c: the FX's and the master's state of a pass would leak into the next) */
+        enum { NB = 150u };
+        static int32_t mm[4][NB * 2u * CTL];
+        static const char *const TX[2] = {"sin(w)", "sin(w+O1*8)"};
+        uint32_t pass;
+        for (pass = 0; pass < 4u; pass++) {
+            int fd[2];
+            pid_t pid;
+            if (pipe(fd)) break;
+            pid = fork();
+            if (!pid) {
+                static int32_t m[NB * 2u * CTL];
+                uint32_t k, b, src = pass < 2u;      /* (passes 0 1: track 1 sounds; 2 3: silent) */
+                size_t off = 0;
+                close(fd[0]);
+                memset(trk, 0, sizeof trk);
+                host_tracks_init();
+                host_preset(&trk[0], ENGI_WAVE, 0);  /* (track 1: a sine) */
+                host_preset(&trk[1], ENGI_LOFI, 0);
+                for (k = 0; k < NTRK; k++) trk[k].p[P_DIST] = trk[k].p[P_CHOR] = trk[k].p[P_DLY] = trk[k].p[P_REV] = 0;
+                trk[1].p[P_E1] = RW_USER;
+                memset(lyr_txt[1], 0, sizeof lyr_txt[1]);
+                for (k = 0; TX[pass & 1u][k]; k++) lyr_txt[1][k] = TX[pass & 1u][k];
+                math_poll_ws(&W);
+                if (src) trk_note_on(&trk[0], 48, 100);
+                trk_note_on(&trk[1], 60, 100);
+                for (b = 0; b < NB; b++)
+                    mix_block(m + b * 2u * CTL, CTL);
+                while (off < sizeof m) {
+                    ssize_t w = write(fd[1], (char *)m + off, sizeof m - off);
+                    if (w <= 0) break;
+                    off += (size_t)w;
+                }
+                _exit(0);
+            }
+            close(fd[1]);
+            {
+                size_t off = 0;
+                while (off < sizeof mm[pass]) {
+                    ssize_t r = read(fd[0], (char *)mm[pass] + off, sizeof mm[pass] - off);
+                    if (r <= 0) break;
+                    off += (size_t)r;
+                }
+            }
+            close(fd[0]);
+            waitpid(pid, 0, 0);
+        }
+        ok(memcmp(mm[0], mm[1], sizeof mm[0]) != 0, "cross-mod: track 2's sin(w+O1*8) moves with track 1 sounding");
+        ok(!memcmp(mm[2], mm[3], sizeof mm[2]), "cross-mod: track 1 silent, O1 is 0: sin(w+O1*8) bit for bit sin(w)");
+    }
     printf(fails ? "genf: %d FAILED\n" : "genf: all ok\n", fails);
     return fails != 0;
 }

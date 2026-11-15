@@ -397,8 +397,13 @@ el contador animado a mitad de giro: BYTE es la última paleta que el test dibuj
 - `tests/macro_eq_test.c`: con la perilla todo igual que antes (las renders de referencia no cambian), TRI recorre 0..127
   en un compás, STEP da cuatro escalones, S&H cambia cada 1/8, la perilla entra y sale, la matriz lo sigue a través de
   la mezcla y el proyecto lo guarda.
-- Falta: el cross-mod entre pistas (`O1`..`O6`), la ecuación de mezcla y elegir la fórmula de control libre (con el
-  generador).
+- **Cross-mod** (hecho): una fórmula lee la salida de cada pista como `O1`..`O6` (FIX, el bloque anterior: 1,45 ms; así no
+  importa el orden ni el núcleo en que se renderizan). `sin(w+O1*8)` es FM de la pista 1 sobre la 2. La salida de cada
+  pista se copia al renderizarla (`fx.c` → `xm_put`) a un buffer doble en el pool (`eng_lofi.c` `xm_buf`, 3 KB) que se da
+  vuelta al empezar cada bloque. Una variable por muestra que el motor no provee se lee como 0. Comprobado en
+  `tests/gen_formula_test.c` a través de la mezcla, cada caso en su propio proceso: con la pista 1 sonando la 2 se mueve,
+  con la 1 en silencio da bit a bit `sin(w)`.
+- Falta: la ecuación de mezcla y elegir la fórmula de control libre (con el generador).
 
 **Memoria (decisiones del 2026-11-15)**:
 - El buffer que comparten el SLICER y los punch-ins de buffer (`slicer.c` `SL_FR`) pasa de 32 KB (371 ms) a 16 KB (186 ms).

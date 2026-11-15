@@ -2585,8 +2585,10 @@ static inline __attribute__((always_inline)) void mix_part(track_t *t, uint32_t 
      * that monitors what it records (KOALA) sent the FM-1's own output back, mixed in again: a digital feedback loop. The
      * input is heard where an INPUT track takes it (eng_input.c) */
     int uin = uin_on && fx_stems == 2u && !ain_any && (uint32_t)(t - trk) + 1u == trk_live;
-    if (track_render(t, b, n))
-        t->tail = (uint8_t)(512u / CTL);                /* blocks of DIST state to run out after the last voice */
+    if (track_render(t, b, n)) {
+        t->tail = (uint8_t)(512u / CTL);
+        xm_put((uint32_t)(t - trk), b, n);              /* (JIANT BYTE) its output for the formulas' O1 .. O6 */
+    }                                                   /* (tail: blocks of DIST state to run out after the last voice) */
     else if (!uin && (!t->tail || !t->p[P_DIST] || !--t->tail)) {
         mp_seen[(uint32_t)(t - trk) % NTRK] = 0;       /* (silent: the next sound at its LEVEL and PAN) */
         if (MOD.on)
@@ -3089,6 +3091,7 @@ static __attribute__((noinline)) void mac_tick(uint32_t n)
     else
         b = mac_free += (n << 16) / (beat_samples() | 1u);
     mac_eval(b);
+    xm_turn();                                          /* (JIANT BYTE) cross-mod: the parts' last block for this one */
 }
 static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (0.6.71: kept out of the ISR's
                                                                                * body, as before: target_budget.py) */

@@ -105,6 +105,9 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
         fvm_prog_init(&wave_prg_b[tr], wave_ins_b[tr], 32u);
     pa = wave_prog(lofi_slot(tr), &lofi_prg_id[tr], fa, wk);
     pb = need_b ? wave_prog(&wave_prg_b[tr], &wave_id_b[tr], fb, wk) : 0;
+    xm_env(&ea, pa);                                 /* (cross-mod: O1 .. O6) */
+    if (pb)
+        xm_env(&eb, pb);
     for (i = 0; i < n; i++) {
         uint32_t tt = (uint32_t)v->s[2] + i, ps = (uint32_t)pos;
         T[i] = tt >> 2;                              /* (t: ~11 kHz from the note's start) */

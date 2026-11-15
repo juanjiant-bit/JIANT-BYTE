@@ -247,6 +247,28 @@ static fvm_prog_t *lofi_slot(uint32_t tr)            /* a part's program, its st
     return &lofi_prg[tr];
 }
 #include "fvm_bank.c"
+/* (JIANT BYTE, phase 6) cross-mod: each part's output (its dry sum, FIX: full scale 1.0) of the block before, what a
+ * formula reads as O1 .. O6; written as the parts render (fx.c xm_put), turned over at each block's start (xm_turn) */
+static int32_t xm_buf[2][NTRK][CTL] __attribute__((section(".pool")));
+static uint8_t xm_cur;
+static void xm_turn(void)
+{
+    xm_cur ^= 1u;
+    memset(xm_buf[xm_cur ^ 1u], 0, sizeof xm_buf[0]);  /* (the one written now: a silent part stays 0) */
+}
+static void xm_put(uint32_t tr, const int32_t *b, uint32_t n)
+{
+    uint32_t i;
+    int32_t *d = xm_buf[xm_cur ^ 1u][tr % NTRK];
+    for (i = 0; i < n && i < CTL; i++)
+        d[i] = b[i] < -65536 ? -131072 : b[i] > 65536 ? 131072 : b[i] * 2;   /* (VOICE_FS-ish full scale -> FIX 1) */
+}
+static void xm_env(fvm_env_t *e, const fvm_prog_t *p)   /* O1 .. O6, when the formula reads them */
+{
+    uint32_t k;
+    for (k = 0; k < NTRK; k++)
+        e->arr[FA_O1 + k] = (p->uses >> (FA_O1 + k)) & 1u ? (const uint32_t *)xm_buf[xm_cur][k] : 0;
+}
 #define LOFI_N 64u                                   /* a render's samples at most (CTL); the FVM runs FVM_BLK at once */
 _Static_assert(CTL <= LOFI_N, "MATH: a render longer than its arrays");
 /* the formula over m samples (the variables' arrays m long), FVM_BLK at a time */
@@ -377,6 +399,7 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
     }
     if (ne) {                                            /* the formula at those times, in one run */
         fvm_env_t en = {{tws, 0, 0, 0, 0}, {0}, &v->s[6]};
+        xm_env(&en, pg);
         en.u[FU_A] = a;
         en.u[FU_NOTE] = v->note;
         en.u[FU_VEL] = v->vel;
@@ -439,6 +462,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     uint32_t qb = key ? lofi_sync(&qr) : 0u;
     int32_t fb0 = fb;
     fvm_env_t en = {{T, W, 0, 0, 0}, {0}, &v->s[6]};
+    xm_env(&en, pg);
     en.u[FU_NOTE] = v->note;
     en.u[FU_VEL] = v->vel;
     if (n > LOFI_N)
@@ -476,7 +500,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
                                                          * output of a sample feeds the next: one sample a run */
             int32_t d = (fb * fbk) >> 10;
             uint32_t T1 = tw + (uint32_t)(d >> 8), W1 = ((tw << 8 | tf >> 16) + (uint32_t)d) << 3, o1;
-            fvm_env_t e1 = {{&T1, &W1, 0, 0, 0}, {0}, &v->s[6]};
+            fvm_env_t e1 = {{&T1, &W1, 0, 0, 0}, {0}, &v->s[6]};   /* (FEEDBK: no cross-mod here) */
             e1.u[FU_NOTE] = v->note;
             e1.u[FU_VEL] = v->vel;
             fvm_run(pg, &e1, &wk->s, 1, &o1);
