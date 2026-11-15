@@ -213,7 +213,7 @@ static const char *const N_DXFORM[] = {"SINE", "SAT", "FM", "METAL", "BITS", "XO
 _Static_assert(DX_NFORM == sizeof N_DXFORM / sizeof N_DXFORM[0], "DRUM-X: a name a formula");
 static uint8_t dx_form[8];                           /* (JIANT BYTE) 0, or 1 + the formula of DX_FORMS */
 static fvm_prog_t dx_fprg[8];
-static fvm_ins_t dx_fins[8][24];                     /* (a lane's formula: 24 instructions at most) */
+static fvm_ins_t dx_fins[8][24] __attribute__((section(".pool")));                     /* (a lane's formula: 24 instructions at most) */
 static uint8_t dx_fid[8];                            /* the formula compiled in dx_fprg (0: none yet) */
 static const fvm_prog_t *dx_fprog(uint32_t ln, lofi_work_t *w)
 {

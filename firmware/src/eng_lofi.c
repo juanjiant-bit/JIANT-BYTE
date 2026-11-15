@@ -236,9 +236,9 @@ static __attribute__((noinline)) int32_t lofi_float(uint32_t f, uint32_t t, uint
  * keeps at most LOFI_NSTATE states (ph lp hp) in the voice (v->s[6], v->s[7]); one with more is refused (silent) */
 #define LOFI_NSTATE 2u
 typedef union { fvm_scratch_t s; fvm_cc_t c; } lofi_work_t;
-static lofi_work_t lofi_work[2];                     /* one a core (MC_CPU) */
+static lofi_work_t lofi_work[2] __attribute__((section(".pool")));                     /* one a core (MC_CPU) */
 static fvm_prog_t lofi_prg[NTRK];
-static fvm_ins_t lofi_ins[NTRK][FVM_MAXINS];         /* (its instructions: a part's formula the longest, 64) */
+static fvm_ins_t lofi_ins[NTRK][FVM_MAXINS] __attribute__((section(".pool")));         /* (its instructions: a part's formula the longest, 64) */
 static uint16_t lofi_prg_id[NTRK];                   /* 1 + 64 x FLOAT + ALGO / 4 (0: none yet) */
 static fvm_prog_t *lofi_slot(uint32_t tr)            /* a part's program, its storage given once */
 {
@@ -293,7 +293,7 @@ static inline uint32_t lofi_caos(uint32_t t, uint32_t c, int32_t fb)
     return t;
 }
 /* (JIANT BYTE) USER: a part's own formula (math_poll, in the main loop, writes it, its type, then its version) */
-static char math_txt[NTRK][64];
+static char math_txt[NTRK][64] __attribute__((section(".pool")));
 static uint8_t math_ty[NTRK];
 static volatile uint8_t math_ver[NTRK];
 static const fvm_prog_t *lofi_prog(const track_t *t, lofi_work_t *w, uint32_t flt, uint32_t f)

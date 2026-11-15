@@ -1673,7 +1673,7 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
     } else if (trk_eng(t) == ENGI_DRUM) {    /* (the kit ~128 x 92) */
         s = vx_fit(w, h, 128, 92);
         vx_kit(t, cx - (s >> 4), cy + (48 * s >> 8), s, en_home, -1);
-    } else if (e == &ENG_INPUT) {                       /* (V10.54) the inputs' meters */
+    } else if (e == &ENG_EXT_GONE) {                       /* (V10.54) the inputs' meters */
         if (!bt_hw_seg())
             return 0;
         vx_input(t, A, en_home);

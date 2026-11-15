@@ -45,6 +45,9 @@ static const engine_t ENG_GONE = {
     .render = phys_gone_render,
     .knob = {P_E0, P_E1, P_E2, P_E3},
 };
+/* (JIANT BYTE) INPUT (EXT and SWARM) retired: what compared a part's engine with it compares with this one, in no slot */
+static const engine_t ENG_EXT_GONE = {.name = "-", .page_title = {"-", "-"}, .note_on = phys_gone_note_on,
+                                      .render = phys_gone_render};
 #define ENGI_PHYS_TO 0u          /* the engine a retired engine's sound plays as: ANALOG (its first preset) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
@@ -69,12 +72,12 @@ static const engine_t *const ENGINES[NENGINES] = {
                                   * for the stores): plays as MATH */
     &ENG_WAVE,                   /* 13: (JIANT BYTE) WAVE (eng_wave.c), in the retired ADD's number */
     &ENG_LOFI,                   /* 14: (JIANT BYTE) ANIMAL retired: plays as MATH */
-    &ENG_INPUT,                  /* 15 (ENGI_INPUT, V10.54) */
+    &ENG_LOFI,                   /* 15: (JIANT BYTE) INPUT (EXT, SWARM) retired: plays as MATH */
 };
 
 /* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
  * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
-static const uint8_t ENG_LIVE[NENGINES] = {0, 1, 13, 3, 4, 5, 6, 3, 13, 9, 10, 13, 3, 13, 3, 15};   /* (13: WAVE) */
+static const uint8_t ENG_LIVE[NENGINES] = {0, 1, 13, 3, 4, 5, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3};   /* (13: WAVE) */
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
 static inline uint32_t eng_idx(uint32_t e) { return e < NENGINES ? ENG_LIVE[e] : 0u; }
 
@@ -90,7 +93,6 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     ENGI_LOFI,                   /* MATH (BYTE FLOAT) */
     ENGI_ANALOG,                 /* ANALOG */
     ENGI_VOICE,                  /* VOICE */
-    ENGI_INPUT,                  /* (V10.54) the audio input */
     /* (JIANT BYTE) retired, their numbers MATH's or WAVE's (ENG_LIVE): WHEEL ADD FM6 PHASE STRING WEST ANIMAL */
 #if FELUCCA_FM4
     ENGI_DIGITAL,                /* DIGITAL (retired, FELUCCA_FM4 builds only): after the rest */
@@ -106,7 +108,6 @@ static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
 #endif
     ENGI_LOFI, ENGI_VOICE, ENGI_DRUM,   /* (JIANT BYTE: PHASE WEST ANIMAL STRING WHEEL ADD out) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE: after the rest */
-    ENGI_INPUT,                  /* (V10.54) */
 };
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them

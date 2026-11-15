@@ -11,7 +11,7 @@ Estado (rama `phase2-engines`, que contiene todo lo anterior):
 |---|---|
 | 0 Renombre | hecha |
 | 1 FVM (compilador, máquina, reloj, KEY) | hecha |
-| 2 Motores BYTE / FLOAT sobre la FVM, CAOS, retiro de motores | hecha en gran parte: quedan ANALOG, VOICE y EXT de JIANT FM |
+| 2 Motores BYTE / FLOAT sobre la FVM, CAOS, retiro de motores | hecha en gran parte: quedan ANALOG y VOICE de JIANT FM |
 | 3 WAVE | primera forma (sin tablas guardadas: sin CAPTURA ni copias por octava) |
 | 4 Batería de fórmulas | primera forma (lanes de fórmula en DRUM-X) |
 | 5 Proyectos con fórmulas, edición en el aparato | pendiente (el texto propio de una pista ya se guarda; falta editarlo) |
@@ -399,6 +399,15 @@ el contador animado a mitad de giro: BYTE es la última paleta que el test dibuj
   la mezcla y el proyecto lo guarda.
 - Falta: el cross-mod entre pistas (`O1`..`O6`), la ecuación de mezcla y elegir la fórmula de control libre (con el
   generador).
+
+**Memoria (decisiones del 2026-11-15)**:
+- El buffer que comparten el SLICER y los punch-ins de buffer (`slicer.c` `SL_FR`) pasa de 32 KB (371 ms) a 16 KB (186 ms).
+  Los efectos se adaptan solos: REVERSE usa ventanas más cortas a tempos medios (1/32 donde antes 1/16), REPEAT 1/8 graba
+  a 11 kHz desde tempos más altos, GLITCH elige entre menos cortes. `tests/perform_test.c` todavía espera los tiempos de
+  antes (y RING, que ahora es CAOS MAX): falla en 9 chequeos, a reescribir.
+- Los buffers de la FVM (programas, espacio de trabajo, textos) pasan al pool: la RAM estática libre sube de 1,25 KB a
+  12,3 KB; en el pool quedan ~6 KB sobre el mínimo de 8 KB.
+- EXT (INPUT: la entrada de audio USB, SWARM) sale: el número 15 suena como MATH.
 
 ## 6. Datos: proyectos y almacenamiento
 

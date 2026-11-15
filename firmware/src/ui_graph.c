@@ -1482,10 +1482,10 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
     if (pg->graph == GR_DXIMG)                       /* (0.6.48) IMAGE and how wide it plays */
         h = (h ^ ((uint32_t)t->p[P_DXIMG] << 16 | (uint32_t)dx_img_k(t) | (uint32_t)t->p[P_SIMG] << 24 |
                   (trk_eng(t) != ENGI_DRUM ? vx_on_mask(t) << 9 : 0u))) * 16777619u;   /* (V10.49: a synth's, its voices lit) */
-    if (pg->fam == FAM_EDIT && trk_engp(t) == &ENG_INPUT)   /* (V10.54) INPUT: its meters live */
+    if (pg->fam == FAM_EDIT && trk_engp(t) == &ENG_EXT_GONE)   /* (V10.54) INPUT: its meters live */
         h = (h ^ ((uint32_t)(ain_pk[0] >> 10) | (uint32_t)(ain_pk[1] >> 10) << 6 | (uint32_t)(mod_follow >> 10) << 12 |
                   (uint32_t)(ain_gg[(uint32_t)(t - trk) % NTRK] >> 12) << 18)) * 16777619u;
-    if (pg->fam == FAM_EDIT && trk_engp(t) == &ENG_INPUT && t->p[P_E0] == AIN_SW)   /* (SWARM: it moves every frame) */
+    if (pg->fam == FAM_EDIT && trk_engp(t) == &ENG_EXT_GONE && t->p[P_E0] == AIN_SW)   /* (SWARM: it moves every frame) */
         h ^= anim_fr * 2654435761u;
     if (DX_KIT3(pg))                                 /* (0.8.8) KIT 3's colony lives every frame, as KIT's (was still) */
         h ^= anim_fr * 2654435761u;

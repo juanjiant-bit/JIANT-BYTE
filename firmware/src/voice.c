@@ -204,7 +204,7 @@ typedef struct {
                                                          * fn_pm's line live */
 } fnb_t;
 static fnb_t fnb[NTRK] __attribute__((section(".bss.fn")));   /* the block's, track_post's (the voices': the next block's) */
-#define FN_OK(t) (ENGINES[(t)->engine] != &ENG_DRUM && ENGINES[(t)->engine] != &ENG_INPUT)
+#define FN_OK(t) (ENGINES[(t)->engine] != &ENG_DRUM && ENGINES[(t)->engine] != &ENG_EXT_GONE)
 static inline int32_t fn_inv(const int16_t *p, uint32_t id) { return 127 - (p[id] & 127); }   /* (stored 0 .. 127) */
 static inline uint32_t fn_mode(const int16_t *p) { return 4u - (((uint32_t)p[P_FNMD] & 127u) * 5u >> 7); }   /* (as
                                                          * params.c FN_DESC names it) */
@@ -322,7 +322,7 @@ static __attribute__((noinline)) int32_t fn_voice(const track_t *t, int32_t p16,
 {
     const int16_t *p = t->p;
     const engine_t *e = ENGINES[t->engine];
-    if (e == &ENG_DRUM || e == &ENG_INPUT)
+    if (e == &ENG_DRUM || e == &ENG_EXT_GONE)
         return 0;
     if ((p[P_FNZ] & p[P_FDRV] & p[P_FKEY]) < 127 && !tf_on[ti])
         tf_on[ti] = 2;
@@ -583,7 +583,7 @@ static __attribute__((noinline)) void track_filter(track_t *t, int32_t *out, uin
  * whole filter (track_filter). Its own function: the audio ISR's loop stays as it was */
 static __attribute__((noinline)) void track_post(track_t *t, const engine_t *e, int32_t *out, uint32_t n)
 {
-    uint32_t ti = (uint32_t)(t - trk) % NTRK, ok = e != &ENG_DRUM && e != &ENG_INPUT;
+    uint32_t ti = (uint32_t)(t - trk) % NTRK, ok = e != &ENG_DRUM && e != &ENG_EXT_GONE;
     fn_tick(t, e, ti, ok);                              /* (filters2) FILTER 2, a block (on the voices' own filters the
                                                          * next block: voice_block) */
     if (e != &ENG_ANALOG && fnb[ti].drv)                /* FILTER's DRIVE: into the filter (ANALOG's: its voices') */
@@ -2224,7 +2224,7 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
             nr++;
         }
     }
-    if (e == &ENG_INPUT)                                /* (V10.54) INPUT, PLAY THRU: the input (eng_input.c) */
+    if (e == &ENG_EXT_GONE)                                /* (V10.54) INPUT, PLAY THRU: the input (eng_input.c) */
         nr += AIN_THRU(t, out, n);                     /* (through a pointer: track_render runs from RAM too) */
     if (nr && (life.pg[ti] || (lpt && life.pa[ti]))) {   /* (V10.7.34) LIFE's cross-FM, the AUDIO end of its PITCH */
         void (*f)(uint32_t, int32_t *, uint32_t, int32_t) = life_pm;

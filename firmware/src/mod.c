@@ -99,7 +99,7 @@ _Static_assert(MAC_NF == sizeof N_MACF / sizeof N_MACF[0], "a name a macro formu
 static uint8_t macro_f[4];                           /* 0, or 1 + the formula of MAC_FORMS */
 static uint8_t macro_e[4];                           /* the macro the matrix reads, 0..127 */
 static fvm_prog_t mac_prg[4];
-static fvm_ins_t mac_ins[4][20];
+static fvm_ins_t mac_ins[4][20] __attribute__((section(".pool")));
 static uint8_t mac_id[4];
 static int32_t mac_st[4][2];
 static uint32_t mac_free;                            /* (stopped: beats, Q16, from the blocks) */

@@ -20,7 +20,8 @@
  * while it plays, the global SWING; sample exact. With the SLICER OFF and no ramp left nothing goes through it.
  * perform.c borrows sl_buf as its REPEAT loop (sl_lent): STUT plays live meanwhile. */
 #define SL_NPAT 16
-#define SL_FR 8192u                     /* the recording: stereo frames, 22.05 kHz, 371 ms, 32 KB (a power of 2) */
+#define SL_FR 4096u                     /* the recording: stereo frames, 22.05 kHz, 186 ms, 16 KB (a power of 2; JIANT BYTE:
+                                         * halved, its 16 KB the formulas' memory: was 8192, 371 ms) */
 #define SL_RAMP_LOG2 7
 #define SL_RAMP (1 << SL_RAMP_LOG2)     /* 128 samples, 2.9 ms */
 #define SL_SLOPE (32768 / SL_RAMP)

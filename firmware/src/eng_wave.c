@@ -39,7 +39,7 @@ _Static_assert(WAVE_NF == 16u && sizeof N_WAVEF / sizeof N_WAVEF[0] == WAVE_NF +
 static const char *const N_WARP[] = {"OFF", "SYNC", "BEND", "MIRROR", "QUANT", "FM", 0};
 enum { WW_OFF, WW_SYNC, WW_BEND, WW_MIRROR, WW_QUANT, WW_FM };
 static fvm_prog_t wave_prg_b[NTRK];                  /* B's program a part (A's: lofi_prg) */
-static fvm_ins_t wave_ins_b[NTRK][32];               /* (its instructions: the bank's longest fits in 32) */
+static fvm_ins_t wave_ins_b[NTRK][32] __attribute__((section(".pool")));               /* (its instructions: the bank's longest fits in 32) */
 static uint16_t wave_id_b[NTRK];
 
 static const fvm_prog_t *wave_prog(fvm_prog_t *pg, uint16_t *id, uint32_t f, lofi_work_t *w)
