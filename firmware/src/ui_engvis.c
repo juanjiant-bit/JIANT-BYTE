@@ -586,9 +586,9 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
     int32_t A[4] = {x, y, w, h}, cx = x * 16 + w * 8, cy = y * 16 + h * 8, s;
     if (e == &ENG_LOFI || e == &ENG_WAVE)               /* (JIANT BYTE) the formula and its being (ui_byte.c) */
         return ub_draw(t, A, en_home);
-    if (trk_eng(t) == ENGI_DRUM) {    /* (the kit ~128 x 92) */
-        s = vx_fit(w, h, 128, 92);
-        vx_kit(t, cx - (s >> 4), cy + (48 * s >> 8), s, en_home, -1);
+    if (trk_eng(t) == ENGI_DRUM) {                      /* (JIANT BYTE) the kit as eight beings (ui_byte.c) */
+        (void)cx; (void)cy; (void)s;
+        ub_kit(t, A, -1);
     }
     /* (JIANT BYTE: FM6 retired: its colony vx_fm6 gone) */
     else {                                               /* (0.9.9-snd5: the creatures drawn the same way, a table) */
@@ -606,7 +606,10 @@ static void vx_kit_page(const track_t *t, int32_t lane)
 {
     char b[16];
     uint32_t l;
-    vx_kit(t, 120 * 16, 73 * 16, 368, -1, lane);
+    {
+        static const int32_t KA[4] = {4, 16, 232, 136};
+        ub_kit(t, KA, lane);                             /* (JIANT BYTE: the eight beings) */
+    }
     l = lane < 0 ? vxs.last & 7u : (uint32_t)lane & 7u;
     str_cpy(b, drum_lane_abbr(t, l), sizeof b);
     str_cpy(b + str_len(b), " \xB7 ", sizeof b - str_len(b));

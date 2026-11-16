@@ -93,31 +93,42 @@ static void ub_text_draw(int32_t x, int32_t y, const char *s, uint32_t cols, uin
         cv_text(x, y + (int32_t)r * 9 - AF_F_CAP_Y, &AF_F, b, c);
     }
 }
-/* an INT being: 11 x 11 cells of px each from (x, y), its bits at time fr (a pose); c its body, e its eyes */
+/* a being of bits: n x n cells of px each from (x, y) (n odd, 7 .. 11), row gy's bits from v[gy], mirrored; squash
+ * (0 .. 3) rows pressed out of its top (a hit); fr the pose (its feet); c its body, e its eyes */
+static void ub_bits(const uint8_t *v, uint32_t n, int32_t x, int32_t y, int32_t px, uint32_t fr, uint32_t squash,
+                    uint16_t c, uint16_t e)
+{
+    uint32_t gy, gx, half = (n + 1u) / 2u, ey = n / 3u;
+    for (gy = squash; gy < n; gy++) {
+        uint32_t b = v[gy] ^ (v[gy] >> 3) ^ (gy * 37u);
+        int32_t yy = y + (int32_t)gy * px;
+        for (gx = 0; gx < half; gx++) {
+            uint32_t on = (b >> (gx + (gy & 1u))) & 1u, cx = half - 1u - gx;
+            int32_t row = (int32_t)gy - (int32_t)n / 2;
+            if (gx == half - 1u && gy >= 2u && gy + 2u < n) on = 1;   /* (the spine: one body, never two halves) */
+            if ((row < 0 ? -row : row) + (int32_t)cx * 7 / 10 > (int32_t)n / 2 + 1) on = 0;   /* (round) */
+            if (gy == n - 1u) on = on && (gx + fr) % 3u == 0u;   /* (the feet step) */
+            if (on) {
+                cv_rect(x + (int32_t)gx * px, yy, px, px, c);
+                cv_rect(x + (int32_t)(n - 1u - gx) * px, yy, px, px, c);
+            }
+        }
+    }
+    if (ey >= squash) {                                 /* the eyes */
+        cv_rect(x + (int32_t)(half - 3u) * px, y + (int32_t)ey * px, px, px, e);
+        cv_rect(x + (int32_t)(n - half + 2u) * px, y + (int32_t)ey * px, px, px, e);
+    }
+}
+/* an INT being from the compiled formula: 11 x 11, its bits at time fr (a pose) */
 static void ub_sprite(gq_work_t *w, int32_t x, int32_t y, int32_t px, uint32_t fr, uint16_t c, uint16_t e)
 {
-    uint32_t tq[11], gy, gx;
+    uint32_t tq[11], gy;
     uint8_t v[11];
     for (gy = 0; gy < 11u; gy++)
         tq[gy] = (gy * 1237u + 4096u + fr * 3u) << 8;
     memset(w->st, 0, sizeof w->st);
     ub_run(w, tq, 11u, 0, v);
-    for (gy = 0; gy < 11u; gy++) {
-        uint32_t b = v[gy] ^ (v[gy] >> 3) ^ (gy * 37u);
-        for (gx = 0; gx < 6u; gx++) {
-            uint32_t on = (b >> (gx + (gy & 1u))) & 1u, cx = 5u - gx;
-            int32_t row = (int32_t)gy - 5;
-            if (gx == 5u && gy >= 2u && gy <= 8u) on = 1;   /* (the spine: one body, never two halves) */
-            if ((row < 0 ? -row : row) + (int32_t)cx * 7 / 10 > 6) on = 0;   /* (round: more body in the middle) */
-            if (gy == 10u) on = on && (gx + fr) % 3u == 0u;   /* (the feet step) */
-            if (on) {
-                cv_rect(x + (int32_t)gx * px, y + (int32_t)gy * px, px, px, c);
-                cv_rect(x + (int32_t)(10u - gx) * px, y + (int32_t)gy * px, px, px, c);
-            }
-        }
-    }
-    cv_rect(x + 3 * px, y + 3 * px, px, px, e);     /* the eyes */
-    cv_rect(x + 7 * px, y + 3 * px, px, px, e);
+    ub_bits(v, 11u, x, y, px, fr, 0, c, e);
 }
 /* a FIX being: its phase portrait about (cx, cy), r px, then its wave hanging under it as tentacles */
 static void ub_portrait(gq_work_t *w, int32_t cx, int32_t cy, int32_t r, uint32_t fr, uint16_t c, uint16_t e)
@@ -219,4 +230,45 @@ static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
             ub_raster(w, x + wd - UB_COLS * 3, by + (bh - UB_ROWS * 3) / 2, anim_fr);
     }
     return 1;
+}
+
+/* DRUM-X's kit: its eight lanes as beings, 4 x 2 in A {x, y, w, h}: a formula lane its formula's (DX_FORMS), an
+ * oscillator lane a bytebeat of its own (its lane's number in it). A hit squashes it (its envelope, as the colony's)
+ * and frames it; the lane picked (sel, or the last struck) its name lit; a muted one dim */
+static void ub_kit(const track_t *t, const int32_t *A, int32_t sel)
+{
+    static uint8_t age[8], last;
+    drum_lane_t *K = drum_kit_of(t);
+    gq_work_t *w = ub_ws();
+    int32_t cw = A[2] / 4, ch = A[3] / 2, px = (cw - 12) / 9 < (ch - 16) / 9 ? (cw - 12) / 9 : (ch - 16) / 9;
+    uint32_t l, fr = anim_fr / 3u;
+    if (px < 2) px = 2;
+    for (l = 0; l < 8u; l++) {
+        int32_t x = A[0] + (int32_t)(l & 3u) * cw, y = A[1] + (int32_t)(l >> 2) * ch, sx = x + (cw - px * 9) / 2;
+        int32_t e = K && K[l].x.live && !ANIM_OFF() ? clamp(K[l].x.ea >> 22, 0, 256) : 0, mut = dx_lane_muted(l);
+        uint32_t f = dx_form[l], gy, sq = e > 120 ? 2u : e > 30 ? 1u : 0u;
+        uint8_t v[9];
+        uint16_t c = mut ? T_DIM : T_K(l), nc;
+        if (K && K[l].age < age[l] && e) last = (uint8_t)l;
+        age[l] = K ? (uint8_t)K[l].age : 255u;
+        if (f && f <= DX_NFORM && ub_compile(w, DX_FORMS[f - 1u])) {
+            uint32_t tq[9];
+            for (gy = 0; gy < 9u; gy++)
+                tq[gy] = (gy * 911u + 2048u + (e ? fr * 5u : 0u)) << 8;
+            memset(w->st, 0, sizeof w->st);
+            ub_run(w, tq, 9u, 0, v);
+        } else
+            for (gy = 0; gy < 9u; gy++) {               /* (an oscillator lane: t * (lane & t >> k), its own) */
+                uint32_t tt = gy * 911u + 2048u + l * 7919u + (e ? fr * 5u : 0u);
+                v[gy] = (uint8_t)(tt * ((l + 3u) & tt >> (5u + l % 4u)) | tt >> (l + 6u));
+            }
+        nc = (int32_t)l == (sel >= 0 ? sel : (int32_t)last) ? T_ACCENT : mut ? T_DIM : T_MID;
+        if (cw >= 40)                                   /* (its name above it, its formula's beside; small: none) */
+            cv_text(x + 4, y + 1 - AF_X_CAP_Y, &AF_X, drum_lane_abbr(t, l), nc);
+        if (cw >= 56 && f && f <= DX_NFORM)
+            cv_text(x + 20, y + 1 - AF_X_CAP_Y, &AF_X, N_DXFORM[f - 1u], T_DIM);
+        ub_bits(v, 9u, sx, y + (cw >= 40 ? 11 : 2) + (int32_t)sq * px, px, e ? fr : 0u, sq, c, T_TEXT);
+        if (e > 30)                                     /* (struck: framed, a corner each side) */
+            cv_frame(sx - 2, y + (cw >= 40 ? 9 : 0), px * 9 + 4, px * 9 + 4, T_TEXT);
+    }
 }
