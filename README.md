@@ -8,7 +8,7 @@ of time.
 ![JIANT BYTE on the FM-1's screen: the power-on, HOME's beings, MATH's formula and raster, WAVE's wire terrain, the
 DRUM-X kit, the mixer](docs/byte-hero.png)
 
-> **Status: beta 1, for testing.** Try it in the browser first. On a real FM-1, back up with JIANT FM's editor before
+> **Status: beta 1, for testing.** The work in progress is on the [`phase2-engines`](https://github.com/juanjiant-bit/JIANT-BYTE/tree/phase2-engines) branch. Try it in the browser first. On a real FM-1, back up with JIANT FM's editor before
 > you install: JIANT BYTE keeps its projects apart from JIANT FM's.
 
 JIANT BYTE is a new synthesizer on the FM-1, built on [JIANT FM](https://github.com/juanjiant-bit/JIANT) V10.7.37
@@ -78,8 +78,8 @@ drawn by the mix and jump with their sound. The power-on is a cracktro.
 - **FM-1**: build the package with `./build.sh` (`build/felucca.fwsc`) and install it with JIANT FM's web installer, the
   same way as any JIANT version. The web pages for JIANT BYTE (installer, emulator) are being set up.
 
-Building and testing: [BUILDING.md](BUILDING.md). The plan and its progress, in Spanish: [JIANT-BYTE.md](JIANT-BYTE.md).
-JIANT FM's own documentation, the base: [docs/JIANT-FM-README.md](docs/JIANT-FM-README.md).
+Building and testing: [BUILDING.md](BUILDING.md). The plan and its progress, in Spanish: [JIANT-BYTE.md](https://github.com/juanjiant-bit/JIANT-BYTE/blob/phase2-engines/JIANT-BYTE.md).
+JIANT FM's own documentation, the base: [docs/JIANT-FM-README.md](https://github.com/juanjiant-bit/JIANT-BYTE/blob/phase2-engines/docs/JIANT-FM-README.md).
 
 ## Credits
 
