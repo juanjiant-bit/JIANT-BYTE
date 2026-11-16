@@ -29,6 +29,7 @@ static gq_work_t W;
 #define NS (FS / 2u)
 static double ya[NS], yb[NS];
 
+static int32_t user_var;
 static void user_part(uint32_t seed, uint32_t caos, const char *text, double *y)
 {
     static int32_t blk[CTL];
@@ -41,6 +42,7 @@ static void user_part(uint32_t seed, uint32_t caos, const char *text, double *y)
     t->p[P_E1] = RW_USER;
     t->p[P_E2] = (int16_t)seed;
     t->p[P_CAOS] = (int16_t)caos;
+    t->p[P_E3] = (int16_t)user_var;
     memset(lyr_txt[0], 0, sizeof lyr_txt[0]);
     for (k = 0; text && text[k] && k < 63u; k++)
         lyr_txt[0][k] = text[k];
@@ -109,6 +111,55 @@ int main(int argc, char **argv)
        "USER: the part's own text played as written (%s, rms %.3f)", math_txt[0], rms(ya, NS));
     user_part(7, 120, 0, ya);
     ok(rms(ya, NS) > 0.001 && peak(ya, NS) <= 1.0, "USER: CAOS 120 a wild one, bounded (peak %.3f): %s", peak(ya, NS), math_txt[0]);
+    {   /* (phase 9) VAR moves the formula: mutated 1 .. 63, crossed 64 .. 127 */
+        static const uint8_t BAND[3] = {20, 64, 106};
+        static const uint8_t VS[6] = {1, 16, 63, 64, 90, 127};
+        uint32_t tries = 0, moved = 0, bad = 0, same = 1, vi;
+        char base[64], m1[64], m2[64];
+        for (b = 0; b < 3u; b++)
+            for (s = 0; s < 48u; s++)
+                for (vi = 0; vi < 6u; vi++) {
+                    uint32_t n, got;
+                    fvm_err_t e;
+                    fvm_invent(&W, base, s * 4u, BAND[b]);
+                    memcpy(m1, base, 64);
+                    memcpy(m2, base, 64);
+                    got = fvm_move(&W, m1, s * 4u, VS[vi]);
+                    fvm_move(&W, m2, s * 4u, VS[vi]);
+                    n = (uint32_t)strlen(m1);
+                    tries++;
+                    moved += got && strcmp(m1, base);
+                    same &= !strcmp(m1, m2);
+                    if (n > 63u || (got && (fvm_compile(&W.cc, FVM_FULL(&W.pg), m1, n, &e) || !fvm_gen_judge(&W, &W.pg.p))) ||
+                        (!got && strcmp(m1, base)))
+                        bad++;
+                    if (s == 5u && (vi == 1u || vi == 4u))
+                        printf("genf: CAOS %3u VAR %3u  %s  ->  %s\n", BAND[b], VS[vi], base, m1);
+                }
+        ok(!bad && same, "VAR: every move 63 characters at most, compiled and judged playable, the same twice (%u bad)", bad);
+        ok(moved * 10u >= tries * 8u, "VAR: %u of %u moves found a new formula", moved, tries);
+        memcpy(m1, base, 64);
+        ok(!fvm_move(&W, m1, 3u, 0u) && !strcmp(m1, base), "VAR 0: the formula as invented");
+        user_var = 0;
+        user_part(7, 0, 0, ya);
+        memcpy(base, math_txt[0], 64);
+        user_var = 30;
+        user_part(7, 0, 0, yb);
+        ok(strcmp(base, math_txt[0]) && memcmp(ya, yb, sizeof ya) && peak(yb, NS) <= 1.0,
+           "USER VAR 30: a mutated formula, another sound, bounded: %s", math_txt[0]);
+        {   /* (a cross can add what sounds later: of eight positions most another sound at once) */
+            uint32_t diff = 0, bounded = 1, v;
+            for (v = 96u; v < 104u; v++) {
+                user_var = (int32_t)v;
+                user_part(7, 0, 0, yb);
+                diff += strcmp(base, math_txt[0]) && memcmp(ya, yb, sizeof ya);
+                bounded &= peak(yb, NS) <= 1.0;
+                if (v == 96u) printf("genf: USER VAR 96: %s\n", math_txt[0]);
+            }
+            ok(diff >= 6u && bounded, "USER VAR 96 .. 103: crossed formulas, %u of 8 another sound at once, bounded", diff);
+        }
+        user_var = 0;
+    }
     {   /* (phase 6) cross-mod: track 2 reads track 1's output (O1), a block late, through the mix; each pass in a fresh
          * child (fork, as tests/regress.c: the FX's and the master's state of a pass would leak into the next) */
         enum { NB = 150u };

@@ -92,7 +92,8 @@ static const char *const N_FLOAT[] = {"F01", "F02", "F03", "F04", "F05", "F06", 
 static const param_desc_t LOFI_ALGO = {"ALGO", F_INT, 0, 191, 64, N_BYTE};    /* (p6: 48; the knob's: edit[2] keeps
                                                          * 0..127, FUN7's byte) */
 static const param_desc_t LOFI_MOTN = {"MOTION", F_INT, 0, 255, 0, 0};
-static const param_desc_t LOFI_SEED = {"SEED", F_INT, 0, 191, 64, 0};   /* (JIANT BYTE) USER: ALGO the generator's seed */   /* (p6: 128 .. 255 SYNC; V10.6d: 0) */
+static const param_desc_t LOFI_SEED = {"SEED", F_INT, 0, 191, 64, 0};
+static const param_desc_t LOFI_MUTA = {"MUTA", F_INT, 0, 127, 0, 0};   /* (phase 9) USER: VAR 1..63 mutates, 64.. crosses */   /* (JIANT BYTE) USER: ALGO the generator's seed */   /* (p6: 128 .. 255 SYNC; V10.6d: 0) */
 static const param_desc_t LOFI_FALGO = {"ALGO", F_INT, 0, 191, 64, N_FLOAT};   /* = edit[2] (FLOAT) */
 /* .. its CHIP the resolution: 4 bits, 4 bits held over two samples, FULL (smooth, the default), 1 bit, STEP (4 bits and
  * the stepped envelope) */
@@ -364,7 +365,8 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
     int32_t held = v->s[0], cnt = v->s[1], ic1 = v->s[4], ic2 = v->s[5], l1 = v->s[3], l2 = (int32_t)v->ph[2];
     uint32_t lm = p[P_E7] ? (1u << (17u - (uint32_t)p[P_E7] * 12u / 127u)) - 1u : 0xFFFFFFFFu;   /* LOOP: t's window */
     uint32_t t0 = (uint32_t)(f < 32u ? BYTE_T0[f] : 0u) << 9;    /* (0.5.1: the formula's start) */
-    uint32_t mul = lofi_motion(p[P_E4]), ts = v->ph[1], var = vr;   /* (0.5.4) MOTN: the slow time, Q8 */
+    uint32_t mul = lofi_motion(p[P_E4]), ts = v->ph[1], var = p[P_E1] == RW_USER ? 0u : vr;   /* (0.5.4) MOTN: the slow time, Q8;
+                                                         * (JIANT BYTE) USER: VAR moves the text (fvm_move), not this */
     uint32_t sy = p[P_E4] >= 128, sr = 0, sb = sy ? lofi_sync(&sr) : 0u;   /* (p6) SYNC */
     lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
     const fvm_prog_t *pg = lofi_prog(t, wk, 0, f);
@@ -448,6 +450,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     uint32_t mul = lofi_motion(p[P_E4]), var = (uint32_t)clamp(p[P_E3] + ((m->shape - (64 << 8)) >> 8), 0, 127);   /*
                                                          * (0.6.81: SHAPE moves VAR, as BYTE's) */
     uint32_t bs = p[P_E6] ? 13u - (uint32_t)p[P_E6] / 11u : 0u;   /* BEND: t ^ t >> 13 .. 2 */
+    if (p[P_E1] == RW_USER) var = 0;                    /* (JIANT BYTE: USER's VAR moves the text, fvm_move) */
     uint32_t lm = p[P_E7] ? (1u << (17u - (uint32_t)p[P_E7] * 12u / 127u)) - 1u : 0xFFFFFFFFu;   /* LOOP: t's window */
     uint32_t ft = ft_voice(p);
     int32_t rs = p[P_FRES] > 50 ? p[P_FRES] : 50, kd = 8192 - rs * 7600 / 127, y1 = v->s[4], y2 = v->s[5];
@@ -535,7 +538,7 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */
         return &LOFI_MOTN;
     if (t->p[P_E1] == RW_USER)                          /* (JIANT BYTE) the part's own formula: ALGO its seed */
-        return k == 2u ? &LOFI_SEED : 0;
+        return k == 2u ? &LOFI_SEED : k == 3u ? &LOFI_MUTA : 0;
     if (t->p[P_E1] != RW_FLOAT)
         return k == 2u ? &LOFI_ALGO : 0;
     return k == 0u ? &LOFI_FCHIP : k == 2u ? &LOFI_FALGO : k == 5u ? &LOFI_FDCY : 0;

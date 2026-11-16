@@ -18,7 +18,7 @@ Estado (rama `phase2-engines`, que contiene todo lo anterior):
 | 6 Modificadores, cross-mod, ecuación de mezcla | primera forma (las macros como ecuaciones) |
 | 7 Efectos de fórmula con memoria | primera forma (insertos de fórmula por pista, sin memoria larga todavía) |
 | 8 Punch-ins de fórmula, secuenciadores de fórmula | primera forma (CAOS MAX; el ARP de fórmula) |
-| 9 Generador de ecuaciones | primera forma (MATH USER: semilla y CAOS) |
+| 9 Generador de ecuaciones | MATH USER: semilla, CAOS, mutar y cruzar (MUTA) |
 | 10 Estética | primer paso (paleta BYTE por defecto) |
 | 11 FM-F, GLITCH | pendiente |
 
@@ -366,8 +366,13 @@ fuentes, porque el sonido es una función de `t`:
 - `tests/gen_formula_test.c`: en las tres zonas, 189..192 de 192 semillas pasan el juez a la primera; 153..170 de
   192 son distintas; la zona tonal sale casi toda en floatbeat (174 de 192) y la salvaje toda en bytebeat; una pista
   USER suena, cambia con la semilla y toca el texto propio tal cual.
-- Falta: mutar y cruzar dos fórmulas desde la interfaz, el mismo generador para modificadores, efectos y mezcla, y
-  editar el texto en el aparato.
+- **Mutar y cruzar** (`fvm_move`): en USER la perilla VAR pasa a llamarse MUTA y mueve la fórmula en vez de
+  `lofi_mut`. 0 la deja como la inventó la semilla; 1..63 la muta (números corridos, más lejos cuanto más alto; los
+  desplazamientos de a uno; `& | ^` intercambiados; los dígitos de las tablas de melodía); 64..127 la cruza (un
+  paréntesis de la fórmula, o toda, por un paréntesis de una fórmula de fábrica de su mismo tipo). Hasta 8 intentos,
+  cada uno pasa el juez; si ninguno, queda como estaba. Determinista: el proyecto guarda la perilla. En el test, 836
+  de 864 movimientos dan una fórmula nueva, todos de 63 caracteres o menos, compilados y aceptados por el juez.
+- Falta: el mismo generador para modificadores, efectos y mezcla, y editar el texto en el aparato.
 
 **Fase 8, primer paso: CAOS MAX** (`pfx.c`, la tecla F#4 del layer FX, que era RING):
 - Mientras se mantiene, todas las pistas de fórmula (MATH, WAVE) van a CAOS 127. Como LIFE MAX, se aplica bloque a

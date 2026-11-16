@@ -202,4 +202,176 @@ static uint32_t fvm_invent(gq_work_t *w, char *b, uint32_t seed, uint32_t c)
     }
     return k;
 }
+/* (phase 9) a formula moved: VAR on a USER part (engines.c math_poll_ws). v 1 .. 63 mutates (numbers nudged, the more
+ * the further; a shift's amount by one; & | ^ swapped; a melody table's digits), v 64 .. 127 crosses (a bracket of the
+ * formula, or all of it, for a bracket of a factory formula of its kind: fvm_bank.c). Each try judged; the first that
+ * plays into b (64 bytes), else b as it was. Deterministic: the text, v and the seed the same, the same result */
+#include "fvm_bank.c"
+static int gq_dig(char c) { return c >= '0' && c <= '9'; }
+static int gq_word(char c) { return gq_dig(c) || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '.'; }
+/* a mutation of a into o (cap 96): 0 when nothing to change */
+static uint32_t gq_mutate(const char *a, char *o, uint32_t *s, uint32_t v)
+{
+    uint32_t i = 0, n = 0, cand = 0, idx = 0, force, q = 0, did = 0;
+    for (i = 0; a[i]; i++) {                         /* (count what can change: numbers, operators, table digits) */
+        if (a[i] == '"') q ^= 1u;
+        if (q && gq_dig(a[i])) cand++;
+        else if (!q && gq_dig(a[i]) && (!i || !gq_word(a[i - 1]))) {
+            uint32_t j = i;
+            while (gq_dig(a[j])) j++;
+            cand += !gq_word(a[j]);
+        } else if (!q && (a[i] == '&' || a[i] == '|' || a[i] == '^'))
+            cand++;
+    }
+    if (!cand) return 0;
+    force = gq_n(s, cand);
+    q = 0;
+    for (i = 0; a[i] && n < 92u;) {
+        char c = a[i];
+        int hit;
+        if (c == '"') q ^= 1u;
+        if (q && gq_dig(c)) {
+            hit = idx++ == force || gq_n(s, 80u) < v;
+            o[n++] = hit ? "2345689"[gq_n(s, 7u)] : c;
+            did += hit;
+            i++;
+        } else if (!q && gq_dig(c) && (!i || !gq_word(a[i - 1]))) {
+            uint32_t j = i, x = 0;
+            while (gq_dig(a[j])) x = x * 10u + (uint32_t)(a[j++] - '0');
+            if (gq_word(a[j])) {                     /* (2048. 0x.. 1u: as written) */
+                while (i < j && n < 92u) o[n++] = a[i++];
+                continue;
+            }
+            hit = idx++ == force || gq_n(s, 80u) < v;
+            if (hit) {
+                int sh = i >= 2u && ((a[i - 1] == '>' && a[i - 2] == '>') || (a[i - 1] == '<' && a[i - 2] == '<'));
+                if (sh || (i >= 3u && a[i - 1] == ' ' && a[i - 2] == '>' && a[i - 3] == '>')) {
+                    x = gq_n(s, 2u) ? x + 1u : x - 1u;
+                    if (x < 1u) x = 1u;
+                    if (x > 20u) x = 20u;
+                } else {
+                    uint32_t d = 1u + x * v / 128u;
+                    x = gq_n(s, 2u) || x <= d ? x + 1u + gq_n(s, d) : x - 1u - gq_n(s, d);
+                    if (x > 9999u) x = 9999u;
+                }
+                {
+                    gq_out_t g = {o, n, 96u};
+                    gq_d(&g, x);
+                    n = g.n;
+                }
+                did++;
+            } else
+                while (i < j && n < 92u) o[n++] = a[i], i++;
+            i = j;
+        } else if (!q && (c == '&' || c == '|' || c == '^')) {
+            hit = idx++ == force || gq_n(s, 80u) < v;
+            o[n++] = c;
+            if (hit) {
+                static const char R[3][2] = {{'|', '^'}, {'&', '^'}, {'&', '|'}};
+                o[n - 1] = R[c == '&' ? 0 : c == '|' ? 1 : 2][gq_n(s, 2u)];
+                did++;
+            }
+            i++;
+        } else
+            o[n++] = c, i++;
+    }
+    o[n] = 0;
+    return did && !a[i];
+}
+/* the bracket that opens at i in a: its length (with both brackets), 0 when none closes it */
+static uint32_t gq_span(const char *a, uint32_t i)
+{
+    uint32_t d = 0, j = i;
+    for (; a[j]; j++) {
+        if (a[j] == '(') d++;
+        else if (a[j] == ')' && !--d) return j - i + 1u;
+    }
+    return 0;
+}
+/* a cross of a into o (cap 96) with the factory formula f of its kind (flt): a bracket of a (or a whole) for one of f's */
+static uint32_t gq_cross(const char *a, char *o, uint32_t *s, uint32_t flt, uint32_t f)
+{
+    const char *d = flt ? FVM_FLOAT_BANK[f % FVM_NFLOAT] : FVM_BYTE_BANK[f % FVM_NBYTE];
+    uint32_t na = 0, nr = 0, i, ri, rn, di, dn, k = 0, n = 0;
+    while (a[na]) na++;
+    for (i = 0; a[i]; i++) nr += a[i] == '(' && gq_span(a, i);
+    k = gq_n(s, nr + 1u);                            /* (the recipient: a bracket, or the last choice the whole) */
+    ri = 0;
+    rn = na;
+    for (i = 0; a[i]; i++)
+        if (a[i] == '(' && gq_span(a, i) && !k--) {
+            ri = i;
+            rn = gq_span(a, i);
+            break;
+        }
+    {                                                /* (the donor: a bracket of d short enough, at random) */
+        uint32_t room = 63u + rn - na, cnt = 0, pick;
+        for (i = 0; d[i]; i++) {
+            uint32_t l = d[i] == '(' ? gq_span(d, i) : 0;
+            cnt += l > 4u && l <= room;
+        }
+        if (!cnt) return 0;
+        pick = gq_n(s, cnt);
+        di = dn = 0;
+        for (i = 0; d[i]; i++) {
+            uint32_t l = d[i] == '(' ? gq_span(d, i) : 0;
+            if (l > 4u && l <= room && !pick--) {
+                di = i;
+                dn = l;
+                break;
+            }
+        }
+    }
+    if (!dn) return 0;
+    if (rn == na) {                                  /* (the whole: the donor beside it, an operator between) */
+        static const char *const OPI[3] = {"^", "|", "+"}, *const OPF[3] = {"+", "*", "-"};
+        const char *op = flt ? OPF[gq_n(s, 3u)] : OPI[gq_n(s, 3u)];
+        if (na + dn + 3u > 63u) {
+            for (i = 0; i < dn; i++) o[n++] = d[di + i];
+        } else {
+            o[n++] = '(';
+            for (i = 0; i < na; i++) o[n++] = a[i];
+            o[n++] = ')';
+            o[n++] = op[0];
+            for (i = 0; i < dn; i++) o[n++] = d[di + i];
+        }
+    } else {
+        for (i = 0; i < ri; i++) o[n++] = a[i];
+        for (i = 0; i < dn; i++) o[n++] = d[di + i];
+        for (i = ri + rn; i < na; i++) o[n++] = a[i];
+    }
+    o[n] = 0;
+    return n <= 63u;
+}
+static uint32_t fvm_move(gq_work_t *w, char *b, uint32_t seed, uint32_t v)
+{
+    char o[96];
+    uint32_t k, flt;
+    fvm_err_t e;
+    if (!v || !b[0]) return 0;
+    {
+        uint32_t n = 0;
+        while (b[n]) n++;
+        if (fvm_compile(&w->cc, FVM_FULL(&w->pg), b, n, &e)) return 0;
+        flt = w->pg.p.ty == FT_FIX;
+    }
+    for (k = 0; k < 8u; k++) {
+        uint32_t s = (seed * 2654435761u) ^ (v * 40503u) ^ (k * 0x9E3779B9u) ^ 0x51ED27u, n = 0, got;
+        gq_next(&s);
+        got = v < 64u ? gq_mutate(b, o, &s, v) : gq_cross(b, o, &s, flt, (v - 64u) + k * 7u);
+        if (!got) continue;
+        while (o[n]) n++;
+        if (n > 63u || !fvm_cmp(o, b)) continue;
+        if (!fvm_compile(&w->cc, FVM_FULL(&w->pg), o, n, &e) && fvm_gen_judge(w, &w->pg.p)) {
+            memcpy(b, o, n + 1u);
+            return 1;
+        }
+    }
+    {   /* (none played: b as it was, its program the work's again) */
+        uint32_t n = 0;
+        while (b[n]) n++;
+        fvm_compile(&w->cc, FVM_FULL(&w->pg), b, n, &e);
+    }
+    return 0;
+}
 #endif
