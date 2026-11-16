@@ -71,7 +71,8 @@ def definitions(text):
 def size_names():
     names = set()
     for f in SIZE_FILES:
-        names.update(definitions((SRC / f).read_text()))
+        if (SRC / f).exists():                       # (JIANT BYTE: retired engines' files gone)
+            names.update(definitions((SRC / f).read_text()))
     return names
 
 

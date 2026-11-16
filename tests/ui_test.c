@@ -3067,6 +3067,7 @@ static int test_menu_tabs(void)
 
     /* (V10.36) LFO WAVE DRIFT: a smooth wander (no step bigger than a sine's at that rate), it moves over cycles and
      * stays in range; a pad with BREATHE (ANALOG DARK PAD) loads the LFO DRIFT on its filter, 16 bars; S&H unchanged */
+#if 0   /* (JIANT BYTE) ANALOG retired: DARK PAD, its preset */
     {
         track_t *t = &trk[1];
         int32_t prev, lo = 32767, hi = -32768, maxd = 0, k2;
@@ -3097,6 +3098,7 @@ static int test_menu_tabs(void)
         ok &= t->p[P_LWAVE] == TP[P_LWAVE].def && t->p[P_LD_FLT] == 0;
         bad += check("V10.36 LFO DRIFT: a smooth slow wander in range (no steps); BREATHE pads load it on the filter", ok);
     }
+#endif
     {   /* (V10.38) ANALOG's INT (osc 2's interval) from the sound dice, GEN and the macros: never out of tune */
         track_t *t = &trk[1];
         uint32_t r;
@@ -4749,6 +4751,7 @@ static int test_edit_cycle(void)
     set_engine_of(TSEL, 0);
     bad += check("0.9.2 EDIT chain (ANALOG, V10.7.21): SOUND (EDIT 1) . TONE (FILTER MORPH) . FOCUS . PLAY (PLAY PLAY 2); taps: groups",
                  chain_walk(B_EDIT, CH_A, NELEM(CH_A), TP_A, NELEM(TP_A)));
+#if 0   /* (JIANT BYTE) ANALOG retired: its EDIT pages */
     {   /* (V10.7.21, the owner: EDIT 2 and FILTER were the same page) ANALOG: EDIT 1 WAVE DETUNE MIX INT (INT 3 with SAW3),
          * FILTER TYPE CUT RES DRIVE, NOISE (with SAW3 / PLS3 its slot is INT 3) on FOCUS; PHASE keeps EDIT 1 and EDIT 2 */
         int16_t *hv;
@@ -4787,6 +4790,7 @@ static int test_edit_cycle(void)
         set_engine_of(TSEL, 0); frame();
         bad += check("V10.7.21 ANALOG: EDIT 1 WAVE DETUNE MIX INT, FILTER TYPE CUT RES DRIVE, NOISE / MIX on FOCUS, SAW3 EDIT 1 WAVE INT INT 3 DETUNE; PHASE EDIT 1 + 2", ok);
     }
+#endif
 #if FELUCCA_FM4
     set_engine_of(TSEL, 1);
     bad += check("0.9.2 EDIT chain (DIGITAL): SOUND . TONE (FILTER PLAY PLAY 2) . OPS (OP1..OP4 ENV, OP LEVEL)",

@@ -6,16 +6,12 @@
 #include "dsp.c"
 #include "fvm.c"             /* (JIANT BYTE) the formula machine (fvm_bank.c: the factory formulas, phase 2) */
 #include "fvm_gen.c"         /* (JIANT BYTE) the equations' generator (MATH's USER) */
-#include "eng_analog.c"
-#include "eng_phase.c"
+#include "filt.c"            /* (JIANT BYTE) the filter TYPEs (ANALOG retired) */
 #include "eng_lofi.c"
 #include "eng_wave.c"            /* (JIANT BYTE) WAVE: a parametric wavetable of formulas (engine 13, ADD's) */
 #include "eng_formant.c"
 #include "eng_drum.c"           /* DRUM: the 8-lane DRUM-X kit (drumx_voice.c) */
-#include "eng_west.c"           /* (V10.7.36) WEST: west coast (fold, low-pass gate, dust), NOISE's slot (engine 11) */
 #include "eng_fm6.c"            /* FM6: 6-operator FM, msfa ported (fm6_core.c, Apache-2.0) */
-#include "eng_animal.c"         /* (JIANT 0.8.3) ANIMAL: animal calls (CMOS PULSE WHSTL WING GLOTT) */
-#include "eng_string.c"         /* (JIANT 0.9.9-snd5) STRING: Karplus-Strong, in the COMB's lines (engine 8) */
 #include "eng_input.c"          /* (V10.54) INPUT: the audio input on a track (engine 15) */
 #include "fm4_convert.c"        /* DIGITAL's tables, and its sounds -> FM6 */
 #if FELUCCA_FM4

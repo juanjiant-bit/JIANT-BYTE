@@ -345,6 +345,8 @@ def late_tables():
     names = set()
     for f in ("gen.c", "gen_tables.c", "eng_string.c", "eng_add.c", "ui_engvis.c"):   # (0.9.9-snd5: the two engines' own
         # tables and descriptors, the creatures' new ones: out of .rodata too, the sound's tables where they were)
+        if not (FW / "src" / f).exists():            # (JIANT BYTE: retired engines' files gone)
+            continue
         txt = (FW / "src" / f).read_text()
         names |= set(re.findall(r"^static const [^=;(]*?\b(\w+)\s*\[", txt, flags=re.M))
         names |= set(re.findall(r"^static const engine_t (\w+) =", txt, flags=re.M))

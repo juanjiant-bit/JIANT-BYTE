@@ -635,10 +635,8 @@ static int page_visible(uint32_t i)
     if (sys_load == LOAD_ECO && ((PAGES[i].graph == GR_SLCR || PAGES[i].graph == GR_SLPIT) ||
                                  (PAGES[i].fam == FAM_FX && PAGES[i].id[0] == G_CRATE)))
         return 0;                                       /* (0.6.30) LOAD ECO: no SLICER, no chorus: their pages gone */
-    if (PAGES[i].graph == GR_MORPH) {                   /* (0.6.45) MORPH: ANALOG's waves, PHASE (V10.6d: MATH none) */
-        uint32_t e = te;
-        return e == ENGI_ANALOG;                        /* (0.6.81: every ANALOG WAVE; JIANT BYTE: PHASE retired) */
-    }
+    if (PAGES[i].graph == GR_MORPH)                     /* (0.6.45) MORPH: ANALOG's (JIANT BYTE: retired) */
+        return 0;
     if(PAGES[i].graph==GR_TRACKGEN) return trackgen_ok(TSEL);
     if (PAGES[i].graph == GR_SWARM)                     /* (V10.6z6) FAR / NEAR: a SWARM track's */
         return te == ENGI_INPUT && TSEL->p[P_E0] == AIN_SW;
@@ -654,14 +652,15 @@ static int page_visible(uint32_t i)
         return PAGES[i].id[0] == P_LN0 || PAGES[i].id[0] == P_LN4 ? te == ENGI_DRUM : te != ENGI_DRUM &&
                te != ENGI_INPUT && (PAGES[i].id[0] == P_FKEY || (te == ENGI_VOICE) == (PAGES[i].id[3] == 0xFFu));
     if (PAGES[i].graph == GR_FOCUS)                     /* (0.8.5) FOCUS: a synth's (FM6: OPERATOR, DRUM: SOUND; V10.54 not INPUT's) */
-        return te != ENGI_DRUM && te != ENGI_FM6 && te != ENGI_INPUT &&
+        return te != ENGI_DRUM && te != ENGI_INPUT &&
                !(FELUCCA_FM4 && te == ENGI_DIGITAL);
     if (PAGES[i].id[0] == ID_CRU)                       /* (V10.7.35) VOICES 3: a kit's and EXT's (a synth's on TONE) */
         return te == ENGI_DRUM || te == ENGI_INPUT;
     if (PAGES[i].id[0] == P_ALLOC)                      /* (0.8.5) VOICE 2: not a kit's */
         return te != ENGI_DRUM;
-    if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)   /* (0.6.10) OPERATOR, OP ENV, OPERATOR 2: FM6's */
-        return te == ENGI_FM6;
+    if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)   /* (0.6.10) OPERATOR, OP ENV, OPERATOR 2: FM6's
+                                                         * (JIANT BYTE: retired) */
+        return 0;
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_WRDEP)   /* (0.7.8) ROTOR: WHEEL's (JIANT BYTE: retired) */
         return 0;
     if (PAGES[i].id[0] == P_CAOS)                       /* (JIANT BYTE) CAOS: MATH's and WAVE's */
@@ -672,16 +671,14 @@ static int page_visible(uint32_t i)
                                                          * place), no EDIT 2; every other engine EDIT 1 and EDIT 2 */
     {
         uint32_t a2 = PAGES[i].id[0] == P_E0 && PAGES[i].id[3] == P_E7, a3 = PAGES[i].id[0] == P_E0 && PAGES[i].id[1] == P_E7;
-        if (PAGES[i].id[0] == P_E7 || (te == ENGI_FM6 && PAGES[i].id[0] == P_E4))   /* (codex/coherence) FM6's
-                                                         * EDIT 2: SLOT first */
-            return (te == ENGI_FM6) == (PAGES[i].id[0] == P_E7);
-        if (te != ENGI_ANALOG) return !a2 && !a3;
-        return AN_OSC3(TSEL->p) ? a3 : a2;              /* (V10.7.22: SAW3 / PLS3, its three intervals on one page) */
+        if (PAGES[i].id[0] == P_E7)                     /* (FM6's EDIT 2, SLOT first: retired) */
+            return 0;
+        return !a2 && !a3;
     }
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] == P_FTYPE)   /* (JIANT 0.5) FILTER: ANALOG's, or the part's */
     {
-        return te == ENGI_ANALOG ? PAGES[i].id[1] == P_E4 :   /* (filters2: a kit's and EXT's with DIST, the others' DRIVE) */
-               PAGES[i].id[1] != P_E4 && (te == ENGI_DRUM || te == ENGI_INPUT) == (PAGES[i].id[3] == P_DIST);
+        return PAGES[i].id[1] != P_E4 &&                 /* (filters2: a kit's and EXT's with DIST, the others' DRIVE) */
+               (te == ENGI_DRUM || te == ENGI_INPUT) == (PAGES[i].id[3] == P_DIST);
     }
     return !(PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] >= P_FM1_ATK &&
              PAGES[i].id[0] <= P_FM4_LEVEL) || (FELUCCA_FM4 && te == ENGI_DIGITAL);
@@ -1543,17 +1540,10 @@ static uint32_t preset_orig(const engine_t *e, uint32_t k) { (void)e; return k; 
 /* the presets of engine e that browsing shows before preset k (k = npresets: all of them) */
 /* (0.5.1) browsing order: LOFI's BYTE presets, then FLOAT's (appended in 0.5.1: the stored numbers stay), then the
  * rest; every other engine in its own order. preset_nth: the preset shown n-th */
-/* (V10.6i) ANIMAL: the instruments first (in tune, to play a song with), then the experiments and the creatures' calls,
- * then the bare voices (INIT: one mode each, nothing moving); the stored numbers stay (projects, PROGRAM CHANGE) */
-static const uint8_t ANIMAL_ORDER[] = {24, 25, 5, 27, 13, 15, 26, 12, 28, 6, 9,   /* to play */
-                                       3, 17, 16, 2, 0, 1, 4, 7, 10, 11, 14, 20, 21, 22, 23,   /* experiments, calls */
-                                       19, 8, 18};                                          /* INIT */
-_Static_assert(sizeof ANIMAL_ORDER == NELEM(ANIMAL_PRESETS), "ANIMAL's browsing order: every preset once");
 static const uint8_t *preset_order(const engine_t *e, uint32_t *n)
 {
     if (e == &ENG_LOFI) { *n = sizeof MATH_ORDER; return MATH_ORDER; }   /* (eng_lofi.c) */
     if (e == &ENG_WAVE) { *n = sizeof WAVE_ORDER; return WAVE_ORDER; }   /* (JIANT BYTE, eng_wave.c) */
-    if (e == &ENG_ANA_GONE) { *n = sizeof ANALOG_ORDER; return ANALOG_ORDER; }
     if (e == &ENG_VOX_GONE) { *n = sizeof VOICE_ORDER; return VOICE_ORDER; }
     *n = 0;
     return 0;

@@ -293,93 +293,6 @@ static void graph_sing(const track_t *t)
     cv_rect(cx0 + 10, 110, (cw - 10) * clamp(nn, 0, 100) / 100, 3, T_ACCENT);
 }
 
-/* (V10.45) MORPH on ANALOG's PWM SYNC RING SAW3 PLS3: the wave itself over two cycles, as MORPH bends it (the user: it was
- * a ramp, MORPH's amount): PWM / PLS3 the pulses' width, SYNC the slave's ratio (1..4), RING the product of two
- * triangles (1..4), SAW3 three saws spread apart. In the Bluetooth segment (the app slot full) */
-static BTAPP_FN int32_t morph_tri(uint32_t u)       /* a triangle, -32768..32767, u a phase in 1/65536 */
-{
-    u &= 65535u;
-    return (int32_t)(u < 32768u ? u * 2u : (65535u - u) * 2u) - 32768;
-}
-static BTAPP_FN void morph_wave(uint32_t mode, int32_t m)
-{
-    int32_t i, px = 0, py = 0, r = 256 + m * 768 / 127, w = 32768 + m * 26000 / 127;
-    cv_rect(PANEL_X0, 46, PANEL_W, 1, T_RAISE);
-    for (i = 0; i <= 110; i++) {
-        uint32_t u = (uint32_t)i * 131072u / 110u, c = u & 65535u;
-        int32_t s, x = PANEL_X0 + i * 2, y;
-        switch (mode) {
-        case 0: s = (int32_t)c < w ? 26000 : -26000; break;                                   /* PWM */
-        case 1: s = (int32_t)((c * (uint32_t)r >> 8) & 65535u) - 32768; break;               /* SYNC */
-        case 2: s = morph_tri(u + 16384u) * morph_tri((u * (uint32_t)r >> 8) + 16384u) >> 15; break;   /* RING */
-        case 3: {                                                                           /* SAW3 */
-            uint32_t d = u / 256u * (uint32_t)m / 6u;                /* (the spread: up to ~8 % a voice) */
-            s = ((int32_t)c - 32768 + (int32_t)((u + d) & 65535u) - 32768 + (int32_t)((u - d) & 65535u) - 32768) / 3;
-            break;
-        }
-        default: s = ((int32_t)c < w ? 9000 : -9000) + ((int32_t)((c + 21845u) & 65535u) < w ? 9000 : -9000) +
-                     ((int32_t)((c + 43690u) & 65535u) < w * 7 / 8 ? 9000 : -9000); break;   /* PLS3 */
-        }
-        y = 46 - s * 18 / 32768;
-        if (i) cv_line_t(px, py, x, y, heat_col(80 + (uint32_t)m), 2);
-        px = x; py = y;
-    }
-}
-
-static __attribute__((noinline)) void graph_morph(const track_t *t)
-{
-    const int16_t *p = t->p;
-    uint32_t e = trk_eng(t), i, a0 = 0, a1 = 0;
-    int32_t px = 0, py = 0, pos, f;
-    const char *n0 = "", *n1 = "";
-    char b[24];
-    pd_t pa, pb;
-    if (0) {                                         /* (JIANT BYTE: PHASE retired: its wave not drawn) */
-        uint32_t dcw = (uint32_t)(p[P_E2] << 8) * 65535u / (127u << 8);
-        pos = (int32_t)(p[P_E0] & 7) * 256 + p[P_MORPH] * 768 / 127;
-        dcw = (dcw * 56000u) >> 16;
-        a0 = ((uint32_t)pos >> 8) & 7u; a1 = (a0 + 1u) & 7u;
-        pd_setup(&pa, a0, dcw); pd_setup(&pb, a1, dcw);
-        n0 = N_PD_WAVE[a0]; n1 = N_PD_WAVE[a1];
-    } else {
-        if (p[P_E0] >= 4) {                             /* (0.6.81) PWM SYNC RING SAW3: the WAVE, what MORPH moves */
-            static const char *const WHAT[5] = {"PWM  WIDTH", "SYNC  RATIO", "RING  RATIO", "SAW3  SPREAD", "PLS3  WIDTH"};
-            str_cpy(b, WHAT[clamp(p[P_E0] - 4, 0, 4)], sizeof b);
-            if (bt_hw_seg())                            /* (V10.45) the wave as MORPH bends it */
-                morph_wave((uint32_t)clamp(p[P_E0] - 4, 0, 4), p[P_MORPH]);
-            else {
-            cv_rect(PANEL_X0, 46, PANEL_W, 1, T_RAISE);
-            for (i = 0; i <= 110u; i++) {
-                int32_t x = PANEL_X0 + (int32_t)i * 2, y = 46 - (int32_t)((i * 34u * (uint32_t)p[P_MORPH]) / (110u * 127u)) + 17;
-                if (i) cv_line_t(px, py, x, y, heat_col(80 + (uint32_t)(46 - y + 34) * 2u), 2);
-                px = x; py = y;
-            }
-            }
-            cv_text(PANEL_X0 + 2, 90, &AF_S, b, T_TEXT);
-            return;
-        }
-        pos = clamp(p[P_E0] * 256 + p[P_MORPH] * 768 / 127, 0, 1536);
-        a0 = ((uint32_t)pos >> 8) & 3u; a1 = (a0 + 1u) & 3u;
-        n0 = N_ANALOG_WAVE[a0]; n1 = N_ANALOG_WAVE[a1];
-    }
-    f = pos & 255;
-    cv_rect(PANEL_X0, 46, PANEL_W, 1, T_RAISE);
-    for (i = 0; i <= 110u; i++) {
-        uint32_t ph = (uint32_t)(i % 110u) * (0xFFFFFFFFu / 110u), inc = 0xFFFFFFFFu / 220u;
-        int32_t s, x = PANEL_X0 + (int32_t)i * 2, y;
-        if (0) {                                     /* (JIANT BYTE: PHASE retired) */
-            s = pd_wave(&pa, ph >> 16);
-            if (f) s += ((pd_wave(&pb, ph >> 16) - s) * f) >> 8;
-        } else
-            s = an_morph(pos, ph, inc);
-        y = 46 - s * 34 / 32768;
-        if (i) cv_line_t(px, py, x, y, heat_col(80 + (uint32_t)(46 - y + 34) * 2u), 2);
-        px = x; py = y;
-    }
-    str_cpy(b, n0, sizeof b);
-    if (f && a1 != a0) { str_cpy(b + str_len(b), " > ", 4); str_cpy(b + str_len(b), n1, 8); }
-    cv_text(PANEL_X0 + 2, 90, &AF_S, b, T_TEXT);
-}
 
 /* (0.8.5) the piano roll of the cursor's bar, as the approved mock-up (LENTE's BAR, under the bars' strip): its 16
  * steps as columns (0.9.9-seq2b: x 22 .. 230, 13 px, the keys at the left; was 4 .. 236), PR_ROWS semitone rows of PR_RH px (4), the
@@ -1491,9 +1404,6 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
         h ^= anim_fr * 2654435761u;
     if (pg->graph >= GR_FMOP && pg->graph <= GR_FMENV)   /* (0.9.6) FM6's operators: the colony lives, as the beings */
         h ^= anim_fr / 2u * 2246822519u;
-    if (pg->graph == GR_MORPH)                       /* (0.6.45) the wave, MORPH */
-        h = (h ^ ((uint32_t)t->p[P_MORPH] << 16 | (uint32_t)t->p[P_E0] << 8 | (uint32_t)t->p[P_E1] |
-                  (uint32_t)t->p[P_E2] << 24)) * 16777619u;
     if (pg->graph == GR_SCENE) {                     /* (V10.25) the roles, the track picked, the last key */
         for (i = 0; i < NTRK; i++) h = (h ^ scn_role[i] ^ (uint32_t)drum_track(&trk[i]) << 4 ^ (uint32_t)trk[i].p[P_CHRD] << 8) * 16777619u;
         h = (h ^ scn_on ^ (uint32_t)sc_trk << 2 ^ (uint32_t)last_note << 8) * 16777619u;
@@ -2182,9 +2092,6 @@ static void draw_graph(void)
         switch (pg->graph) {
         case GR_ADSR:
             graph_adsr(t, c);
-            break;
-        case GR_MORPH:
-            graph_morph(t);
             break;
         case GR_DXIMG:                               /* (0.6.58) KIT 3: the colony; STEREO: IMAGE */
             if (DX_KIT3(pg)) {

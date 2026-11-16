@@ -404,8 +404,7 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
         if (!s || !d || !a || s >= MS_N || d >= MD_N || (d >= MD_CLIP && d < MD_MASTER_END))   /* (the master's: macro_master) */
             continue;
         /* These engines have no voice-level CUT consumer: use their track filter. */
-        if (d == MD_CUT && (t->engine == ENGI_WHEEL || t->engine == ENGI_DRUM ||
-                            t->engine == ENGI_STRING || t->engine == ENGI_INPUT)) d = MD_FCUT;
+        if (d == MD_CUT && t->engine == ENGI_DRUM) d = MD_FCUT;
         if (d <= MD_AMP) {                              /* per voice */
             mp->amp |= d == MD_AMP;
             if (MS_VOICE(s)) {
@@ -418,7 +417,7 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
             continue;
         }
         {                                               /* per block: AMT 64 = the whole range */
-            uint32_t id = d == MD_FCUT && t->engine == ENGI_ANALOG ? P_E4 : mod_param(d);
+            uint32_t id = mod_param(d);
             const param_desc_t *pd;
             x = mod_tsrc(t, s, lfo);
             if (d == MD_LIFE) {                         /* (V10.7.34) the track's LIFE, this block (life.c life_pt) */
@@ -576,18 +575,12 @@ BTAPP_FN static int mod_dst_ok(const track_t *t, uint32_t d)
     uint32_t e = eng_idx(t->eng_req), k;
     if (d >= MD_N) return 0;
     if (d == MD_CUT) {
-        if (e == ENGI_VOICE && t->p[P_VLANG]) return 0;   /* (JIANT BYTE: 13 is WAVE now, ADD retired) */
-        if (e == ENGI_ANIMAL) return t->p[P_E0] == AN_PULSE || t->p[P_E0] >= AN_WING;
     }
-    if (d == MD_SHP && (e == ENGI_DRUM || e == ENGI_ANIMAL || e == ENGI_INPUT)) return 0;
+    if (d == MD_SHP && e == ENGI_DRUM) return 0;
     if (d == MD_PITCH && e == ENGI_DRUM) return 0;
-    if (e == ENGI_INPUT && !t->p[P_E3] && (d == MD_PITCH || d == MD_AMP || d == MD_VIB)) return 0;
     if (d >= MD_E1 && d < MD_CLIP) {
         const param_desc_t *pd = track_desc(t, P_E0 + (k = d - MD_E1));
         if (!pd->label || !pd->label[0] || pd->label[0] == '-' || pd->max - pd->min <= 1) return 0;
-        if (e == ENGI_FM6 && (k == 7u || k == 3u || k == 5u)) return 0;  /* SLOT requires a bank load, not a parameter offset. */
-        if (e == ENGI_STRING && k == 3u && t->p[P_E0] != SX_FDBK) return 0; /* POS is excitation-only. */
-        if (e == ENGI_INPUT && (k == 3u || (k == 5u && !t->p[P_E3]) || (k == 4u && (t->p[P_E0] != AIN_ST || t->p[P_E3])))) return 0;
     }
     return 1;
 }
@@ -597,9 +590,7 @@ BTAPP_FN static int mod_dst_offer_bt(const track_t *t, uint32_t d)
 {
     uint32_t e = eng_idx(t->eng_req);
     if (!mod_dst_ok(t, d)) return 0;
-    if (d == MD_CUT && (e == ENGI_WHEEL || e == ENGI_DRUM || e == ENGI_STRING || e == ENGI_INPUT || e == ENGI_ANIMAL)) return 0;
-    if (d == MD_SHP && (e == ENGI_PHASE || e == ENGI_FM6 || (e == ENGI_STRING && t->p[P_E0] == SX_FDBK))) return 0;
-    return d != MD_FCUT || e != ENGI_ANALOG; /* ANALOG already offers its actual CUT parameter. */
+    return !(d == MD_CUT && e == ENGI_DRUM);
 }
 
 /* UI policy lives in the existing checked cold-code bank. Incomplete old
@@ -627,7 +618,7 @@ static char mod_dst_scope(const track_t *t, uint32_t d)
 {
     uint32_t e = eng_idx(t->eng_req);
     if (d >= MD_CLIP && d < MD_MASTER_END) return 'M';
-    if (d && d <= MD_AMP && !(d == MD_CUT && (e == ENGI_WHEEL || e == ENGI_DRUM || e == ENGI_STRING || e == ENGI_INPUT))) return 'V';
+    if (d && d <= MD_AMP && !(d == MD_CUT && e == ENGI_DRUM)) return 'V';
     return 'T';
 }
 
@@ -640,14 +631,12 @@ BTAPP_FN static const char *mod_dst_name_bt(const track_t *t, int32_t v)
     if (v == MD_CUT) {
         static const uint8_t CUT_ID[NENGINES] = {P_E4, P_FCUT, P_E2, P_FCUT, P_FCUT, P_E0, P_FCUT, P_FCUT,
                                                 P_FCUT, P_FCUT, P_FCUT, P_E2, P_E2, P_FCUT, P_FCUT, P_FCUT};
-        if (e == ENGI_WHEEL || e == ENGI_DRUM || e == ENGI_STRING || e == ENGI_INPUT) return N_MDST[MD_FCUT];
+        if (e == ENGI_DRUM) return N_MDST[MD_FCUT];
         return track_desc(t, CUT_ID[e])->label;
     }
     if (v == MD_SHP) {
         static const uint8_t SHP_ID[NENGINES] = {P_MORPH, P_MORPH, P_E2, P_MORPH, P_MORPH, P_E4, P_MORPH, P_E6,
                                                 P_E2, P_MORPH, P_MORPH, P_E1, P_MORPH, P_E5, P_MORPH, P_MORPH};
-        if (e == ENGI_FM6) return "FB+MOD";
-        if (e == ENGI_STRING && t->p[P_E0] == SX_FDBK) return "BR+SIZE";
         k = e == ENGI_LOFI && t->p[P_E1] >= RW_BYTE ? P_E3 : SHP_ID[e];
         return track_desc(t, k)->label;
     }

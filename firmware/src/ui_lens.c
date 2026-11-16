@@ -444,8 +444,6 @@ static __attribute__((noinline)) const char *nav_page_name(void)
     str_cpy(b, v->nm ? v->nm : v->t, 24);
     if (sec == SEC_EDIT && v->g == 0u && !v->nm && PAGES[ui.page].scope == SC_ENGINE) {   /* (EDIT 1 . OSC) */
         const char *pt = trk_engp(TSEL)->page_title[PAGES[ui.page].id[0] != P_E0];
-        if (trk_eng(TSEL) == ENGI_ANALOG)              /* (codex/coherence) EDIT . OSC: ANALOG has no EDIT 2 */
-            b[4] = 0;
         if (pt && pt[0] && pt[0] != '-') {
             str_cpy(b + str_len(b), " \xB7 ", 4);
             str_cpy(b + str_len(b), pt, 24 - str_len(b));
