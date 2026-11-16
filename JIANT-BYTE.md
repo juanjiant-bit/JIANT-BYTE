@@ -8,7 +8,30 @@ Es un fork de JIANT FM V10.7.37 (commit `c623362`, con toda su historia). JIANT 
 Estado (rama `phase2-engines`, que contiene todo lo anterior):
 
 | Fase | Estado |
-|---|---|
+|## Rediseño de la UI (decidido con el dueño)
+
+JIANT BYTE es un sintetizador nuevo, no una paleta sobre JIANT FM. Maquetas en `docs/ui-byte/` (`mock.py`,
+`mock2.py`: se regeneran con Python y PIL).
+
+- **Motores**: DRUM (DRUM-X con lanes de fórmula), MATH (BYTE / FLOAT / USER), WAVE, y los nuevos **FM-F** (una
+  fórmula modula la fase de otra), **GLITCH** (granular sobre `t`), **PLUCK** (Karplus-Strong excitado por una
+  fórmula) y **NOISE** (texturas de hashes de `t` con filtro). El código de los retirados se borra; un proyecto viejo
+  carga esas pistas como WAVE o MATH.
+- **Letra pixel** sin suavizado (5×8, 7×14, 10×20), **cajas de borde duro**, barras segmentadas, tramas Bayer.
+- **La fórmula siempre a la vista**: el texto, con el número que mueve la perilla resaltado; el raster bytebeat
+  (`f(t)` pintado a lo largo de `t`) con su cabezal; el encabezado con `t=` en hexadecimal.
+- **Seres que nacen de la fórmula**: BYTE, un sprite de bits de `f(t)` en espejo (como un invader); FLOAT, el
+  retrato de fase (`f(t)` contra `f(t+d)`) con tentáculos de onda. Mutar la fórmula muta el ser.
+- **Animación por motor**: MATH su ser y su raster; WAVE un terreno de alambre; DRUM ocho bichos que se aplastan al
+  golpe; FM-F un átomo con moduladores en órbita; GLITCH el ser cortado en franjas; PLUCK y NOISE por diseñar.
+- **HOME**: barras de cobre por pista, plasma en bloques de 4×4 desde la mezcla, scroller ondulado con las
+  fórmulas; LIFE: los seres de las seis pistas sobre un horizonte que es la mezcla, saltando con sus notas.
+- **Arranque cracktro**: JIANT BYTE en pixel con barras y scroller. **Paletas**: BYTE, C64, AMIGA, CGA, GAMEBOY,
+  ATARI.
+- Orden: borrar lo retirado; base pixel (letras, cajas, paletas); fórmula y seres; HOME, encabezado y arranque;
+  motores nuevos.
+
+---|---|
 | 0 Renombre | hecha |
 | 1 FVM (compilador, máquina, reloj, KEY) | hecha |
 | 2 Motores BYTE / FLOAT sobre la FVM, CAOS, retiro de motores | hecha: de JIANT FM queda solo DRUM-X (con sus lanes de fórmula) |
@@ -19,8 +42,8 @@ Estado (rama `phase2-engines`, que contiene todo lo anterior):
 | 7 Efectos de fórmula con memoria | primera forma (insertos de fórmula por pista, sin memoria larga todavía) |
 | 8 Punch-ins de fórmula, secuenciadores de fórmula | primera forma (CAOS MAX; el ARP de fórmula) |
 | 9 Generador de ecuaciones | MATH USER: semilla, CAOS, mutar y cruzar (MUTA) |
-| 10 Estética | primer paso (paleta BYTE por defecto) |
-| 11 FM-F, GLITCH | pendiente |
+| 10 Estética | rediseño decidido (ver "Rediseño de la UI"); paleta BYTE por defecto |
+| 11 FM-F, GLITCH, PLUCK, NOISE | pendiente |
 
 ---
 
