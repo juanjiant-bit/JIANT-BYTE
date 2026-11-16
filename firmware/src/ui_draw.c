@@ -434,6 +434,20 @@ static void card_mot_of(const int16_t *vp)
  * high, the gauge in it and the value lifted a fifth toward the text (so the cold end reads); a bipolar parameter (its
  * range across 0) by its distance from the centre, cold in the middle */
 static uint8_t card_bip;                                /* the card being drawn: a bipolar parameter (ratio_of) */
+/* (JIANT BYTE) a gauge: w px across, the first fx lit; FELUCCA_PIXEL draws it as segments (2 px on, 1 off), the
+ * unlit ones in track: the demoscene's VU; else the rounded bar as before */
+static void gauge_bar(int32_t x, int32_t y, int32_t w, int32_t h, int32_t fx, uint16_t lit, uint16_t track, uint16_t bg)
+{
+#if FELUCCA_PIXEL
+    int32_t i;
+    (void)bg;
+    for (i = 0; i + 2 <= w; i += 3)
+        cv_rect(x + i, y, 2, h, i < fx || (!i && fx > 0) ? lit : track);
+#else
+    cv_rrect(x, y, w, h, 1, track, bg);
+    cv_rrect(x, y, fx < 3 ? 3 : fx, h, 1, lit, track);
+#endif
+}
 static uint16_t gauge_col(int32_t ratio)
 {
     return heat_on(ratio) ? card_heat(ratio, card_bip) : T_THEME;
@@ -510,8 +524,7 @@ static void draw_column_tall(uint32_t c, const char *label, const char *val, con
     }
     if (ratio >= 0) {
         int32_t gw = COL_W - 10, fx = ratio * gw / 1000;
-        cv_rrect(5, LG_GY, gw, 3, 1, T_LINE, T_BG);
-        cv_rrect(5, LG_GY, fx < 3 ? 3 : fx, 3, 1, hot ? T_ACCENT : vc == T_DIM ? T_DIM : gauge_col(ratio), T_LINE);
+        gauge_bar(5, LG_GY, gw, 3, fx, hot ? T_ACCENT : vc == T_DIM ? T_DIM : gauge_col(ratio), T_LINE, T_BG);
     }
     cv_blit((uint32_t)CARD_X(c), card_y());
 }
@@ -754,8 +767,7 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
             int32_t gw = COL_W - 10, fx = ratio * gw / 1000;
             uint16_t gc = hot && !lz_on() ? T_ACCENT : vc == T_DIM ? T_DIM : lz_on() ? (gk ? gk : vc) : gauge_col(ratio);
             if (lz_on() && kind != LK_TALL) {   /* COLORS: 3 px, rounded, as the 0.6's */
-                cv_rrect(5, ch - 6, gw, 3, 1, T_LINE, cb);
-                cv_rrect(5, ch - 6, fx < 3 ? 3 : fx, 3, 1, gc, T_LINE);
+                gauge_bar(5, ch - 6, gw, 3, fx, gc, T_LINE, cb);
             } else {
                 cv_rect(5, ch - 5, gw, 2, T_LINE);
                 cv_rect(5, ch - 5, fx < 2 ? 2 : fx, 2, gc);
