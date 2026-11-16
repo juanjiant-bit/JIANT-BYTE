@@ -1931,6 +1931,77 @@ static void splash_sig(uint32_t n)
     }
     cv_blit(0, SPL_SY);
 }
+#if FELUCCA_PIXEL
+/* (JIANT BYTE) the power-on as a cracktro: copper bars rolling behind JIANT BYTE in the 10 x 20 pixel face scaled 4 x
+ * (ui_byte_logo.h: a gradient down it, its shadow), a starfield, the version and the name under it; while it moves, a
+ * sine scroller of formulas at the foot. Drawn in two strips of 120 rows (the canvas: 240 x 150), the two lines in
+ * the second only (drawn once). ms: the time since the start (ANIM OFF, or before the loop: still, at 0) */
+#include "ui_byte_logo.h"
+static const char SPL_SCROLL[] = "   t*(42&t>>10)   sin(w*3)   t>>4|t>>8   sat(sin(w*2)*5)   CAOS 127 ...   ";
+static void spl_word(const uint8_t *bm, int32_t w, int32_t h, int32_t x0, int32_t y0, int32_t k)
+{
+    int32_t x, y, nb = (w + 7) / 8;
+    for (y = 0; y < h; y++) {
+        uint16_t c = ux_mix(T_K(3), T_ACCENT, y * 100 / (h - 1));   /* (yellow to the accent, down) */
+        for (x = 0; x < w; x++)
+            if (bm[y * nb + x / 8] >> (7 - x % 8) & 1u) {
+                cv_rect(x0 + x * k + 3, y0 + y * k + 3, k, k, ux_mix(T_BG, T_ACCENT, 30));   /* (the shadow) */
+                cv_rect(x0 + x * k, y0 + y * k, k, k, c);
+            }
+    }
+}
+static void spl_frame(uint32_t ms, uint32_t moving)
+{
+    int32_t y0, k, y;
+    uint32_t i;
+    for (y0 = 0; y0 < 240; y0 += 120) {
+        cv_begin(240, 120, T_BG);
+        cv_oy = -y0;
+        for (i = 0; i < 70u; i++) {                     /* the stars, drifting left */
+            uint32_t h = i * 2654435761u;
+            int32_t sx = (int32_t)((h >> 8) % 240u) - (int32_t)(ms * (1u + (h >> 30)) / 40u % 240u);
+            cv_rect(sx < 0 ? sx + 240 : sx, (int32_t)((h >> 16) % 240u), 1, 1, h >> 31 ? T_TEXT : T_DIM);
+        }
+        for (k = 0; k < 3; k++) {                       /* the copper bars */
+            static const int16_t PH[3] = {0, 21000, 43000};
+            uint16_t bc = k == 0 ? T_ACCENT : k == 1 ? T_THEME : T_K(3);
+            int32_t cy = 128 + (sine_i((uint32_t)(PH[k] + (int32_t)(ms * 60u)) << 16) * 76 >> 15);
+            for (y = -8; y <= 8; y++)
+                cv_rect(0, cy + y, 240, 1, ux_mix(T_BG, bc, (9 - (y < 0 ? -y : y)) * 100 / 9));
+        }
+        spl_word(LOGO_JIANT, LOGO_JIANT_W, LOGO_JIANT_H, (240 - LOGO_JIANT_W * 4) / 2, 34, 4);
+        spl_word(LOGO_BYTE, LOGO_BYTE_W, LOGO_BYTE_H, (240 - LOGO_BYTE_W * 4) / 2, 100, 4);
+        if (y0) {
+            for (k = 0; k < 2; k++)
+                cv_text_in(0, 166 + k * 12, 240, &AF_S, SPLASH_LINES[k], T_TEXT, T_BG);
+            if (moving) {                               /* the sine scroller */
+                int32_t off = (int32_t)(ms / 12u), n = (int32_t)sizeof SPL_SCROLL - 1;
+                char ch[2] = {0, 0};
+                for (i = 0; i < 36u; i++) {
+                    int32_t ci = (off / 7 + (int32_t)i) % n, x = (int32_t)i * 7 - off % 7;
+                    ch[0] = SPL_SCROLL[ci];
+                    if (ch[0] != ' ' && x > -7 && x < 240)
+                        cv_text(x, 210 + (sine_i((uint32_t)(ci * 5000 + (int32_t)ms * 40) << 16) * 6 >> 15) - AF_F_CAP_Y,
+                                &AF_F, ch, ux_mix(T_THEME, T_K(2), (int32_t)(i * 3u % 100u)));
+                }
+            }
+        }
+        cv_oy = 0;
+        cv_blit(0, (uint32_t)y0);
+    }
+    lcd_sync();
+}
+static void draw_splash(void)
+{
+    spl_frame(0, 0);
+}
+static void splash_write(uint32_t ms)
+{
+    if (!spl_anim || (ui_prefs & PREF_ANIM_OFF))
+        return;
+    spl_frame(ms, 1);
+}
+#else
 static void draw_splash(void)
 {
     uint32_t k;
@@ -1953,6 +2024,8 @@ static void splash_write(uint32_t ms)
     splash_sig(ms >= SPL_WRITE ? SIG_N : SIG_N * ms / SPL_WRITE);   /* (V10.6n: solid as it writes, the owner) */
     lcd_sync();
 }
+
+#endif
 
 /* UPDATE MODE countdown (main.c: OCT- + OCT+ held): over everything, the menu and the dialogs too */
 static void draw_uboot(void)
