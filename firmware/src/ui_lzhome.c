@@ -194,6 +194,13 @@ static void eco_face(int32_t cx, int32_t cy, int32_t r, int32_t k, int32_t e, ui
  * mutation just landed (mut_flash): it looks up, a ring in the accent opens round it */
 static void eco_being(uint32_t c, int32_t cx, int32_t cy, int32_t rq)
 {
+#if FELUCCA_PIXEL
+    if (1) {                                            /* (JIANT BYTE) the part's own being, born from its formula */
+        int32_t en = eco.en[c];
+        ub_being_at(&trk[c], cx >> 4, cy >> 4, (rq + rq * en * 30 / 65536) >> 4, en >> 8, eco_off(c));
+        return;
+    }
+#endif
     static const int16_t SC[3] = {256, 179, 113};
     const genome_t *g = eco_genome(c);
     bfeat_t f;
@@ -270,7 +277,11 @@ static void graph_eco(uint32_t lf)
     (void)eco_step();                                   /* (the swim, once a frame) */
     (void)bg_energy();                                  /* (the output's level kept as it was read: once a frame) */
     char b[48];
+#if FELUCCA_PIXEL
+    ub_plasma(bot, bg_energy(), still);                 /* (JIANT BYTE) the demoscene's plasma for the cytoplasm */
+#else
     eco_water(bot, still);
+#endif
     for (c = 0; c < ECO_N; c++) {
         eco_at(c, &bx[c], &by[c]);                      /* (codex/anim: between its last two steps) */
         bx[c] >>= 4;
@@ -293,7 +304,11 @@ static void graph_eco(uint32_t lf)
             if (st < lo)
                 continue;
             for (k = 0; k < 3 && st > lo + k * 6000; k++)   /* (1 .. 3 px thick: stronger, thicker) */
+#if FELUCCA_PIXEL
+                cv_line((bx[j] >> 4) + k, by[j] >> 4, (bx[c] >> 4) + k, by[c] >> 4, col);   /* (pixel lines) */
+#else
                 og_line(bx[j] + k * 16, by[j], bx[c] + k * 16, by[c], col);
+#endif
             links++;
             cv_rect(((bx[c] * 3 + bx[j]) >> 6) - 1, ((by[c] * 3 + by[j]) >> 6) - 1, 3, 3, col);   /* (a dot near the one
                                                          * moved: which way) */

@@ -272,3 +272,49 @@ static void ub_kit(const track_t *t, const int32_t *A, int32_t sel)
             cv_frame(sx - 2, y + (cw >= 40 ? 9 : 0), px * 9 + 4, px * 9 + 4, T_TEXT);
     }
 }
+
+/* a part's colour among the six (the palette's four knobs, then its ACCENT and its TEXT) */
+static uint16_t ub_tcol(uint32_t tr) { return tr < 4u ? T_K(tr) : tr == 4u ? T_ACCENT : T_TEXT; }
+/* HOME: part t's being about (cx, cy) px, about rad px across its half, its level lv (0 .. 256); off: muted, asleep
+ * (dim, still). A formula part's from its formula; a kit's from its first lane's bytebeat */
+static void ub_being_at(const track_t *t, int32_t cx, int32_t cy, int32_t rad, int32_t lv, int off)
+{
+    uint32_t tr = (uint32_t)(t - trk) % NTRK, fix = 0, fr = off || lv < 8 ? anim_fr / 16u : anim_fr / 3u, gy;
+    int32_t px = rad * 2 / 11 < 2 ? 2 : rad * 2 / 11;
+    uint16_t c = off ? T_DIM : ub_tcol(tr), e = off ? T_SURF : T_TEXT;
+    const char *s = ub_text(t, &fix);
+    gq_work_t *w = ub_ws();
+    if (s && ub_compile(w, s)) {
+        if (fix)
+            ub_portrait(w, cx, cy, rad, fr, c, e);
+        else
+            ub_sprite(w, cx - px * 11 / 2, cy - px * 11 / 2, px, fr, c, e);
+        return;
+    }
+    {                                                   /* (a kit, or a part with no formula: a bytebeat of its own) */
+        uint8_t v[11];
+        for (gy = 0; gy < 11u; gy++) {
+            uint32_t tt = gy * 911u + 2048u + tr * 7919u + fr * 5u;
+            v[gy] = (uint8_t)(tt * (3u & tt >> 5) | tt >> (tr + 6u));
+        }
+        ub_bits(v, 11u, cx - px * 11 / 2, cy - px * 11 / 2, px, fr, lv > 200 ? 1u : 0u, c, e);
+    }
+}
+/* HOME's ground: a plasma in blocks of 6 px under the beings, its swirl quickened by the mix's level (en 0 .. 256),
+ * four shades of THEME on SURF, faint */
+static void ub_plasma(int32_t bot, int32_t en, uint32_t still)
+{
+    int32_t x, y;
+    uint32_t f = still ? 0u : anim_fr * (2u + (uint32_t)en / 64u);
+    uint16_t sh[4];
+    for (x = 0; x < 4; x++)
+        sh[x] = ux_mix(T_SURF, T_THEME, 2 + x * 3);
+    for (y = 0; y < bot + 12; y += 6)
+        for (x = 0; x < 240; x += 6) {
+            int32_t v = sine_i((uint32_t)(x * 300 + (int32_t)f * 211) << 16) + sine_i((uint32_t)(y * 410 - (int32_t)f * 157) << 16) +
+                        sine_i((uint32_t)((x + y) * 190 + (int32_t)f * 97) << 16);   /* (three waves: -98301 .. 98301) */
+            v = (v + 98304) * 4 / 196608;
+            if (v > 0)
+                cv_rect(x, y, 6, 6, sh[v > 3 ? 3 : v]);
+        }
+}
