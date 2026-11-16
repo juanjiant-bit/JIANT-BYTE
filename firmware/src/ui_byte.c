@@ -328,3 +328,34 @@ static void ub_plasma(int32_t bot, int32_t en, uint32_t still)
                 cv_rect(x, y, 6, 6, sh[v > 3 ? 3 : v]);
         }
 }
+
+/* (JIANT BYTE) HOME's scene (MACROS, LIFE): a starfield drifting left (faster loud), the ground a horizon that is the
+ * mix (the scope's last samples), its rows fading under it; the parts stand on it in a row (ui_lzhome.c places them:
+ * ub_scene_at), each jumping with its own sound. gy: the horizon's row (returned by ub_scene) */
+static int32_t ub_scene(int32_t bot, int32_t en, uint32_t still)
+{
+    uint32_t i, w0 = scope_w - 240u;
+    int32_t gy = bot - 4, x, py = 0;
+    uint32_t sp = still ? 0u : anim_fr * (1u + (uint32_t)en / 48u);
+    for (i = 0; i < 48u; i++) {                         /* the stars: three depths */
+        uint32_t h = i * 2654435761u, d = 1u + (h >> 30);
+        int32_t sx = (int32_t)(((h >> 8) % 240u + 240u * 4u - sp * d / 4u % 240u) % 240u), sy = 6 + (int32_t)((h >> 16) % (uint32_t)(gy - 30));
+        cv_rect(sx, sy, 1, 1, d == 1u ? T_DIM : d == 2u ? T_MID : T_TEXT);
+    }
+    for (x = 0; x < 240; x++) {                         /* the ground: the mix as the horizon */
+        int32_t v = scope_buf[(w0 + (uint32_t)x) & (SCOPE_N - 1u)], y = gy + (v * 6 >> 15), k;
+        if (x && (y - py > 1 || py - y > 1)) cv_rect(x, y < py ? y : py, 1, (y < py ? py - y : y - py) + 1, T_THEME);
+        cv_rect(x, y, 1, 1, T_THEME);
+        for (k = y + 3; k < bot + 14; k += 3)           /* (its rows fading under it) */
+            cv_rect(x, k, 1, 1, ux_mix(T_SURF, T_THEME, 30 - (k - y) * 2 > 4 ? 30 - (k - y) * 2 : 4));
+        py = y;
+    }
+    return gy;
+}
+/* where part c stands (px): its slot along the ground, its jump with its level (lv 0 .. 256) and its hits */
+static void ub_scene_at(uint32_t c, int32_t gy, int32_t rad, int32_t lv, int32_t *x, int32_t *y)
+{
+    int32_t j = lv > 20 ? (sine_i((anim_fr * (6u + c) * 1500u + c * 9000u) << 16) * (lv / 24 + 2)) >> 15 : 0;
+    *x = 20 + (int32_t)c * 40;
+    *y = gy - rad - 4 - (j < 0 ? -j : j);
+}

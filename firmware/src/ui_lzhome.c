@@ -278,7 +278,7 @@ static void graph_eco(uint32_t lf)
     (void)bg_energy();                                  /* (the output's level kept as it was read: once a frame) */
     char b[48];
 #if FELUCCA_PIXEL
-    ub_plasma(bot, bg_energy(), still);                 /* (JIANT BYTE) the demoscene's plasma for the cytoplasm */
+    int32_t gy = ub_scene(bot, bg_energy(), still);     /* (JIANT BYTE) stars, the mix as the horizon */
 #else
     eco_water(bot, still);
 #endif
@@ -290,6 +290,14 @@ static void graph_eco(uint32_t lf)
             bx[c] = (12 + ((life.bx[c] * 216) >> 16)) << 4;
             by[c] = (8 + ((life.by[c] * (bot - 16)) >> 16)) << 4;
         }
+#if FELUCCA_PIXEL
+        {                                               /* (JIANT BYTE) standing in a row on the ground, jumping */
+            int32_t x, y;
+            ub_scene_at(c, gy, (eco.r[c] >> 4) * 3 / 4 < 8 ? 8 : (eco.r[c] >> 4) * 3 / 4, eco.en[c] >> 8, &x, &y);
+            bx[c] = x << 4;
+            by[c] = y << 4;
+        }
+#endif
     }
     for (c = 0, j = 1500; c < ECO_N * ECO_N && lf; c++)   /* (LIFE) the strongest link: the faint ones (a third of it) not
                                                          * drawn, the picture kept readable */
@@ -317,9 +325,18 @@ static void graph_eco(uint32_t lf)
         int32_t r = lf ? eco.r[c] * (256 + life.breath[c] / 1024) / 256 : eco.r[c], rad = r >> 4, px = bx[c] >> 4,
                 py = by[c] >> 4, ny;
         char num[2] = {(char)('1' + c), 0};
+#if FELUCCA_PIXEL
+        r = r * 3 / 4 < 8 << 4 ? 8 << 4 : r * 3 / 4;   /* (JIANT BYTE: a little smaller, six in a row; its number under
+                                                         * the ground) */
+        eco_being(c, bx[c], by[c], r);
+        ny = bot + 2;
+        (void)rad; (void)py;
+        if (1)
+#else
         eco_being(c, bx[c], by[c], r);
         ny = clamp(py + rad / 2 + 4, 4, bot);
         if (px < 150 || ny < bot - 30)                  /* (V10.7.33: not under the tempo's corner) */
+#endif
             cv_text_in(px - 30, ny, 60, &AF_S, num, c == song.sel ? T_THEME : eco_off(c) ? T_DIM : T_TEXT, T_SURF);
     }
     if (lf) {                                           /* (LIFE) its amount, the lines counted */
@@ -346,8 +363,13 @@ static void graph_eco(uint32_t lf)
     else
         cv_text_r(234, 2, &AF_X, mac_latch ? "LATCH" : "HOLD LFO", mac_latch ? T_ACCENT : T_TEXT, T_SURF);
     fmt_int(b, song.g[G_BPM]);                          /* (V10.7.33, the owner) the tempo large: HOME held + PRESETS */
+#if FELUCCA_PIXEL
+    cv_text_r(210, 14, &AF_L, b, ui.bpm_t ? T_ACCENT : T_TEXT, T_SURF);   /* (JIANT BYTE: up, over the stars) */
+    cv_text_r(234, 26, &AF_X, "BPM", T_TEXT, T_SURF);
+#else
     cv_text_r(210, bot - 22, &AF_L, b, ui.bpm_t ? T_ACCENT : T_TEXT, T_SURF);
     cv_text_r(234, bot - 2, &AF_X, "BPM", T_TEXT, T_SURF);
+#endif
 }
 /* (V10.7.34, the owner) TRACKS: each track playing (TRACKS 4: four) a lane, one under another, its pattern as a
  * timeline: its steps in their notes' heat (lz_note, as the roll's and the bars'; a kit's hits, or a step of hits
