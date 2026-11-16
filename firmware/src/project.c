@@ -668,8 +668,8 @@ static uint32_t proj_packed_size(const project_t *q)
         if (q->dx_snd[i]) { n += 2u + sizeof q->dx_snd; break; }
     for (i = 0; i < sizeof q->dx_lay; i++)              /* (0.6.49) the LAYERs' */
         if (q->dx_lay[i]) { n += 2u + sizeof q->dx_lay; break; }
-    for (i = 0; i < sizeof q->dx_form; i++)             /* (JIANT BYTE) the formulas' */
-        if (q->dx_form[i]) { n += 2u + sizeof q->dx_form; break; }
+    n += 2u + sizeof q->dx_form;                        /* (JIANT BYTE) the formulas': always (a kit of all-oscillator
+                                                         * lanes is a choice; absent reads as the floatbeat factory) */
     for (i = 0; i < sizeof q->mac_form; i++)            /* (JIANT BYTE) the macros' equations' */
         if (q->mac_form[i]) { n += 2u + sizeof q->mac_form; break; }
     if (proj_fg_used(q))                                /* (0.6.52) FUGUE's */
@@ -802,9 +802,7 @@ static int proj_pack(project_store_t *out, const project_t *q)
         memcpy(b + pos, q->dx_lay, sizeof q->dx_lay);
         pos += sizeof q->dx_lay;
     }
-    for (i = 0; i < sizeof q->dx_form && !q->dx_form[i]; i++)
-        ;
-    if (i < sizeof q->dx_form) {                        /* (JIANT BYTE) the kit's formula lanes */
+    {                                                   /* (JIANT BYTE) the kit's formula lanes */
         b[pos++] = 'D'; b[pos++] = 'F';
         memcpy(b + pos, q->dx_form, sizeof q->dx_form);
         pos += sizeof q->dx_form;
@@ -1105,7 +1103,7 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         memcpy(q->dx_lay, b + pos + 2u, sizeof q->dx_lay);
         pos += 2u + sizeof q->dx_lay;
     }
-    memset(q->dx_form, 0, sizeof q->dx_form);
+    memcpy(q->dx_form, DX_FORM_DEF, sizeof q->dx_form); /* (absent: the floatbeat factory) */
     if (pos + 2u + sizeof q->dx_form <= room && b[pos] == 'D' && b[pos + 1u] == 'F') {   /* (JIANT BYTE) its formulas */
         uint32_t k;
         memcpy(q->dx_form, b + pos + 2u, sizeof q->dx_form);
@@ -1806,7 +1804,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     dx_glue = 0;
     memset(dx_snd, 0, sizeof dx_snd);
     memcpy(dx_lay, DX_LAY_DEF, sizeof dx_lay);
-    memset(dx_form, 0, sizeof dx_form);                 /* (JIANT BYTE) no formula lane */
+    memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);       /* (JIANT BYTE) every lane its floatbeat */
     memset(macro_f, 0, sizeof macro_f);                 /* (JIANT BYTE) every macro its knob */
     memset(fg_set, 0, sizeof fg_set);                   /* (0.6.52) no FUGUE */
     live_reset();                                       /* (p2) no LIVE modifier (seq_live.c) */

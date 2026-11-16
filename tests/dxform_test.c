@@ -33,17 +33,18 @@ static void kit(void)
     host_drums(&trk[0]);
     trk[0].p[P_DIST] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;
 }
+static uint32_t hit_lane = 0;                        /* (the lane hit: DV_KICK unless set) */
 /* the KICK lane hit at the start (and again at half, if twice), NS samples */
 static void hit(double *y, int twice)
 {
     static int32_t blk[CTL];
     uint32_t got = 0;
-    trk_note_on(&trk[0], DRUM_LANE_NOTE[DV_KICK], 110);
+    trk_note_on(&trk[0], DRUM_LANE_NOTE[hit_lane], 110);
     while (got < NS) {
         uint32_t k;
         if (twice && got == NS / 2u / CTL * CTL) {
-            trk_note_off(&trk[0], DRUM_LANE_NOTE[DV_KICK]);
-            trk_note_on(&trk[0], DRUM_LANE_NOTE[DV_KICK], 110);
+            trk_note_off(&trk[0], DRUM_LANE_NOTE[hit_lane]);
+            trk_note_on(&trk[0], DRUM_LANE_NOTE[hit_lane], 110);
         }
         track_render(&trk[0], blk, CTL);
         for (k = 0; k < CTL && got < NS; k++)
@@ -145,6 +146,25 @@ int main(int argc, char **argv)
                 same &= r.dx_form[k] == (uint8_t)((k * 5u) % (DX_NFORM + 1u));
             dxf_ok(same, "the kit's formulas stored and read back ('D' 'F')");
         }
+    }
+    {   /* (JIANT BYTE) the floatbeat factory: each lane its own (DX_FORM_DEF), on its own lane: sounding, bounded, as loud as
+         * DRUM-X's own oscillator there within x1/3 .. x3 (energy x1/9 .. x9) */
+        uint32_t l;
+        bad = 0;
+        for (l = 0; l < 8u; l++) {
+            double e0, e1;
+            hit_lane = l;
+            memset(dx_form, 0, sizeof dx_form);
+            kit(); hit(ya, 0);
+            dx_form[l] = DX_FORM_DEF[l];
+            kit(); hit(yb, 0);
+            e0 = energy(ya, 0, NS);
+            e1 = energy(yb, 0, NS);
+            printf("dxform: lane %u %-6s energy x%.2f of its oscillator's, peak %.3f\n", l, N_DXFORM[DX_FORM_DEF[l] - 1u], e1 / (e0 > 0 ? e0 : 1e-9), peak(yb, NS));
+            if (!(e1 > e0 / 9 && e1 < e0 * 9) || peak(yb, NS) > 1.0) bad++;
+        }
+        hit_lane = 0;
+        dxf_ok(!bad, "the floatbeat kit: every lane sounds near its oscillator's level, bounded (%u off)", bad);
     }
     printf(dxf_fails ? "dxform: %d FAILED\n" : "dxform: all ok\n", dxf_fails);
     return dxf_fails != 0;

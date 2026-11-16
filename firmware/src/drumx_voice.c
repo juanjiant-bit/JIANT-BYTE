@@ -206,12 +206,24 @@ static const char *const DX_FORMS[] = {
     "(sin(w)+sin(w*1.5))/2",                         /* TONE2: a fifth */
     "rnd(fix(t))*sqr(w*3.7)",                        /* HAT: noise through a square */
     "fix(t*(42&t>>10)&255)/128-1",                   /* BYTE: the classic, at the pitch */
+    /* (JIANT BYTE: the owner, "a drum machine of floatbeat") the kit's own, every lane's at power-on (DX_FORM_DEF) */
+    "sin(w+sin(w*0.5)*A*2*max(0,1-T*8))",            /* FKICK: a sine, a sub-octave FM that dies in the first beat */
+    "sin(w)*0.5+rnd(floor(w*64))*(0.3+A*0.7)",       /* FSNR: a tone and the phase's noise, COLOR the noise */
+    "rnd(floor(w*48))*(sqr(T*60)+1)/2",              /* FCLAP: noise cut in bursts (the hands) */
+    "sqr(w)*sqr(w*1.4142)*sqr(w*1.7)*sqr(w*2.13)*(1-A)+rnd(floor(w*97))*A",   /* FHAT: four squares apart, noise */
+    "sqr(w*1.19)*sqr(w*1.62)*sqr(w*2.31)*0.7+rnd(floor(w*80))*(0.2+A*0.5)",   /* FOHAT: the open's, airier */
+    "sin(w+tri(w*0.5)*A*1.5)",                       /* FTOM: a sine, a triangle's FM */
+    "sin(w*1.7)*sqr(w*3.3)*max(0,1-T*40)",           /* FRIM: a metal click, gone in 25 ms */
+    "sat((sqr(w)+sqr(w*1.4815))*(1+A*3))",           /* FCOW: two squares at 540 : 800, driven */
 };
 static const char *const N_DXFORM[] = {"SINE", "SAT", "FM", "METAL", "BITS", "XOR", "NOISE", "CHIRP", "STEP", "RING",
-                                       "STUT", "FOLD", "CRUSH", "TONE2", "HAT", "BYTE"};
+                                       "STUT", "FOLD", "CRUSH", "TONE2", "HAT", "BYTE",
+                                       "FKICK", "FSNR", "FCLAP", "FHAT", "FOHAT", "FTOM", "FRIM", "FCOW"};
 #define DX_NFORM (sizeof DX_FORMS / sizeof DX_FORMS[0])
 _Static_assert(DX_NFORM == sizeof N_DXFORM / sizeof N_DXFORM[0], "DRUM-X: a name a formula");
 static uint8_t dx_form[8];                           /* (JIANT BYTE) 0, or 1 + the formula of DX_FORMS */
+/* (JIANT BYTE) the factory: every lane its floatbeat (KICK SNARE CLAP HATC HATO TOM RIM BELL: FKICK .. FCOW) */
+static const uint8_t DX_FORM_DEF[8] = {17, 18, 19, 20, 21, 22, 23, 24};
 static fvm_prog_t dx_fprg[8];
 static fvm_ins_t dx_fins[8][24] __attribute__((section(".pool")));                     /* (a lane's formula: 24 instructions at most) */
 static uint8_t dx_fid[8];                            /* the formula compiled in dx_fprg (0: none yet) */

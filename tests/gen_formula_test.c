@@ -29,7 +29,7 @@ static gq_work_t W;
 #define NS (FS / 2u)
 static double ya[NS], yb[NS];
 
-static int32_t user_var;
+static int32_t user_var, user_chip = -1;
 static void user_part(uint32_t seed, uint32_t caos, const char *text, double *y)
 {
     static int32_t blk[CTL];
@@ -43,6 +43,7 @@ static void user_part(uint32_t seed, uint32_t caos, const char *text, double *y)
     t->p[P_E2] = (int16_t)seed;
     t->p[P_CAOS] = (int16_t)caos;
     t->p[P_E3] = (int16_t)user_var;
+    if (user_chip >= 0) t->p[P_E0] = (int16_t)user_chip;
     memset(lyr_txt[0], 0, sizeof lyr_txt[0]);
     for (k = 0; text && text[k] && k < 63u; k++)
         lyr_txt[0][k] = text[k];
@@ -159,6 +160,23 @@ int main(int argc, char **argv)
             ok(diff >= 6u && bounded, "USER VAR 96 .. 103: crossed formulas, %u of 8 another sound at once, bounded", diff);
         }
         user_var = 0;
+    }
+    {   /* (JIANT BYTE) USER's CHIP FULL: a bytebeat between its steps (16 bits): the same wave, its jumps fewer */
+        double j8 = 0, jf = 0, c = 0, aa = 0, bb = 0;
+        uint32_t i;
+        user_chip = 2;                               /* (8BIT) */
+        user_part(7, 0, "t*3^t>>4", ya);
+        user_chip = 4;                               /* (FULL) */
+        user_part(7, 0, "t*3^t>>4", yb);
+        user_chip = -1;
+        for (i = 1; i < NS; i++) {
+            j8 += (ya[i] - ya[i - 1]) * (ya[i] - ya[i - 1]);   /* (the jumps' energy) */
+            jf += (yb[i] - yb[i - 1]) * (yb[i] - yb[i - 1]);
+            c += ya[i] * yb[i], aa += ya[i] * ya[i], bb += yb[i] * yb[i];
+        }
+        c = c / sqrt(aa * bb);
+        ok(jf < j8 * 0.8 && c > 0.8 && peak(yb, NS) <= 1.0, "USER CHIP FULL: the same wave (%.3f), its jumps' energy x%.2f of 8BIT's, bounded",
+           c, jf / j8);
     }
     {   /* (phase 6) cross-mod: track 2 reads track 1's output (O1), a block late, through the mix; each pass in a fresh
          * child (fork, as tests/regress.c: the FX's and the master's state of a pass would leak into the next) */

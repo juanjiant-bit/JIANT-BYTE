@@ -5,10 +5,10 @@
  * NOIS WRAM, the STEP envelope) were redundant beside ANALOG (the user's call): a sound of theirs that arrives -- a
  * project, a user preset -- plays as ANALOG's nearest (core.h analog_from_chip). The engine's number (3) and its stored
  * values stay: WAVE 5 BYTE, 6 FLOAT; CHIP 0..3 the bits (STEP, 4, read as 4BIT: the same sound on BYTE and FLOAT) */
-static const char *const N_CHIP[] = {"4BIT", "4B/2", "8BIT", "1BIT"};
+static const char *const N_CHIP[] = {"4BIT", "4B/2", "8BIT", "1BIT", "FULL"};   /* (JIANT BYTE: FULL, USER's) */
 static const char *const N_RWAVE[] = {"-", "-", "-", "-", "-", "BYTE", "FLOAT", "USER"};   /* (WAVE 5, 6: the stored numbers;
                                                          * JIANT BYTE: 7 the part's own formula, fvm_gen.c) */
-enum { CHIP_4BIT, CHIP_4B2, CHIP_8BIT, CHIP_1BIT };
+enum { CHIP_4BIT, CHIP_4B2, CHIP_8BIT, CHIP_1BIT, CHIP_FULL };
 enum { RW_BYTE = 5, RW_FLOAT = 6, RW_USER = 7 };
 
 /* (JIANT 0.4) WAVE = BYTE: bytebeat, an 8-bit formula of the time t played as the wave (after viznut's 2011
@@ -99,7 +99,9 @@ static const char *const N_MOTION[] = {"LIBRE", "1/32", "1/16T", "1/16", "1/16."
 static const uint16_t MOT_24[17] = {24, 3, 4, 6, 9, 8, 12, 18, 16, 24, 36, 32, 48, 72, 96, 192, 384};
 static const param_desc_t LOFI_MOTN = {"MOTION", F_ENUM, 0, 16, 0, N_MOTION};
 static const param_desc_t LOFI_SEED = {"SEED", F_INT, 0, 191, 64, 0};
-static const param_desc_t LOFI_MUTA = {"MUTA", F_INT, 0, 127, 0, 0};   /* (phase 9) USER: VAR 1..63 mutates, 64.. crosses */   /* (JIANT BYTE) USER: ALGO the generator's seed */   /* (p6: 128 .. 255 SYNC; V10.6d: 0) */
+static const param_desc_t LOFI_MUTA = {"MUTA", F_INT, 0, 127, 0, 0};
+/* (JIANT BYTE) USER's CHIP: up to FULL (a bytebeat's 16 bits between its steps; a floatbeat as it is) */
+static const param_desc_t LOFI_UCHIP = {"CHIP", F_ENUM, 0, 4, 4, N_CHIP};   /* (phase 9) USER: VAR 1..63 mutates, 64.. crosses */   /* (JIANT BYTE) USER: ALGO the generator's seed */   /* (p6: 128 .. 255 SYNC; V10.6d: 0) */
 static const param_desc_t LOFI_FALGO = {"ALGO", F_INT, 0, 191, 64, N_FLOAT};   /* = edit[2] (FLOAT) */
 /* .. its CHIP the resolution: 4 bits, 4 bits held over two samples, FULL (smooth, the default), 1 bit, STEP (4 bits and
  * the stepped envelope) */
@@ -416,7 +418,8 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
     uint32_t sy, sr, sb, tinc;                          /* (JIANT BYTE) TIME and MOTION: lofi_time */
     lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
     const fvm_prog_t *pg = lofi_prog(t, wk, 0, f);
-    uint32_t tws[LOFI_N], vals[LOFI_N], ne = 0, k = 0;
+    uint32_t tws[LOFI_N * 2u], vals[LOFI_N * 2u], ne = 0, k = 0, full = bits >= 16, h;
+    uint8_t frq[LOFI_N];                                /* (JIANT BYTE) FULL: where between t and t + 1, Q8 */
     uint32_t caos = (uint32_t)clamp(p[P_CAOS], 0, 127), qr, qb, key, qm = 0;
     const int16_t *talk;
     int32_t fb0 = held;
@@ -435,16 +438,19 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
         int32_t cc = cnt;
         for (i = 0; i < n; i++) {
             if (--cc <= 0) {
-                uint32_t te, tl;
                 if (sy)                                  /* (SYNC: the slow bits at the bar's position) */
                     cts = (sb + ((i * sr) >> 16)) * mul;
-                te = (ctt & 255u) | ((cts >> 8) & ~255u);   /* (MOTN: the slow bits at
+                for (h = 0; h <= full; h++) {            /* (FULL: at t + 1 too, its value the next one between) */
+                    uint32_t te, tl, c1 = ctt + h;
+                    te = (c1 & 255u) | ((cts >> 8) & ~255u);   /* (MOTN: the slow bits at
                                                          * their own speed; 64: t as written) */
-                te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
-                if (talk)                                /* (TALK: the others' sound into its time) */
-                    te += (uint32_t)(talk[i] >> 5);
-                tl = lofi_mut((te & lm) + t0, var);      /* (VAR: mutated) */
-                tws[ne++] = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
+                    te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
+                    if (talk)                            /* (TALK: the others' sound into its time) */
+                        te += (uint32_t)(talk[i] >> 5);
+                    tl = lofi_mut((te & lm) + t0, var);  /* (VAR: mutated) */
+                    tws[ne + h * LOFI_N] = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
+                }
+                frq[ne++] = (uint8_t)(ctf >> 16);
                 cc = hold;
             }
             ctf += ti;
@@ -460,15 +466,26 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
         en.u[FU_NOTE] = v->note;
         en.u[FU_VEL] = v->vel;
         lofi_run(pg, &en, wk, ne, vals);
+        if (full) {                                      /* (FULL: the next t's values) */
+            en.arr[FA_T] = tws + LOFI_N;
+            lofi_run(pg, &en, wk, ne, vals + LOFI_N);
+        }
     }
     for (i = 0; i < n; i++) {                            /* pass 2: the held samples, the bits, the filters */
         if (--cnt <= 0) {
-            int32_t s = (int32_t)((k < ne ? vals[k++] : 0u) & 255u) * 256 - 32640;
+            int32_t s;
+            if (full && k < ne) {                        /* (JIANT BYTE) FULL: between this t's byte and the next's,
+                                                         * 16 bits: the bytebeat's wave without its steps */
+                int32_t v0 = (int32_t)(vals[k] & 255u), v1 = (int32_t)(vals[k + LOFI_N] & 255u);
+                s = v0 * 256 + (v1 - v0) * (int32_t)frq[k] - 32640;
+                k++;
+            } else
+                s = (int32_t)((k < ne ? vals[k++] : 0u) & 255u) * 256 - 32640;
             if (sy)
                 ts = (sb + ((i * sr) >> 16)) * mul;
             cnt = hold;
             if (bits < 8)
-                s = ((s + (1 << (15 - bits))) >> (16 - bits)) << (16 - bits);
+                s = ((s + (1 << (15 - bits))) >> (16 - bits)) << (16 - bits);   /* (FULL: none) */
             held = s;
         }
         tf += ti;
@@ -510,7 +527,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     int32_t rs = p[P_FRES] > 50 ? p[P_FRES] : 50, kd = 8192 - rs * 7600 / 127, y1 = v->s[4], y2 = v->s[5];
     int32_t aux = v->s[3], fb = v->s[0], fbk = p[P_E5], sm = (int32_t)v->ph[2];   /* (sm: LOFI_SOFT's state; aux:
                                                          * MATH's, the FVM's states are v->s[6], v->s[7]) */
-    uint32_t chip = (uint32_t)p[P_E0], qs = chip == CHIP_8BIT ? 0u : chip == CHIP_1BIT ? 15u : 12u;   /* (CHIP: the bits) */
+    uint32_t chip = (uint32_t)p[P_E0], qs = chip == CHIP_8BIT || chip == CHIP_FULL ? 0u : chip == CHIP_1BIT ? 15u : 12u;   /* (CHIP: the bits; FULL, USER's: none) */
     lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
     const fvm_prog_t *pg = lofi_prog(t, wk, 1, f);
     uint32_t T[LOFI_N], W[LOFI_N], vals[LOFI_N];
@@ -599,7 +616,7 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */
         return &LOFI_MOTN;
     if (t->p[P_E1] == RW_USER)                          /* (JIANT BYTE) the part's own formula: ALGO its seed */
-        return k == 2u ? &LOFI_SEED : k == 3u ? &LOFI_MUTA : 0;
+        return k == 0u ? &LOFI_UCHIP : k == 2u ? &LOFI_SEED : k == 3u ? &LOFI_MUTA : 0;
     if (t->p[P_E1] != RW_FLOAT)
         return k == 2u ? &LOFI_ALGO : 0;
     return k == 0u ? &LOFI_FCHIP : k == 2u ? &LOFI_FALGO : k == 5u ? &LOFI_FDCY : 0;
@@ -636,7 +653,7 @@ static void lofi_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
         lofi_float_render(t, v, out, n, &mg, inc, &flt);
     else                                                /* (JIANT 0.4) bytebeat */
         lofi_byte_render(t, v, out, n, &mg, inc, 1 + (chip == CHIP_4B2 ? 1 : 0),
-                         chip == CHIP_8BIT ? 8 : chip == CHIP_1BIT ? 1 : 4, &flt);
+                         chip == CHIP_FULL ? 16 : chip == CHIP_8BIT ? 8 : chip == CHIP_1BIT ? 1 : 4, &flt);
 }
 
 /* (V10.6d) every sound starts still (MOTION 0: the formula's slow bits at 1/16, no evolution to startle) and with RTRG on
