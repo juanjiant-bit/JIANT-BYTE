@@ -759,7 +759,10 @@ enum { LIFE_AMT, LIFE_FILT, LIFE_PIT, LIFE_FX, LIFE_N };
 static const int8_t LIFE_DEFS[LIFE_N] = {LIFE_DEF, 30, 10, 25};
 #define LIFE_TDEF 100
 static const param_desc_t LIFE_DESC __attribute__((section(".rodata.tape"))) = PD("LIFE", F_PCT, 0, 100, LIFE_TDEF);   /* (the track's) */
-static const char *const LIFE_NM[LIFE_N] = {"LIFE", "FILTER", "PITCH", "FX"};   /* (HOME > LIFE's cards) */
+/* (JIANT BYTE) LIFE is the formulas talking to each other (life.c): TALK (LIFE_FILT's place) how much each hears the
+ * others (their sound into its time or its phase: FM between the parts), BREAK (LIFE_PIT's) how much the others' sound
+ * breaks it (its CAOS up while they sound), WEB (LIFE_FX's) who hears whom (0: each the one before it, 100: all) */
+static const char *const LIFE_NM[LIFE_N] = {"LIFE", "TALK", "BREAK", "WEB"};   /* (HOME > LIFE's cards) */
 static int16_t life_v[LIFE_N + NTRK] __attribute__((section(".pool")));   /* (life_defaults at power-on: main.c) */
 static int32_t life_def(uint32_t k) { return k < LIFE_N ? LIFE_DEFS[k] : LIFE_TDEF; }   /* (value k of life_v) */
 static void life_defaults(void)

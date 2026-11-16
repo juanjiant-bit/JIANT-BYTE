@@ -2226,7 +2226,8 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     }
     if (e == &ENG_EXT_GONE)                                /* (V10.54) INPUT, PLAY THRU: the input (eng_input.c) */
         nr += AIN_THRU(t, out, n);                     /* (through a pointer: track_render runs from RAM too) */
-    if (nr && (life.pg[ti] || (lpt && life.pa[ti]))) {   /* (V10.7.34) LIFE's cross-FM, the AUDIO end of its PITCH */
+    if (nr && e != &ENG_LOFI && e != &ENG_WAVE && (life.pg[ti] || (lpt && life.pa[ti]))) {   /* (V10.7.34) LIFE's cross-FM
+                                                         * (JIANT BYTE: TALK; the formulas hear it inside: life_talk) */
         void (*f)(uint32_t, int32_t *, uint32_t, int32_t) = life_pm;
         FM1_OPAQUE(f);
         f(ti, out, n, lpt);

@@ -36,7 +36,9 @@ typedef struct {
     uint8_t dir[NTRK];                                  /* the swim's bounces (bit 0 x, bit 1 y) */
     uint8_t tapm, pres, on, init, kit;                  /* (kit: the DRUM tracks) */
     uint8_t fol;                                        /* the followers LIFE alone asks for (a scan of every 4th sample) */
-    uint8_t wany;                                       /* a weight not 0 (the last swim's) */                       /* the tracks whose samples are kept; that sound; LIFE on */
+    uint8_t wany;
+    uint8_t xb[NTRK];                                   /* (JIANT BYTE) BREAK: the CAOS the others add to track i (0..127) */
+    int16_t mx[NTRK][CTL];                              /* (JIANT BYTE) TALK: what track i hears this block (life_talk) */                                       /* a weight not 0 (the last swim's) */                       /* the tracks whose samples are kept; that sound; LIFE on */
     uint32_t tap_blk[2][NTRK];                          /* the block each kept its samples in (by the block's parity) */
     int16_t tap[2][NTRK][CTL];                          /* .. its samples (as the follower scales them) */
     int32_t line[NTRK][LPM_L];                          /* the cross-FM lines */
@@ -87,8 +89,10 @@ static LIFE_SZ void life_master(void)
 {
     uint32_t i, j, k, pres = 0, tapm = 0, live = 0, ph = ++life.blk & 7u, sw = ph == 7u, run;   /* (each being's swim
                                                          * every 8th block, ~12 ms, one a block in turn; the weights in the 8th) */
-    int32_t gate = clamp(life_v[LIFE_AMT] * 4, 0, 100), pit = life_v[LIFE_PIT] * 2, e[NTRK], sc[4];
-    const int32_t kn[4] = {life_v[LIFE_FILT], pit < 100 ? pit : 100, life_v[LIFE_FX], pit > 100 ? pit - 100 : 0};
+    int32_t gate = clamp(life_v[LIFE_AMT] * 4, 0, 100), e[NTRK], sc[4];
+    const int32_t kn[4] = {life_v[LIFE_FILT], life_v[LIFE_PIT], 0, life_v[LIFE_FILT]};   /* (JIANT BYTE: TALK, BREAK;
+                                                         * no filter, no sends; TALK the cross-FM too) */
+    const int32_t web = clamp(life_v[LIFE_FX], 0, 100) * 327;   /* (WEB: the rest's weight, beside the one before it) */
     for (k = 0; k < 4u; k++)                            /* the knobs at this LIFE, Q15 (x gate / 100 / 100: x 838 >> 8):
                                                          * FILTER, the sag's PITCH (up to 50 %), FX, the cross-FM's (past it) */
         sc[k] = (kn[k] * gate * 838) >> 8;
@@ -145,7 +149,7 @@ static LIFE_SZ void life_master(void)
                     tg = d < 0 ? -d : d;
                     d = life.by[i] - life.by[j];
                     tg = 32767 - clamp((tg + (d < 0 ? -d : d)) * 5 / 8, 0, 32767);
-                    tg = ((j == pred ? 32767 : 9830) * (13107 + ((19660 * tg) >> 15))) >> 15;
+                    tg = ((j == pred ? 32767 : web) * (13107 + ((19660 * tg) >> 15))) >> 15;
                 }
                 w += (tg - w) >> 3;                     /* (~90 ms) */
                 w += tg && !w;
@@ -160,12 +164,10 @@ static LIFE_SZ void life_master(void)
         }
         cs = clamp(cs, -32767, 32767);
         es = clamp(es, 0, 32767);
-        life.xc[i] = (int16_t)clamp(((((cs * sc[0]) >> 15) >> 2) * life.bst) >> 8, -32767, 32767);   /* (+-32 steps, << 8;
-                                                         * x4 at 100 %) */
-        life.xp[i] = (int16_t)clamp((-(((es * sc[1]) >> 15) * 71 >> 15) * life.bst) >> 8, -32767, 32767);   /* (a sag, ~30 ct;
-                                                         * ~2 semitones at 100 %) */
-        life.xs[i] = (int16_t)((es * sc[2]) >> 15);
-        life.pa[i] = (int16_t)sc[3];
+        (void)cs;
+        life.xc[i] = life.xp[i] = life.xs[i] = 0;       /* (JIANT BYTE: no filter, pitch or sends moved) */
+        life.xb[i] = (uint8_t)clamp(((((es * sc[1]) >> 15) * 127 >> 15) * life.bst) >> 8, 0, 127);   /* BREAK: CAOS up */
+        life.pa[i] = (int16_t)sc[3];                    /* TALK's depth (Q15) */
     }
     life.tapm = (uint8_t)tapm;
 }
@@ -189,7 +191,7 @@ static LIFE_SZ int32_t life_ctx(uint32_t ti, int32_t *c)
 {
     int32_t lpt = life_pt(ti, MOD.on ? MOD.lof : 0);
     ti %= NTRK;
-    c[0] = ((life_v[LIFE_AMT] * lpt / 100) * life.bst) >> 8;   /* (0..1024: x4 at 100 %) */
+    c[0] = 0;                                           /* (JIANT BYTE: no voice wanders: LIFE is the formulas') */
     c[1] = (life.xc[ti] * lpt) >> 8;
     c[2] = (life.xp[ti] * lpt) >> 8;
     return lpt;
@@ -304,6 +306,40 @@ static LIFE_SZ void life_snd(track_t *t, mod_t *mp, int32_t *off)
                                                          * buses asleep) */
     }
 }
+
+/* (JIANT BYTE) TALK: what track ti hears this block, its others' samples of the block before by who moves it (the
+ * weights), at TALK and its LIFE, into *mx (n, Q15 of a full depth); 0 when it hears nothing (LIFE 0, TALK 0, alone).
+ * The formula engines read it into their time or phase (eng_lofi.c, eng_wave.c): FM between the parts' formulas */
+static __attribute__((noinline)) const int16_t *life_talk(uint32_t ti, uint32_t n)
+{
+    uint32_t i, j, ns = 0, par = (mns_clk - 1u) & 1u;
+    int32_t A, g0[NTRK];
+    const int16_t *src[NTRK];
+    int16_t *o;
+    ti %= NTRK;
+    if (!life.on || !life.pa[ti]) return 0;
+    A = (((life.pa[ti] * life_pt(ti, 0)) >> 8) * life.bst) >> 8;
+    if (!A) return 0;
+    for (j = 0; j < NTRK; j++)
+        if (j != ti && life.w[ti][j] && life.tap_blk[par][j] == mns_clk - 1u) {
+            src[ns] = life.tap[par][j];
+            g0[ns++] = life.w[ti][j];
+        }
+    if (!ns) return 0;
+    o = life.mx[ti];
+    if (n > CTL) n = CTL;
+    for (i = 0; i < n; i++) {
+        int32_t m = 0;
+        uint32_t s;
+        for (s = 0; s < ns; s++)
+            m += (g0[s] * src[s][i]) >> 15;
+        m = clamp(m * 3, -32767, 32767);
+        o[i] = (int16_t)((m * (A < 32767 ? A : 32767)) >> 15);
+    }
+    return o;
+}
+/* (JIANT BYTE) BREAK: the CAOS the others add to track ti now (0..127), at its LIFE */
+static int32_t life_brk(uint32_t ti) { ti %= NTRK; return life.on ? (life.xb[ti] * life_pt(ti, 0)) >> 8 : 0; }
 
 /* the state back to its start (the tests' power-on; a project's LIFE is in life_v) */
 static void life_reset(void) { memset(&life, 0, sizeof life); }
