@@ -39,6 +39,8 @@ static void perf_reset(void)                         /* (the FX layer idle, as t
 static double ya[NS], yb[NS];
 
 /* a MATH preset on track 0, dry, CAOS and KEY set; a note held for NS samples; the song's position running at 120 */
+static uint32_t start_bar;                           /* (the song's position when the note starts: bars) */
+static int32_t mot_v;                               /* (MOTION: 0 LIBRE, 9 1/4, 6 1/8 ..) */
 static void render(uint32_t preset, uint32_t note, int32_t caos, int32_t key, double *y)
 {
     static int32_t blk[CTL];
@@ -50,8 +52,10 @@ static void render(uint32_t preset, uint32_t note, int32_t caos, int32_t key, do
     t->p[P_DIST] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
     t->p[P_CAOS] = (int16_t)caos;
     t->p[P_KEY] = (int16_t)key;
+    t->p[P_E4] = (int16_t)mot_v;
     song.g[G_BPM] = 120;
-    beat_pos = beat_n = bar_n = 0;
+    beat_pos = beat_n = 0;
+    bar_n = start_bar;
     trk_note_on(t, note, 100);
     while (got < NS) {
         uint32_t k;
@@ -148,36 +152,53 @@ int main(int argc, char **argv)
     }
     {
         double cl, cf, el, ea2;
-        render(0, 60, 0, 16, ya);
-        render(0, 67, 0, 16, yb);
+        render(0, 60, 0, 2, ya);
+        render(0, 67, 0, 2, yb);
         cf = corr(ya, yb, NS);
-        ok(cf > 0.98, "BYTE KEY FIJO: C4 and G4 the same sound (correlation %.3f)", cf);
+        ok(cf > 0.98, "BYTE TIME FIJO: C4 and G4 the same sound (correlation %.3f)", cf);
         render(0, 60, 0, 0, ya);
         render(0, 67, 0, 0, yb);
         cl = corr(ya, yb, NS);
         el = env_corr(ya, yb);
-        ok(cl < 0.5, "BYTE KEY LIBRE: C4 and G4 apart (correlation %.3f), MATH as ever", cl);
-        render(0, 60, 0, 5, ya);
-        render(0, 67, 0, 5, yb);
+        ok(cl < 0.5, "BYTE TIME UNSYNC: C4 and G4 apart (correlation %.3f), MATH as ever", cl);
+        render(0, 60, 0, 1, ya);
+        render(0, 67, 0, 1, yb);
         ea2 = env_corr(ya, yb);
-        ok(ea2 > el + 0.1, "BYTE KEY ALT9: C4 and G4's rhythm alike (envelopes %.3f, LIBRE's %.3f)", ea2, el);
+        ok(ea2 > el + 0.1, "BYTE TIME SYNC: C4 and G4's rhythm alike (envelopes %.3f, LIBRE's %.3f)", ea2, el);
     }
     /* FLOAT (preset 3, MATH KEYS) */
     {
         double cf, z1, z2;
-        render(3, 60, 0, 16, ya);
-        render(3, 67, 0, 16, yb);
+        render(3, 60, 0, 2, ya);
+        render(3, 67, 0, 2, yb);
         cf = corr(ya, yb, NS);
-        ok(cf > 0.98, "FLOAT KEY FIJO: C4 and G4 the same sound (correlation %.3f)", cf);
-        render(3, 60, 0, 5, ya);
-        render(3, 67, 0, 5, yb);
+        ok(cf > 0.98, "FLOAT TIME FIJO: C4 and G4 the same sound (correlation %.3f)", cf);
+        render(3, 60, 0, 1, ya);
+        render(3, 67, 0, 1, yb);
         z1 = zc(ya, NS);
         z2 = zc(yb, NS);
-        ok(z2 > z1 * 1.3 && z2 < z1 * 1.7, "FLOAT KEY ALT9: the pitch the key's (%.0f / %.0f crossings a second: x%.2f)",
+        ok(z2 > z1 * 1.3 && z2 < z1 * 1.7, "FLOAT TIME SYNC: the pitch the key's (%.0f / %.0f crossings a second: x%.2f)",
            z2, z1, z2 / z1);
         render(3, 60, 127, 0, ya);
         ok(peak(ya, NS) <= 1.0 && rms(ya, NS) > 0.005, "FLOAT CAOS 127: bounded (peak %.3f), sounding (rms %.3f)",
            peak(ya, NS), rms(ya, NS));
+    }
+    {   /* (JIANT BYTE) TIME and MOTION as note values: UNSYNC the time from the note (a note a bar later the same
+         * sound), SYNC the song's (a bar later another); MOTION 1/8 against 1/4 another rhythm */
+        double c1, c2, c3;
+        mot_v = 9;                                  /* (1/4) */
+        start_bar = 0; render(0, 60, 0, 0, ya);
+        start_bar = 1; render(0, 60, 0, 0, yb);
+        c1 = corr(ya, yb, NS);
+        start_bar = 0; render(0, 60, 0, 1, ya);
+        start_bar = 1; render(0, 60, 0, 1, yb);
+        c2 = corr(ya, yb, NS);
+        start_bar = 0;
+        mot_v = 6; render(0, 60, 0, 1, yb);         /* (1/8) */
+        c3 = corr(ya, yb, NS);
+        mot_v = 0;
+        ok(c1 > 0.999 && c2 < 0.9, "TIME UNSYNC MOTION 1/4: a bar later the same (%.3f); SYNC: another (%.3f)", c1, c2);
+        ok(c3 < 0.9 && peak(yb, NS) <= 1.0, "MOTION 1/8 against 1/4 (SYNC): another rhythm (correlation %.3f), bounded", c3);
     }
     {   /* (JIANT BYTE) the punch-in CAOS MAX (F#4, pfx.c): the mix as with CAOS 127 while held, CAOS back after */
         enum { NB = 200u };

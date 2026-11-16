@@ -56,8 +56,7 @@ static const char *const N_DTYPE[] = {"SOFT", "HARD", "FOLD", "RECT", "AMP", "-"
                                      "SFOLD", "LPF", "LFO.F", "HPF", "RND", "SAT"};   /* (JIANT BYTE: 6.. a formula, fx.c
                                                          * DIST_EQ; 5 stays CRUSH's old number, never shown) */   /* (JIANT) fx.c DT_*; 0.7.8 AMP; (V10.7.33)
                                                          * CRUSH its own: EDIT > VOICES 3 (a project's migrates: project.c) */
-static const char *const N_KEY[] = {"LIBRE", "ALT5", "ALT6", "ALT7", "ALT8", "ALT9", "ALT10", "ALT11", "ALT12", "ALT13",
-                                   "ALT14", "ALT15", "ALT16", "ALT17", "ALT18", "ALT19", "FIJO", 0};   /* (JIANT BYTE) P_KEY */
+static const char *const N_KEY[] = {"UNSYNC", "SYNC", "FIJO", 0};   /* (JIANT BYTE) P_KEY: TIME (eng_lofi.c lofi_time) */
 static const char *const N_FTYPE[] = {"LP", "HP", "BP", "COMB", "COMB-", "LP24", "LP24"};   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_*
                                                          * (0.9.9-snd1: COMB- the negative comb, MS20) */
 static const char *const N_VOICE[] = {"POLY", "MONO", "LEG", "UNI", "DRONE"};   /* V_POLY .. V_DRONE (append only) */
@@ -170,7 +169,7 @@ static const param_desc_t TP[P_COUNT] = {
                 [P_FM##k##_LEVEL] = PD("LEVEL", F_PCT, 0, 127, 127)
     FMOP(1), FMOP(2), FMOP(3), FMOP(4),
     [P_CAOS] = PD("CAOS", F_PCT, 0, 127, 0),      /* (JIANT BYTE) WHEEL's ROTOR's two (127 before, its 100 %): MATH's CAOS and */
-    [P_KEY] = PD("KEY", F_INT, 0, 16, 0),         /* KEY start at 0 (the formula as written, LIBRE); MATH_CAOS shows them */
+    [P_KEY] = PD("TIME", F_INT, 0, 2, 0),         /* KEY start at 0 (the formula as written, LIBRE); MATH_CAOS shows them */
 
 #undef FMOP
     [P_SOFS] = PD("ROTATE", F_INT, -32, 32, 0),    /* the sequence played OFS steps later (seq.c seq_src; 0.6.92: was OFFSET) */
@@ -296,7 +295,7 @@ static const param_desc_t DRIFT_DESC = {"DRIFT", F_PCTINV, 0, 127, 127, 0};   /*
 static const param_desc_t TVEL_DESC = {"VEL", F_PCT, 0, 127, 127, 0};   /* (after V10.7.2) P_TVEL: 127 = 100 % (core.h) */
 static const param_desc_t MATH_CAOS[2] = {          /* (JIANT BYTE) MATH's CAOS and KEY (core.h P_CAOS P_KEY) */
     {"CAOS", F_PCT, 0, 127, 0, 0},
-    {"KEY", F_ENUM, 0, 16, 0, N_KEY},
+    {"TIME", F_ENUM, 0, 2, 0, N_KEY},
 };
 static const param_desc_t WROT_DESC[2] = {               /* (0.7.8) WHEEL's ROTOR: P_WRDEP (127 = 100 %, as before), P_WDUST */
     {"DEPTH", F_PCT, 0, 127, 127, 0}, {"DUST", F_PCTINV, 0, 127, 127, 0}};

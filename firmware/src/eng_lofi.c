@@ -91,7 +91,13 @@ static __attribute__((noinline)) uint32_t lofi_byte(uint32_t f, uint32_t t, uint
 static const char *const N_FLOAT[] = {"F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08", "F09", "F10", "F11", "F12", "F13", "F14", "F15", "F16", "F17", "F18", "F19", "F20", "F21", "F22", "F23", "F24", "F25", "F26", "F27", "F28", "F29", "F30", "F31", "F32", "F33", "F34", "F35", "F36", "F37", "F38", "F39", "F40", "F41", "F42", "F43", "F44", "F45", "F46", "F47", "F48", 0};   /* (p6: 48) */
 static const param_desc_t LOFI_ALGO = {"ALGO", F_INT, 0, 191, 64, N_BYTE};    /* (p6: 48; the knob's: edit[2] keeps
                                                          * 0..127, FUN7's byte) */
-static const param_desc_t LOFI_MOTN = {"MOTION", F_INT, 0, 255, 0, 0};
+/* (JIANT BYTE) MOTION: the formula's slow time (its rhythm, its phrase) as a note value of the song's tempo: LIBRE the
+ * slow time at its own pace (MATH's MOTN 0, as before), then 1/32 .. 4 bars, straight, dotted (.) and triplets (T).
+ * MOT_24: the value in 1/24 of a beat */
+static const char *const N_MOTION[] = {"LIBRE", "1/32", "1/16T", "1/16", "1/16.", "1/8T", "1/8", "1/8.", "1/4T", "1/4",
+                                       "1/4.", "1/2T", "1/2", "1/2.", "1", "2", "4", 0};
+static const uint16_t MOT_24[17] = {24, 3, 4, 6, 9, 8, 12, 18, 16, 24, 36, 32, 48, 72, 96, 192, 384};
+static const param_desc_t LOFI_MOTN = {"MOTION", F_ENUM, 0, 16, 0, N_MOTION};
 static const param_desc_t LOFI_SEED = {"SEED", F_INT, 0, 191, 64, 0};
 static const param_desc_t LOFI_MUTA = {"MUTA", F_INT, 0, 127, 0, 0};   /* (phase 9) USER: VAR 1..63 mutates, 64.. crosses */   /* (JIANT BYTE) USER: ALGO the generator's seed */   /* (p6: 128 .. 255 SYNC; V10.6d: 0) */
 static const param_desc_t LOFI_FALGO = {"ALGO", F_INT, 0, 191, 64, N_FLOAT};   /* = edit[2] (FLOAT) */
@@ -121,6 +127,43 @@ static uint32_t lofi_motion(int32_t m)
 {
     uint32_t e = (uint32_t)clamp(m >= 128 ? m - 128 : m, 0, 127) + 64u;
     return ((16u + (e & 15u)) << (e >> 4)) >> 4;
+}
+/* (JIANT BYTE) TIME (P_KEY) and MOTION (P_E4) -> how the slow time runs this block. TIME: UNSYNC (0) the time from
+ * the note (each note starts it again), SYNC (1) the slow time the song's (the key only its pitch: the fast bits),
+ * FIJO (2) every bit the song's (the keys only start it). (A stored 3 .. 15 is a SYNC, 16 a FIJO: JIANT BYTE's first
+ * KEY.) MOTION: LIBRE the slow time at MATH's own pace (x1/16 of the note's), a note value the slow time 8192 a value
+ * (the formula's t >> 13 steps once a value). Out: *mul (Q8 a note step, LIBRE), *sy (the song's clock for the slow
+ * bits) with *sb / *sr (slow t at the block's start, its step a sample Q16), *inc (UNSYNC on a value: the slow time's
+ * step a sample, Q8), *key (LK_FIJO: all of t the song's, qb / qr) */
+enum { LK_LIBRE, LK_ALTURA, LK_FIJO };
+typedef struct { uint32_t mul, sy, sb, sr, inc, key, qb, qr; } lofi_tm_t;
+static void lofi_time(const int16_t *p, lofi_tm_t *m)
+{
+    int32_t kv = p[P_KEY];
+    uint32_t mo = (uint32_t)clamp(p[P_E4], 0, 16), tm = kv <= 0 ? 0u : kv == 2 || kv >= 16 ? 2u : 1u, r = 0, b;
+    memset(m, 0, sizeof *m);
+    m->mul = lofi_motion(0);
+    if (!mo && !tm)
+        return;                                         /* (LIBRE, UNSYNC: MATH as ever) */
+    b = lofi_sync(&r);                                  /* (the song's: 8192 a beat) */
+    {
+        uint32_t v = MOT_24[mo ? mo : 9u];              /* (LIBRE in SYNC: a value a beat) */
+        if (tm) {
+            m->sy = tm == 1u;
+            m->sb = b / v * 24u + b % v * 24u / v;   /* (32 bits: no 64-bit division on the chip) */
+            m->sr = r * 24u / v;
+            if (tm == 2u) {
+                m->key = LK_FIJO;
+                m->qb = m->sb;
+                m->qr = m->sr;
+                m->sy = 0;
+            }
+            m->mul = 256u;
+        } else {
+            m->inc = (r * 24u / v) >> 8;                /* (UNSYNC on a value: the tempo's pace from the note, Q8) */
+            m->mul = 256u;
+        }
+    }
 }
 /* (0.5.4) VAR as a mutation of the time (BYTE's t, FLOAT's step count): v >> 4 picks the way, v & 15 how much. 0..15
  * the time as written; then stairs that transpose as it goes, xor and or with itself shifted, a bit dropped (holes in
@@ -291,7 +334,6 @@ static void lofi_run(const fvm_prog_t *pg, fvm_env_t *en, lofi_work_t *wk, uint3
  * bits); ALTURA (ALT5 .. ALT19: SPLIT 5 .. 19): the bits above SPLIT from the song's position (lofi_sync: the rhythm and the phrase in time with the
  * bar, the same whatever the key), those below the note's (its timbre, its pitch); FIJO: every bit the song's (the
  * keys only start it). tq: the song's t at the sample */
-enum { LK_LIBRE, LK_ALTURA, LK_FIJO };
 static inline uint32_t lofi_key(uint32_t key, uint32_t te, uint32_t tq, uint32_t m)
 {
     return key == LK_ALTURA ? (tq & ~m) | (te & m) : key == LK_FIJO ? tq : te;
@@ -365,16 +407,17 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
     int32_t held = v->s[0], cnt = v->s[1], ic1 = v->s[4], ic2 = v->s[5], l1 = v->s[3], l2 = (int32_t)v->ph[2];
     uint32_t lm = p[P_E7] ? (1u << (17u - (uint32_t)p[P_E7] * 12u / 127u)) - 1u : 0xFFFFFFFFu;   /* LOOP: t's window */
     uint32_t t0 = (uint32_t)(f < 32u ? BYTE_T0[f] : 0u) << 9;    /* (0.5.1: the formula's start) */
-    uint32_t mul = lofi_motion(p[P_E4]), ts = v->ph[1], var = p[P_E1] == RW_USER ? 0u : vr;   /* (0.5.4) MOTN: the slow time, Q8;
+    lofi_tm_t tmc;
+    uint32_t mul, ts = v->ph[1], var = p[P_E1] == RW_USER ? 0u : vr;   /* (0.5.4) MOTN: the slow time, Q8;
                                                          * (JIANT BYTE) USER: VAR moves the text (fvm_move), not this */
-    uint32_t sy = p[P_E4] >= 128, sr = 0, sb = sy ? lofi_sync(&sr) : 0u;   /* (p6) SYNC */
+    uint32_t sy, sr, sb, tinc;                          /* (JIANT BYTE) TIME and MOTION: lofi_time */
     lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
     const fvm_prog_t *pg = lofi_prog(t, wk, 0, f);
     uint32_t tws[LOFI_N], vals[LOFI_N], ne = 0, k = 0;
-    uint32_t kv = (uint32_t)clamp(p[P_KEY], 0, 16), caos = (uint32_t)clamp(p[P_CAOS], 0, 127), qr = 0, qb;
-    uint32_t key = kv == 0u ? LK_LIBRE : kv > LK_NALT ? LK_FIJO : LK_ALTURA, qm = (1u << (4u + kv)) - 1u;
+    uint32_t caos = (uint32_t)clamp(p[P_CAOS], 0, 127), qr, qb, key, qm = 0;
     int32_t fb0 = held;
-    qb = key ? lofi_sync(&qr) : 0u;                     /* (KEY ALTURA / FIJO: the song's t) */
+    lofi_time(p, &tmc);
+    mul = tmc.mul; sy = tmc.sy; sb = tmc.sb; sr = tmc.sr; tinc = tmc.inc; key = tmc.key; qb = tmc.qb; qr = tmc.qr;
     hold *= 1 + (p[P_E5] >> 3);                         /* (0.5.4) GRIT: each sample held up to 16 x longer */
     if (n > LOFI_N)
         n = LOFI_N;
@@ -386,7 +429,7 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
                 uint32_t te, tl;
                 if (sy)                                  /* (SYNC: the slow bits at the bar's position) */
                     cts = (sb + ((i * sr) >> 16)) * mul;
-                te = mul == 256u && !sy ? ctt : (ctt & 255u) | ((cts >> 8) & ~255u);   /* (MOTN: the slow bits at
+                te = (ctt & 255u) | ((cts >> 8) & ~255u);   /* (MOTN: the slow bits at
                                                          * their own speed; 64: t as written) */
                 te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
                 tl = lofi_mut((te & lm) + t0, var);      /* (VAR: mutated) */
@@ -396,7 +439,7 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
             ctf += ti;
             ctt += ctf >> 24;
             ctf &= 0xFFFFFFu;
-            cts += ((ti >> 8) * mul) >> 16;
+            cts += tinc ? tinc : ((ti >> 8) * mul) >> 16;
         }
     }
     if (ne) {                                            /* the formula at those times, in one run */
@@ -420,7 +463,7 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
         tf += ti;
         tt += tf >> 24;
         tf &= 0xFFFFFFu;
-        ts += ((ti >> 8) * mul) >> 16;
+        ts += tinc ? tinc : ((ti >> 8) * mul) >> 16;
         l1 += ((held >> 1) - l1) >> 1;                  /* (JIANT 0.5) the 8-bit steps rounded: two one-poles before
                                                          * the filter (BYTE was knife-sharp); 0.9.11: at ~4.9 kHz, were
                                                          * ~6.3 (x 0.6): their images softer, the steps' edges filed */
@@ -446,8 +489,8 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     const int16_t *p = t->p;
     uint32_t f = (uint32_t)p[P_E2] >> 2, tt = (uint32_t)v->s[2], tf = v->ph[0], ts = v->ph[1], i;
     uint32_t ti = inc >> 3;                             /* (t a sample, Q24: 32 a cycle of the note) */
-    uint32_t sy = p[P_E4] >= 128, sr = 0, sb = sy ? lofi_sync(&sr) : 0u;   /* (p6) SYNC */
-    uint32_t mul = lofi_motion(p[P_E4]), var = (uint32_t)clamp(p[P_E3] + ((m->shape - (64 << 8)) >> 8), 0, 127);   /*
+    lofi_tm_t tmc;
+    uint32_t sy, sr, sb, tinc, mul, var = (uint32_t)clamp(p[P_E3] + ((m->shape - (64 << 8)) >> 8), 0, 127);   /*
                                                          * (0.6.81: SHAPE moves VAR, as BYTE's) */
     uint32_t bs = p[P_E6] ? 13u - (uint32_t)p[P_E6] / 11u : 0u;   /* BEND: t ^ t >> 13 .. 2 */
     if (p[P_E1] == RW_USER) var = 0;                    /* (JIANT BYTE: USER's VAR moves the text, fvm_move) */
@@ -460,11 +503,11 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
     const fvm_prog_t *pg = lofi_prog(t, wk, 1, f);
     uint32_t T[LOFI_N], W[LOFI_N], vals[LOFI_N];
-    uint32_t kv = (uint32_t)clamp(p[P_KEY], 0, 16), caos = (uint32_t)clamp(p[P_CAOS], 0, 127), qr = 0;
-    uint32_t key = kv == 0u ? LK_LIBRE : kv > LK_NALT ? LK_FIJO : LK_ALTURA, qm = (1u << (4u + kv)) - 1u;
-    uint32_t qb = key ? lofi_sync(&qr) : 0u;
+    uint32_t caos = (uint32_t)clamp(p[P_CAOS], 0, 127), qr, qb, key, qm = 0;
     int32_t fb0 = fb;
     fvm_env_t en = {{T, W, 0, 0, 0}, {0}, &v->s[6]};
+    lofi_time(p, &tmc);                                 /* (JIANT BYTE) TIME and MOTION */
+    mul = tmc.mul; sy = tmc.sy; sb = tmc.sb; sr = tmc.sr; tinc = tmc.inc; key = tmc.key; qb = tmc.qb; qr = tmc.qr;
     xm_env(&en, pg);
     en.u[FU_NOTE] = v->note;
     en.u[FU_VEL] = v->vel;
@@ -476,7 +519,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
             uint32_t te, tl, tw;
             if (sy)
                 cts = (sb + ((i * sr) >> 16)) * mul;
-            te = mul == 256u && !sy ? ctt : (ctt & 255u) | ((cts >> 8) & ~255u);
+            te = (ctt & 255u) | ((cts >> 8) & ~255u);
             te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
             tl = lofi_mut(te & lm, var);
             tw = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
@@ -485,7 +528,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
             ctf += ti;
             ctt += ctf >> 24;
             ctf &= 0xFFFFFFu;
-            cts += ((ti >> 8) * mul) >> 16;
+            cts += tinc ? tinc : ((ti >> 8) * mul) >> 16;
         }
         lofi_run(pg, &en, wk, n, vals);
     }
@@ -494,7 +537,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
         int32_t s;
         if (sy)                                          /* (p6 SYNC: the slow bits at the bar's position) */
             ts = (sb + ((i * sr) >> 16)) * mul;
-        te = mul == 256u && !sy ? tt : (tt & 255u) | ((ts >> 8) & ~255u);
+        te = (tt & 255u) | ((ts >> 8) & ~255u);
         te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
         tl = lofi_mut(te & lm, var);
         tw = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
@@ -519,7 +562,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
         tf += ti;
         tt += tf >> 24;
         tf &= 0xFFFFFFu;
-        ts += ((ti >> 8) * mul) >> 16;
+        ts += tinc ? tinc : ((ti >> 8) * mul) >> 16;
         sm = LOFI_SOFT(s >> 1, sm);
         out[i] += voice_amp(soft_knee(svf_mode(flt, sm, &y1, &y2, ft, kd), 16000) << 1, m, i);
     }
