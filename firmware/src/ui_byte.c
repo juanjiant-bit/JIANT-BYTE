@@ -235,9 +235,9 @@ static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
             ub_sprite(w, x + 8, by + bh / 2 - 36 - bob, 6, fr, bc, ec);
         cv_text(x + 42 - (int32_t)str_len(nm) * 3, y + ht - 10 - AF_X_CAP_Y, &AF_X, nm, bc);
         if (trk_engp(t) == &ENG_WAVE)
-            ub_terrain(w, x + 92, by, wd - 92, bh, t->p[P_E1]);
+            ub_terrain(w, x + 92, by - 6, wd - 92, bh - 4, t->p[P_E1]);
         else
-            ub_raster(w, x + wd - UB_COLS * 3, by + (bh - UB_ROWS * 3) / 2, anim_fr);
+            ub_raster(w, x + wd - UB_COLS * 3, by + (bh - UB_ROWS * 3) / 2 - 7, anim_fr);   /* (t= under it) */
     }
     return 1;
 }
