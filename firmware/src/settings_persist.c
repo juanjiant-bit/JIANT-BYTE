@@ -115,8 +115,8 @@ static void settings_jiant_once(persist_t *p)
     if (p->favorites.factory[15][23] == JIANT_PAL_SEEN)
         return;
     p->favorites.factory[15][23] = JIANT_PAL_SEEN;
-    p->palette = palette_to_stored(UI_BYTE_INDEX);
-    settings.palette = UI_BYTE_INDEX;   /* (JIANT BYTE) */
+    p->palette = palette_to_stored(UI_JIANT_INDEX);
+    settings.palette = UI_JIANT_INDEX;  /* (JIANT BYTE: JIANT FM's palette, the owner's mark) */
 #ifdef FELUCCA_FAVORITES
     favorites.factory[15][23] = JIANT_PAL_SEEN;
 #endif

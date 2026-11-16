@@ -6,7 +6,7 @@ of time.
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 
 ![JIANT BYTE on the FM-1's screen: the power-on, HOME's beings, MATH's formula and raster, WAVE's wire terrain, the
-DRUM-X kit, the C64, AMIGA and CGA palettes](docs/byte-hero.png)
+DRUM-X kit, the mixer](docs/byte-hero.png)
 
 > **Status: beta 1, for testing.** Try it in the browser first. On a real FM-1, back up with JIANT FM's editor before
 > you install: JIANT BYTE keeps its projects apart from JIANT FM's.
@@ -64,8 +64,8 @@ it up to all of them hearing each other.
 
 ## The look
 
-A demoscene machine: pixel type, square boxes, segmented meters, palettes of old computers (BYTE, C64, AMIGA, CGA,
-GAMEBOY, ATARI and CONTRAST). The formula is always on the screen, with `t` running in hex. Each formula gives birth
+A demoscene machine in JIANT's colours: pixel type, square boxes, segmented meters, JIANT FM's black, violet and
+orange by default, and palettes of old computers in MENU > COLOR (BYTE, C64, AMIGA, CGA, GAMEBOY, ATARI, CONTRAST). The formula is always on the screen, with `t` running in hex. Each formula gives birth
 to a **being**: a bytebeat becomes a sprite made of its own bits, mirrored; a floatbeat becomes a jellyfish drawn by
 its phase portrait. Mutate the formula and the being mutates with it. On HOME the six tracks' beings stand on a horizon
 drawn by the mix and jump with their sound. The power-on is a cracktro.

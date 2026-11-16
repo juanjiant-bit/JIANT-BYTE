@@ -36,7 +36,8 @@ JIANT BYTE es un sintetizador nuevo, no una paleta sobre JIANT FM. Maquetas en `
   FM6, VOICE y EXT se sacan al construir FM-F (FM-F toma el número 12 y el lugar del parche FM6 en el proyecto).
 - Letra pixel (`tools/aa_raster.py raster_bdf`, preset `byte-pixel`): 5×8, 7×14, 10×20 y `AF_F` (5×8 con
   minúsculas, para las fórmulas); 4,5 KB en vez de ~20 KB. Cajas cuadradas con la esquina cortada
-  (`FELUCCA_PIXEL`), barras segmentadas. Paletas BYTE, C64, AMIGA, CGA, GAMEBOY, ATARI y CONTRAST.
+  (`FELUCCA_PIXEL`), barras segmentadas. La paleta de fábrica es la de JIANT FM (decisión del dueño: es la marca);
+  BYTE, C64, AMIGA, CGA, GAMEBOY, ATARI y CONTRAST como opciones.
 - `ui_byte.c`: la fórmula a la vista con `t=` en hexadecimal; el ser de la fórmula (sprite de bits o retrato
   de fase), su nombre; el raster de MATH en cascada; el terreno de WAVE; el kit de DRUM-X como ocho seres;
   en HOME cada pista con su ser sobre un plasma, y líneas pixel en LIFE.
