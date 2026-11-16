@@ -1311,6 +1311,7 @@ static project_t proj_scratch __attribute__((section(".pool")));   /* (0.8.5: th
 /* (JIANT BYTE) MATH's USER parts (engines.c math_poll_ws): the scratch its work space, between the main loop's jobs */
 _Static_assert(sizeof(gq_work_t) <= sizeof(project_t), "the generator's work space in the project scratch");
 static void math_poll(void) { math_poll_ws((gq_work_t *)(void *)&proj_scratch); }
+static gq_work_t *proj_ws(void) { return (gq_work_t *)(void *)&proj_scratch; }   /* (ui_byte.c: the formula drawn) */
 static char proj_name[PROJ_NAME_LEN + 1u]    /* the name of the music as it is now (loaded, saved, the editor's */
     __attribute__((section(".pool")));       /* runtime restore); "" = none. A save takes it unless one is given */
 #define PROJ_NO_SLOT 0xFFu

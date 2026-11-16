@@ -83,7 +83,9 @@ def preset(name):
         return [("S", "bdf:" + str(f / "fixed_5x8.bdf"), 8, (32, 95), EXTRAS, 0.0, 1),
                 ("M", "bdf:" + str(f / "fixed_7x14.bdf"), 14, (32, 95), EXTRAS, 0.0, 1),
                 ("L", "bdf:" + str(f / "fixed_10x20.bdf"), 20, (32, 32), [ord(c) for c in L_CHARS[1:]], 0.0, 1),
-                ("V", "bdf:" + str(f / "fixed_10x20.bdf"), 20, (32, 32), [ord(c) for c in V_CHARS[1:]], 0.0, 1)]
+                ("V", "bdf:" + str(f / "fixed_10x20.bdf"), 20, (32, 32), [ord(c) for c in V_CHARS[1:]], 0.0, 1),
+                # F: a formula as written (t is not T): the small face with its lowercase (ui_byte.c)
+                ("F", "bdf:" + str(f / "fixed_5x8.bdf"), 8, (32, 126), [0x2026], 0.0, 1)]
     if name == "inter-tight":
         v = str(FONTS.parent / "assets" / "fonts" / "InterTight[wght].ttf")   # SIL OFL 1.1, Google Fonts
         return [("S", v + "@400", 12, (32, 126), EXTRAS, 0.0, PHASES),

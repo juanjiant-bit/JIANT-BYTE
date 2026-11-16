@@ -35,7 +35,7 @@ static __attribute__((noinline)) void graph_sound_lz(const track_t *t)
     int32_t x = 122, w = 106, ty = 2;
     /* (V10.7.15, the owner) no parameter list beside the being: the knobs' cards above say the same. SCOPE OFF (the
      * default): the creature (or the generic being) on the whole panel; SCOPE ON: the being left, the scope tall right */
-    if (!ui_scope) {
+    if (!ui_scope || trk_engp(t) == &ENG_LOFI || trk_engp(t) == &ENG_WAVE) {   /* (JIANT BYTE: a formula's panel whole) */
         if (!vx_draw(t, 4, 2, 232, (int32_t)cv_h - 4, -1))
             graph_being_at(t, 120 * 16, ((int32_t)cv_h / 2) * 16, 34 * 16);
     } else {

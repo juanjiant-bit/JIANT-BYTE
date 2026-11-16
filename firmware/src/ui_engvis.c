@@ -584,8 +584,8 @@ static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h,
 {
     const engine_t *e = trk_engp(t);
     int32_t A[4] = {x, y, w, h}, cx = x * 16 + w * 8, cy = y * 16 + h * 8, s;
-    if (!bt_hw_seg() && (e == &ENG_LOFI || e == &ENG_WAVE))
-        return 0;                                        /* (V10.48: those creatures live in the segment; V10.6g PHASE's too) */
+    if (e == &ENG_LOFI || e == &ENG_WAVE)               /* (JIANT BYTE) the formula and its being (ui_byte.c) */
+        return ub_draw(t, A, en_home);
     if (trk_eng(t) == ENGI_DRUM) {    /* (the kit ~128 x 92) */
         s = vx_fit(w, h, 128, 92);
         vx_kit(t, cx - (s >> 4), cy + (48 * s >> 8), s, en_home, -1);

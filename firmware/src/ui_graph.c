@@ -65,6 +65,7 @@ static uint16_t heat_y(int32_t y, int32_t y0, int32_t y1, uint16_t c)
     return y1 > y0 ? heat_col(24 + (y1 - y) * 232 / (y1 - y0)) : c;
 }
 #include "ui_being.c"                                /* (JIANT 0.5) the beings: the engine pages' creatures */
+#include "ui_byte.c"                                 /* (JIANT BYTE) the formula on the screen, the beings born from it */
 #include "ui_engvis.c"                               /* (0.9.4) VOICE's head, ANIMAL's creature, DRUM-X's kit */
 
 /* Matches voice.c: attack is linear, decay and release are exponential
