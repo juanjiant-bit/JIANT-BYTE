@@ -31,6 +31,19 @@ JIANT BYTE es un sintetizador nuevo, no una paleta sobre JIANT FM. Maquetas en `
 - Orden: borrar lo retirado; base pixel (letras, cajas, paletas); fórmula y seres; HOME, encabezado y arranque;
   motores nuevos.
 
+**Hecho del rediseño** (rama `phase2-engines`):
+- Borrados ANALOG, PHASE, WEST, ANIMAL, STRING, ADD y WHEEL (`filt.c` guarda los tipos de filtro e `isqrt32`).
+  FM6, VOICE y EXT se sacan al construir FM-F (FM-F toma el número 12 y el lugar del parche FM6 en el proyecto).
+- Letra pixel (`tools/aa_raster.py raster_bdf`, preset `byte-pixel`): 5×8, 7×14, 10×20 y `AF_F` (5×8 con
+  minúsculas, para las fórmulas); 4,5 KB en vez de ~20 KB. Cajas cuadradas con la esquina cortada
+  (`FELUCCA_PIXEL`), barras segmentadas. Paletas BYTE, C64, AMIGA, CGA, GAMEBOY, ATARI y CONTRAST.
+- `ui_byte.c`: la fórmula a la vista con `t=` en hexadecimal; el ser de la fórmula (sprite de bits o retrato
+  de fase), su nombre; el raster de MATH en cascada; el terreno de WAVE; el kit de DRUM-X como ocho seres;
+  en HOME cada pista con su ser sobre un plasma, y líneas pixel en LIFE.
+- Arranque cracktro (`tools/gen_byte_logo.py`): barras de cobre, estrellas, el logo, scroller de fórmulas.
+- Falta: el número que mueve la perilla resaltado en el texto; los íconos y keycaps todavía suavizados; los
+  gráficos de los otros paneles (filtro, envolventes) en pixel; reescribir las pruebas viejas de paletas.
+
 ---|---|
 | 0 Renombre | hecha |
 | 1 FVM (compilador, máquina, reloj, KEY) | hecha |
@@ -42,7 +55,7 @@ JIANT BYTE es un sintetizador nuevo, no una paleta sobre JIANT FM. Maquetas en `
 | 7 Efectos de fórmula con memoria | primera forma (insertos de fórmula por pista, sin memoria larga todavía) |
 | 8 Punch-ins de fórmula, secuenciadores de fórmula | primera forma (CAOS MAX; el ARP de fórmula) |
 | 9 Generador de ecuaciones | MATH USER: semilla, CAOS, mutar y cruzar (MUTA) |
-| 10 Estética | rediseño decidido (ver "Rediseño de la UI"); paleta BYTE por defecto |
+| 10 Estética | hecha la base: letra pixel, cajas, paletas de época, fórmula y seres en pantalla, HOME, arranque |
 | 11 FM-F, GLITCH, PLUCK, NOISE | pendiente |
 
 ---

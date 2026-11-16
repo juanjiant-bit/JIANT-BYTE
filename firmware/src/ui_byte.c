@@ -216,6 +216,16 @@ static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
         cv_text(x + wd / 2 - (int32_t)str_len(nm) * 3, y + ht - 9 - AF_X_CAP_Y, &AF_X, nm, bc);
         return 1;
     }
+    {                                                   /* t now, the newest voice's, in hex (the time the formula reads) */
+        static const char HX[] = "0123456789ABCDEF";
+        char b[10] = {'t', '='};
+        uint32_t i, tt = 0, age = 0, k;
+        for (i = 0; i < NVOICE; i++)
+            if (t->v[i].active && t->v[i].age >= age) { age = t->v[i].age; tt = (uint32_t)t->v[i].s[2]; }
+        for (k = 0; k < 6u; k++) b[2u + k] = HX[(tt >> (20u - 4u * k)) & 15u];
+        b[8] = 0;
+        cv_text_r(x + wd - 2, y + ht - 10 - AF_F_CAP_Y, &AF_F, b, age ? T_THEME : T_DIM, T_BG);
+    }
     ub_text_draw(x + 2, y + 2, s, (uint32_t)(wd - 4) / 6u, 3u, T_TEXT);
     {
         int32_t by = y + 32, bh = ht - 32;
