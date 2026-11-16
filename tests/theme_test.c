@@ -45,7 +45,7 @@ int main(int argc, char **argv)
     const aafont_t probe = {1, 1, 'A', 'A', 0, 0, pg, 0, pd, 0, 0, 0};
     double worst = 100;
     {   /* MENU > DISPLAY > COLOR: exactly these seven, in this order; JIANT the first, the default */
-        static const char *const FAMILY[] = {"JIANT", "SELVA", "CONTRAST", "BRASA", "ABISAL", "HUESO", "NEON"};
+        static const char *const FAMILY[] = {"JIANT", "C64", "CONTRAST", "AMIGA", "CGA", "GAMEBOY", "ATARI"};
         /* JIANT's tokens as they have been since 0.8.9 (five colours and their blends): unchanged */
         static const uint16_t JIANT[12] = {0x0000, 0x0841, 0xf79d, 0xbb9f, 0xfbc0, 0xad54, 0x6b2c, 0x2965, 0x92d9, 0x1864, 0xfa49, 0x1082};
         assert(NPALETTES == 7u && UI_JIANT_INDEX == 0u && sizeof UI_PALETTES / sizeof UI_PALETTES[0] == 7u);
@@ -87,12 +87,12 @@ int main(int argc, char **argv)
         printf("%-7s text %.1f:1, labels %.1f:1, values %.1f:1, selection %.1f:1\n", UI_PALETTES[p].name,
                contrast(T_TEXT, T_BG), contrast(T_MID, T_BG), contrast(T_THEME, T_BG), contrast(T_INK, T_SEL));
         assert(contrast(T_BG, 0) < 1.1);                       /* every palette is dark (one coverage curve) */
-        for (unsigned i = 0; i < 4; i++) {                     /* the four knobs apart from each other, and (but HUESO's
+        for (unsigned i = 0; i < 4; i++) {                     /* the four knobs apart from each other, and (but GAMEBOY's
                                                                 * fourth, its one orange) from the ACCENT, the active thing */
             for (unsigned j = i + 1; j < 4; j++) assert(T_K(i) != T_K(j));
             assert(T_K(i) != T_ACCENT || (p == 5u && i == 3u));
         }
-        {   /* JIANT's as they were (the 0.6 colours); HUESO greys and the orange */
+        {   /* JIANT's as they were (the 0.6 colours); GAMEBOY greys and the orange */
             static const uint16_t J[4] = {0x8b7f, 0xfe87, 0x5bbf, 0xfa49};
             if (p == UI_JIANT_INDEX) assert(!memcmp(UI_KNOBS[p], J, sizeof J));
         }

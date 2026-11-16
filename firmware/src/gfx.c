@@ -483,6 +483,18 @@ static void cv_rrect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t r, uint
         cv_rect(x, y, w, h, c);
         return;
     }
+#if FELUCCA_PIXEL
+    /* (JIANT BYTE) the demoscene's boxes: square, a pixel cut from each corner (a chamfer: no blending, no curve) */
+    (void)i; (void)j;
+    cv_rect(x, y, w, h, c);
+    if (!cv_halo || under != ux.bg) {
+        cv_pset(x, y, under);
+        cv_pset(x + w - 1, y, under);
+        cv_pset(x, y + h - 1, under);
+        cv_pset(x + w - 1, y + h - 1, under);
+    }
+    return;
+#endif
     /* ((JIANT 0.6.60 .. 0.8.8) JIANT's SURF was black: its boxes square; 0.8.9 the 0.6 colours, a near-black SURF:
      * rounded, as the mock-up) */
     cv_rect(x + r, y, w - 2 * r, h, c);

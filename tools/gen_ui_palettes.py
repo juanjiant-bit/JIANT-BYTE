@@ -37,18 +37,21 @@ RAISE_JIANT = 4                    # RAISE = mix(SURF, TEXT, 4 %): the mock-up's
 # The rest of the family (the owner's, 2026-11): every token as he set it (role -> hex), stored whole. INK is black in
 # all seven. NEON's SEL is his #CC3284 a step lighter (#D43589: black INK on it 4.7, the rule 4.5; his 4.4)
 FAMILY = {
-    "SELVA":    dict(bg="020604", surf="08100B", raise_="101A13", line="1C2B20", dim="657A69", mid="9FB5A2", text="EAF5E4",
-                     theme="4BE38A", sel="35A866", tint="0A2414", accent="FF7A00", rec="FF4848"),
+    # (JIANT BYTE) the demoscene's machines, dark enough for the rules below: each in the place of a JIANT FM palette
+    # (its stored id kept, so a setting saved by JIANT FM lands on one): C64 for SELVA, AMIGA BRASA, CGA ABISAL, GAMEBOY
+    # HUESO, ATARI NEON
+    "C64":      dict(bg="241A5C", surf="2C2170", raise_="352A80", line="4A3D9E", dim="8478DC", mid="B8B0F2", text="FFFFFF",
+                     theme="9AE29B", sel="7CC47D", tint="2E2468", accent="EDF171", rec="FF7B7B"),
     "CONTRAST": dict(bg="000000", surf="000000", raise_="1C1C1C", line="8C8C8C", dim="A6A6A6", mid="E2E2E2", text="FFFFFF",
                      theme="D9B3FF", sel="D9B3FF", tint="26163D", accent="FFA640", rec="FF7A7A"),
-    "BRASA":    dict(bg="0A0503", surf="140B07", raise_="1E120C", line="33241A", dim="806C5A", mid="C4AE96", text="FFF2DC",
-                     theme="FF7A1A", sel="CC5F12", tint="26130A", accent="FFD23C", rec="FF4848"),
-    "ABISAL":   dict(bg="01040A", surf="070D17", raise_="0E1724", line="1D2B3A", dim="627787", mid="9DB2BD", text="E8F4F8",
-                     theme="29BEE6", sel="1F92B3", tint="07202B", accent="FF7A00", rec="FF4848"),
-    "HUESO":    dict(bg="000000", surf="0B0B0B", raise_="151515", line="2C2B2A", dim="6B6A67", mid="AAA8A3", text="F4F1EA",
-                     theme="F4F1EA", sel="BEBCB7", tint="1B1B1A", accent="FF7A00", rec="FF4848"),
-    "NEON":     dict(bg="050409", surf="0D0A14", raise_="17121F", line="2A2633", dim="6A6480", mid="A39CBA", text="EFE6C8",
-                     theme="FF3EA5", sel="D43589", tint="240A1A", accent="3FE0E6", rec="FF3B2F"),
+    "AMIGA":    dict(bg="001229", surf="001A3A", raise_="00244D", line="0A3A6E", dim="5A84B0", mid="A6C2E2", text="FFFFFF",
+                     theme="FF8800", sel="D06F00", tint="0A1E3A", accent="3FB6FF", rec="FF5A5A"),
+    "CGA":      dict(bg="000000", surf="0A0A0A", raise_="141414", line="2A2A2A", dim="5A9A9A", mid="A4E0E0", text="FFFFFF",
+                     theme="55FFFF", sel="33CCCC", tint="002424", accent="FF55FF", rec="FF5555"),
+    "GAMEBOY":  dict(bg="081808", surf="0F240F", raise_="173317", line="294A29", dim="5F8A3A", mid="A6C64A", text="E8F8D0",
+                     theme="9BBC0F", sel="7F9C0C", tint="102E10", accent="F8F8A0", rec="FF6060"),
+    "ATARI":    dict(bg="000000", surf="0C0703", raise_="180F06", line="2E2010", dim="8E6E40", mid="D4B486", text="FCFCE0",
+                     theme="F06818", sel="C4520F", tint="2A1004", accent="68A8FC", rec="FF4848"),
     # (JIANT BYTE) BYTE, the default: a phosphor screen's green on black, the demoscene's magenta for the one active thing
     "BYTE":     dict(bg="000000", surf="050A05", raise_="0C160C", line="1A2E1A", dim="4F8F5F", mid="8FD89F", text="D2FFD8",
                      theme="39FF6A", sel="2BBF50", tint="06200C", accent="FF2BD6", rec="FF4848"),
@@ -62,29 +65,29 @@ TOKENS = ["bg", "surf", "text", "theme", "accent", "mid", "dim", "line", "sel", 
 # first, then tints beside it; HUESO greys and its one orange
 KNOBS = {
     "JIANT":    [(138, 108, 255), (255, 210, 60), (88, 116, 255), (255, 75, 75)],
-    "SELVA":    ["4BE38A", "D6F26A", "3FD6C4", "FFC27A"],      # green, lime, teal, amber
+    "C64":      ["9AE29B", "EDF171", "75CEC8", "FFB0B0"],      # (JIANT BYTE) light green, yellow, cyan, light red
     "CONTRAST": ["D9B3FF", "FFE08A", "9FD8FF", "FF9E9E"],      # lilac, pale yellow, pale blue, pale red
-    "BRASA":    ["FF7A1A", "FFB870", "F2DDBE", "FF6A5A"],      # ember, apricot, cream, coral
-    "ABISAL":   ["29BEE6", "7FE3D0", "8FA8FF", "C9E8F5"],      # cyan, aqua, periwinkle, ice
-    "HUESO":    ["F4F1EA", "D0CEC8", "ABA9A4", "FF7A00"],      # bone, two greys, the orange
-    "NEON":     ["FF3EA5", "B58CFF", "FFE066", "FF9AD2"],      # magenta, violet, yellow, pink
+    "AMIGA":    ["FF8800", "3FB6FF", "FFFFFF", "FFD24A"],      # orange, blue, white, gold
+    "CGA":      ["55FFFF", "FF55FF", "FFFFFF", "FFFF55"],      # cyan, magenta, white, yellow
+    "GAMEBOY":  ["9BBC0F", "E8F8D0", "C4DC5A", "F8F8A0"],      # the four greens, lightest last
+    "ATARI":    ["F06818", "FCFC54", "68A8FC", "5CD86C"],      # orange, yellow, blue, green
     "BYTE":     ["39FF6A", "FF2BD6", "2BE0FF", "FFE14A"],      # (JIANT BYTE) phosphor, magenta, cyan, yellow
 }
 # the 20 palettes of the earliest firmware (index order), then the 11 of the firmware up to V10.7.18 (stored
 # PAL_TAG + index: GREY .. JIANT) -> the family
 OLD = ["GREEN", "AMBER", "CYAN", "RED", "MONO", "VIOLET", "PINK", "ICE", "WARM", "OCEAN", "DUSK", "HI-CON",
        "LIGHT", "PAPER", "SKY", "MINT", "LILAC", "ROSE", "SAND", "L-HICON"]
-OLD_TO_NEW = {"GREEN": "SELVA", "AMBER": "BRASA", "CYAN": "ABISAL", "RED": "BRASA", "MONO": "HUESO", "VIOLET": "JIANT",
-              "PINK": "BRASA", "ICE": "ABISAL", "WARM": "BRASA", "OCEAN": "ABISAL", "DUSK": "JIANT", "HI-CON": "CONTRAST",
+OLD_TO_NEW = {"GREEN": "C64", "AMBER": "AMIGA", "CYAN": "CGA", "RED": "AMIGA", "MONO": "GAMEBOY", "VIOLET": "JIANT",
+              "PINK": "AMIGA", "ICE": "CGA", "WARM": "AMIGA", "OCEAN": "CGA", "DUSK": "JIANT", "HI-CON": "CONTRAST",
               "LIGHT": "CONTRAST", "PAPER": "CONTRAST", "SKY": "CONTRAST", "MINT": "CONTRAST", "LILAC": "CONTRAST",
               "ROSE": "CONTRAST", "SAND": "CONTRAST", "L-HICON": "CONTRAST"}
 V10 = ["GREY", "GREEN", "AMBER", "ICE", "VIOLET", "ROSE", "PAPER", "HI-CON", "NIGHT", "MONO", "JIANT"]
-V10_TO_NEW = {"GREY": "HUESO", "GREEN": "SELVA", "AMBER": "BRASA", "ICE": "ABISAL", "VIOLET": "JIANT", "ROSE": "BRASA",
-              "PAPER": "CONTRAST", "HI-CON": "CONTRAST", "NIGHT": "HUESO", "MONO": "HUESO", "JIANT": "JIANT"}
+V10_TO_NEW = {"GREY": "GAMEBOY", "GREEN": "C64", "AMBER": "AMIGA", "ICE": "CGA", "VIOLET": "JIANT", "ROSE": "AMIGA",
+              "PAPER": "CONTRAST", "HI-CON": "CONTRAST", "NIGHT": "GAMEBOY", "MONO": "GAMEBOY", "JIANT": "JIANT"}
 # what a palette is saved as: the id of the V10 palette nearest to it, so the firmware up to V10.7.18 reading these
 # settings shows that one (JIANT: JIANT); NEON a new id (that firmware: GREY, its fallback for an id it does not know)
-STORED_AS = {"JIANT": "JIANT", "SELVA": "GREEN", "CONTRAST": "HI-CON", "BRASA": "AMBER", "ABISAL": "ICE", "HUESO": "GREY",
-             "NEON": None, "BYTE": None}
+STORED_AS = {"JIANT": "JIANT", "C64": "GREEN", "CONTRAST": "HI-CON", "AMIGA": "AMBER", "CGA": "ICE", "GAMEBOY": "GREY",
+             "ATARI": None, "BYTE": None}
 PAL_TAG = 64                       # stored id = PAL_TAG + n; below 20: an id of the earliest firmware
 QR_LIGHT, QR_DARK, CRASH_BG, CRASH_INK = (255, 255, 255), (0, 0, 0), (160, 0, 0), (255, 255, 255)
 PCT = {"MID": 70, "DIM": 42, "LINE": 18, "SEL": 80, "TINT": 12, "KEY": 78}

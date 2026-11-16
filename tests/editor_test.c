@@ -182,7 +182,7 @@ static int preferences(void)
         host_wire[n - 11] == 0x58 && host_wire[n - 10] == 1 && host_wire[n - 9] == 1 &&   /* (1.3) the segment: this build's */
         host_wire[n - 8] == 0x43 && host_wire[n - 7] == 2 && host_wire[n - 6] == ED_PROTO_MAJOR &&   /* (1.0) 'C' */
         host_wire[n - 4] == 0x59 && host_wire[n - 3] == 1 && host_wire[n - 2] == LYR_LEN - 1u);   /* (0.8.5) LYRIC, 63 */
-    a[1] = 5;                                          /* (HUESO) */
+    a[1] = 5;                                          /* (GAMEBOY) */
     request(ED_UI_SET, a, 2);
     bad += check("UI_SET updates the actual palette and reports RAM-only saving",
         host_wire[5] == 3 && settings.palette == 5 && T_BG == UI_PALETTES[5].c[0] && T_TEXT == UI_PALETTES[5].c[2]);

@@ -298,7 +298,7 @@ static int screens(void)
     bad += check("SEQ > CHANCE KNOB 3: RATCH of the cursor step, x1..x4", ok && step_ratchet(&t->step[0]) == 1u &&
                  step_chance(&t->step[0]) == 100u);
     {                                                /* RATCH dimmed where it does nothing: REST, TIE, empty */
-        settings.palette = 1u; palette_set(1u);      /* (SELVA: a card's value TEXT or its knob's colour; JIANT's is its heat) */
+        settings.palette = 1u; palette_set(1u);      /* (C64: a card's value TEXT or its knob's colour; JIANT's is its heat) */
 #define VAL_PX() (card_px(2, T_TEXT) + card_px(2, T_K(2)))
         uint32_t dim[4], thm[4], k;
         static const step_t kind[4] = {

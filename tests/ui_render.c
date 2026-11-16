@@ -4,7 +4,7 @@
 /* Renders of the firmware UI (firmware/src/ui*.c on tests/ui_test.c's stubs), the layout lint, the contrast of every ink
  * checks and the host draw cost.
  *   ui_render OUTDIR [SLOTDIR]   (run by tests/run_tests.sh; tests/ui_render.py makes the PNGs;
- *                                 SLOTDIR: filmstrips of the rolling digits, JIANT CONTRAST and SELVA)
+ *                                 SLOTDIR: filmstrips of the rolling digits, JIANT CONTRAST and C64)
  * Layout lint, over every screen below in every palette, every page of every engine and every value of every
  * column: the ink box of every text and icon drawn (gfx.c GFX_HOOK_TEXT) as it lands on the screen. A finding:
  * a box off the screen, cut by its canvas, partly covered by a later strip or fill, overlapping another box, or
@@ -2147,7 +2147,7 @@ static void roll_frames(const char *dir)
             }
             for (k = 0; k < 8u; k++) ui_draw();
         }
-        if (dir && (p == UI_JIANT_INDEX || !strcmp(UI_PALETTES[p].name, "CONTRAST") || !strcmp(UI_PALETTES[p].name, "SELVA"))) {
+        if (dir && (p == UI_JIANT_INDEX || !strcmp(UI_PALETTES[p].name, "CONTRAST") || !strcmp(UI_PALETTES[p].name, "C64"))) {
             roll_film_save(dir, UI_PALETTES[p].name, "bpm_roll", bimg, biw, bih);
             roll_film_save(dir, UI_PALETTES[p].name, "card_roll", cimg, ciw, cih);
         }
@@ -2369,7 +2369,7 @@ int main(int argc, char **argv)
     const char *out = argc > 1 ? argv[1] : "build/ui_new";
     char path[600];
     uint32_t p, s;
-    static const char *const SHOW[] = {"JIANT", "SELVA", "CONTRAST", "BRASA", "ABISAL", "HUESO", "NEON", "BYTE"};   /* (the family:
+    static const char *const SHOW[] = {"JIANT", "C64", "CONTRAST", "AMIGA", "CGA", "GAMEBOY", "ATARI", "BYTE"};   /* (the family:
                                                          * all eight, JIANT BYTE's BYTE too) */
     snprintf(path, sizeof path, "%s/report.txt", out);
     rep = fopen(path, "w");

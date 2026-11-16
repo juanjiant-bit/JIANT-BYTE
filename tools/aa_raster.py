@@ -166,6 +166,62 @@ def raster_font(spec, px, chars, tracking=0.0, gamma=1.0, tabular=True, kern_min
     return {"h": h, "asc": asc, "glyphs": glyphs, "kern": kern, "px": px, "phases": phases}
 
 
+
+def raster_bdf(spec, chars):
+    """(JIANT BYTE) a bitmap face, no antialiasing: spec "bdf:PATH" or "bdf:PATH*K" (each pixel K x K) -> the same dict
+    as raster_font (one phase, no kerning, whole-pixel advances). A pixel is 15 or 0. U+2026 (the ellipsis), when the
+    font has none, is three dots on the baseline."""
+    path, _, k = spec[4:].partition("*")
+    k = int(k or 1)
+    g, cur, asc, desc = {}, None, 0, 0
+    for line in open(path, encoding="latin-1"):
+        w = line.split()
+        if not w:
+            continue
+        if w[0] == "FONT_ASCENT":
+            asc = int(w[1])
+        elif w[0] == "FONT_DESCENT":
+            desc = int(w[1])
+        elif w[0] == "ENCODING":
+            cur = {"enc": int(w[1]), "rows": []}
+        elif w[0] == "DWIDTH" and cur is not None:
+            cur["dw"] = int(w[1])
+        elif w[0] == "BBX" and cur is not None:
+            cur["bbx"] = tuple(int(v) for v in w[1:5])
+        elif w[0] == "BITMAP" and cur is not None:
+            cur["bm"] = True
+        elif w[0] == "ENDCHAR" and cur is not None:
+            g[cur["enc"]] = cur
+            cur = None
+        elif cur is not None and cur.get("bm"):
+            cur["rows"].append(int(w[0], 16))
+    if 0x2026 not in g and ord(".") in g:
+        d = g[ord(".")]
+        cw = g[ord("A")]["dw"]
+        g[0x2026] = {"dw": cw, "bbx": (cw, 1, 0, 0), "rows": [sum(1 << (cw - 1 - x) for x in range(0, cw, 2))]}
+        g[0x2026]["byte_w"] = cw
+    glyphs = {}
+    for ch in chars:
+        c = g.get(ord(ch)) or g[ord("?")]
+        bw, bh, xo, yo = c["bbx"]
+        nb = c.get("byte_w") or ((bw + 7) // 8 * 8)
+        px = [[(c["rows"][y] >> (nb - 1 - x)) & 1 for x in range(bw)] for y in range(bh)]
+        on = [(x, y) for y in range(bh) for x in range(bw) if px[y][x]]
+        a16 = c["dw"] * k * 16
+        if not on:
+            glyphs[ch] = (a16, [(0, 0, 0, 0, b"")])
+            continue
+        x0, x1 = min(p[0] for p in on), max(p[0] for p in on)
+        y0, y1 = min(p[1] for p in on), max(p[1] for p in on)
+        nib = []
+        for y in range(y0, y1 + 1):
+            for _ in range(k):
+                for x in range(x0, x1 + 1):
+                    nib += [15 if px[y][x] else 0] * k
+        top = asc - (yo + bh) + y0                    # the ink's first row below the line's top
+        glyphs[ch] = (a16, [((xo + x0) * k, top * k, (x1 - x0 + 1) * k, (y1 - y0 + 1) * k, pack(nib))])
+    return {"h": (asc + desc) * k, "asc": asc * k, "glyphs": glyphs, "kern": {}, "px": (asc + desc) * k, "phases": 1}
+
 def raster_icon(spec, px, codepoint, gamma=1.0):
     """one icon glyph in a px x px cell (icon fonts are drawn on a square em) -> bytes (4-bit alpha)."""
     font = open_font(spec, px * SS)            # 16 x and box-filtered: hinting at px squashed flat glyphs

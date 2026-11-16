@@ -56,7 +56,7 @@ HUFF = [("S", "M", "L")]
 # (JIANT 0.6.56) a face's ink raised by n px in its line: IBM Plex Mono's taller ascent put its values 1 px under where
 # Chakra Petch's sat (tests/ui_render.c alignment: a value centred in its window, its unit on its baseline)
 RISE = {"IBMPlexMono-SemiBold.ttf": 1}
-UI_PRESET = "jiant-lab"            # the firmware's faces (tools/build.py; tests/text_spacing_test.py)
+UI_PRESET = "byte-pixel"            # the firmware's faces (tools/build.py; tests/text_spacing_test.py)
 L_CHARS = " #+-./0123456789ABCDEFGHIJKLMNOPQRSTUVWXY"
 V_CHARS = " %+-./0123456789"
 
@@ -78,6 +78,12 @@ def preset(name):
                 # V: a card's value when it is a number: M's face at 19 px (capitals 14, a figure 12 px wide: "1000" in a
                 # card), the figures and their signs only
                 ("V", str(f / "InterTight[wght].ttf") + "@600", 19, (32, 32), [ord(c) for c in V_CHARS[1:]], 0.0, PHASES_L)]
+    if name == "byte-pixel":                   # (JIANT BYTE) the demoscene's pixel faces (assets/fonts/pixel: public domain)
+        f = FONTS.parent / "assets" / "fonts" / "pixel"
+        return [("S", "bdf:" + str(f / "fixed_5x8.bdf"), 8, (32, 95), EXTRAS, 0.0, 1),
+                ("M", "bdf:" + str(f / "fixed_7x14.bdf"), 14, (32, 95), EXTRAS, 0.0, 1),
+                ("L", "bdf:" + str(f / "fixed_10x20.bdf"), 20, (32, 32), [ord(c) for c in L_CHARS[1:]], 0.0, 1),
+                ("V", "bdf:" + str(f / "fixed_10x20.bdf"), 20, (32, 32), [ord(c) for c in V_CHARS[1:]], 0.0, 1)]
     if name == "inter-tight":
         v = str(FONTS.parent / "assets" / "fonts" / "InterTight[wght].ttf")   # SIL OFL 1.1, Google Fonts
         return [("S", v + "@400", 12, (32, 126), EXTRAS, 0.0, PHASES),
@@ -192,7 +198,10 @@ def huff_unpack(hc, data, n):
 def emit(face, tracking, gamma, kern_min):
     name, font, px, (first, last), extras, ftrack, phases = face
     chars = [chr(c) for c in range(first, last + 1)] + [chr(c) for c in extras]
-    r = ar.raster_font(font, px, chars, tracking if ftrack is None else ftrack, gamma, True, kern_min, phases)
+    if font.startswith("bdf:"):                    # (JIANT BYTE) a pixel face: no antialiasing
+        r = ar.raster_bdf(font, chars)
+    else:
+        r = ar.raster_font(font, px, chars, tracking if ftrack is None else ftrack, gamma, True, kern_min, phases)
     rise = RISE.get(os.path.basename(font.split("#")[0].split("@")[0]), 0)
     if rise:                                       # the ink up by rise px in its line (the line shorter by as much)
         r["asc"] -= rise
@@ -267,8 +276,9 @@ def emit(face, tracking, gamma, kern_min):
         if name == "S":       # AF_X: the labels, tabs, header and footer (the 5 x 7 pixel face until V10.7.18): S itself,
             init = lines[-3]  # its ink 2 rows higher, so a place set for the pixel face (capitals from row 1) keeps its top
             assert init.startswith("static const aafont_t AF_S = {") and init.endswith("};")
-            lines.append("static const aafont_t AF_X = {" + init[len("static const aafont_t AF_S = {"):-2] + ", 2};")
-            lines.append(f"#define AF_X_CAP_Y {cap[3] - 2}")
+            xr = 0 if font.startswith("bdf:") else 2   # (JIANT BYTE: a pixel S has its capitals from row 1 already)
+            lines.append("static const aafont_t AF_X = {" + init[len("static const aafont_t AF_S = {"):-2] + f", {xr}}};")
+            lines.append(f"#define AF_X_CAP_Y {cap[3] - xr}")
             lines.append(f"#define AF_X_CAP_H {cap[5]}")
     cost = {"data": len(data) + len(hc), "glyph_table": gsize, "kern": len(kp) + 2 * len(ki), "extras": len(extras),
             "glyphs": len(chars), "phases": phases, "pairs": len(keys), "h": r["h"], "asc": r["asc"], "px": px,
@@ -280,7 +290,7 @@ def emit(face, tracking, gamma, kern_min):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("out")
-    ap.add_argument("--preset", choices=["standin", "inter-tight", "chakra-petch", "jiant-lab"])
+    ap.add_argument("--preset", choices=["standin", "inter-tight", "chakra-petch", "jiant-lab", "byte-pixel"])
     ap.add_argument("--face", action="append", default=[])
     ap.add_argument("--tracking", type=float, default=0.0, help="extra advance per glyph in em")
     ap.add_argument("--gamma", type=float, default=1.0, help="coverage curve; <1 thickens light-on-dark text")

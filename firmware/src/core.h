@@ -105,6 +105,9 @@ static inline const char *desc_unit(const param_desc_t *d)   /* F_INT_CT .. F_RE
 #define FELUCCA_LIVE 0  /* (V10.7.30, the owner: "RAILS out, KEYS if it costs") GLO > LIVE's KEYS and RAILS pages (ui_live.c):
                          * out of GLOBAL and the image; the LIVE modifiers the FX layer drives (seq_live.c) stay */
 #endif
+#ifndef FELUCCA_PIXEL
+#define FELUCCA_PIXEL 1   /* (JIANT BYTE) the demoscene look: square boxes, a pixel cut at each corner (gfx.c cv_rrect) */
+#endif
 #ifndef FELUCCA_SPLIT
 #define FELUCCA_SPLIT 0 /* (V10.7.32, the owner) GLO > KEY SPLIT and KEY SPLIT 2 (ui.c split_*): out of GLOBAL and the image,
                          * and the split with them (seq.c SPLIT_ON: a project's split is kept as stored, not played; a

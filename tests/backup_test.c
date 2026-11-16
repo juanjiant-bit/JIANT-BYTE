@@ -201,7 +201,7 @@ int main(void)
     ps.palette = 13;                                     /* an older backup: its PAPER (old id 13), now CONTRAST (2) */
     bad += check("settings of an older backup restore with the palette migrated",
                  put_all(1, &ps, sizeof ps, st_crc32(&ps, sizeof ps)) == 0 && settings.palette == 2u);
-    ps.palette = UI_PAL_TAG + 9u;                        /* a backup of V10.7.18 or before: its MONO, now HUESO (5) */
+    ps.palette = UI_PAL_TAG + 9u;                        /* a backup of V10.7.18 or before: its MONO, now GAMEBOY (5) */
     bad += check("settings of a V10.7.18 backup restore with the palette on the nearest of the family",
                  put_all(1, &ps, sizeof ps, st_crc32(&ps, sizeof ps)) == 0 && settings.palette == 5u);
     ps.palette = palette_to_stored(6);
