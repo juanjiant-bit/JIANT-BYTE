@@ -16,6 +16,7 @@ import static org.junit.Assert.*;
 public class OfflineTest {
  private WebView web(View v){if(v instanceof WebView)return (WebView)v;if(v instanceof ViewGroup)for(int i=0;i<((ViewGroup)v).getChildCount();i++){WebView found=web(((ViewGroup)v).getChildAt(i));if(found!=null)return found;}return null;}
  private String js(MainActivity a,String code)throws Exception {CountDownLatch done=new CountDownLatch(1);String[] result={null};InstrumentationRegistry.getInstrumentation().runOnMainSync(()->web(a.getWindow().getDecorView()).evaluateJavascript(code,r->{result[0]=r;done.countDown();}));assertTrue(done.await(5,TimeUnit.SECONDS));return result[0];}
+ private void waitLayout(MainActivity a,String expected)throws Exception {long deadline=System.currentTimeMillis()+12000;String condition="window.jiantDiagnostics.layout()==='"+expected+"' && document.querySelector('#device').getBoundingClientRect().right<=innerWidth+1";while(!"true".equals(js(a,condition))&&System.currentTimeMillis()<deadline)Thread.sleep(200);assertEquals("Layout: "+js(a,"JSON.stringify({layout:window.jiantDiagnostics.layout(),width:innerWidth,height:innerHeight,panel:window.jiantDiagnostics.panel()})"),"true",js(a,condition));Thread.sleep(300);}
  private void screenshot(MainActivity a,String name)throws Exception {android.content.ContentValues values=new android.content.ContentValues();values.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME,name+".png");values.put(android.provider.MediaStore.Images.Media.MIME_TYPE,"image/png");values.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,"Pictures/JiantTest");android.net.Uri uri=a.getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values);assertNotNull(uri);try(OutputStream out=a.getContentResolver().openOutputStream(uri)){assertTrue(InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot().compress(Bitmap.CompressFormat.PNG,100,out));}}
 
  @Test public void allBundledProfilesBootWithoutNetworkAndRotate()throws Exception{
@@ -34,11 +35,12 @@ public class OfflineTest {
    assertEquals(p+" audio: "+js(activity,"JSON.stringify({...window.jiantDiagnostics,audioState:window.jiantDiagnostics.audioState(),keys:window.jiantDiagnostics.keys()})"),"true",js(activity,"window.jiantDiagnostics.peak>0.00001"));
    js(activity,"document.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyZ',key:'z',bubbles:true}));document.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyX',key:'x',bubbles:true}));");
    assertEquals("0",js(activity,"window.jiantDiagnostics.keys()"));
+   waitLayout(activity,"tall");
    assertEquals(p+" visible portrait panel","true",js(activity,"window.jiantDiagnostics.panel().height>400 && document.querySelectorAll('.hit').length>=40"));
    screenshot(activity,p+"-portrait");
    js(activity,"document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyZ',key:'z',bubbles:true}));");
-   instrumentation.runOnMainSync(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));Thread.sleep(700);assertEquals(p,activity.bootedProfile);assertEquals(p+" visible landscape panel","true",js(activity,"window.jiantDiagnostics.panel().height>100 && document.querySelectorAll('.hit').length>=40"));screenshot(activity,p+"-landscape");assertEquals("0",js(activity,"window.jiantDiagnostics.keys()"));
-   instrumentation.runOnMainSync(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));Thread.sleep(700);assertEquals(p,activity.bootedProfile);
+   instrumentation.runOnMainSync(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));waitLayout(activity,"wide");assertEquals(p,activity.bootedProfile);assertEquals(p+" visible landscape panel","true",js(activity,"window.jiantDiagnostics.panel().height>100 && document.querySelectorAll('.hit').length>=40"));screenshot(activity,p+"-landscape");assertEquals("0",js(activity,"window.jiantDiagnostics.keys()"));
+   instrumentation.runOnMainSync(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));waitLayout(activity,"tall");assertEquals(p,activity.bootedProfile);
    instrumentation.runOnMainSync(activity::onBackPressed);Thread.sleep(1500);
   }
   instrumentation.runOnMainSync(activity::finish);
