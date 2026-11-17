@@ -41,7 +41,7 @@ jobs:
             adb shell svc wifi disable
             adb shell svc data disable
             gradle -p android/emulator connectedDebugAndroidTest --no-daemon
-            adb pull /sdcard/Android/data/fm.jiant.emulator/files/screenshots android/emulator/screenshots
+            adb pull /sdcard/Pictures/JiantTest android/emulator/screenshots
       - uses: actions/upload-artifact@v4
         if: always()
         with:
