@@ -448,6 +448,8 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         uint32_t rk = rate ? dx_pow2((uint32_t)(rate + 24) * 4096u / 12u) >> 2 : 65536u;
         uint32_t bend = (uint32_t)clamp(dx_fmod[ln][DFM_BEND], 0, 127);
         uint32_t crush = (uint32_t)clamp(dx_fmod[ln][DFM_CRUSH], 0, 12);
+        int32_t fe = dx_fm_env(fm), ix = (fe * v->ep) >> 15;
+        int32_t dix = (((fe * ep1) >> 15) - ix) / (int32_t)m;
         en.u[FU_A] = (uint32_t)q[DXP_COLOR];
         en.u[FU_AF] = (uint32_t)q[DXP_COLOR] * 516u;
         en.u[FU_VEL] = v->sv ? v->sv : 127u;
@@ -457,6 +459,9 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
             W[i] = nt << 16 | ph >> 16;
             if (rate) W[i] = (uint32_t)(((uint64_t)W[i] * rk) >> 16);
             if (bend) W[i] += (uint32_t)((sine_i(W[i] << 16) * (int32_t)bend) / 64);
+            /* MOD ENV: hit envelope bends the formula phase, leaving its clock intact. */
+            if (ix) W[i] += (uint32_t)((sine_i(ph << 1) * ix) >> 7);
+            ix += dix;
             T[i] = W[i] >> 11;
             S[i] = (uint32_t)(((uint64_t)(sp + i) * 194783u) >> 16);
             if (rate) S[i] = (uint32_t)(((uint64_t)S[i] * rk) >> 16);
@@ -464,7 +469,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
             ph = p2;
             inc += dinc;
         }
-        fvm_run(pg, &en, &wk->s, m, o);
+        formula_run(pg, &en, &wk->s, m, o);
         for (i = 0; i < m; i++, ga += dga) {
             int32_t s = ((int32_t)o[i] >> 1) * 3 >> 2;      /* (x 3/4: a formula's wave fuller than the sine the lane's
                                                           * level was made for) */
@@ -476,6 +481,14 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
             y[i] = 0;
         v->ph = ph;
         v->fturn = nt;
+        if (warp) {
+            int32_t fold = clamp(warp, 0, 127), g = 16 + ((fold * fold * 5) >> 10), c = g * 6144 / (8 + g);
+            for (i=0;i<n;i++) {
+                int32_t z=clamp((y[i]*g)>>4,-5*16384,5*16384);
+                for (uint32_t j=0;j<3;j++) z=z>16384?32768-z:z < -16384?-32768-z:z;
+                y[i]=(z*c)>>12;
+            }
+        }
     } else if (og) {                                     /* the oscillator */
         uint32_t ph = v->ph;
         int32_t fold = clamp(warp, 0, 127);

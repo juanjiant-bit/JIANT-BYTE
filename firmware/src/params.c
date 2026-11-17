@@ -434,7 +434,7 @@ static int32_t param_fit(const param_desc_t *d, int32_t v)
 /* v is a value a knob passes over: an alias, or one of FM6's bank slots without a voice */
 static int enum_skip(const param_desc_t *d, int32_t v)
 {
-    return enum_orig(d, v) != v || (d->names == N_FM6_PATCH && !fm6_slot_ok(v));
+    return (d->names == N_DTYPE && ((0xF660u >> v) & 1u)) || enum_orig(d, v) != v || (d->names == N_FM6_PATCH && !fm6_slot_ok(v));
 }
 /* a knob moved an F_ENUM from `from` to v: past any value it skips in that direction; with none left to the end, the
  * last one it does not skip on the way from `from` (else `from`) */
@@ -794,7 +794,7 @@ static const page_t PAGES[] = {
     {"TAPE", FAM_FX, SC_GLOBAL, GR_NONE, {ID_TAPE, ID_TWOW, 0xFF, 0xFF}},
     {"EQ", FAM_FX, SC_GLOBAL, GR_NONE, {ID_EQ0, ID_EQ0 + 1u, ID_EQ0 + 2u, ID_EQ0 + 3u}},   /* (p9) the master's EQ, last */   /* (0.9.9-snd8) the master's tape, after MASTER */
     {"BALANCE", FAM_FX, SC_GLOBAL, GR_NONE, {ID_BAL, 0xFF, 0xFF, 0xFF}},   /* (V10.7.30) the master's BALANCE, after its EQ */
-    {"DIST", FAM_FX, SC_TRACK, GR_NONE, {P_DTYPE, P_DTONE, FELUCCA_XFX ? ID_DNZ : 0xFF, 0xFF}},   /* JIANT: the drive's type and tone; V10.7.30 NOISE */
+    {"DIST", FAM_FX, SC_TRACK, GR_NONE, {P_DTYPE, P_DTONE, FELUCCA_XFX ? ID_DNZ : 0xFF, P_DIST}},   /* JIANT: the drive's type and tone; V10.7.30 NOISE */
     {"VOICES 3", FAM_EDIT, SC_TRACK, GR_NONE, {ID_CRU, ID_LIF, P_GLMODE, 0xFF}},   /* (V10.7.33) CRUSH, the track's bit reducer (was DIST's
                                                          * TYPE; PLAY and PLAY 2 have no knob free) */
     {"AUTO PAN", FAM_FX, SC_TRACK, GR_NONE, {P_APDEP, P_APRATE, P_APSYNC, P_APWAVE}},   /* (JIANT 0.6.9) the track's pan swung */

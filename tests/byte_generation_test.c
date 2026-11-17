@@ -55,7 +55,12 @@ int main(void)
                     floats += t->p[P_E1] == RW_FLOAT;
                     /* ALGO points to an exact factory formula, never a random
                      * neighbouring formula from a generic knob perturbation. */
-                    tonal &= t->p[P_E2] == LOFI_PRESETS[t->preset].e[2];
+                    if (gs.role[k]<RL_N && gs.act[gs.role[k]]) {
+                        uint32_t f=t->p[P_E2]/4, found=0;
+                        if(t->p[P_E1]==RW_BYTE)for(unsigned q=0;q<NELEM(GEN_BYTE_ROLE);q++)found|=f==GEN_BYTE_ROLE[q];
+                        else for(unsigned q=0;q<3;q++)found|=f==GEN_FLOAT_ROLE[gs.role[k]][q];
+                        tonal &= found && t->p[P_E2]%4==0 && t->p[P_KEY]==1 && t->p[P_E4]>0;
+                    }
                 }
             }
             /* A previous sound must not leak into the same seed. */
@@ -74,7 +79,7 @@ int main(void)
     bad += check("BYTE GEN: both melodic engines, bytebeats and floatbeats are selected",
                  seen == ((1u << ENGI_WAVE) | (1u << ENGI_LOFI) | (1u << ENGI_DRUM)) && bytes && floats);
     bad += check("BYTE GEN: every engine parameter stays in its real descriptor range", bounded);
-    bad += check("BYTE GEN: melodic algorithms retain their curated preset identity", tonal);
+    bad += check("BYTE GEN: role-specific formula families have tempo-synced evolution", tonal);
     bad += check("BYTE GEN: same settings reproduce the song after unrelated edits", reproducible);
     bad += check("BYTE GEN: different seeds produce different songs in every genre", varied);
     printf("BYTE GEN: %u songs, %u bytebeat and %u floatbeat tracks\n", songs, bytes, floats);

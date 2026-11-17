@@ -5,6 +5,7 @@
  * factory patterns (SEQ > PATTERNS) and the parts' sounds at power-on. */
 #include "dsp.c"
 #include "fvm.c"             /* (JIANT BYTE) the formula machine (fvm_bank.c: the factory formulas, phase 2) */
+#include "formula_perf.c"
 #include "fvm_gen.c"         /* (JIANT BYTE) the equations' generator (MATH's USER) */
 #include "filt.c"            /* (JIANT BYTE) the filter TYPEs (ANALOG retired) */
 #include "eng_lofi.c"

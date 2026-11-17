@@ -970,7 +970,7 @@ static uint32_t layer_leds(uint32_t *br)
  * colours over the layer's keys (the keycaps' words); STATE what is on, as chips. (Until 0.8.8: cells with note names,
  * the Felucca map.) The keys and knobs do what they did: only the drawing is new */
 static const char *const PF_NAME[PF_N] = {"RPT 1/8", "RPT 1/16", "RPT 1/32", "REVERSE", "TAPESTOP",   /* (perform.c PF_*) */
-    "OCT-", "OCT+", "1/2 TEMPO", "WOBBLE", "DLY 1/16", "STUT 1/8", "STUT 1/16", "ATK+", "ARP", "RANDOM",   /* the MIDI ones (pfx.c) */
+    "TIME /2", "TIME x2", "T FLIP", "PH WARP", "A +", "T STEPS", "T LOOP", "FOLD", "BIT XOR", "RING",   /* the MIDI ones (pfx.c) */
     "PITCH UP", "PITCH DN", "FREEZE", "REV ALL", "DLY ALL", "CAOS MAX", "GLITCH", "LOOP 3", "LOOP 5", "LOOP 7", "LIFE MAX",
     "COMB"};
 static const char W_NOTE[16] = {'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G'};

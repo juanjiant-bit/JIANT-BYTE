@@ -295,6 +295,11 @@ static __attribute__((noinline)) void dist_eq(track_t *t, int32_t *b, uint32_t n
     for (i = 0; i < n; i++) {
         int32_t v = (int32_t)y[i] >> 1;
         v = v > 98304 ? 98304 : v < -98304 ? -98304 : v;
+        /* Every formula distortion shares the same audible TONE stage. */
+        int32_t tone=clamp(32000-t->p[P_DIST]*95+t->p[P_DTONE]*300,2500,32767);
+        t->dist_lp1 += mulq15(v-t->dist_lp1,tone);
+        t->dist_lp2 += mulq15(t->dist_lp1-t->dist_lp2,tone);
+        v=t->dist_lp2;
         b[i] = b[i] + ((((v - b[i]) >> 2) * (w0 + dw * (int32_t)(i + 1))) >> 10);   /* (DIST's blend: its amount in) */
     }
 }
@@ -318,7 +323,7 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
     mk = type == DT_HARD || type == DT_FOLD ? 30000 - d * 60 : 30000 - d * 120;   /* make-up */
     if (type >= DT_EQ0 && type < DT_EQ0 + DIST_NEQ) {   /* (JIANT BYTE) a formula */
         dist_eq(t, b, n, type, w0, dw);
-        return;
+        goto noise;
     }
     if (type > DT_AMP)
         type = DT_SOFT;
@@ -346,6 +351,7 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
         t->dist_lp1 = l1;
         t->dist_lp2 = l2;
     }
+noise:
     if (FELUCCA_XFX && dnz_v[ti]) {                     /* (V10.7.30) NOISE, in the flash */
         void (*f)(track_t *, int32_t *, uint32_t) = dist_noise;
         FM1_OPAQUE(f);

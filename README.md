@@ -126,3 +126,5 @@ Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments — Feluc
 Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) — JIANT FM and JIANT BYTE.
 
 BYTE v0.4 also adds editable DRUM-X formula text, recognizable pixel drum instruments, a per-track 1–8 voice budget, and MY LOOP arrangements that preserve the original loop as section A. [Controls and verification](docs/byte-v04.md).
+
+BYTE v0.5: [controles de DrumX, distorsión, punch-in de fórmulas y GEN por roles](docs/byte-v05.md).

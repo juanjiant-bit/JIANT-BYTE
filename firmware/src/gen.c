@@ -1548,6 +1548,37 @@ static const uint8_t GEN_WAVE_PRESETS[RL_N][3] = {
 static const uint8_t GEN_MATH_PRESETS[RL_N][3] = {
     {0, 0, 0}, {4, 4, 4}, {5, 11, 3}, {6, 8, 3}, {7, 3, 6}, {0, 1, 2}
 };
+/* Formula families chosen by musical role. Tonal families keep an integer
+ * harmonic root; BYTE's independent high bits follow the song, not note pitch. */
+static const uint8_t GEN_FLOAT_ROLE[RL_N][3] = {
+    {0,0,0}, {19,10,27}, {11,19,28}, {10,12,27}, {10,24,27}, {6,12,28}
+};
+static const uint8_t GEN_WAVE_ROLE[RL_N][3] = {
+    {0,0,0}, {0,5,8}, {1,8,14}, {1,5,7}, {1,9,15}, {10,11,13}
+};
+static const uint8_t GEN_BYTE_ROLE[] = {16,17,18,20,22,23,24,27};
+static void gen_formula_sound(track_t *t,uint32_t role)
+{
+    uint32_t complex=gs.complex,energy=gs.energy;
+    if(t->eng_req==ENGI_LOFI) {
+        uint32_t byte=role==RL_TEX || (role==RL_ARP && gch(gs.g->human>=40?15u:55u));
+        t->p[P_E1]=byte?RW_BYTE:RW_FLOAT;t->p[P_E0]=CHIP_8BIT;
+        t->p[P_E2]=4*(byte?GEN_BYTE_ROLE[gr()%NELEM(GEN_BYTE_ROLE)]:GEN_FLOAT_ROLE[role][gr()%3u]);
+        t->p[P_E3]=byte?(int16_t)grr(8,40+(int32_t)complex/3):0;
+        t->p[P_E4]=byte?(role==RL_ARP?6:gs.complex>65?3:9):role==RL_PAD?15:role==RL_BASS?12:9;
+        t->p[P_KEY]=1; /* pitched low bits, tempo-locked evolution */
+        t->p[P_E5]=byte?(int16_t)(complex/5):0;
+        t->p[P_E6]=0;t->p[P_E7]=0;t->p[P_CAOS]=byte?(int16_t)(complex/6):0;
+        if(byte)t->p[P_LEVEL]=role==RL_TEX?82:96;
+    } else if(t->eng_req==ENGI_WAVE) {
+        t->p[P_E0]=GEN_WAVE_ROLE[role][gr()%3u];
+        t->p[P_E1]=(int16_t)grr(18,38+(int32_t)energy/2);
+        t->p[P_E2]=WW_OFF;t->p[P_E3]=0;
+        t->p[P_E4]=GEN_WAVE_ROLE[role][gr()%3u];
+        t->p[P_E5]=role==RL_PAD?28:12;t->p[P_E6]=role==RL_PAD?18:0;
+        t->p[P_E7]=role==RL_BASS?48:0;t->p[P_CAOS]=role==RL_TEX?(int16_t)(complex/3):0;
+    }
+}
 static __attribute__((noinline)) void gen_sound(track_t *t, uint32_t role, uint32_t ri)
 {
     const grecipe_t *r = &RECIPE[ri];
@@ -1635,6 +1666,7 @@ static __attribute__((noinline)) void gen_sound(track_t *t, uint32_t role, uint3
         t->p[P_APDEP] = (int16_t)grr(30, 60); t->p[P_APSYNC] = 1; t->p[P_APRATE] = (int16_t)grr(4, 6); t->p[P_APWAVE] = (int16_t)(ri == SR_GTR ? 3 : 0);
     }
     t->p[P_LEVEL] = 112;                                /* native presets: no inherited FM loudness trims */
+    gen_formula_sound(t,role);
 }
 /* (0.9.9-gen2) the owner: the drums "eat the rest of the sounds": every lane's DECAY shorter, twice a nibble a lane
  * (KICK SNARE CLAP HATC HATO TOM RIM BELL: -12 0 -8 -6 -12 -14 -4 -6; the snare shortened below), a constant (not a
@@ -1646,6 +1678,10 @@ static __attribute__((noinline)) void gen_kit(track_t *t)
     uint32_t l, i;
     memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);
     memset(dx_fmod, 0, sizeof dx_fmod);
+    for (l=0;l<8;l++) {
+        dx_fmod[l][DFM_BEND]=(int8_t)(l==DV_KICK?gs.energy/10:gs.complex/4);
+        dx_fmod[l][DFM_CRUSH]=(int8_t)(gs.complex>70 && l>=DV_HATC?2:0);
+    }
     memset(dx_text, 0, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
     for (l = 0; l < 8u; l++) {
         const dx_lane_t *D = &DX_KIT_DEF[l];
@@ -2280,6 +2316,16 @@ static void gen_parts(void)
             if (bs < NTRK && (ld < NTRK || ar < NTRK || pd < NTRK)) trk[bs].p[P_MUTE] = 1;
         }
         grich(k);                                       /* (V10.7.30) the section's automation, locks, components */
+        for (i=0;i<NTRK;i++) if(gs.role[i]<RL_N && gs.act[gs.role[i]] && trk[i].eng_req!=ENGI_DRUM) {
+            track_t *q=&trk[i];
+            uint32_t id=q->eng_req==ENGI_WAVE?P_E1:P_E6;
+            int32_t depth=q->eng_req==ENGI_WAVE?18+(int32_t)gs.complex/3:4+(int32_t)gs.complex/8;
+            /* Tonal MATH keeps BEND zero; use its filter instead. */
+            if(q->eng_req==ENGI_LOFI && q->p[P_E1]!=RW_BYTE)id=P_FCUT;
+            if(k==3u)depth=-depth/2;
+            gmot(q,0,id,q->p[id],0);
+            gmot(q,dlen(q)>1?dlen(q)-1u:0u,id,q->p[id]+depth,1);
+        }
         for (i = 0; i < NTRK; i++) secm[k] |= (uint8_t)((trk[i].p[P_MUTE] != 0) << i);
         section_store(k);
         if (live.cur == (int8_t)k) dice_secs |= (uint8_t)(1u << k);

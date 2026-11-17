@@ -327,7 +327,7 @@ static void lofi_run(const fvm_prog_t *pg, fvm_env_t *en, lofi_work_t *wk, uint3
     for (o = 0; o < m; o += FVM_BLK) {
         for (k = 0; k < FA_N; k++)
             en->arr[k] = a0[k] ? a0[k] + o : 0;
-        fvm_run(pg, en, &wk->s, m - o < FVM_BLK ? m - o : FVM_BLK, out + o);
+        formula_run(pg, en, &wk->s, m - o < FVM_BLK ? m - o : FVM_BLK, out + o);
     }
     for (k = 0; k < FA_N; k++)
         en->arr[k] = a0[k];
@@ -567,7 +567,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
             fvm_env_t e1 = {{&T1, &W1, 0, 0, 0}, {0}, &v->s[6]};   /* (FEEDBK: no cross-mod here) */
             e1.u[FU_NOTE] = v->note;
             e1.u[FU_VEL] = v->vel;
-            fvm_run(pg, &e1, &wk->s, 1, &o1);
+            formula_run(pg, &e1, &wk->s, 1, &o1);
             s = (int32_t)o1 >> 1;
         } else {
             s = (int32_t)vals[i] >> 1;                   /* (FIX Q16 -> MATH's Q15) */

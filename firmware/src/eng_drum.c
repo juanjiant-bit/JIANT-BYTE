@@ -749,7 +749,7 @@ static const engine_t ENG_DRUM = {
         {"TONE", F_PCT, 0, 127, 64, 0},
         {"DECAY", F_PCT, 0, 127, 64, 0},
         {"NOISE", F_PCT, 0, 127, 64, 0},
-        {"FM ENV", F_PCT, 0, 127, 0, 0},             /* (JIANT: was ACC; 0.6.36: was FM, a fixed FM: the FM struck
+        {"MOD ENV", F_PCT, 0, 127, 0, 0},             /* (JIANT: was ACC; 0.6.36: was FM, a fixed FM: the FM struck
                                                          * with the hit, gone with the pitch envelope) */
         {"FOLD", F_PCT, 0, 127, 0, 0},              /* (JIANT 0.5: a wavefolder, was WARP) */
         {"DRIVE", F_PCT, 0, 127, 0, 0},

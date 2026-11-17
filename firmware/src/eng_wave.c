@@ -136,12 +136,12 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
                 ea.arr[FA_W] = eb.arr[FA_W] = W + o;
                 ea.u[FU_AF] = eb.u[FU_AF] = posa[o];
                 if (pb) {
-                    fvm_run(pb, &eb, &wk->s, c, yb + o);
+                    formula_run(pb, &eb, &wk->s, c, yb + o);
                     if (warp == WW_FM)                   /* FM: B into A's phase, AMT the index (up to a turn) */
                         for (k = 0; k < c; k++)
                             W[o + k] = (W[o + k] + (uint32_t)(((int32_t)yb[o + k] * (int32_t)amt) >> 7)) & 0xFFFFu;
                 }
-                fvm_run(pa, &ea, &wk->s, c, ya + o);
+                formula_run(pa, &ea, &wk->s, c, ya + o);
             }
             for (i = 0; i < n; i++) {
                 int32_t a = (int32_t)ya[i], b = pb ? (int32_t)yb[i] : 0;
