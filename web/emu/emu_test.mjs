@@ -9,7 +9,7 @@
 // starts the sequencer (PLAY's green LED), a user preset saved from the panel (SAVE, OCT+, OCT+) reaches the flash,
 // and the flash sectors kept as the page keeps them bring it back in a fresh instance; the same gestures twice
 // give the same audio (deterministic), with NATIVE.f32 (web/emu/native_check.c) the native build's, bit for bit.
-// Then the cost: 1 s of a heavy song (FM6, TRIO, VOICE chords, DRUM) against real time (BENCH_MAX, default 0.5:
+// Then the cost: 1 s of a heavy song (WAVE, FLOAT, BYTE chords, DRUM) against real time (BENCH_MAX, default 0.5:
 // fails above half of real time on this machine).
 import fs from "fs";
 import { storeSectors, restoreSectors } from "./worklet.js";
@@ -127,12 +127,18 @@ check("FX held: its button and the effects' keys breathe, none lit; let go: lock
 
 // ---- a user preset saved from the panel, kept across a fresh instance
 const w0 = a.ex.web_flash_writes_count();
+// SAVE first opens PROJECTS, then PART SLOTS, then USER. Return HOME so
+// SAVE arms the remembered USER page, as on the current hardware firmware.
+a.tap(B.SAVE);
+a.tap(B.SAVE);
+a.tap(B.SAVE);
+a.tap(B.HOME);
 a.tap(B.SAVE);
 a.tap(B.OCTUP);
 a.tap(B.OCTUP);
 a.render(200);
 const saved = storeSectors(new Uint8Array(a.mem.buffer, a.ex.web_nor(), a.ex.web_nor_size()));
-check(`SAVE, OCT+, OCT+: user preset 1 written (${Object.keys(saved).length} sectors kept)`,
+check(`SAVE USER, OCT+, OCT+: user preset 1 written (${Object.keys(saved).length} sectors kept)`,
       a.ex.web_test_user_preset(0) === 1 && a.ex.web_flash_writes_count() > w0 && Object.keys(saved).length > 0);
 const kept = JSON.parse(JSON.stringify(Object.fromEntries(     // as the page keeps them (base64 in localStorage)
   Object.entries(saved).map(([k, v]) => [k, Buffer.from(v).toString("base64")]))));
@@ -172,6 +178,6 @@ for (let i = 0; i < 3; i++) {
   best = Math.min(best, performance.now() - t0);
 }
 const ratio = best / 1000, max = +(process.env.BENCH_MAX || 0.5);
-check(`1 s of the heavy song (FM6 TRIO VOICE chords + DRUM) in ${best.toFixed(1)} ms: ${(ratio * 100).toFixed(1)} % of real time`, ratio < max);
+check(`1 s of the heavy song (WAVE FLOAT BYTE chords + DRUM) in ${best.toFixed(1)} ms: ${(ratio * 100).toFixed(1)} % of real time`, ratio < max);
 console.log(fails ? `emu: ${fails} FAILED` : "emu: all ok");
 process.exit(fails ? 1 : 0);

@@ -1542,21 +1542,21 @@ static int16_t gnear(int32_t c, int32_t w) { return (int16_t)(c ? clamp(grr(c - 
 /* (0.9.9-gen1) a role's sound as its archetype has it (gen_tables.c RECIPE): the archetype's engine and preset (a bass
  * its first two options only: the archetype's engine), the engine's knobs a little their own, then the archetype's
  * targets in the engine's parameters (the wave, the filter, its envelope, the amp envelope, glide, drive, chorus) */
+static const uint8_t GEN_WAVE_PRESETS[RL_N][3] = {
+    {0, 0, 0}, {4, 4, 4}, {2, 7, 1}, {3, 1, 6}, {1, 6, 3}, {5, 7, 2}
+};
+static const uint8_t GEN_MATH_PRESETS[RL_N][3] = {
+    {0, 0, 0}, {4, 4, 4}, {5, 11, 3}, {6, 8, 3}, {7, 3, 6}, {0, 1, 2}
+};
 static __attribute__((noinline)) void gen_sound(track_t *t, uint32_t role, uint32_t ri)
 {
     const grecipe_t *r = &RECIPE[ri];
     /* Native BYTE recipes, indexed by musical role, not retired FM preset
      * numbers. Every choice is a real preset of its actual engine. */
-    static const uint8_t WP[RL_N][3] = {
-        {0, 0, 0}, {4, 4, 4}, {2, 7, 1}, {3, 1, 6}, {1, 6, 3}, {5, 7, 2}
-    };
-    static const uint8_t MP[RL_N][3] = {
-        {0, 0, 0}, {4, 4, 4}, {5, 11, 3}, {6, 8, 3}, {7, 3, 6}, {0, 1, 2}
-    };
     uint32_t e = gch(role == RL_PAD ? 65 : role == RL_TEX ? 25 : 50) ? ENGI_WAVE : ENGI_LOFI;
     uint32_t i, ft = r->ft & 7u, pre;
     if (gx.eng == ENGI_WAVE || gx.eng == ENGI_LOFI) e = (uint32_t)gx.eng;
-    pre = (e == ENGI_WAVE ? WP : MP)[role][gr() % 3u];
+    pre = (e == ENGI_WAVE ? GEN_WAVE_PRESETS : GEN_MATH_PRESETS)[role][gr() % 3u];
     set_engine_of(t, e);
     apply_preset_to(t, pre);
     /* Tonal parts follow their notes; formula textures follow the transport.

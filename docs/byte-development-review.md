@@ -59,10 +59,18 @@ No se cambian los formatos de proyectos ni los identificadores persistidos de lo
 - El informe global de UI **no pasa completamente**: persisten recortes de nombres largos de géneros y una
   superposición en el pie del generador, además de avisos de contraste heredados en capas de SONG/REC. La comparación
   con la base conserva los mismos 84 avisos de contraste. No se presentan como problemas resueltos.
-- Las fuentes crecen de aproximadamente 4,5 KB a 12,1 KB. Falta comprobar el espacio total de flash y el coste en el
-  dispositivo mediante el toolchain JieLi. Aquí no se generó un `.fwsc` instalable ni se midió la CPU del FM-1.
-- `tests/run_tests.sh` alcanza las pruebas iniciales/USB y se detiene solicitando `./build.sh`; el entorno no tiene
-  el SDK/toolchain ni los artefactos de firmware que exige. Tampoco se ha realizado prueba física ni auditado de oído
-  el balance de todos los géneros. Las suites heredadas de motores retirados requieren mantenimiento aparte.
+- Compilación real JieLi/pi32v2 con el SDK AC79 fijado en `d179b448`: aplicación de 536252 B, con 48084 B
+  libres en su partición; paquete `.fwsc` de 677404 B, identidad `FM-1_909`. Pasan las comprobaciones de memoria,
+  llamadas y ubicación de código/tablas de audio. Las nuevas fuentes, logo y tablas del generador se ubican con
+  los datos de interfaz; no se desactiva ni se regenera la protección del layout de audio.
+- Emscripten 6.0.11: arranque, teclas, MIDI, secuenciador, guardado/restauración y audio determinista pasan.
+  Una escena de WAVE, FLOAT, BYTE y DRUM coincide con el ejecutable nativo en sus 88200 muestras estéreo.
+- Chromium: el emulador inicia sin errores JavaScript; el instalador carga el paquete real y comprueba SHA-256;
+  una descarga alterada deja el botón de instalación desactivado. Capturas: [emulador](ui-byte/review/emulator-browser.png)
+  e [instalador](ui-byte/review/installer-browser.png).
+- No se ha flasheado ni medido la CPU de un FM-1 físico. Las suites heredadas de motores retirados (VOICE, WEST)
+  requieren mantenimiento aparte; no se afirma que toda la batería histórica pase.
 
-Los cambios están preparados para revisión local; esta revisión no publica una versión ni actualiza el dispositivo.
+El emulador y el instalador principal se publican juntos desde el mismo commit. La etiqueta es de desarrollo,
+no de validación física. El índice conserva versiones anteriores cuando están disponibles. `web/STABLE` es una
+referencia histórica y este flujo de publicación directa ya no la utiliza.

@@ -469,11 +469,11 @@ EXPORT uint32_t web_gen_count(void) { return NGENRE; }
 EXPORT const char *web_gen_name(uint32_t i) { return GENRE[i % NGENRE].name; }
 
 /* for the test and the bench (web/emu/emu_test.mjs), a heavy song straight into the tracks (as hostsim's
- * renders set them): T1 FM6 PAD, T2 TRIO (its first preset; PHYS, retired in TONIC, was here), T3 VOICE CHOIR AAH (GRAIN, retired in JIANT, was here), 4-note chords on all 16
+ * renders set them): T1 WAVE SAW PAD, T2 MATH FLOAT PAD, T3 MATH BYTEBEAT, 4-note chords on all 16
  * steps, held; T4 DRUM, kick snare and hats. PLAY is the page's (or the test's) to press */
 EXPORT void web_test_heavy(void)
 {
-    static const uint8_t ENG[3][2] = {{12, 4}, {6, 0}, {5, 0}};   /* (JIANT: VOICE CHOIR where GRAIN was) */
+    static const uint8_t ENG[3][2] = {{ENGI_WAVE, 3}, {ENGI_LOFI, 5}, {ENGI_LOFI, 0}};
     static const uint8_t CH[4][4] = {{48, 55, 60, 64}, {45, 52, 57, 60}, {41, 48, 53, 57}, {43, 50, 55, 59}};
     uint32_t p, i;
     for (p = 0; p < 3u; p++) {
