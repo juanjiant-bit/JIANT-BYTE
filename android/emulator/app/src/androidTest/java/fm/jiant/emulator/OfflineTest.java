@@ -34,9 +34,10 @@ public class OfflineTest {
    assertEquals(p+" audio: "+js(activity,"JSON.stringify({...window.jiantDiagnostics,audioState:window.jiantDiagnostics.audioState(),keys:window.jiantDiagnostics.keys()})"),"true",js(activity,"window.jiantDiagnostics.peak>0.00001"));
    js(activity,"document.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyZ',key:'z',bubbles:true}));document.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyX',key:'x',bubbles:true}));");
    assertEquals("0",js(activity,"window.jiantDiagnostics.keys()"));
+   assertEquals(p+" visible portrait panel","true",js(activity,"window.jiantDiagnostics.panel().height>400 && document.querySelectorAll('.hit').length>=40"));
    screenshot(activity,p+"-portrait");
    js(activity,"document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyZ',key:'z',bubbles:true}));");
-   instrumentation.runOnMainSync(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));Thread.sleep(700);assertEquals(p,activity.bootedProfile);screenshot(activity,p+"-landscape");assertEquals("0",js(activity,"window.jiantDiagnostics.keys()"));
+   instrumentation.runOnMainSync(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));Thread.sleep(700);assertEquals(p,activity.bootedProfile);assertEquals(p+" visible landscape panel","true",js(activity,"window.jiantDiagnostics.panel().height>100 && document.querySelectorAll('.hit').length>=40"));screenshot(activity,p+"-landscape");assertEquals("0",js(activity,"window.jiantDiagnostics.keys()"));
    instrumentation.runOnMainSync(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));Thread.sleep(700);assertEquals(p,activity.bootedProfile);
    instrumentation.runOnMainSync(activity::onBackPressed);Thread.sleep(1500);
   }

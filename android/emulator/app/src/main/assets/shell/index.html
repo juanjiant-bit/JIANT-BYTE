@@ -157,6 +157,7 @@ function build(name) {
   svg.innerHTML = "";
   svg.setAttribute("viewBox", `0 0 ${L.w} ${L.h}`);
   device.style.aspectRatio = `${L.w} / ${L.h}`;
+  device.style.height = `${device.clientWidth * L.h / L.w}px`; // WebView before Chromium 88 lacks CSS aspect-ratio
   for (const d of device.querySelectorAll(".hit")) d.remove();
   knobs.length = buttons.length = keys.length = 0;
   el("rect", { x: 4, y: 4, width: L.w - 8, height: L.h - 8, rx: 40, fill: "var(--body)" });
@@ -318,6 +319,7 @@ function bindKnob(k) {
     if (d) { turn(k, d); e.preventDefault(); e.stopPropagation(); }
   });
 }
+new ResizeObserver(() => { if (layout) { const L=LAYOUTS[layout]; device.style.height=`${device.clientWidth * L.h / L.w}px`; } }).observe(device);
 const tall = matchMedia("(orientation: portrait) and (max-width: 700px)");
 build(tall.matches ? "tall" : "wide");
 tall.addEventListener("change", () => { btnBy.clear(); keyBy.clear(); latched=0; syncButtons(); syncKeys(); build(tall.matches ? "tall" : "wide"); });
@@ -424,7 +426,7 @@ function saveFlash(sectors) {
 
 // Android owns the engine versions and persistent NOR. The UI never requests external resources.
 let audioContext=null, outputGain=null, started=false, closeResolve=null, rendered=false;
-window.jiantDiagnostics={ready:false,frames:0,peak:0,clock:0,audioState:()=>audioContext?.state,layout:()=>layout,keys:()=>keyMask,buttons:()=>btnMask};
+window.jiantDiagnostics={ready:false,frames:0,peak:0,clock:0,audioState:()=>audioContext?.state,layout:()=>layout,panel:()=>({width:device.clientWidth,height:device.clientHeight}),keys:()=>keyMask,buttons:()=>btnMask};
 async function switchOn() {
  if(started)return; started=true;
  try {
