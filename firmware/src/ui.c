@@ -663,6 +663,8 @@ static int page_visible(uint32_t i)
         return 0;
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_WRDEP)   /* (0.7.8) ROTOR: WHEEL's (JIANT BYTE: retired) */
         return 0;
+    if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_KEY)   /* (JIANT BYTE) GAIN: DRUM-X's */
+        return trk_eng(TSEL) == ENGI_DRUM;
     if (PAGES[i].id[0] == P_CAOS)                       /* (JIANT BYTE) CAOS: MATH's and WAVE's */
         return trk_engp(TSEL) == &ENG_LOFI || trk_engp(TSEL) == &ENG_WAVE;
     if (PAGES[i].id[0] == P_LRTRG && PAGES[i].id[1] == 0xFFu)   /* (0.6.12) RETRIG: LOFI BYTE / FLOAT's */
@@ -1684,6 +1686,11 @@ static void set_engine_of(track_t *t, uint32_t ei)
     uint32_t i;
     if (eng_gone(ei % NENGINES))                     /* PHYS SAMPLE GRAIN SLICE (retired, core.h): ANALOG */
         ei = ENGI_PHYS_TO;
+#if !FELUCCA_FM4
+    ei = eng_idx(ei % NENGINES);                     /* (JIANT BYTE) a retired engine asked for (GEN's picks, the dice, an
+                                                      * old store): the one that plays it, so no part keeps a retired
+                                                      * number (FM6's patch hooks, its pages) */
+#endif
     e = ENGINES[ei % NENGINES];
 #if !FELUCCA_FM4
     if (ei % NENGINES == ENGI_DIGITAL) {             /* DIGITAL (retired): its first preset, as FM6 */

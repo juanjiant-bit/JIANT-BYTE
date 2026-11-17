@@ -622,6 +622,7 @@ static __attribute__((noinline)) void drum_glue(uint32_t ti, int32_t *out, uint3
 static __attribute__((noinline)) void drum_bus(const track_t *t, int32_t *out, uint32_t n)
 {
     int32_t drv = t->p[P_E7], g = 0, mk = 0, k = 4096, *sl = dx_sl, *sr = dx_sr;
+    int32_t gn = 4096 + clamp(t->p[P_KEY], 0, 127) * 3 * 4096 / 127;   /* (JIANT BYTE) GAIN: x1 .. x4 into the knee */
     uint32_t i, side = (dx_xon & 1u) != 0u;
     if (drv > 0) {
         g = 4096 + drv * 3 * 4096 / 127;
@@ -629,7 +630,7 @@ static __attribute__((noinline)) void drum_bus(const track_t *t, int32_t *out, u
         k = (g * mk) >> 15;                              /* (the curve's slope at 0: a quiet sum's gain) */
     }
     for (i = 0; i < n; i++) {
-        int32_t s = out[i] >> 1, y = s;
+        int32_t s = gn == 4096 ? out[i] >> 1 : ((clamp(out[i] >> 1, -131071, 131071) >> 2) * gn) >> 10, y = s;   /* (GAIN: 32 bits) */
         if (g)                                           /* (0.6.19: s held to +-131071: s * g fits; several loud hits
                                                          * at once with DRV high wrapped it: a full-scale click) */
             y = (softclip((clamp(s, -131071, 131071) * g) >> 12) * mk) >> 15;

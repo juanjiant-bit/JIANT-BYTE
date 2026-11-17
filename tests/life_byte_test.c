@@ -92,6 +92,8 @@ int main(int argc, char **argv)
         render(pr, 0, 100, 0, 0, d);                     /* .. alone */
         /* track 1's own part out: the same WAVE rendered with nothing else is not available bit for bit (the mix's
          * dynamics): compare the sums directly, the differences tell */
+        { double ea = 0, ec = 0; uint32_t q; for (q = 0; q < NS; q++) ea += (double)a[q] * a[q], ec += (double)c[q] * c[q];
+          printf("lifeb: level with TALK 100 x%.2f of TALK 0\n", sqrt(ea / ec)); }
         ok(memcmp(a, c, sizeof a) != 0 && corr(a, c) < 0.98, "TALK 100: the mix with track 1 sounding moves (track 2 hears it: %.3f)", corr(a, c));
         ok(!memcmp(b, d, sizeof b), "track 1 silent: TALK changes nothing (nothing to hear)");
         render(pr, 1, 100, 0, 100, one);                 /* BREAK alone */

@@ -169,7 +169,7 @@ static const param_desc_t TP[P_COUNT] = {
                 [P_FM##k##_LEVEL] = PD("LEVEL", F_PCT, 0, 127, 127)
     FMOP(1), FMOP(2), FMOP(3), FMOP(4),
     [P_CAOS] = PD("CAOS", F_PCT, 0, 127, 0),      /* (JIANT BYTE) WHEEL's ROTOR's two (127 before, its 100 %): MATH's CAOS and */
-    [P_KEY] = PD("TIME", F_INT, 0, 2, 0),         /* KEY start at 0 (the formula as written, LIBRE); MATH_CAOS shows them */
+    [P_KEY] = PD("TIME", F_INT, 0, 127, 0),       /* (JIANT BYTE: MATH's TIME 0..2 (MATH_CAOS); DRUM's GAIN 0..127) */         /* KEY start at 0 (the formula as written, LIBRE); MATH_CAOS shows them */
 
 #undef FMOP
     [P_SOFS] = PD("ROTATE", F_INT, -32, 32, 0),    /* the sequence played OFS steps later (seq.c seq_src; 0.6.92: was OFFSET) */
@@ -293,6 +293,9 @@ static const param_desc_t HUM_DESC[3] = {                /* (0.6.87) SEQ > HUMAN
 static const param_desc_t RECQ_DESC = {"REC Q", F_PCT, 0, 127, 127, 0};   /* (0.6.88) P_HRQ: 100 % on the grid */
 static const param_desc_t DRIFT_DESC = {"DRIFT", F_PCTINV, 0, 127, 127, 0};   /* (0.7.8) P_DRIFT: 127 = 0 % */
 static const param_desc_t TVEL_DESC = {"VEL", F_PCT, 0, 127, 127, 0};   /* (after V10.7.2) P_TVEL: 127 = 100 % (core.h) */
+/* (JIANT BYTE, the owner: "more power") DRUM-X's GAIN: the kit's sum x1 .. x4 (+12 dB) into its knee (eng_drum.c
+ * drum_bus), louder and denser, never past full scale. In P_KEY (MATH's TIME), a kit's own */
+static const param_desc_t DRUM_GAIN_DESC = {"GAIN", F_PCT, 0, 127, 0, 0};
 static const param_desc_t MATH_CAOS[2] = {          /* (JIANT BYTE) MATH's CAOS and KEY (core.h P_CAOS P_KEY) */
     {"CAOS", F_PCT, 0, 127, 0, 0},
     {"TIME", F_ENUM, 0, 2, 0, N_KEY},
@@ -328,6 +331,7 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
                                                          * PLAY 2's KNOB 4; EXT: none, its voice is one) */
         return en == &ENG_EXT_GONE ? &NONE_DESC : &SIMG_DESC;
     if (id == P_DKEYMODE && en == &ENG_DRUM) return &DKEYMODE_DESC;
+    if (id == P_KEY && en == &ENG_DRUM) return &DRUM_GAIN_DESC;   /* (JIANT BYTE) the kit's GAIN, in TIME's place */
     if ((id == P_VLANG || id == P_VLYR || id == P_VCONS) && en == &ENG_VOX_GONE)
         return id == P_VLANG ? &VLANG_DESC : id == P_VLYR ? &VLYR_DESC : &VCONS_DESC;
     if (id == P_FDST && en != &ENG_DRUM && en != &ENG_EXT_GONE)   /* (filter2-mod) a synth's DEST (VOICE's CONS above) */
@@ -819,6 +823,7 @@ static const page_t PAGES[] = {
                                                          * (the lyric on the NAME screen, ui_name.c) */
     {"RETRIG", FAM_EDIT, SC_TRACK, GR_NONE, {P_LRTRG, 0xFF, 0xFF, 0xFF}},
     {"CAOS", FAM_EDIT, SC_TRACK, GR_NONE, {P_CAOS, P_KEY, 0xFF, 0xFF}},   /* (JIANT BYTE) MATH: from tonal to wild, the keys */
+    {"GAIN", FAM_EDIT, SC_TRACK, GR_NONE, {P_KEY, P_E7, 0xFF, 0xFF}},   /* (JIANT BYTE) DRUM-X: GAIN and DRIVE, the kit's power */
     {"MORPH", FAM_EDIT, SC_TRACK, GR_MORPH, {P_MORPH, P_DRIFT, 0xFF, 0xFF}},   /* (0.6.45) ANALOG PHASE LOFI: the wave morphs;
                                                          * (0.7.8) DRIFT: the voices wander */
     {"ROTOR", FAM_EDIT, SC_TRACK, GR_NONE, {P_WRDEP, P_WDUST, 0xFF, 0xFF}},   /* (0.7.8) WHEEL: the rotor's depth, DUST */
