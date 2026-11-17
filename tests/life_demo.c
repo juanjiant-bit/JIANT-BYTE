@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Reproducible 8-second comparison: cc -O2 -ffp-contract=off -w -Ibuild/gen
- * -Ifirmware/src tests/life_demo.c -lm -o build/life-demo
- * build/life-demo 0 build/life-0.wav (repeat with 50 / 100). */
+ * -Ifirmware/src tests/life_demo.c -lm -o build/host-life-demo
+ * build/host-life-demo 0 build/life-0.wav (repeat with 50 / 100). */
 #include "../web/emu/felucca_web.c"
 int main(int argc,char **argv)
 {

@@ -1,6 +1,6 @@
 # LIFE musical — BYTE v0.3
 
-**Implementación actual: [v0.6, intermodulación entre fórmulas](byte-v06.md).**
+**Implementación actual: [v0.7, intercambio de timbre sin chirrido](byte-v07.md).**
 
 **Actualizado en v0.4:** curva progresiva, rango más amplio y extremos audibles. Ver [controles y comparaciones actuales](byte-v04.md). Lo siguiente documenta la primera revisión v0.3.
 

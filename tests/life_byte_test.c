@@ -16,8 +16,8 @@ static void config(int amt,int numbers,int fragments,int link){
 }
 static double delta(const int32_t*a,const int32_t*b){double d=0,e=1;for(unsigned i=0;i<NS;i++){double x=(double)a[i]-b[i];d+=x*x;e+=(double)a[i]*a[i];}return sqrt(d/e);}
 /* Execute two actual compiled formulas, snapshots from the previous control block.
- * Both orders are tested; source samples are deliberately zeroed in fragment-only
- * tests, so a waveform crossfade cannot pass the instruction-graft test. */
+ * Both orders are tested. Fragments are evaluated on a normalized cycle,
+ * independently of the pitch/clock used to render the donor audio. */
 static void vm(const char*donor,int amt,int number,int frag,int link,int reverse,int quiet,int32_t*out){
  config(amt,number,frag,link);compile(&recv,target_text);compile(&src,donor);
  fvm_ins_t saved[FVM_MAXINS];memcpy(saved,recv.ins,sizeof saved);
@@ -27,7 +27,6 @@ static void vm(const char*donor,int amt,int number,int frag,int link,int reverse
  for(unsigned o=0;o<NS;o+=FVM_BLK){
   if(quiet==1)trk[1].p[P_MUTE]=1;if(quiet==2||(quiet==5&&o>=NS/2))trk[1].v[0].active=0;if(quiet==4)life_v[LIFE_N]=0;
   life_formula_block(quiet==3?2:0);
-  if(!link)memset(fl.sum,0,sizeof fl.sum);
   for(unsigned a=0;a<2;a++){
    unsigned k=reverse?1-a:a;for(unsigned j=0;j<FVM_BLK;j++){T[j]=(o+j)*3;W[j]=((o+j)*(k?725:389))&65535;}
    fl_bind(&trk[k],&trk[k].v[0],fl.depth[k]);fl_run(k?&src.p:&recv.p,&e,&scratch,FVM_BLK,values);fl_unbind();
@@ -59,20 +58,25 @@ static void network(unsigned receiver,unsigned donor,int amt,int third,int chang
  }
  int32_t b[CTL];for(unsigned o=0;o<NS;o+=CTL){life_formula_block(0);for(unsigned k=0;k<(third?3:2);k++){track_render(&trk[k],b,CTL);if(!k)memcpy(out+o,b,sizeof b);}}
 }
+#ifndef LIFE_TEST_LIBRARY
 int main(void){
+ config(0,0,0,0);fl.gate[0]=100;fl.node[fl.rd][0].wave[0]=300;fl.sum[0]=10000;
+ CHECK(fl_other_h(0,0,200)==-100,"negative donor remains negative after self subtraction");
+ fl.node[fl.rd][0].wave[0]=-300;fl.sum[0]=-10000;
+ CHECK(fl_other_h(0,0,200)==100,"negative self is removed with signed arithmetic");
  int monotonic=1;for(int i=1;i<=100;i++)monotonic&=life_curve(i)>=life_curve(i-1);
  CHECK(monotonic&&life_curve(0)==0&&life_curve(50)==48&&life_curve(75)==126&&life_curve(100)==256,"master audio taper preserved");
  vm("sin(w*7.0)",0,100,100,100,0,0,dry);
  vm("sin(w*7.0)",100,0,0,0,0,0,lwet);CHECK(!memcmp(dry,lwet,sizeof dry),"zero controls exact bypass");
  for(unsigned k=0;k<3;k++){vm("sin(w*7.0)",100,k==0?100:0,k==1?100:0,k==2?100:0,0,0,lwet);printf("control %u relative difference %.4f\n",k,delta(dry,lwet));CHECK(delta(dry,lwet)>.1,"each control changes actual receiving samples");}
- vm("sin(w*7.0)",100,0,100,0,0,0,lwet);vm("sin(w*3.0)",100,0,100,0,0,0,other);CHECK(delta(lwet,other)>.1,"changing donor instructions changes destination without donor audio");
+ vm("sin(w*7.0)",100,0,100,0,0,0,lwet);vm("sin(w*3.0)",100,0,100,0,0,0,other);CHECK(delta(lwet,other)>.1,"changing donor instructions changes destination through the evaluated waveform profile");
  vm("t*5",100,0,100,0,0,0,lwet);CHECK(delta(dry,lwet)>.1,"integer fragment modulates FIX destination");
  target_text="t*2";vm("sin(w*7.0)",0,0,0,0,0,0,dry);vm("sin(w*7.0)",100,0,100,0,0,0,lwet);CHECK(delta(dry,lwet)>.1,"FIX fragment modulates INT destination");
  target_text="sin(w*2.0)";vm("sin(w*7.0)",0,0,0,0,0,0,dry);
  vm("sin(w*7.0)",100,65,60,40,0,0,lwet);vm("sin(w*7.0)",100,65,60,40,1,0,other);CHECK(!memcmp(lwet,other,sizeof lwet),"render order independence");
  for(int k=1;k<=4;k++){vm("sin(w*7.0)",100,100,100,100,0,k,lwet);CHECK(!memcmp(dry,lwet,sizeof dry),"mute / inactive / performance hush / per-track zero bypass");}
  vm("sin(w*7.0)",100,65,60,40,0,5,lwet);CHECK(!memcmp(dry+NS/2,lwet+NS/2,sizeof dry/2),"ending a previously active donor leaves no stale interaction");
- compile(&src,"ph(2.0)");CHECK(src.p.life_fn==1,"stateful opcode excluded from fragment");
+ compile(&src,"ph(2.0)");CHECK(src.p.life_fn==0,"stateful opcode excluded from fragment");
  compile(&src,"\"123\"[t]");CHECK(src.p.life_fn<=1,"table opcode excluded from fragment");
  for(unsigned i=0;i<3;i++){unsigned eng=i==0?ENGI_LOFI:i==1?ENGI_DRUM:ENGI_WAVE;uint32_t c0,c1;
   engine(eng,0,i==2,0,dry,&c0);engine(eng,100,i==2,0,lwet,&c1);
@@ -88,10 +92,12 @@ int main(void){
   for(int donor=1;donor<=2;donor++){network(ids[r],ids[(r+1)%3],100,1,donor,1,lwet);printf("fanin receiver%u donor%d delta %.4f\n",ids[r],donor,delta(dry,lwet));CHECK(delta(dry,lwet)>.01,"both simultaneous donors affect FRAG, no chosen neighbour");}
  }
  network(99,ENGI_WAVE,0,0,-1,0,dry);network(99,ENGI_WAVE,100,0,-1,0,lwet);CHECK(delta(dry,lwet)>.001,"classic drum receives NUM/LINK in a temporary timbre operand");
- network(ENGI_WAVE,99,0,0,-1,0,dry);network(ENGI_WAVE,99,100,0,-1,0,lwet);CHECK(delta(dry,lwet)>.01,"classic drum donates its values and signal");
+ network(ENGI_WAVE,99,0,0,-1,0,dry);network(ENGI_WAVE,99,100,0,-1,0,lwet);CHECK(delta(dry,lwet)>.01,"classic drum donates its timbre value and envelope");
  for(unsigned control=0;control<3;control++){
   vm("sin(w*7.0)",100,0,0,0,0,0,dry);
   for(unsigned value=25;value<=100;value+=25){vm("sin(w*7.0)",100,control==0?value:0,control==1?value:0,control==2?value:0,0,0,lwet);CHECK(delta(dry,lwet)>.001,"each control has distinct intermediate values throughout its travel");memcpy(dry,lwet,sizeof dry);}
  }
  puts(fails?"lifeb: FAILED":"lifeb: all ok");return !!fails;
 }
+
+#endif

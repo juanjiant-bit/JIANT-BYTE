@@ -53,12 +53,11 @@ The **song generator** (HOME > GEN) now selects native MATH and WAVE presets by 
 Bass and melodic parts keep curated tonal formulas; textures can use rhythmic bytebeats and controlled CAOS.
 The genre still supplies harmony, rhythm, envelopes and arrangement. The same seed and settings reproduce the song.
 
-## LIFE: musical movement
+## LIFE: formula timbres
 
-HOME > LIFE has four knobs. **LIFE** sets the overall depth and starts at **0**, including every GEN form.
-**PULSE** adds a gentle beat-synchronized breath, **COLOR** blends a slow parallel lowpass, and **LINK** makes tracks
-respond softly to the other tracks' envelopes. These controls preserve oscillator/formula timing and pitch;
-turning up LIFE no longer injects cross-track FM or increases CAOS. The master has a broad low/mid range and reaches deep modulation near its maximum. See [BYTE v0.4 controls](docs/byte-v04.md).
+HOME > LIFE has **LIFE / NUM / FRAG / LINK**. LIFE starts at 0, including every GEN form, and has a progressive depth curve. NUM exchanges bounded shape coefficients; FRAG exchanges band-limited waveform expressions at the receiving note's phase; LINK smoothly changes their character using the other active voices. WAVE, MATH BYTE/FLOAT and DRUM-X participate in both directions, including overlapping notes within a track. Original clocks and saved formulas stay intact.
+
+See [BYTE v0.7: controls, matched-level examples and spectral checks](docs/byte-v07.md). FUGA's silent intro with four tracks is fixed.
 
 ## Formulas everywhere
 

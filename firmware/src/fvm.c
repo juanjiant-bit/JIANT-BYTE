@@ -815,14 +815,18 @@ static uint32_t fvm_compile(fvm_cc_t *c, fvm_prog_t *p, const char *src, uint32_
     }
     p->depth = (uint8_t)c->maxsp;
     { /* Compiler-derived, stack-complete prefixes only. No state, tables or cross-track reads. */
-        uint32_t i, sp=0, safe=1;
+        uint32_t i, sp=0, safe=1, waveform=0;
         for(i=0;i<p->n;i++) {
             const fvm_ins_t *in=&p->ins[i]; uint32_t op=in->op;
             if(op==FO_PUSH) sp++;
             else if((FO_ISBIN(op)||op==FO_LP||op==FO_HP)&&in->md==FM_STK) sp--;
             else if(op==FO_SEL) sp-=2;
             if(op==FO_PH||op==FO_LP||op==FO_HP||op==FO_TAB||(in->md==FM_ARR&&in->k>=FA_X)) safe=0;
-            if(safe && sp==1 && i<8u) {p->life_fn=(uint8_t)(i+1);p->life_ft=(uint8_t)((in->sl>>8)&1u);}
+            if(op>=FO_SINI&&op<=FO_RNDF)waveform=1;
+            if(safe&&sp==1&&(waveform||
+                (p->ty==FT_INT&&i+1u==p->n))) {
+                p->life_fn=(uint8_t)(i+1);p->life_ft=(uint8_t)((in->sl>>8)&1u);
+            }
             if((op==FO_PUSH||FO_ISBIN(op))&&in->md==FM_ARR&&in->k<=FA_TS &&
                (!p->life_in || (in->k==FA_W&&p->ins[p->life_in-1u].k!=FA_W))) p->life_in=(uint8_t)(i+1);
             if(!p->life_num&&in->md==FM_IMM&&(op==FO_PUSH||FO_ISBIN(op))) {

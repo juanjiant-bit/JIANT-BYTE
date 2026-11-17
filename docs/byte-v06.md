@@ -1,5 +1,7 @@
 # BYTE v0.6 — FUGA y LIFE entre fórmulas
 
+**LIFE fue corregido y rediseñado en [v0.7](byte-v07.md). Esta página conserva la descripción histórica de v0.6.**
+
 En **GEN → FUGA → SONG**, la primera voz ahora entra también con cuatro pistas. El generador reservaba un canal de batería incluso en géneros sin batería; esa reserva podía colocar el sujeto inicial fuera de las pistas activas. FUGA conserva su estructura y el generador sigue dejando **LIFE en 0**.
 
 En **HOME → LIFE**, los cuatro encoders controlan:
