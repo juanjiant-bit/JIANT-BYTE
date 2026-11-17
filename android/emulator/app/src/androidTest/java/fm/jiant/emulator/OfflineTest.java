@@ -35,7 +35,8 @@ public class OfflineTest {
    js(activity,"document.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyZ',key:'z',bubbles:true}));document.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyX',key:'x',bubbles:true}));");
    assertEquals("0",js(activity,"window.jiantDiagnostics.keys()"));
    screenshot(activity,p+"-portrait");
-   instrumentation.runOnMainSync(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));Thread.sleep(700);assertEquals(p,activity.bootedProfile);screenshot(activity,p+"-landscape");
+   js(activity,"document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyZ',key:'z',bubbles:true}));");
+   instrumentation.runOnMainSync(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));Thread.sleep(700);assertEquals(p,activity.bootedProfile);screenshot(activity,p+"-landscape");assertEquals("0",js(activity,"window.jiantDiagnostics.keys()"));
    instrumentation.runOnMainSync(()->activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));Thread.sleep(700);assertEquals(p,activity.bootedProfile);
    instrumentation.runOnMainSync(activity::onBackPressed);Thread.sleep(1500);
   }

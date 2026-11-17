@@ -320,7 +320,7 @@ function bindKnob(k) {
 }
 const tall = matchMedia("(orientation: portrait) and (max-width: 700px)");
 build(tall.matches ? "tall" : "wide");
-tall.addEventListener("change", () => { btnBy.clear(); keyBy.clear(); btnMask=keyMask=latched=0; syncButtons(); syncKeys(); build(tall.matches ? "tall" : "wide"); });
+tall.addEventListener("change", () => { btnBy.clear(); keyBy.clear(); latched=0; syncButtons(); syncKeys(); build(tall.matches ? "tall" : "wide"); });
 document.fonts?.load("16px DotGothic16").then(() => build(layout), () => {});   // the labels' width: the hit areas
 
 // the computer keyboard, every key one control: F3..A#4 on the Z (white) and A (black) rows, B4..G5 on Q..O
