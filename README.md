@@ -1,5 +1,7 @@
 # JIANT BYTE
 
+**▶ [Try it in the browser](https://juanjiant-bit.github.io/JIANT-BYTE/emu/)** · **[Install](https://juanjiant-bit.github.io/JIANT-BYTE/webapp/installer/)** · **[Web editor](https://juanjiant-bit.github.io/JIANT-BYTE/webapp/editor/)**
+
 **Bytebeat and floatbeat firmware for the M-VAVE FM-1.** Every sound, drum, being, punch-in and animation is a formula
 of time.
 
