@@ -34,10 +34,52 @@ static int32_t fl_point(const int32_t *p,uint32_t i,uint32_t n)
     if(k>=FL_POINTS-1u)return p[FL_POINTS-1u];
     return p[k]+((p[k+1u]-p[k])*(int32_t)(x&255u)>>8);
 }
+/* Largest complete stateless expression in each donor's fair share. */
+static uint32_t fl_prefix(const fl_node_t *a,uint32_t budget)
+{
+    uint32_t i,sp=0,last=0;
+    for(i=0;i<a->n&&i<budget;i++) {
+        const fvm_ins_t *in=&a->ins[i];
+        if(in->op==FO_PUSH)sp++;
+        else if(FO_ISBIN(in->op)&&in->md==FM_STK)sp--;
+        else if(in->op==FO_SEL)sp-=2;
+        if(sp==1)last=i+1;
+    }
+    return last;
+}
+/* Classic DRUM has no formula: exchange its COLOR literal and actual signal,
+ * and receive NUM/LINK through a temporary COLOR operand, never its saved patch. */
+static int32_t fl_classic_color(int32_t color)
+{
+    uint32_t c=MC_CPU()&1u,id=fl_ctx[c].id,depth=fl_ctx[c].depth;
+    if(!fl.on||!id||!depth)return color;
+    id--;uint32_t g=fl.gate[id],own=g&&fl.node[fl.rd][id].has_number;
+    uint32_t count=fl.ncount-own,w=fl.number_weight-(own?g:0),other=fl.count-(g!=0);
+    int32_t value=color;
+    if(count&&w&&fl.numbers_amt){
+        int32_t num=(fl.numbers-(own?fl.node[fl.rd][id].number*(int32_t)g:0))/(int32_t)w;
+        uint32_t amount=depth*fl.numbers_amt/100u*w/(count*256u);
+        value+=(num/64-color)*(int32_t)amount/256;
+    }
+    if(other&&fl.link_amt){
+        int32_t signal=0;for(uint32_t i=0;i<FL_POINTS;i++)signal+=(fl.sum[i]-(int32_t)fl.node[fl.rd][id].wave[i]*g)/(int32_t)(other*256u);
+        signal/=FL_POINTS;
+        value+=signal*(int32_t)(depth*fl.link_amt/100u)/131072;
+    }
+    return clamp(value,0,127);
+}
+static void fl_classic_capture(int32_t color,int32_t envelope,const int32_t *y,uint32_t n)
+{
+    uint32_t c=MC_CPU()&1u,id=fl_ctx[c].id;if(!fl.on||!id||!n)return;
+    fl_node_t *a=&fl.node[fl.rd^1u][id-1u];
+    a->valid=1;a->note=fl_ctx[c].note;a->n=0;a->has_number=1;a->number=(uint16_t)(color*64);
+    a->envelope=(uint16_t)clamp(envelope,0,32767);
+    for(uint32_t i=0;i<FL_POINTS;i++)a->wave[i]=(int16_t)clamp(y[i*(n-1u)/(FL_POINTS-1u)],-32767,32767);
+}
 static __attribute__((noinline)) void fl_run(const fvm_prog_t *p,const fvm_env_t *e,fvm_scratch_t *sc,uint32_t n,uint32_t *out)
 {
-    uint32_t id=fl_ctx[MC_CPU()&1u].id, i, other, donor=FL_VOICES, depth;
-    int32_t offset[FVM_BLK], signal[FL_POINTS];
+    uint32_t id=fl_ctx[MC_CPU()&1u].id, i, other, depth;
+    int32_t offset[FVM_BLK], signal[FL_POINTS], graft[FVM_BLK];
     uint32_t fragment[FVM_BLK];
     fvm_patch_t patch={0};
     fl_node_t *write;
@@ -65,20 +107,15 @@ static __attribute__((noinline)) void fl_run(const fvm_prog_t *p,const fvm_env_t
             }
         }
         if(p->life_in&&(fd||ld)) {
-            if(fd) for(i=1;i<FL_VOICES;i++) {
-                uint32_t d=(id+i)%FL_VOICES;
-                const fl_node_t *a=&fl.node[fl.rd][d];
-                if(fl.gate[d]&&a->n&&p->n+a->n<=FVM_MAXINS) {donor=d;break;}
-            }
-            if(donor<FL_VOICES) {
-                const fl_node_t *a=&fl.node[fl.rd][donor];
-                fvm_prog_t piece={0};piece.ins=(fvm_ins_t *)a->ins;piece.n=a->n;piece.cap=FL_PREFIX;piece.ty=a->ty;
-                /* No states or tables in an admitted fragment. Its original
-                 * instructions run on the destination's t/w/A/n/v, never on audio output. */
+            uint32_t donors=0,d,quota;
+            memset(graft,0,sizeof graft);
+            if(fd)for(d=0;d<FL_VOICES;d++)if(d!=id&&fl.gate[d]&&fl.node[fl.rd][d].n)donors++;
+            /* Every eligible donor gets the same budget. <=64 extra instructions
+             * total, even at 48 snapshots; never select a neighbour or drop a voice. */
+            quota=donors?FVM_MAXINS/donors:0;
+            if(donors) {
                 fvm_env_t receiver=*e;
                 uint32_t phase[FVM_BLK],seconds[FVM_BLK];
-                /* BYTE has no w array; express its 256-step cycle in FIX turns.
-                 * Missing T follows the receiving formula clock at 8 kHz. */
                 if(!receiver.arr[FA_W]) {
                     for(i=0;i<n;i++)phase[i]=e->arr[FA_T]?(e->arr[FA_T][i]&255u)<<8:0;
                     receiver.arr[FA_W]=phase;
@@ -88,13 +125,19 @@ static __attribute__((noinline)) void fl_run(const fvm_prog_t *p,const fvm_env_t
                     receiver.arr[FA_TS]=seconds;
                 }
                 receiver.u[FU_NOTE]=fl_ctx[MC_CPU()&1u].note;
-                fvm_run(&piece,&receiver,sc,n,fragment);
-                fd=fd*fl.gate[donor]/256u;
-            } else fd=0;
+                for(d=0;d<FL_VOICES;d++)if(d!=id&&fl.gate[d]&&fl.node[fl.rd][d].n) {
+                    const fl_node_t *a=&fl.node[fl.rd][d];
+                    fvm_prog_t piece={0};piece.ins=(fvm_ins_t *)a->ins;piece.n=fl_prefix(a,quota);piece.cap=FL_PREFIX;
+                    piece.ty=(uint8_t)((a->ins[piece.n-1u].sl>>8)&1u);
+                    fvm_run(&piece,&receiver,sc,n,fragment);
+                    for(i=0;i<n;i++)graft[i]+=fvm_sample(piece.ty,fragment[i])*(int32_t)fl.gate[d];
+                }
+                for(i=0;i<n;i++)graft[i]/=(int32_t)(donors*256u);
+            }
             for(i=0;i<FL_POINTS;i++) signal[i]=(fl.sum[i]-(int32_t)self->wave[i]*g)/(int32_t)(other*256u);
             for(i=0;i<n;i++) {
                 int32_t v=ld?fl_point(signal,i,n)*(int32_t)ld/128:0;
-                if(fd) v+=fvm_sample(fl.node[fl.rd][donor].ty,fragment[i])*(int32_t)fd/128;
+                if(fd) v+=graft[i]*(int32_t)fd/128;
                 /* FIX phase in turns; INT time in 256-step cycles. The clock
                  * itself, oscillator accumulator, MIDI note and sequencer never change. */
                 offset[i]=(p->ins[p->life_in-1u].sl&512u)?v:v/256;

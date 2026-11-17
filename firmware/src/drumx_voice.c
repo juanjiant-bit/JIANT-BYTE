@@ -310,7 +310,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
                                              int32_t dofs, int32_t cofs, int32_t nofs, int32_t warp, int32_t fm, int32_t *y,
                                              uint32_t n, uint32_t feedback)
 {
-    int32_t q[DXP_N], p16, depth, ea0, ea1, en1, ep1, og, ng, ga, dga, gn, dgn, kd, inc, dinc, mt, cw, cx;
+    int32_t life_color=0,q[DXP_N], p16, depth, ea0, ea1, en1, ep1, og, ng, ga, dga, gn, dgn, kd, inc, dinc, mt, cw, cx;
     uint32_t i, k, wave = L->mode & 3u, flt = (L->mode >> 2) & 3u, ta, tn, tp, kb, inc1, sp, gr = flt == DXF_GR, slen = 0, sinc = 0;
     tsvf_t c;
     uint32_t nf = n, ln = L >= dx_kit && L < dx_kit + 8 ? (uint32_t)(L - dx_kit) : 0u;
@@ -339,6 +339,8 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         int32_t o = clamp(k ? nofs : cofs, -64, 63), *x = &q[k ? DXP_NOISE : DXP_COLOR];
         *x += o > 0 ? o * (127 - *x < 63 ? 127 - *x : 63) / 63 : o * (*x < 64 ? *x : 64) / 64;
     }
+    life_color=q[DXP_COLOR];
+    if(fl.on&&!dx_form[ln])q[DXP_COLOR]=fl_classic_color(life_color);
     if (!ln)                                             /* (V10.6z8, the owner: "the kick sounds like a snare") the
                                                           * KICK's NOISE on a cube: the kit's 40 (V10.6q) or 4..24 (before)
                                                           * as good as none, the body whole; the knob up to 127 still there
@@ -623,6 +625,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
     }
     if (nf & 1u)                                         /* (an odd block: its last sample held) */
         y[nf - 1u] = y[nf - 2u];
+    if(fl.on&&!dx_form[ln])fl_classic_capture(life_color,(ea1>en1?ea1:en1)>>15,y,nf);
     v->hl = y[nf - 1u];
     v->ea = ea1;
     v->en = en1;
