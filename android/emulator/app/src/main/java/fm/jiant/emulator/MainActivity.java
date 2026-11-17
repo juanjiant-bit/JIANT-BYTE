@@ -36,6 +36,10 @@ public class MainActivity extends Activity {
   focus=new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()).setOnAudioFocusChangeListener(change->{if(change<0)closePlayer();},handler).build();
   try{store=new EngineStore(new File(getFilesDir(),"engines"));JSONObject entries=new JSONObject(new String(asset("engines.json"),"UTF-8")).getJSONObject("profiles");for(String p:EngineStore.PROFILES){JSONObject e=entries.getJSONObject(p);store.seed(p,e,asset("engines/"+e.getString("sha256")+".wasm"));}selector();}catch(Exception e){TextView error=new TextView(this);error.setText("No se pudo abrir el almacén local: "+e.getMessage());setContentView(error);}
  }
+ @Override public void setContentView(View content){
+  super.setContentView(content);int left=content.getPaddingLeft(),top=content.getPaddingTop(),right=content.getPaddingRight(),bottom=content.getPaddingBottom();
+  content.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(left+insets.getSystemWindowInsetLeft(),top+insets.getSystemWindowInsetTop(),right+insets.getSystemWindowInsetRight(),bottom+insets.getSystemWindowInsetBottom());return insets.consumeSystemWindowInsets();});content.requestApplyInsets();
+ }
  private TextView text(String s,int size){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(Color.rgb(255,231,205));t.setPadding(dp(12),dp(8),dp(12),dp(8));return t;}
  private Button button(String label,Runnable action){Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setOnClickListener(v->action.run());return b;}
  private void selector(){
