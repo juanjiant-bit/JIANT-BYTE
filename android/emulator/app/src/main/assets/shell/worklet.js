@@ -85,7 +85,7 @@ if (typeof registerProcessor === "function") {
 
     publish() {
       const ex = this.ex, mem = ex.memory.buffer;
-      const msg = { type: "frame", peak:this.peak }; this.peak=0;
+      const msg = { type: "frame", peak:this.peak, clock:ex.web_now_ms() }; this.peak=0;
       const leds = [ex.web_lit_buttons(), ex.web_lit_keys(), ex.web_dim_buttons(), ex.web_dim_keys(), ex.web_dim_level(),
                     ex.web_breath_buttons(), ex.web_breath_keys(), ex.web_mid_keys ? ex.web_mid_keys() : 0];
       const an = ex.web_anim_levels ? ex.web_anim_levels() : 0;   // the power-on sweep: each LED's level

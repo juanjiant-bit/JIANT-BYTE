@@ -26,9 +26,12 @@ public class OfflineTest {
    long deadline=System.currentTimeMillis()+25000;
    while(!p.equals(activity.bootedProfile)&&activity.bootError.isEmpty()&&System.currentTimeMillis()<deadline)Thread.sleep(100);
    assertEquals("Engine error: "+activity.bootError,p,activity.bootedProfile);
-   Thread.sleep(1300);
-   js(activity,"document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyZ',key:'z',bubbles:true}));document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyX',key:'x',bubbles:true}));");Thread.sleep(600);
-   assertEquals("true",js(activity,"window.jiantDiagnostics.keys()!==0 && window.jiantDiagnostics.peak>0.00001"));
+   deadline=System.currentTimeMillis()+20000;
+   while(!"true".equals(js(activity,"window.jiantDiagnostics.clock>=3000"))&&System.currentTimeMillis()<deadline)Thread.sleep(200);
+   assertEquals(p+" firmware clock: "+js(activity,"JSON.stringify(window.jiantDiagnostics)"),"true",js(activity,"window.jiantDiagnostics.clock>=3000"));
+   js(activity,"document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyZ',key:'z',bubbles:true}));document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyX',key:'x',bubbles:true}));");Thread.sleep(1000);
+   assertEquals(p+" held keys","true",js(activity,"window.jiantDiagnostics.keys()!==0"));
+   assertEquals(p+" audio: "+js(activity,"JSON.stringify({...window.jiantDiagnostics,audioState:window.jiantDiagnostics.audioState(),keys:window.jiantDiagnostics.keys()})"),"true",js(activity,"window.jiantDiagnostics.peak>0.00001"));
    js(activity,"document.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyZ',key:'z',bubbles:true}));document.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyX',key:'x',bubbles:true}));");
    assertEquals("0",js(activity,"window.jiantDiagnostics.keys()"));
    screenshot(activity,p+"-portrait");
