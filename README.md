@@ -72,11 +72,14 @@ drawn by the mix and jump with their sound. The power-on is a cracktro.
 
 ## Try it, install it
 
-- **Browser**: the emulator runs the same code as the FM-1, with sound, played with the computer keyboard or the mouse.
-  Build it with `web/emu/build.sh` (after one `./build.sh`, with Emscripten) and open `build/emu/index.html` from a
-  local web server.
-- **FM-1**: build the package with `./build.sh` (`build/felucca.fwsc`) and install it with JIANT FM's web installer, the
-  same way as any JIANT version. The web pages for JIANT BYTE (installer, emulator) are being set up.
+- **Browser**: the **[emulator](https://juanjiant-bit.github.io/JIANT-BYTE/emu/)** runs the same code as the FM-1, with
+  sound, played with the computer keyboard, the mouse or a touch screen. Press **Switch on**.
+- **FM-1**: open the **[web installer](https://juanjiant-bit.github.io/JIANT-BYTE/webapp/installer/)** in Chrome or Edge
+  on a computer, connect the FM-1 with a USB data cable and press Install. Back up first with JIANT FM's editor.
+- **Editor**: the **[web editor](https://juanjiant-bit.github.io/JIANT-BYTE/webapp/editor/)** backs up and edits the
+  FM-1's projects and sounds from the computer.
+- **Build it yourself**: `./build.sh` makes the package (`build/felucca.fwsc`); `web/emu/build.sh` (with Emscripten)
+  the emulator.
 
 Building and testing: [BUILDING.md](BUILDING.md). The plan and its progress, in Spanish: [JIANT-BYTE.md](https://github.com/juanjiant-bit/JIANT-BYTE/blob/phase2-engines/JIANT-BYTE.md).
 JIANT FM's own documentation, the base: [docs/JIANT-FM-README.md](https://github.com/juanjiant-bit/JIANT-BYTE/blob/phase2-engines/docs/JIANT-FM-README.md).
