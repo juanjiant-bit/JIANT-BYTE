@@ -58,7 +58,7 @@ The genre still supplies harmony, rhythm, envelopes and arrangement. The same se
 HOME > LIFE has four knobs. **LIFE** sets the overall depth and starts at **0**, including every GEN form.
 **PULSE** adds a gentle beat-synchronized breath, **COLOR** blends a slow parallel lowpass, and **LINK** makes tracks
 respond softly to the other tracks' envelopes. These controls preserve oscillator/formula timing and pitch;
-turning up LIFE no longer injects cross-track FM or increases CAOS. See [musical LIFE](docs/life-musical.md).
+turning up LIFE no longer injects cross-track FM or increases CAOS. The master has a broad low/mid range and reaches deep modulation near its maximum. See [BYTE v0.4 controls](docs/byte-v04.md).
 
 ## Formulas everywhere
 
@@ -124,3 +124,5 @@ Hügelton Instruments.
 
 Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments — Felucca.
 Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) — JIANT FM and JIANT BYTE.
+
+BYTE v0.4 also adds editable DRUM-X formula text, recognizable pixel drum instruments, a per-track 1–8 voice budget, and MY LOOP arrangements that preserve the original loop as section A. [Controls and verification](docs/byte-v04.md).

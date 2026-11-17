@@ -1646,6 +1646,7 @@ static __attribute__((noinline)) void gen_kit(track_t *t)
     uint32_t l, i;
     memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);
     memset(dx_fmod, 0, sizeof dx_fmod);
+    memset(dx_text, 0, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
     for (l = 0; l < 8u; l++) {
         const dx_lane_t *D = &DX_KIT_DEF[l];
         dx_lane_t *L = &dx_kit[l];
@@ -2146,8 +2147,8 @@ static void gen_parts(void)
     if (form == FM_LOOP) { section_store(0); dice_secs |= 1u; return; }
     gseed(GS_FORM);
     live.cur = -1;
-    section_store(0);                                   /* A: the whole piece */
-    if (live.cur != 0) return;
+    if (!gls.on) section_store(0);                      /* MY LOOP A was captured before adding or changing anything */
+    if (!gls.on && live.cur != 0) return;
     dice_secs |= 1u;
     memcpy(pdeg, gs.pdeg, sizeof pdeg); memcpy(pq, gs.pq, sizeof pq);
     if (dr < NTRK) memcpy(gen_keep, trk[dr].step, sizeof gen_keep);
@@ -2315,7 +2316,7 @@ static void gen_parts(void)
             for (k = 0; k < NTRK; k++) if (!((allow >> gs.role[k]) & 1u)) m |= 1u << k;
             gm = f >> 4 | (t == GT_INTROK && (g->drum == DM_EBM5 || (!j && fok >> 31)) ? DXG_KICK : 0u);   /* (the owner's EBM reference: its
                                                          * intro without the kick) */
-            s = t == GT_BREAK ? 3u : t == GT_BUILD ? 2u : gls.on && t != GT_DROP ? (i >> t) & 1u : 0u;
+            s = t == GT_BREAK ? 3u : t == GT_BUILD ? 2u : gls.on && t != GT_DROP ? 1u : 0u;
             if (gls.on && t != GT_DROP && gch(30)) bars = bars > 8u ? bars / 2u : bars * 2u;   /* (MY LOOP: a seed's lengths) */
             if (t == GT_DROP && !sg && gch(50)) bars *= 2u;    /* (a drop of 16 or 32) */
             if (gls.on && t == GT_DROP) m &= gls.add;             /* (FROM LOOP: the drop the loop as it is, its own parts all in) */
@@ -2829,7 +2830,13 @@ static __attribute__((noinline)) void gen_make(void)
     const ggenre_t *g;
     uint32_t k, dr = NTRK, nlive = trk_live < NTRK ? trk_live : NTRK, nmel, drums, next, wet;
     life_v[LIFE_AMT] = 0;                          /* every generated form, including FROM LOOP, starts dry */
-    if (gls.u) { gls_prep(); goto parts; }            /* (FROM LOOP: the loop's song, gen_loop.c) */
+    if (gls.u) {
+        dice_secs = 0; live.cur = -1;                  /* only newly stored sections count as this result */
+        section_store(0);                             /* exact source loop, before added parts or arrangement edits */
+        if (live.cur != 0) return;
+        dice_secs |= 1u;
+        gls_prep(); goto parts;
+    }            /* (FROM LOOP: the loop's song, gen_loop.c) */
     gen_clean();                                        /* (0.9.9-gen1) from NEW PROJECT's state, nothing of before */
     /* the choices from the seed: the genre (RANDOM), the root, the scale, the progression, the bass */
     gseed(GS_PICK);
@@ -3114,13 +3121,19 @@ static void gen_go(void)
     }
     gls.u = gp.form == 3u;
     gen_make();
+    if (gls.u && (dice_secs != 15u || !live.mode || chain_config.count < 4u)) {
+        if (dice_secs & 1u) section_load(0);
+        chain_defaults(&chain_config); live.mode = 0;
+        ui_message("MY LOOP: PART FULL"); str_cpy(ui.msg2, "LOOP KEPT / NO SONG MADE", sizeof ui.msg2);
+        ui.force = 1; return;
+    }
     str_cpy(gp.last, gs.g->name, sizeof gp.last);
     k = str_len(gp.last);
     b[0] = ' '; b[1] = (char)('0' + gp.seed / 1000u % 10u); b[2] = (char)('0' + gp.seed / 100u % 10u);
     b[3] = (char)('0' + gp.seed / 10u % 10u); b[4] = (char)('0' + gp.seed % 10u); b[5] = 0;
     str_cpy(gp.last + k, b, sizeof gp.last - k);
     ui_say("GEN: ", gp.last);
-    str_cpy(ui.msg2, gls.u && !gls.room ? "NO EMPTY TRACK: ARRANGED" : live.mode ? "PLAY: SONG / SAVE: ALL PARTS" : "UNDO: GLO + G4", sizeof ui.msg2);
+    str_cpy(ui.msg2, gls.u && !gls.room ? "NO EMPTY TRACK: ARRANGED" : gls.u ? "A: YOUR LOOP / PLAY: SONG" : live.mode ? "PLAY: SONG / SAVE: ALL PARTS" : "UNDO: GLO + G4", sizeof ui.msg2);
     if (play) { if (live.mode) chain_play_ui(); else transport_req = 1; }
     ui.force = 1;
 }

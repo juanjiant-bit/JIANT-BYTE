@@ -490,6 +490,7 @@ EXPORT void web_test_heavy(void)
     }
     host_drums(&trk[3]);
     dx_kit_load(DX_NKIT);                              /* FLOAT KIT, all three modifiers in the native/WASM check */
+    str_cpy(dx_text[0], "sin(w+sin(w*2)*A*2)", DX_TEXT); dx_form[0] = DX_USER; dx_fid[0] = 0;
     dx_fmod[0][DFM_RATE] = 12;
     dx_fmod[1][DFM_BEND] = 90;
     dx_fmod[2][DFM_CRUSH] = 8;

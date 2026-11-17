@@ -2126,11 +2126,11 @@ static void draw_graph(void)
             cv_oy = 0;
             if (pg->title[0] == 'F') {
                 uint32_t f = dx_form[dx_ui_lane & 7u];
-                cv_text(8, 6 - AF_X_CAP_Y, &AF_X, f ? "FLOATBEAT / DRUM-X" : "CLASSIC / DRUM-X", T_ACCENT);
-                ub_text_draw(8, 28, f ? DX_FORMS[(f - 1u) % DX_NFORM] : "DRUM-X oscillator + noise", 37, 4, T_TEXT);
-                cv_text(8, 82 - AF_X_CAP_Y, &AF_X, "A: COLOR / MORPH A-B", T_DIM);
-                cv_text(8, 111 - AF_X_CAP_Y, &AF_X, f ? "RATE / BEND: TIME" : "CLASSIC: FORM MOD OFF", T_DIM);
-                if (f) cv_text(8, 125 - AF_X_CAP_Y, &AF_X, "BITS: RESOLUTION", T_DIM);
+                cv_text(8, 6 - AF_X_CAP_Y, &AF_X, f == DX_USER ? "USER FLOATBEAT / DRUM-X" : f ? "FLOATBEAT / DRUM-X" : "CLASSIC / DRUM-X", T_ACCENT);
+                cv_rect(5, 21, 230, 77, T_SURF);
+                ub_formula_large(f ? dx_formula_text(dx_ui_lane) : "CLASSIC OSCILLATOR");
+                cv_text(8, 105 - AF_S_CAP_Y, &AF_S, dx_pagen(pg) == 9u ? "OCT+ EDIT FORMULA" : "TEXT: FORMULA PAGE", T_THEME);
+                cv_text(8, 126 - AF_X_CAP_Y, &AF_X, "w: PHASE  T: SECONDS  A: COLOR", T_DIM);
             } else if (pg->title[0] == 'S')                 /* (0.9.4) SOUND 1..4: the drum kit, the sound edited lit (ui_engvis.c) */
                 vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));
             else

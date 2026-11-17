@@ -655,7 +655,7 @@ static int page_visible(uint32_t i)
         return te != ENGI_DRUM && te != ENGI_INPUT &&
                !(FELUCCA_FM4 && te == ENGI_DIGITAL);
     if (PAGES[i].id[0] == ID_CRU)                       /* (V10.7.35) VOICES 3: a kit's and EXT's (a synth's on TONE) */
-        return te == ENGI_DRUM || te == ENGI_INPUT;
+        return 1; /* VOICES 3 also exposes the glide mode for synths */
     if (PAGES[i].id[0] == P_ALLOC)                      /* (0.8.5) VOICE 2: not a kit's */
         return te != ENGI_DRUM;
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)   /* (0.6.10) OPERATOR, OP ENV, OPERATOR 2: FM6's
@@ -2173,6 +2173,7 @@ static uint32_t dx_pagen(const page_t *pg)            /* SOUND 1..3; (0.5.1) X-M
         return 4u;
     return pg->title[5] == ' ' ? (pg->title[6] == '4' ? 8u : (uint32_t)(pg->title[6] - '0')) : 1u;
 }
+static int dx_formula_page(void) { return !ui.home && cur_page()->graph == GR_DXSND && dx_pagen(cur_page()) == 9u; }
 static void dx_knob(const page_t *pg, uint32_t k, int32_t s);
 static void dx_cards(const page_t *pg);
 static void dx_kit3_knob(uint32_t k, int32_t s);      /* (0.6.54) KIT 3: TONE's BP, FEEDBK */
@@ -2199,6 +2200,7 @@ static uint32_t act_cols(void)                   /* the columns that are actions
     uint32_t c, m = 0;
     if (ui.home)
         return 0;
+    if (dx_formula_page()) return 16u;
     if (pg->graph == GR_PUNCH) return 8u;               /* (0.6.99) PUNCH: KNOB 4 CLEAR */
     if (pg->graph == GR_EVENTS || pg->graph==GR_TRACKGEN) return 16u;
     if (pg->graph == GR_TOOLS) return 15u;
@@ -2227,6 +2229,7 @@ static uint32_t shp_rep(void) { return shp_r == 0u ? 1u : shp_r < 8u ? shp_r + 1
 
 static uint32_t act_col(void)
 {
+    if (dx_formula_page()) return 5u;
     if (!ui.home && cur_page()->graph == GR_SONG) return 1u;
     if (!ui.home && (cur_page()->graph == GR_EVENTS || cur_page()->graph==GR_TRACKGEN)) return 5u;
     if (!ui.home && (cur_page()->graph == GR_LYRIC || cur_page()->graph==GR_LYRSTEP)) return 4u;
@@ -2237,6 +2240,7 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
 {
     static const char *const UP_GO[3] = {"LOAD", "ERASE", "SAVE"};
     uint32_t id = cur_page()->id[c & 3u];
+    if (dx_formula_page()) return "EDIT FORMULA";
     if (cur_page()->graph == GR_PUNCH) return "CLR AUTO";   /* (snd2) the punch-in lane only */
     if (cur_page()->graph == GR_EVENTS) return ev_act_name();
     if (cur_page()->graph == GR_LYRIC) return "TYPE";
@@ -2262,6 +2266,7 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
  * a flash write, steps to clear */
 static int act_ready(void)
 {
+    if (dx_formula_page()) return 1;
     uint32_t c = act_col(), s = song.sel, id;
     if (!c--)
         return 0;

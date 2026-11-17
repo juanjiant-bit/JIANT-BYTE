@@ -19,9 +19,16 @@ typedef struct {
 } life_t;
 static life_t life LIFE_POOL;
 static __attribute__((noinline)) int32_t life_noise(uint32_t seed, uint32_t clk, uint32_t lg) { return drift_noise(seed, clk, lg); }
+/* Audio-pot taper: broad low/mid travel; the extreme lives in the last quarter.
+ * 25 -> 3.9%, 50 -> 18.8%, 75 -> 49.2%, 100 -> 100%. Integer, monotonic, exact zero. */
+static int32_t life_curve(int32_t v)
+{
+    v = clamp(v, 0, 100);
+    return v * v * (100 + v) * 256 / 2000000;
+}
 static int32_t life_pt(uint32_t ti, int32_t lof)
 {
-    return clamp(life_v[LIFE_AMT], 0, 100) * clamp(life_v[LIFE_N + ti % NTRK] + lof, 0, 100) * 256 / 10000;
+    return life_curve(life_v[LIFE_AMT]) * clamp(life_v[LIFE_N + ti % NTRK] + lof, 0, 100) / 100;
 }
 static LIFE_SZ int32_t life_src(const track_t *t, uint32_t s)
 {
@@ -54,12 +61,12 @@ static LIFE_SZ void life_master(void)
     frac = (pos << 16) / den;
     if (song.playing) {
         life.phase = ((clk_n & 3u) << 30) + (frac << 14);
-        life.slowphase = ((clk_n & 63u) << 26) + (frac << 10);
+        life.slowphase = ((clk_n & 31u) << 27) + (frac << 11);
     } else {
         uint32_t delta = (0xffffffffu / beat) * CTL;
-        life.phase += delta; life.slowphase += delta >> 4;
+        life.phase += delta; life.slowphase += delta >> 3;
     }
-    /* 0 at each beat, peak between beats; COLOR traverses a smooth four-bar arc. */
+    /* 0 at each beat, peak between beats; COLOR traverses a smooth two-bar arc. */
     life.pulse = (uint16_t)((32767 - sine_i(life.phase + 0x40000000u)) >> 6);
     life.color = (uint16_t)((32767 + sine_i(life.slowphase)) >> 6);
     life.on = life_v[LIFE_AMT] > 0;
@@ -83,7 +90,7 @@ static LIFE_SZ void life_master(void)
     for (i = 0; i < NTRK; i++) {
         uint32_t sum = 0, weight = 0;
         for (j = 0; j < NTRK; j++) {
-            uint32_t w = i != j && j < trk_live && !trk[j].p[P_MUTE] && life_v[LIFE_N + j] ?
+            uint32_t w = i != j && j < trk_live && !trk[j].p[P_MUTE] && life_v[LIFE_N + j] && life.en[j] > 32 ?
                          (trk[j].engine == ENGI_DRUM ? 2u : 1u) : 0u;
             life.w[i][j] = (int16_t)(w ? 8192u * w : 0u);
             sum += w * (uint32_t)life.en[j]; weight += w;
@@ -106,12 +113,11 @@ static __attribute__((noinline)) void life_process(uint32_t ti, int32_t *out, ui
     ti %= NTRK;
     if (!n) return;
     if (!depth || !(pulse || color || link)) { life.active[ti] = 0; return; }
-    /* Q10: at full depth PULSE <=12%, LINK <=8%, COLOR <=25% wet. */
-    g = 1024 - (int32_t)(life.pulse * (uint32_t)pulse * 123u / 102400u) -
-               (int32_t)(life.link[ti] * (uint32_t)link * 82u / 102400u);
-    g = 1024 - ((1024 - g) * depth >> 8);
-    wet = (color * depth) / 100;                        /* <=256/1024 */
-    cf = 128 + (life.color * 512 >> 10);                /* stable one pole; no resonance or feedback */
+    /* Q10: at full depth PULSE <=90%, LINK <=50%, COLOR <=100% wet; independent gains multiply. */
+    g = 1024 - ((int32_t)(life.pulse * (uint32_t)pulse * 922u / 102400u) * depth >> 8);
+    g = g * (1024 - ((int32_t)(life.link[ti] * (uint32_t)link * 512u / 102400u) * depth >> 8)) >> 10;
+    wet = (color * depth) / 25;                        /* <=1024/1024 */
+    cf = 8 + (life.color * life.color * 768u >> 20);                /* stable one pole; no resonance or feedback */
     if (!life.active[ti]) {
         life.gain[ti] = 1024; life.wet[ti] = 0; life.coef[ti] = (uint16_t)cf;
         for (c = 0; c < 3u; c++) life.lp[ti][c] = c && !side ? 0 : ch[c][0];

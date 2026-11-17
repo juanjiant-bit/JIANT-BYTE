@@ -102,6 +102,11 @@ static struct {
     uint8_t row, section;             /* the song row it is for (SEC_LIVE: a live jump), the section (0..3) */
     uint32_t src;                     /* (V10.6s) CLIPS: each track's part as a row's tsrc has it (SONG REC's rows) */
 } sec_stage __attribute__((section(".lowbuf")));
+/* Optional section extensions live in the pool; LOWBUF has no room for formula text. */
+static struct {
+    char text[8][DX_TEXT]; uint8_t form[8], snd[8], lay[8], mot[4], tone, hands;
+    int8_t fmod[8][DFM_N]; uint8_t voices[NTRK];
+} sec_extra __attribute__((section(".pool")));
 static uint8_t sec_stage_fit[NTRK] __attribute__((section(".pool")));   /* (0.6.78: app.ld LOWBUF) */
 /* (V10.6z8, a GENE user: "I change the instruments and at the end of the phrase they go back") a sound the player
  * changed while a song or a quick chain plays is kept across its sections: bit k track k (its engine, preset, sound

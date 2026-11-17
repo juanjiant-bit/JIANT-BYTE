@@ -215,9 +215,9 @@ static __attribute__((noinline)) void gls_prep(void)
     static const uint8_t ROLE[3] = {RL_BASS, RL_PAD, RL_ARP}, AMT[3] = {GP_BASS, GP_CHORDS, GP_ARP};
     uint16_t w[4][12], b[4][12];
     uint32_t k, r, j, span = 1, room = 1, ld = NTRK, ml = NTRK, fm6 = 0, dk = 0;
-    if (gls_sig != gls_hash()) gls.add = 0;             /* (OCT+ again: the parts it added made again) */
-    for (k = 0; k < trk_live && k < NTRK; k++)
-        if ((gls.add >> k) & 1u) { load_begin(&trk[k], LOAD_PAT); gclear_all(&trk[k]); motion_clear(&trk[k]); load_end(&trk[k]); }
+    /* A is now an exact source snapshot. Added tracks exist only in B/C/D;
+     * never clear anything from the user's current loop on a repeated generation. */
+    gls.add = 0;
     memset(&gs, 0, sizeof gs);
     memset(gs.role, RL_TEX, sizeof gs.role);   /* inactive tracks have no musical role */
     gx.on = 0; gx.odd = 0; gx.eng = -1;

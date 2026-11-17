@@ -665,7 +665,9 @@ static uint32_t trk_nvoice(const track_t *t)
         c = LITE_FM6_POLY;
     if (sys_load == LOAD_ECO && !ENGINES[t->engine]->oneshot && (!c || c > ECO_POLY))
         c = ECO_POLY;
-    return c && c < NVOICE ? c : NVOICE;
+    c = c && c < NVOICE ? c : NVOICE;
+    { uint32_t wanted = (uint32_t)clamp(voice_limit[(uint32_t)(t - trk) % NTRK] ? voice_limit[(uint32_t)(t - trk) % NTRK] : NVOICE, 1, NVOICE); if (wanted < c) c = wanted; }
+    return c;
 }
 
 /* the part's voice mode: P_VOICE, POLY for an engine of hits (engine_t.oneshot: DRUM); (V10.7.33) DRONE allocates as
@@ -1165,6 +1167,15 @@ static __attribute__((noinline)) int voice_room(track_t *t, int soft)   /* (V10.
     return 1;
 }
 
+/* Kept outside the RAM render routine: fade out retired slots, then skip their DSP entirely. */
+static __attribute__((noinline)) void voice_limit_apply(track_t *t)
+{
+    uint32_t i;
+    for (i=trk_nvoice(t);i<NVOICE;i++) if (t->v[i].active) {
+        t->v[i].sub=0;t->v[i].pn_flags=0;voice_kill(&t->v[i]);
+    }
+}
+
 static voice_t *voice_reuse(track_t *t, voice_t *v)
 {
     if (v->stage == 4u)
@@ -1186,7 +1197,7 @@ static voice_t *voice_alloc(track_t *t, uint32_t note)
     int32_t bd = 0x7FFFFFFF;
     if (t->engine == ENGI_DRUM) {
         voice_t *v = drum_reuse(t, note);
-        if (v)
+        if (v && (uint32_t)(v - t->v) < np)
             return voice_reuse(t, v);
     }
     for (i = 0; i < np; i++) {
@@ -1223,7 +1234,7 @@ static voice_t *voice_alloc(track_t *t, uint32_t note)
                                                          * for it (its own first, in place), the count stays */
             k = load_victim(t, &vp);
             if (k < NVOICE) {
-                if (vp == t)
+                if (vp == t && k < np)
                     return &t->v[k];
                 voice_kill(&vp->v[k]);
                 load_steals++;
@@ -2172,6 +2183,10 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     damt = e == &ENG_DRUM ? 0 : 127 - clamp(p[P_DRIFT], 0, 127);   /* (0.7.8) DRIFT, 127 stored = 0 % */
     if (damt)
         drift_clk[ti]++;
+    {
+        void (*limit)(track_t *) = voice_limit_apply;
+        FM1_OPAQUE(limit); limit(t);
+    }
     {
         vctx_t c;
         c.lfo = lfo; c.tune = tune; c.tune_fine = tune_fine; c.bend16 = bend16; c.bend_fine = bend_fine;

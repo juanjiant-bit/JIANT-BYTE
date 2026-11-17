@@ -233,6 +233,37 @@ int main(int argc, char **argv)
         dxf_ok(dx_fmod[0][0]==-24 && !dx_fmod[0][1] && !dx_fmod[0][2],"modifier UI lower bounds");
         memset(dx_fmod,0,sizeof dx_fmod);
     }
+    {
+        static project_t q, r; static project_store_t st;
+        coldkit(); dx_kit_load(DX_NKIT); song.sel=0; dx_ui_lane=0; go_title("FORMULA");
+        dxf_ok(act_cols()==16u && act_ready(), "FORMULA exposes OCT+ editor without sacrificing four sound controls");
+        act_do();
+        dxf_ok(nm.kind==NK_DX_FORM && !strcmp(nm.s,DX_FORMS[16]), "editor opens with the actual lane expression");
+        str_cpy(nm.s,"sin(w*2)",sizeof nm.s); nm.len=8;nm.cur=0;name_ok();
+        dxf_ok(!name_on() && dx_form[0]==DX_USER && !strcmp(dx_text[0],"sin(w*2)"), "valid free text applies as USER");
+        hit(ya,0); coldkit(); dx_form[0]=1; hit(yb,0);
+        dxf_ok(corr(ya,yb,NS)<0.9 && energy(ya,0,NS)>1e-3, "edited expression changes actual percussion audio");
+        dx_form[0]=DX_USER;
+        name_open(NK_DX_FORM,0); str_cpy(nm.s,"sin(",sizeof nm.s);nm.len=4;nm.cur=0;name_ok();
+        dxf_ok(name_on() && nm.ferr && !strcmp(dx_text[0],"sin(w*2)"), "syntax error stays in editor and keeps last valid sound");
+        str_cpy(nm.s,"unknown(w)",sizeof nm.s);nm.len=10;name_ok();
+        dxf_ok(nm.ferr==FE_NAME && !strcmp(dx_text[0],"sin(w*2)"), "unknown functions rejected transactionally");
+        name_close(); name_open(NK_DX_FORM,0); nm.cur=6;nm_knob(1,1);name_close();
+        dxf_ok(!strcmp(dx_text[0],"sin(w*2)"), "OCT- cancels staged text edits");
+        name_open(NK_DX_FORM,0);nm.cur=0;nm.num=1;nm_white(4);nm_commit();
+        dxf_ok(nm.s[0]=='(' && nm.len==9, "device keyboard inserts formula operators without sounding notes");
+        name_close();
+        for(unsigned l=0;l<8;l++) {memset(dx_text[l],' ',DX_TEXT-1);memcpy(dx_text[l],"sin(w)",6);dx_text[l][DX_TEXT-1]=0;dx_form[l]=DX_USER;}
+        project_capture(&q);int ok=proj_pack(&st,&q)&&proj_import(&r,st.raw,sizeof st.raw);
+        dxf_ok(ok && !memcmp(q.dx_text,r.dx_text,sizeof q.dx_text) && !memcmp(q.dx_form,r.dx_form,8), "all eight 63-character USER formulas persist with the section");
+        if(ok) {
+            unsigned at=0;for(unsigned j=68;j+10<PROJ_STORE_SIZE;j++)if(st.raw[j]=='D'&&st.raw[j+1]=='U'&&st.raw[j+2]==63)at=j;
+            dxf_ok(at!=0,"DU text extension follows DQ modifiers");
+            if(at) {st.raw[at+2]=64;uint32_t sum=proj_hash(st.raw,PROJ_STORE_SIZE-4);memcpy(st.raw+PROJ_STORE_SIZE-4,&sum,4);
+                dxf_ok(!proj_import(&r,st.raw,sizeof st.raw),"oversized imported formula is rejected");}
+        }
+        dx_kit_load(DX_NKIT);dxf_ok(!dx_text[0][0] && dx_form[0]==17,"FLOAT KIT restores clean factory formulas");
+    }
     printf(dxf_fails ? "dxform: %d FAILED\n" : "dxform: all ok\n", dxf_fails);
     return dxf_fails != 0;
 }

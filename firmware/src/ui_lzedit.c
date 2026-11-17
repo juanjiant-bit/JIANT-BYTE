@@ -111,8 +111,10 @@ static void graph_voice_lz(const track_t *t, const page_t *pg)
     int32_t glide = t->p[P_GLIDE], py = 0, x;
     const char *u = "";
     char b[40];
-    fmt_int(b, (int32_t)nv);
-    str_cpy(b + str_len(b), nv == 1u ? " VOICE" : " VOICES", 40 - str_len(b));
+    uint32_t active = 0;
+    for (i = 0; i < NVOICE; i++) active += t->v[i].active && t->v[i].stage != 4u;
+    fmt_int(b, (int32_t)active); str_cpy(b + str_len(b), " ACTIVE / ", 40 - str_len(b));
+    fmt_int(b + str_len(b), (int32_t)nv); str_cpy(b + str_len(b), " MAX", 40 - str_len(b));
     ed_cap(10, 6, b, T_TEXT);
     for (i = 0; i < NVOICE; i++) {
         int32_t y = 17 + (int32_t)i * 9, lv = 0;

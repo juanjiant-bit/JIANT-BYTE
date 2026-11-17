@@ -735,6 +735,7 @@ static void dx_kit_load(uint32_t k)
         uint32_t l;
         memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);
         memset(dx_fmod, 0, sizeof dx_fmod);
+    memset(dx_text, 0, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
         for (l = 0; l < 8u; l++) dx_kit[l].a[DXP_NOISE] = dx_kit[l].b[DXP_NOISE] = 0;
     }
 }

@@ -14,8 +14,12 @@ static uint32_t snd_sig(uint32_t k)
 {
     const track_t *t = &trk[k];
     uint32_t h = 0, j;
-    if (k >= NTRK)
+    if (k >= NTRK) {
+        h=as_mix(h,dx_text,sizeof dx_text);h=as_mix(h,dx_form,sizeof dx_form);h=as_mix(h,dx_fmod,sizeof dx_fmod);
+        h=as_mix(h,dx_snd,sizeof dx_snd);h=as_mix(h,dx_lay,sizeof dx_lay);
         return as_mix(h, dx_kit, sizeof dx_kit);
+    }
+    h = (uint32_t)voice_limit[k];
     for (j = 0; j < P_COUNT; j++)
         if (!param_kept(j) && (j != P_E7 || t->eng_req != ENGI_FM6))
             h = h * 31u + (uint16_t)t->p[j];
@@ -50,6 +54,7 @@ static void sec_apply(void)
             fm6_pgen[i]++;
         }
         t->seq_fit = sec_stage_fit[i];
+        if (!own) voice_limit[i] = (int16_t)clamp(sec_extra.voices[i],1,NVOICE);
         for (j = 0; j < P_COUNT; j++)
             if (!own || param_kept(j))
                 t->p[j] = s->p[j];
@@ -62,8 +67,13 @@ static void sec_apply(void)
         snd_h[i] = snd_sig(i);
     }
     motion = sec_stage.motion;
-    if (!snd_own(NTRK))
+    if (!snd_own(NTRK)) {
         memcpy(dx_kit, sec_stage.dx, sizeof dx_kit);
+        memcpy(dx_text,sec_extra.text,sizeof dx_text);memcpy(dx_form,sec_extra.form,sizeof dx_form);
+        memcpy(dx_fmod,sec_extra.fmod,sizeof dx_fmod);memset(dx_fid,0,sizeof dx_fid);
+        memcpy(dx_snd,sec_extra.snd,sizeof dx_snd);memcpy(dx_lay,sec_extra.lay,sizeof dx_lay);
+        memcpy(dx_mot,sec_extra.mot,sizeof dx_mot);dx_tone=sec_extra.tone;dx_hands=sec_extra.hands&15u;dx_glue=sec_extra.hands>>4;
+    }
     snd_h[NTRK] = snd_sig(NTRK);
     snd_seen = chain.running ? 0xFFu : 0u;
     dx_mute_set(sec_stage.dx_mute);

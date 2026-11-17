@@ -224,12 +224,24 @@ _Static_assert(DX_NFORM == sizeof N_DXFORM / sizeof N_DXFORM[0], "DRUM-X: a name
 enum { DFM_RATE, DFM_BEND, DFM_CRUSH, DFM_N };
 /* Per-lane formula modifiers. Zero is an exact bypass, including old projects. */
 static int8_t dx_fmod[8][DFM_N];
+#define DX_USER 255u
+#define DX_TEXT 64u
+static char dx_text[8][DX_TEXT] __attribute__((section(".pool")));
 static uint8_t dx_form[8];                           /* (JIANT BYTE) 0, or 1 + the formula of DX_FORMS */
 /* (JIANT BYTE) the factory: every lane its floatbeat (KICK SNARE CLAP HATC HATO TOM RIM BELL: FKICK .. FCOW) */
 static const uint8_t DX_FORM_DEF[8] = {17, 18, 19, 20, 21, 22, 23, 24};
 static fvm_prog_t dx_fprg[8];
 static fvm_ins_t dx_fins[8][24] __attribute__((section(".pool")));                     /* (a lane's formula: 24 instructions at most) */
 static uint8_t dx_fid[8];                            /* the formula compiled in dx_fprg (0: none yet) */
+static const char *dx_formula_text(uint32_t ln)
+{
+    uint32_t f = dx_form[ln & 7u];
+    return f == DX_USER ? dx_text[ln & 7u] : f && f <= DX_NFORM ? DX_FORMS[f - 1u] : "sin(w)";
+}
+static const char *dx_formula_name(uint32_t f)
+{
+    return f == DX_USER ? "USER" : f && f <= DX_NFORM ? N_DXFORM[f - 1u] : "CLASSIC";
+}
 static const fvm_prog_t *dx_fprog(uint32_t ln, lofi_work_t *w)
 {
     uint32_t f = dx_form[ln & 7u];
@@ -237,7 +249,7 @@ static const fvm_prog_t *dx_fprog(uint32_t ln, lofi_work_t *w)
     if (!p->ins)
         fvm_prog_init(p, dx_fins[ln & 7u], 24u);
     if (dx_fid[ln & 7u] != f) {
-        const char *s = f && f <= DX_NFORM ? DX_FORMS[f - 1u] : "0";
+        const char *s = f ? dx_formula_text(ln) : "0";
         uint32_t n = 0;
         while (s[n]) n++;
         if (fvm_compile(&w->c, p, s, n, 0) || p->nstate > 2u)

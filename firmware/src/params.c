@@ -755,12 +755,16 @@ static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CR
  * LIFE 0: every voice and track as before, bit for bit), then each track's LIFE (EDIT > VOICES 3 KNOB 2, ID_LIF; 0..100,
  * times the global one). Not song or track parameters (as BALANCE: no slot left): kept with the project ('X' 'L',
  * project.c proj_xm; a project without it, every one before V10.7.34: these defaults, LIFE off) */
+#define ID_VMAX 0xF4u
+static int16_t voice_limit[NTRK] __attribute__((section(".pool")));
+static const param_desc_t VMAX_DESC = PD("VOICES", F_INT, 1, NVOICE, NVOICE);
+static void voice_limits_default(void) { uint32_t k; for (k=0;k<NTRK;k++) voice_limit[k]=NVOICE; }
 #define ID_LIF 0xEFu
 enum { LIFE_AMT, LIFE_PULSE, LIFE_COLOR, LIFE_LINK, LIFE_N };
 #ifndef LIFE_DEF
 #define LIFE_DEF 0
 #endif
-static const int8_t LIFE_DEFS[LIFE_N] = {LIFE_DEF, 35, 35, 25};
+static const int8_t LIFE_DEFS[LIFE_N] = {LIFE_DEF, 65, 60, 40};
 #define LIFE_TDEF 100
 static const param_desc_t LIFE_DESC __attribute__((section(".rodata.tape"))) = PD("LIFE", F_PCT, 0, 100, LIFE_TDEF);   /* (the track's) */
 /* Musical LIFE, no changes to formula clocks or CAOS. Values retain the four-slot storage layout. */
@@ -791,7 +795,7 @@ static const page_t PAGES[] = {
     {"EQ", FAM_FX, SC_GLOBAL, GR_NONE, {ID_EQ0, ID_EQ0 + 1u, ID_EQ0 + 2u, ID_EQ0 + 3u}},   /* (p9) the master's EQ, last */   /* (0.9.9-snd8) the master's tape, after MASTER */
     {"BALANCE", FAM_FX, SC_GLOBAL, GR_NONE, {ID_BAL, 0xFF, 0xFF, 0xFF}},   /* (V10.7.30) the master's BALANCE, after its EQ */
     {"DIST", FAM_FX, SC_TRACK, GR_NONE, {P_DTYPE, P_DTONE, FELUCCA_XFX ? ID_DNZ : 0xFF, 0xFF}},   /* JIANT: the drive's type and tone; V10.7.30 NOISE */
-    {"VOICES 3", FAM_EDIT, SC_TRACK, GR_NONE, {ID_CRU, ID_LIF, 0xFF, 0xFF}},   /* (V10.7.33) CRUSH, the track's bit reducer (was DIST's
+    {"VOICES 3", FAM_EDIT, SC_TRACK, GR_NONE, {ID_CRU, ID_LIF, P_GLMODE, 0xFF}},   /* (V10.7.33) CRUSH, the track's bit reducer (was DIST's
                                                          * TYPE; PLAY and PLAY 2 have no knob free) */
     {"AUTO PAN", FAM_FX, SC_TRACK, GR_NONE, {P_APDEP, P_APRATE, P_APSYNC, P_APWAVE}},   /* (JIANT 0.6.9) the track's pan swung */
     {"BUSES", FAM_FX, SC_GLOBAL, GR_BUSES, {G_DMIX, G_RSIZE, G_CDEPTH, G_SLDEP}},   /* (0.8.5) FX's lens: the buses' main values */
@@ -859,7 +863,7 @@ static const page_t PAGES[] = {
     {"OP3 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM3_ATK, P_FM3_DEC, P_FM3_SUS, P_FM3_REL}},
     {"OP4 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM4_ATK, P_FM4_DEC, P_FM4_SUS, P_FM4_REL}},
     {"OP LEVEL", FAM_EDIT, SC_TRACK, GR_NONE, {P_FM1_LEVEL, P_FM2_LEVEL, P_FM3_LEVEL, P_FM4_LEVEL}},
-    {"VOICES", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, P_GLIDE, P_GLMODE, P_PRIO}},   /* (codex/coherence: was VOICE) POLY GLIDE
+    {"VOICES", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, ID_VMAX, P_GLIDE, P_PRIO}},   /* (codex/coherence: was VOICE) POLY GLIDE
                                                          * GL MODE PRIO */
     {"GLOBAL", FAM_GLO, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, G_TUNE}},
     {"SYSTEM", FAM_GLO, SC_GLOBAL, GR_NONE, {G_TRKS, G_LOADP, G_ROUTE, G_INFO}},   /* (0.6.18) TRACKS 4 / 6; (0.6.30)
@@ -975,6 +979,7 @@ static uint8_t sl_ui_step;       /* (JIANT 0.6.3) the SL PITCH page: the step KN
  * master's TAPE (noinline: page_desc is recorded code) */
 static __attribute__((noinline)) const param_desc_t *page_desc_v(uint32_t id, int16_t **valp)
 {
+    if (id == ID_VMAX) { *valp = &voice_limit[song.sel % NTRK]; if (!**valp) **valp=NVOICE; return &VMAX_DESC; }
     if (id == ID_LIF) {                               /* (V10.7.34) the track's LIFE (life.c) */
         *valp = &life_v[LIFE_N + song.sel % NTRK];
         return &LIFE_DESC;
@@ -1013,7 +1018,7 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         *valp = &trks_ui;
         return &TRKS_DESC;
     }
-    if ((id >= ID_TAPE && id <= ID_LMODE) || (id >= ID_EQ0 && id < ID_EQ0 + 4u) || (id >= ID_BAL && id <= ID_LIF))   /* (0.9.18) the LFO's MODE and PHASE;
+    if (id == ID_VMAX || (id >= ID_TAPE && id <= ID_LMODE) || (id >= ID_EQ0 && id < ID_EQ0 + 4u) || (id >= ID_BAL && id <= ID_LIF))   /* (0.9.18) the LFO's MODE and PHASE;
                                                          * (snd8) the master's TAPE; (p9) its EQ */
         return page_desc_v(id, valp);
     if (id == G_LOADP) {                              /* (0.6.30) the same */

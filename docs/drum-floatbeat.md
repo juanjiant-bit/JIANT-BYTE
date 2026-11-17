@@ -1,5 +1,7 @@
 # DRUM-X Floatbeat — BYTE v0.2
 
+**Desde v0.4 también se edita el texto con OCT+ en FORMULA**, hasta 63 caracteres por instrumento. Ver [editor y controles actuales](byte-v04.md).
+
 DRUM-X dispone de un preset **FLOAT KIT**, con ocho instrumentos generados por fórmulas: bombo, caja,
 palmas, hi-hat cerrado/abierto, tom, rim y cencerro. Las fórmulas usan la máquina virtual acotada existente;
 no ejecutan código externo. Esta versión ofrece 24 fórmulas seleccionables, con sus expresiones visibles.

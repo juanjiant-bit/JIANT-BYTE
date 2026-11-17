@@ -224,7 +224,7 @@ static void ui_power_on(void)
     for (i = 0; i < G_COUNT; i++)
         song.g[i] = GP[i].def;
     bal_v = HOST_BAL;                             /* (V10.7.30: as main.c's power-on; hostsim.c HOST_BAL) */
-    life_defaults();                              /* (V10.7.34) LIFE as main.c's power-on (LIFE=a: its amount) */
+    life_defaults(); voice_limits_default();                              /* (V10.7.34) LIFE as main.c's power-on (LIFE=a: its amount) */
     life_v[LIFE_AMT] = (int16_t)(getenv("LIFE") ? atoi(getenv("LIFE")) : HOST_LIFE);   /* (hostsim.c HOST_LIFE) */
     life_reset();
     load_depth++;
@@ -12497,7 +12497,7 @@ static int test_lz_home(void)
     {   /* (V10.7.34) LIFE's four: LIFE FILTER PITCH FX (life.c), the macros and the sound untouched */
         int16_t l0[4], e = TSEL->p[ENGINES[TSEL->eng_req]->knob[0]];
         uint8_t m0[4];
-        life_defaults();                            /* (the firmware's power-on: LIFE on; the tests' HOST_LIFE 0) */
+        life_defaults(); voice_limits_default();                            /* (the firmware's power-on: LIFE on; the tests' HOST_LIFE 0) */
         memcpy(l0, life_v, sizeof l0);
         memcpy(m0, macro_v, sizeof m0);
         ok &= l0[LIFE_AMT] == LIFE_DEF && !strncmp(ui.col[0], "LIFE|", 5) && !strncmp(ui.col[1], "FILTER|", 7) &&

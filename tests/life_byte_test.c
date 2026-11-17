@@ -7,7 +7,7 @@
 #undef main
 static int fails;
 #define CHECK(c,s) do { printf("lifeb: %-76s %s\n",s,(c)?"ok":"FAIL");if(!(c))fails++; } while(0)
-#define NB 768u
+#define NB 4096u
 #define NS (NB * CTL)
 static int32_t dry[NS], lwet[NS];
 static uint32_t os0[16], os1[16];
@@ -44,6 +44,9 @@ static void engine(unsigned e,int amt,int32_t*out,uint32_t*state) {
     memset(state,0,16*sizeof *state);memcpy(state,trk[0].v[0].s,sizeof trk[0].v[0].s < 16*sizeof *state ? sizeof trk[0].v[0].s : 16*sizeof *state);
 }
 int main(void) {
+    int monotonic=1;for(int i=1;i<=100;i++)if(life_curve(i)<life_curve(i-1))monotonic=0;
+    CHECK(monotonic && life_curve(0)==0 && life_curve(100)==256 && life_curve(50)==48 && life_curve(75)==126,
+          "audio-pot taper is monotonic, exact at endpoints and broad in the middle");
     setup(0,0,0,0);CHECK(life_def(LIFE_AMT)==0,"power-on LIFE default is zero");
     stage(0,100,100,100,100,dry);stage(100,0,0,0,100,lwet);
     CHECK(!memcmp(dry,lwet,sizeof dry),"zero controls are bit-identical to LIFE off");
@@ -53,8 +56,11 @@ int main(void) {
         double r=rms(lwet)/rms(dry),co=correlation(dry,lwet);int peak=0;
         for(unsigned i=0;i<NS;i++)if(abs(lwet[i])>peak)peak=abs(lwet[i]);
         printf("lifeb: control %u RMS %.4fx, correlation %.6f, peak %d\n",k,r,co,peak);
-        CHECK(memcmp(dry,lwet,sizeof dry)&&r>0.65&&r<=1.001&&co>0.97&&peak<=24576,"each control and combined maximum stay audible, correlated and bounded");
+        CHECK(memcmp(dry,lwet,sizeof dry)&&r>0.2&&r<0.95&&co>0.65&&peak<=24576,"each control makes a substantial bounded change without losing the source");
     }
+    stage(100,65,60,40,100,lwet);
+    double d=0;for(unsigned i=0;i<NS;i++){double x=(double)lwet[i]-dry[i];d+=x*x;}
+    CHECK(sqrt(d/NS)/rms(dry)>0.12,"turning up master LIFE with default controls gives an audible difference");
     setup(100,100,0,0);
     for(unsigned bpm=60;bpm<=180;bpm+=60){song.g[G_BPM]=bpm;unsigned step=div_samples(2);
         clock_at(4*step);life_master();unsigned a=life.pulse;clock_at(6*step);life_master();unsigned b=life.pulse;
@@ -67,7 +73,7 @@ int main(void) {
     CHECK(abs((int)two-(int)many)<=4,"LINK averages source envelopes: more tracks do not multiply depth");
     for(unsigned e=0;e<2;e++){engine(e?ENGI_LOFI:ENGI_WAVE,0,dry,os0);engine(e?ENGI_LOFI:ENGI_WAVE,100,lwet,os1);
         CHECK(!memcmp(os0,os1,sizeof os0),"LIFE leaves oscillator/formula phase and state unchanged");
-        CHECK(memcmp(dry,lwet,sizeof dry)&&rms(lwet)>0.6*rms(dry),"WAVE/MATH are modulated without losing the voice");
+        CHECK(memcmp(dry,lwet,sizeof dry)&&rms(lwet)>0.2*rms(dry),"WAVE/MATH are modulated without losing the voice");
     }
     /* Stereo image sides must receive the same transfer as the mono sum. */
     setup(100,100,100,100);dx_xon=1;int32_t b[CTL];int stereo=1;

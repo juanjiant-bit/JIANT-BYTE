@@ -93,6 +93,21 @@ static void ub_text_draw(int32_t x, int32_t y, const char *s, uint32_t cols, uin
         cv_text(x, y + (int32_t)r * 9 - AF_F_CAP_Y, &AF_F, b, c);
     }
 }
+/* Large readable formula: the existing lower-case bitmap font, exactly 2x pixels.
+ * At 18 columns four rows contain the entire 63-character editable expression. */
+static void ub_formula_large(const char *s)
+{
+    uint32_t n, gx, gy;
+    for (n = 0; s[n] && n < 72u; n++) {
+        aag_t g = ag(&AF_F, glyph(&AF_F, (uint8_t)s[n]));
+        const uint8_t *d = AF_F.data + g.off;
+        int32_t x = 12 + (int32_t)(n % 18u) * 12, y = 26 + (int32_t)(n / 18u) * 18;
+        for (gy = 0; gy < g.bh; gy++) for (gx = 0; gx < g.bw; gx++) {
+            uint32_t k = gy * g.bw + gx, v = (d[k >> 1] >> ((k & 1u) ? 0 : 4)) & 15u;
+            if (v) cv_rect(x + ((int32_t)gx + g.bx) * 2, y + ((int32_t)gy + g.by - AF_F_CAP_Y) * 2, 2, 2, T_TEXT);
+        }
+    }
+}
 /* a being of bits: n x n cells of px each from (x, y) (n odd, 7 .. 11), row gy's bits from v[gy], mirrored; squash
  * (0 .. 3) rows pressed out of its top (a hit); fr the pose (its feet); c its body, e its eyes */
 static void ub_bits(const uint8_t *v, uint32_t n, int32_t x, int32_t y, int32_t px, uint32_t fr, uint32_t squash,
@@ -243,44 +258,48 @@ static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
     return 1;
 }
 
-/* DRUM-X's kit: its eight lanes as beings, 4 x 2 in A {x, y, w, h}: a formula lane its formula's (DX_FORMS), an
- * oscillator lane a bytebeat of its own (its lane's number in it). A hit squashes it (its envelope, as the colony's)
- * and frames it; the lane picked (sel, or the last struck) its name lit; a muted one dim */
+/* Pixel instruments follow the original JIANT FM kit layout and actual drum silhouettes. */
+static const uint32_t UB_DRUM[8][17] = {
+    {0x0u, 0xfe0u, 0x1ff0u, 0x3838u, 0x739cu, 0xeeeeu, 0xc826u, 0xd836u, 0xd016u, 0xd836u, 0xd826u, 0xfeeeu, 0x739cu, 0x3838u, 0x3ff4u, 0x4fe2u, 0x8002u},
+    {0x0u, 0xfe0u, 0x600cu, 0xc006u, 0xe00eu, 0x9ff2u, 0x9112u, 0xbffau, 0xf11eu, 0xc006u, 0x600cu, 0x1ff0u, 0x1008u, 0x1008u, 0x1008u, 0x1008u, 0x2008u},
+    {0x100u, 0x100u, 0x1110u, 0x1550u, 0x5454u, 0x5454u, 0x5454u, 0x5c74u, 0x5454u, 0x56d4u, 0x5654u, 0x2248u, 0x1250u, 0xa60u, 0x440u, 0x0u, 0x0u},
+    {0x100u, 0x100u, 0xfe0u, 0x610cu, 0xc106u, 0x6fecu, 0x6fecu, 0xc106u, 0x610cu, 0xfe0u, 0x100u, 0x100u, 0x100u, 0x380u, 0x540u, 0x920u, 0x1010u},
+    {0xfe0u, 0x610cu, 0xc106u, 0x610cu, 0xfe0u, 0xfe0u, 0x610cu, 0xc106u, 0x610cu, 0xfe0u, 0x100u, 0x100u, 0x100u, 0x380u, 0x540u, 0x920u, 0x1010u},
+    {0x0u, 0xfe0u, 0x600cu, 0xc006u, 0xe00eu, 0x9ff2u, 0x9112u, 0x9112u, 0x9112u, 0x9112u, 0x9ff2u, 0xf11eu, 0xc006u, 0x600cu, 0x1ff0u, 0x1008u, 0x2008u},
+    {0x0u, 0x4000u, 0x200cu, 0x1014u, 0x828u, 0x450u, 0x2a0u, 0xfe0u, 0x7abcu, 0xe54eu, 0xca26u, 0xf41eu, 0x783cu, 0x1fe0u, 0x0u, 0x0u, 0x0u},
+    {0x100u, 0x100u, 0x7c0u, 0x420u, 0x420u, 0x810u, 0x810u, 0x1010u, 0x1008u, 0x1008u, 0x2004u, 0x2004u, 0x7ffcu, 0x2008u, 0x3ff8u, 0x0u, 0x0u},
+};
+static void ub_drum_icon(uint32_t lane, int32_t cx, int32_t y, int32_t px, int32_t hit, uint16_t c)
+{
+    uint32_t gy, gx; int32_t x = cx - px * 17 / 2;
+    y += hit > 100 ? px : 0;
+    for (gy = 0; gy < 17u; gy++) for (gx = 0; gx < 17u; gx++)
+        if ((UB_DRUM[lane & 7u][gy] >> gx) & 1u)
+            cv_rect(x + (int32_t)gx * px, y + (int32_t)gy * px, px, px,
+                    gy < 5u ? ux_mix(c, T_TEXT, 35) : c);
+}
 static void ub_kit(const track_t *t, const int32_t *A, int32_t sel)
 {
-    static uint8_t age[8], last;
+    /* centers and top edges in a 120 x 72 stage; kick painted last */
+    static const uint8_t PX[8] = {60, 30, 25, 10, 108, 86, 31, 60};
+    static const uint8_t PY[8] = {36, 38, 0, 20, 1, 32, 38, 0};
+    static const uint8_t ORDER[8] = {3,4,2,7,5,1,6,0};
     drum_lane_t *K = drum_kit_of(t);
-    gq_work_t *w = ub_ws();
-    int32_t cw = A[2] / 4, ch = A[3] / 2, px = (cw - 12) / 9 < (ch - 16) / 9 ? (cw - 12) / 9 : (ch - 16) / 9;
-    uint32_t l, fr = anim_fr / 3u;
-    if (px < 2) px = 2;
-    for (l = 0; l < 8u; l++) {
-        int32_t x = A[0] + (int32_t)(l & 3u) * cw, y = A[1] + (int32_t)(l >> 2) * ch, sx = x + (cw - px * 9) / 2;
-        int32_t e = K && K[l].x.live && !ANIM_OFF() ? clamp(K[l].x.ea >> 22, 0, 256) : 0, mut = dx_lane_muted(l);
-        uint32_t f = dx_form[l], gy, sq = e > 120 ? 2u : e > 30 ? 1u : 0u;
-        uint8_t v[9];
-        uint16_t c = mut ? T_DIM : heat_col(48 + e * 200 / 256), nc;
-        if (K && K[l].age < age[l] && e) last = (uint8_t)l;
-        age[l] = K ? (uint8_t)K[l].age : 255u;
-        if (f && f <= DX_NFORM && ub_compile(w, DX_FORMS[f - 1u])) {
-            uint32_t tq[9];
-            for (gy = 0; gy < 9u; gy++)
-                tq[gy] = (gy * 911u + 2048u + (e ? fr * 5u : 0u)) << 8;
-            memset(w->st, 0, sizeof w->st);
-            ub_run(w, tq, 9u, 0, v);
-        } else
-            for (gy = 0; gy < 9u; gy++) {               /* (an oscillator lane: t * (lane & t >> k), its own) */
-                uint32_t tt = gy * 911u + 2048u + l * 7919u + (e ? fr * 5u : 0u);
-                v[gy] = (uint8_t)(tt * ((l + 3u) & tt >> (5u + l % 4u)) | tt >> (l + 6u));
-            }
-        nc = (int32_t)l == (sel >= 0 ? sel : (int32_t)last) ? T_ACCENT : mut ? T_DIM : T_MID;
-        if (cw >= 40)                                   /* (its name above it, its formula's beside; small: none) */
-            cv_text(x + 4, y + 1 - AF_X_CAP_Y, &AF_X, drum_lane_abbr(t, l), nc);
-        if (cw >= 56 && f && f <= DX_NFORM)
-            cv_text(x + 20, y + 1 - AF_X_CAP_Y, &AF_X, N_DXFORM[f - 1u], T_DIM);
-        ub_bits(v, 9u, sx, y + (cw >= 40 ? 11 : 2) + (int32_t)sq * px, px, e ? fr : 0u, sq, c, T_TEXT);
-        if (e > 30)                                     /* (struck: framed, a corner each side) */
-            cv_frame(sx - 2, y + (cw >= 40 ? 9 : 0), px * 9 + 4, px * 9 + 4, T_TEXT);
+    uint32_t k, lane; int32_t p = A[2] >= 180 ? 2 : 1;
+    for (k = 0; k < 8u; k++) {
+        int32_t e, x, y, sz; uint16_t c;
+        lane = ORDER[k];
+        e = K && K[lane].x.live && !ANIM_OFF() ? clamp(K[lane].x.ea >> 22, 0, 256) : 0;
+        x = A[0] + PX[lane] * A[2] / 120; y = A[1] + PY[lane] * A[3] / 72;
+        sz = lane == 0u && p == 2 ? 3 : p;
+        c = dx_lane_muted(lane) ? T_DIM : heat_col(70 + (int32_t)lane * 11 + e * 95 / 256);
+        if ((int32_t)lane == sel) c = T_ACCENT;
+        if (lane == 6u && !e && sel != 6) continue; /* rim is a strike on the snare */
+        ub_drum_icon(lane, x, y, sz, e, c);
+        if (lane == 5u) { /* the two mounted toms over the bass drum */
+            ub_drum_icon(5u, A[0] + A[2] * 44 / 120, A[1] + A[3] * 16 / 72, p, e, c);
+            ub_drum_icon(5u, A[0] + A[2] * 70 / 120, A[1] + A[3] * 16 / 72, p, e, c);
+        }
     }
 }
 
@@ -301,6 +320,10 @@ static void ub_being_at(const track_t *t, int32_t cx, int32_t cy, int32_t rad, i
         else
             ub_sprite(w, cx - px * 11 / 2, cy - px * 11 / 2, px, fr, c, e);
         return;
+    }
+    if (trk_eng(t) == ENGI_DRUM) {
+        int32_t A[4] = {cx - rad, cy - rad, rad * 2, rad * 2};
+        ub_kit(t, A, -1); return;
     }
     {                                                   /* (a kit, or a part with no formula: a bytebeat of its own) */
         uint8_t v[11];
