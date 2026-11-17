@@ -2124,7 +2124,14 @@ static void draw_graph(void)
             break;
         case GR_DXSND:                               /* EDIT > SOUND: the kit's lanes, the sound edited singled out */
             cv_oy = 0;
-            if (pg->title[0] == 'S')                 /* (0.9.4) SOUND 1..4: the drum kit, the sound edited lit (ui_engvis.c) */
+            if (pg->title[0] == 'F') {
+                uint32_t f = dx_form[dx_ui_lane & 7u];
+                cv_text(8, 6 - AF_X_CAP_Y, &AF_X, f ? "FLOATBEAT / DRUM-X" : "CLASSIC / DRUM-X", T_ACCENT);
+                ub_text_draw(8, 28, f ? DX_FORMS[(f - 1u) % DX_NFORM] : "DRUM-X oscillator + noise", 37, 4, T_TEXT);
+                cv_text(8, 82 - AF_X_CAP_Y, &AF_X, "A: COLOR / MORPH A-B", T_DIM);
+                cv_text(8, 111 - AF_X_CAP_Y, &AF_X, f ? "RATE / BEND: TIME" : "CLASSIC: FORM MOD OFF", T_DIM);
+                if (f) cv_text(8, 125 - AF_X_CAP_Y, &AF_X, "BITS: RESOLUTION", T_DIM);
+            } else if (pg->title[0] == 'S')                 /* (0.9.4) SOUND 1..4: the drum kit, the sound edited lit (ui_engvis.c) */
                 vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));
             else
                 graph_colony(t, dx_ui_lane);

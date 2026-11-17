@@ -1644,6 +1644,8 @@ static __attribute__((noinline)) void gen_kit(track_t *t)
 {
     const gkit_t *k = &KIT[gs.g->kit];
     uint32_t l, i;
+    memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);
+    memset(dx_fmod, 0, sizeof dx_fmod);
     for (l = 0; l < 8u; l++) {
         const dx_lane_t *D = &DX_KIT_DEF[l];
         dx_lane_t *L = &dx_kit[l];

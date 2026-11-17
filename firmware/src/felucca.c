@@ -49,7 +49,7 @@
 #define FELUCCA_ID "FM-1_900"    /* package identity (build.py: the .fwsc marker string) */
 #endif
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "BYTE v0.1" /* (2026-11-15) JIANT BYTE v0.1: forked from JIANT FM V10.7.37 (its history: the git log, and JIANT's FELUCCA_VERSION comment there); the name, the storage magic (storage.c ST_MAGIC), the menu's title and the Bluetooth name its own (JIANT-BYTE.md, phase 0) */
+#define FELUCCA_VERSION "BYTE v0.2" /* (2026-11-15) JIANT BYTE v0.1: forked from JIANT FM V10.7.37 (its history: the git log, and JIANT's FELUCCA_VERSION comment there); the name, the storage magic (storage.c ST_MAGIC), the menu's title and the Bluetooth name its own (JIANT-BYTE.md, phase 0) */
 #endif
 #if FELUCCA_OTA && !FELUCCA_FLASH
 #error "FELUCCA_OTA needs FELUCCA_FLASH"

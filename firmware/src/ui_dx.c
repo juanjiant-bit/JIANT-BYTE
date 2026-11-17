@@ -72,6 +72,17 @@ static __attribute__((noinline)) void dx_knob(const page_t *pg, uint32_t k, int3
         dx_lane_turn(s);
         return;
     }
+    if (pn == 9u) {                                     /* FORMULA: lane, formula, A/B, variable A */
+        if (k == 1u) dx_form[dx_ui_lane & 7u] = (uint8_t)clamp(dx_form[dx_ui_lane & 7u] + (s > 0 ? 1 : -1), 0, DX_NFORM);
+        else if (k == 2u) dx_ui_side = s > 0;
+        else v[DXP_COLOR] = (uint8_t)clamp(v[DXP_COLOR] + accel(EN_K1 + k, s, 127), 0, 127);
+        return;
+    }
+    if (pn == 10u) {                                    /* FORM MOD: the lane's clock, phase bend and resolution */
+        int8_t *m = &dx_fmod[dx_ui_lane & 7u][k - 1u];
+        *m = (int8_t)clamp(*m + (s > 0 ? 1 : -1), k == 1u ? -24 : 0, k == 1u ? 24 : k == 2u ? 127 : 12);
+        return;
+    }
     if (pn == 8u) {                                     /* SOUND 4: LAYER, FEEDBK, SEND */
         uint8_t *ly = &dx_lay[dx_ui_lane & 7u];
         int32_t la = (int32_t)DX_LAY_L(*ly), fb = (int32_t)DX_LAY_FB(*ly);
@@ -179,6 +190,24 @@ static void dx_cards(const page_t *pg)
         ln[4] = 0;
     }
     hot_gauge_column(0, "SOUND", ln, (int32_t)(dx_ui_lane & 7u) * 1000 / 7);
+    if (pn == 9u) {
+        uint32_t f = dx_form[dx_ui_lane & 7u];
+        hot_gauge_column(1, "FORMULA", f ? N_DXFORM[(f - 1u) % DX_NFORM] : "CLASSIC", f * 1000 / DX_NFORM);
+        hot_gauge_column(2, "SIDE", dx_ui_side ? "B" : "A", dx_ui_side ? 1000 : 0);
+        fmt_int(val, v[DXP_COLOR]);
+        hot_gauge_column(3, "VAR A", val, v[DXP_COLOR] * 1000 / 127);
+        return;
+    }
+    if (pn == 10u) {
+        const int8_t *m = dx_fmod[dx_ui_lane & 7u];
+        fmt_int(val, m[DFM_RATE]);
+        draw_column(1, "RATE", val, "st", VAL(1u), (m[DFM_RATE] + 24) * 1000 / 48, ICON_TONE);
+        fmt_int(val, m[DFM_BEND]);
+        hot_gauge_column(2, "BEND", val, m[DFM_BEND] * 1000 / 127);
+        fmt_int(val, 16 - m[DFM_CRUSH]);
+        draw_column(3, "BITS", val, "bit", VAL(3u), (12 - m[DFM_CRUSH]) * 1000 / 12, ICON_TONE);
+        return;
+    }
     if (pn == 8u) {                                     /* SOUND 4 */
         uint32_t ly = dx_lay[dx_ui_lane & 7u], la = DX_LAY_L(ly), fb = DX_LAY_FB(ly), sn = dx_snd[dx_ui_lane & 7u];
         int32_t ix = dx_send_ix(sn);
@@ -233,6 +262,7 @@ static uint32_t dx_sig(void)
     h = (h ^ (uint32_t)TSEL->p[P_DKEYMODE] << 24 ^ dx_tone ^ (uint32_t)dx_hands << 8 ^ (uint32_t)dx_glue << 12) * 2654435761u;   /* (TONE, HANDS, GLUE) */
     for (i = 0; i < DV_NLANE; i++)                      /* (0.6.48) the SENDs, (0.6.49) the LAYERs */
         h = (h ^ dx_snd[i] ^ (uint32_t)dx_lay[i] << 8 ^ (uint32_t)dx_form[i] << 16) * 16777619u;   /* (JIANT BYTE: FORM) */
+    for (i = 0; i < sizeof dx_fmod; i++) h = (h ^ ((const uint8_t *)dx_fmod)[i]) * 16777619u;
     for (i = 0; i < DXP_N; i++)
         h = (h ^ (uint32_t)L->a[i] << 8 ^ L->b[i]) * 16777619u;
     return h;

@@ -74,3 +74,8 @@ No se cambian los formatos de proyectos ni los identificadores persistidos de lo
 El emulador y el instalador principal se publican juntos desde el mismo commit. La etiqueta es de desarrollo,
 no de validación física. El índice conserva versiones anteriores cuando están disponibles. `web/STABLE` es una
 referencia histórica y este flujo de publicación directa ya no la utiliza.
+
+## BYTE v0.2: DRUM-X Floatbeat
+
+[Controles, compatibilidad y pruebas de FLOAT KIT](drum-floatbeat.md). Añade FORMULA y FORM MOD con RATE/BEND/BITS,
+conserva el audio anterior en neutro y guarda los modificadores por instrumento con el proyecto.

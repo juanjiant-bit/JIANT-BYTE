@@ -22,7 +22,7 @@ static uint32_t byte_song_hash(void)
         h = (h ^ proj_hash(trk[k].step, sizeof trk[k].step)) * 16777619u;
         h = (h ^ trk[k].eng_req ^ ((uint32_t)trk[k].preset << 8)) * 16777619u;
     }
-    return h ^ proj_hash(dx_kit, sizeof dx_kit);
+    return h ^ proj_hash(dx_kit, sizeof dx_kit) ^ proj_hash(dx_form, sizeof dx_form) ^ proj_hash(dx_fmod, sizeof dx_fmod);
 }
 
 int main(void)
@@ -59,6 +59,8 @@ int main(void)
             /* A previous sound must not leak into the same seed. */
             trk[2].p[P_E2] = 127; trk[2].p[P_CAOS] = 127;
             trk[3].p[P_FCUT] = 0;
+            memset(dx_form, 0, sizeof dx_form);
+            memset(dx_fmod, 7, sizeof dx_fmod);
             make_byte_song(genre, seed * 37u, 0);
             reproducible &= hash == byte_song_hash();
             songs++;

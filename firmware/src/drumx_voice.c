@@ -221,6 +221,9 @@ static const char *const N_DXFORM[] = {"SINE", "SAT", "FM", "METAL", "BITS", "XO
                                        "FKICK", "FSNR", "FCLAP", "FHAT", "FOHAT", "FTOM", "FRIM", "FCOW"};
 #define DX_NFORM (sizeof DX_FORMS / sizeof DX_FORMS[0])
 _Static_assert(DX_NFORM == sizeof N_DXFORM / sizeof N_DXFORM[0], "DRUM-X: a name a formula");
+enum { DFM_RATE, DFM_BEND, DFM_CRUSH, DFM_N };
+/* Per-lane formula modifiers. Zero is an exact bypass, including old projects. */
+static int8_t dx_fmod[8][DFM_N];
 static uint8_t dx_form[8];                           /* (JIANT BYTE) 0, or 1 + the formula of DX_FORMS */
 /* (JIANT BYTE) the factory: every lane its floatbeat (KICK SNARE CLAP HATC HATO TOM RIM BELL: FKICK .. FCOW) */
 static const uint8_t DX_FORM_DEF[8] = {17, 18, 19, 20, 21, 22, 23, 24};
@@ -429,6 +432,10 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
         const fvm_prog_t *pg = dx_fprog(ln, wk);
         fvm_env_t en = {{T, W, S, 0, 0}, {0}, v->fst};
+        int32_t rate = clamp(dx_fmod[ln][DFM_RATE], -24, 24);
+        uint32_t rk = rate ? dx_pow2((uint32_t)(rate + 24) * 4096u / 12u) >> 2 : 65536u;
+        uint32_t bend = (uint32_t)clamp(dx_fmod[ln][DFM_BEND], 0, 127);
+        uint32_t crush = (uint32_t)clamp(dx_fmod[ln][DFM_CRUSH], 0, 12);
         en.u[FU_A] = (uint32_t)q[DXP_COLOR];
         en.u[FU_AF] = (uint32_t)q[DXP_COLOR] * 516u;
         en.u[FU_VEL] = v->sv ? v->sv : 127u;
@@ -436,8 +443,11 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
                                                           * t 32 a turn, T the seconds (half-rate samples since the hit) */
             uint32_t p2 = ph + ((uint32_t)inc << 4);
             W[i] = nt << 16 | ph >> 16;
+            if (rate) W[i] = (uint32_t)(((uint64_t)W[i] * rk) >> 16);
+            if (bend) W[i] += (uint32_t)((sine_i(W[i] << 16) * (int32_t)bend) / 64);
             T[i] = W[i] >> 11;
             S[i] = (uint32_t)(((uint64_t)(sp + i) * 194783u) >> 16);
+            if (rate) S[i] = (uint32_t)(((uint64_t)S[i] * rk) >> 16);
             nt += p2 < ph;
             ph = p2;
             inc += dinc;
@@ -446,7 +456,9 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         for (i = 0; i < m; i++, ga += dga) {
             int32_t s = ((int32_t)o[i] >> 1) * 3 >> 2;      /* (x 3/4: a formula's wave fuller than the sine the lane's
                                                           * level was made for) */
-            y[i] = mulq15(s > 32767 ? 32767 : s < -32767 ? -32767 : s, ga >> 8);
+            s = clamp(s, -32767, 32767);
+            if (crush) s = (s / (int32_t)(1u << crush)) * (int32_t)(1u << crush);
+            y[i] = mulq15(s, ga >> 8);
         }
         for (; i < n; i++)
             y[i] = 0;

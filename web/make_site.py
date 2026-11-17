@@ -48,7 +48,8 @@ def product_of(raw):
 
 def base_of(version):
     """v0.6.46-abc1234 -> v0.6.46: the builds of one version"""
-    return version.split("-")[0]
+    match = re.match(r"(?:BYTE-)?v?\d+(?:\.\d+)+", version)
+    return match.group(0) if match else version.split("-")[0]
 
 
 def earlier(prev, version, product):
