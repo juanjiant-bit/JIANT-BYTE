@@ -424,7 +424,7 @@ function saveFlash(sectors) {
 
 // Android owns the engine versions and persistent NOR. The UI never requests external resources.
 let audioContext=null, outputGain=null, started=false, closeResolve=null, rendered=false;
-window.jiantDiagnostics={ready:false,frames:0,layout:()=>layout};
+window.jiantDiagnostics={ready:false,frames:0,peak:0,layout:()=>layout,keys:()=>keyMask,buttons:()=>btnMask};
 async function switchOn() {
  if(started)return; started=true;
  try {
@@ -436,7 +436,7 @@ async function switchOn() {
   node.port.onmessage=({data:m})=>{
    if(m.type==="error"){if(window.AndroidEngine)AndroidEngine.failed(m.message);}
    if(m.type==="frame"){
-    window.jiantDiagnostics.frames++;
+    window.jiantDiagnostics.frames++; if(m.peak)window.jiantDiagnostics.peak=Math.max(window.jiantDiagnostics.peak,m.peak);
     if(m.fb){drawScreen(m.fb);if(!rendered){rendered=true;window.jiantDiagnostics.ready=true;document.getElementById("start").hidden=true;if(window.AndroidEngine)AndroidEngine.ready();}}
     if(m.leds)drawLights(lastLeds=m.leds,m.anim);
     if(m.sectors&&!saveFlash(m.sectors)&&window.AndroidEngine)AndroidEngine.failed("No se pudo guardar el proyecto localmente");

@@ -62,7 +62,7 @@ public class MainActivity extends Activity {
      try{android.net.Uri uri=request.getUrl();if(!"https".equals(uri.getScheme())||!host.equals(uri.getHost()))return denied();String path=uri.getPath();InputStream in;String mime;
       if("/felucca.wasm".equals(path)){in=new FileInputStream(engine);mime="application/wasm";}
       else {Map<String,String> allowed=new HashMap<>();allowed.put("/index.html","text/html");allowed.put("/worklet.js","text/javascript");allowed.put("/fonts/DotGothic16-subset.woff","font/woff");mime=allowed.get(path);if(mime==null)return denied();in=getAssets().open("shell"+path);}
-      Map<String,String> headers=new HashMap<>();headers.put("Cache-Control","no-store");headers.put("Content-Security-Policy","default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'");
+      Map<String,String> headers=new HashMap<>();headers.put("Cache-Control","no-store");headers.put("Content-Security-Policy","default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'");
       return new WebResourceResponse(mime,"UTF-8",200,"OK",headers,in);
      }catch(Exception e){return denied();}
     }
@@ -74,7 +74,7 @@ public class MainActivity extends Activity {
   }catch(Exception e){try{store.rollback(p);}catch(Exception ignored){}selector();showError(e);}
  }
  private WebResourceResponse denied(){return new WebResourceResponse("text/plain","UTF-8",403,"Blocked",Collections.emptyMap(),new ByteArrayInputStream(new byte[0]));}
- private final class Bridge {
+ public final class Bridge {
   final String p;final WebView view;volatile boolean valid=true,ready=false;
   Bridge(String p,WebView v){this.p=p;view=v;}
   @JavascriptInterface public String flash(){try{return valid?store.flash(p):"{}";}catch(Exception e){return "{}";}}

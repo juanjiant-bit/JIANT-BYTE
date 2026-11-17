@@ -43,6 +43,7 @@ if (typeof registerProcessor === "function") {
       this.period = 1 / 30;
       this.busy = 0;
       this.frames = 0;
+      this.peak = 0;
       this.queue = [];                                // button / key changes, each held >= HOLD_MS of device time
       this.nextOk = 0;
       this.port.onmessage = (e) => this.onMessage(e.data);
@@ -84,7 +85,7 @@ if (typeof registerProcessor === "function") {
 
     publish() {
       const ex = this.ex, mem = ex.memory.buffer;
-      const msg = { type: "frame" };
+      const msg = { type: "frame", peak:this.peak }; this.peak=0;
       const leds = [ex.web_lit_buttons(), ex.web_lit_keys(), ex.web_dim_buttons(), ex.web_dim_keys(), ex.web_dim_level(),
                     ex.web_breath_buttons(), ex.web_breath_keys(), ex.web_mid_keys ? ex.web_mid_keys() : 0];
       const an = ex.web_anim_levels ? ex.web_anim_levels() : 0;   // the power-on sweep: each LED's level
@@ -111,7 +112,7 @@ if (typeof registerProcessor === "function") {
         this.sentWrites = writes;
         msg.sectors = storeSectors(new Uint8Array(mem, ex.web_nor(), ex.web_nor_size()));
       }
-      if (msg.leds || msg.fb || msg.sectors || msg.load !== undefined) this.port.postMessage(msg, transfer);
+      if (msg.peak || msg.leds || msg.fb || msg.sectors || msg.load !== undefined) this.port.postMessage(msg, transfer);
     }
 
     // A click's down and up can arrive within one render quantum, but the FM-1's contacts never close for less than
@@ -137,6 +138,7 @@ if (typeof registerProcessor === "function") {
       this.busy += clock() - t0;
       this.frames += n;
       out[0].set(new Float32Array(ex.memory.buffer, ex.web_out_l(), n));
+      for(let i=0;i<n;i++)this.peak=Math.max(this.peak,Math.abs(out[0][i]));
       if (out[1]) out[1].set(new Float32Array(ex.memory.buffer, ex.web_out_r(), n));
       if (currentTime - this.lastFrame >= this.period) {
         this.lastFrame = currentTime;
