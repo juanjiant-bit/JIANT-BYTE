@@ -386,11 +386,11 @@ static __attribute__((noinline)) void menu_panel(void)
                 cv_rect(x, y, 1, 18, T_ACCENT); cv_rect(x + 71, y, 1, 18, T_ACCENT);
             }
             cv_clip_text(x + 4, y + 6 - AF_X_CAP_Y, &AF_X, row == MI_HOLD ? HOLD_N[k % 4u] : menu_vname(row, k),
-                         T_TEXT, bg, row == MI_COLOR ? 48 : 63);   /* (COLOR: CONTRAST whole, 47 px) */
+                         T_TEXT, bg, row == MI_COLOR ? 64 : 63);   /* the readable system face needs the full chip width */
             if (row == MI_COLOR) {                     /* (the palette's THEME and ACCENT) */
                 uint32_t q;
                 for (q = 0; q < 2u; q++) {
-                    cv_rect(x + 54 + (int32_t)q * 8, y + 5, 7, 8, UI_PALETTES[k % NPALETTES].c[3u + q]);
+                    cv_rect(x + 58 + (int32_t)q * 5, y + 2, 4, 2, UI_PALETTES[k % NPALETTES].c[3u + q]);
                 }
             }
         }

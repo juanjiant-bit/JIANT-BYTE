@@ -101,7 +101,8 @@ def generate():
     for old in ("felucca_font.h", "felucca_icons.h", "ui_font_x.h"):     # headers of the bitmap font and icon atlas, the 5 x 7 face
         (GEN / old).unlink(missing_ok=True)
     tools = SRC / "tools"
-    cmds = [[tools / "gen_aa_font.py", GEN / "ui_fonts.h", "--preset", "byte-pixel", "--kern-min", "4"],   # (snd7: pairs under 1/4 px dropped)   # (gen_aa_font.UI_PRESET),
+    cmds = [[tools / "gen_byte_logo.py", FW / "src" / "ui_byte_logo.h"],
+            [tools / "gen_aa_font.py", GEN / "ui_fonts.h", "--preset", "byte-readable", "--kern-min", "4"],   # (snd7: pairs under 1/4 px dropped)   # (gen_aa_font.UI_PRESET),
             [tools / "gen_about.py", GEN / "about_notices.h", FW / "src" / "ui_menu.c"],
             [tools / "gen_aa_icons.py", GEN / "ui_icons.h"],
             [tools / "gen_aa_keycaps.py", GEN / "ui_keycaps.h"],

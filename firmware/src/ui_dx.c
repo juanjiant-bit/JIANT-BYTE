@@ -129,7 +129,7 @@ static __attribute__((noinline)) void dx_kit3_cards(void)
 {
     if(cur_page()->title[4]=='4') {
         empty_column(1);
-        hot_unit_column(0,"KEY MAP",drum_ext(TSEL)?"EXTENDED":"CLASSIC",!drum_ext(TSEL)?"":drum_chrom(TSEL)<0?"KIK/TOM":drum_lane_name(TSEL,(uint32_t)drum_chrom(TSEL)&7u));
+        hot_unit_column(0,"KEY MAP",drum_ext(TSEL)?"EXT":"CLASS",!drum_ext(TSEL)?"":drum_chrom(TSEL)<0?"K/T":drum_lane_abbr(TSEL,(uint32_t)drum_chrom(TSEL)&7u));
         empty_column(2);
         empty_column(3);
         return;

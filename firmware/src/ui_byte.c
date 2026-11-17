@@ -119,13 +119,14 @@ static void ub_bits(const uint8_t *v, uint32_t n, int32_t x, int32_t y, int32_t 
         cv_rect(x + (int32_t)(n - half + 2u) * px, y + (int32_t)ey * px, px, px, e);
     }
 }
-/* an INT being from the compiled formula: 11 x 11, its bits at time fr (a pose) */
+/* Stable formula fingerprint: sampling positions stay fixed; only the feet
+ * animate. A new formula changes the body, a new frame keeps its identity. */
 static void ub_sprite(gq_work_t *w, int32_t x, int32_t y, int32_t px, uint32_t fr, uint16_t c, uint16_t e)
 {
     uint32_t tq[11], gy;
     uint8_t v[11];
     for (gy = 0; gy < 11u; gy++)
-        tq[gy] = (gy * 1237u + 4096u + fr * 3u) << 8;
+        tq[gy] = (gy * 1237u + 4096u) << 8;
     memset(w->st, 0, sizeof w->st);
     ub_run(w, tq, 11u, 0, v);
     ub_bits(v, 11u, x, y, px, fr, 0, c, e);
@@ -201,7 +202,7 @@ static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
     gq_work_t *w = ub_ws();
     int32_t lv = en_home >= 0 ? en_home : track_env[tr] >> 7, x = A[0], y = A[1], wd = A[2], ht = A[3], bob;
     char nm[8];
-    uint16_t bc = T_K(tr), ec = T_TEXT;
+    uint16_t bc = heat_col(48 + clamp(lv, 0, 256) * 200 / 256), ec = T_TEXT;
     if (!s || !ub_compile(w, s))
         return 0;
     ub_name(s, nm);
@@ -213,7 +214,7 @@ static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
             ub_portrait(w, x + wd / 2, y + ht / 2 - 4 - bob, px * 5, fr, bc, ec);
         else
             ub_sprite(w, x + wd / 2 - px * 11 / 2, y + ht / 2 - px * 6 - bob, px, fr, bc, ec);
-        cv_text(x + wd / 2 - (int32_t)str_len(nm) * 3, y + ht - 9 - AF_X_CAP_Y, &AF_X, nm, bc);
+        cv_text_in(x, y + ht - 10 - AF_X_CAP_Y, wd, &AF_X, nm, bc, T_BG);
         return 1;
     }
     {                                                   /* t now, the newest voice's, in hex (the time the formula reads) */
@@ -233,7 +234,7 @@ static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
             ub_portrait(w, x + 42, by + bh / 2 - 8 - bob, 30, fr, bc, ec);
         else
             ub_sprite(w, x + 8, by + bh / 2 - 36 - bob, 6, fr, bc, ec);
-        cv_text(x + 42 - (int32_t)str_len(nm) * 3, y + ht - 10 - AF_X_CAP_Y, &AF_X, nm, bc);
+        cv_text_in(x, y + ht - 10 - AF_X_CAP_Y, 84, &AF_X, nm, bc, T_BG);
         if (trk_engp(t) == &ENG_WAVE)
             ub_terrain(w, x + 92, by - 6, wd - 92, bh - 4, t->p[P_E1]);
         else
@@ -258,7 +259,7 @@ static void ub_kit(const track_t *t, const int32_t *A, int32_t sel)
         int32_t e = K && K[l].x.live && !ANIM_OFF() ? clamp(K[l].x.ea >> 22, 0, 256) : 0, mut = dx_lane_muted(l);
         uint32_t f = dx_form[l], gy, sq = e > 120 ? 2u : e > 30 ? 1u : 0u;
         uint8_t v[9];
-        uint16_t c = mut ? T_DIM : T_K(l), nc;
+        uint16_t c = mut ? T_DIM : heat_col(48 + e * 200 / 256), nc;
         if (K && K[l].age < age[l] && e) last = (uint8_t)l;
         age[l] = K ? (uint8_t)K[l].age : 255u;
         if (f && f <= DX_NFORM && ub_compile(w, DX_FORMS[f - 1u])) {
@@ -291,7 +292,7 @@ static void ub_being_at(const track_t *t, int32_t cx, int32_t cy, int32_t rad, i
 {
     uint32_t tr = (uint32_t)(t - trk) % NTRK, fix = 0, fr = off || lv < 8 ? anim_fr / 16u : anim_fr / 3u, gy;
     int32_t px = rad * 2 / 11 < 2 ? 2 : rad * 2 / 11;
-    uint16_t c = off ? T_DIM : ub_tcol(tr), e = off ? T_SURF : T_TEXT;
+    uint16_t c = off ? T_DIM : heat_col(48 + clamp(lv, 0, 256) * 200 / 256), e = off ? T_SURF : T_TEXT;
     const char *s = ub_text(t, &fix);
     gq_work_t *w = ub_ws();
     if (s && ub_compile(w, s)) {
@@ -329,33 +330,15 @@ static void ub_plasma(int32_t bot, int32_t en, uint32_t still)
         }
 }
 
-/* (JIANT BYTE) HOME's scene (MACROS, LIFE): a starfield drifting left (faster loud), the ground a horizon that is the
- * mix (the scope's last samples), its rows fading under it; the parts stand on it in a row (ui_lzhome.c places them:
- * ub_scene_at), each jumping with its own sound. gy: the horizon's row (returned by ub_scene) */
-static int32_t ub_scene(int32_t bot, int32_t en, uint32_t still)
+/* HOME's space: three depths of stars, with no ground or fixed track slots.
+ * Motion belongs to eco_at / LIFE, the same physics as JIANT FM. */
+static void ub_scene(int32_t bot, int32_t en, uint32_t still)
 {
-    uint32_t i, w0 = scope_w - 240u;
-    int32_t gy = bot - 4, x, py = 0;
-    uint32_t sp = still ? 0u : anim_fr * (1u + (uint32_t)en / 48u);
-    for (i = 0; i < 48u; i++) {                         /* the stars: three depths */
+    uint32_t i, sp = still ? 0u : anim_fr * (1u + (uint32_t)en / 48u);
+    for (i = 0; i < 48u; i++) {
         uint32_t h = i * 2654435761u, d = 1u + (h >> 30);
-        int32_t sx = (int32_t)(((h >> 8) % 240u + 240u * 4u - sp * d / 4u % 240u) % 240u), sy = 6 + (int32_t)((h >> 16) % (uint32_t)(gy - 30));
-        cv_rect(sx, sy, 1, 1, d == 1u ? T_DIM : d == 2u ? T_MID : T_TEXT);
+        int32_t sx = (int32_t)(((h >> 8) % 240u + 960u - sp * d / 4u % 240u) % 240u);
+        int32_t sy = 14 + (int32_t)((h >> 16) % (uint32_t)(bot > 28 ? bot - 28 : 1));
+        cv_rect(sx, sy, 1, 1, ux_mix(T_SURF, heat_col(40 + (int32_t)d * 40), 25 + (int32_t)d * 8));
     }
-    for (x = 0; x < 240; x++) {                         /* the ground: the mix as the horizon */
-        int32_t v = scope_buf[(w0 + (uint32_t)x) & (SCOPE_N - 1u)], y = gy + (v * 6 >> 15), k;
-        if (x && (y - py > 1 || py - y > 1)) cv_rect(x, y < py ? y : py, 1, (y < py ? py - y : y - py) + 1, T_THEME);
-        cv_rect(x, y, 1, 1, T_THEME);
-        for (k = y + 3; k < bot + 14; k += 3)           /* (its rows fading under it) */
-            cv_rect(x, k, 1, 1, ux_mix(T_SURF, T_THEME, 30 - (k - y) * 2 > 4 ? 30 - (k - y) * 2 : 4));
-        py = y;
-    }
-    return gy;
-}
-/* where part c stands (px): its slot along the ground, its jump with its level (lv 0 .. 256) and its hits */
-static void ub_scene_at(uint32_t c, int32_t gy, int32_t rad, int32_t lv, int32_t *x, int32_t *y)
-{
-    int32_t j = lv > 20 ? (sine_i((anim_fr * (6u + c) * 1500u + c * 9000u) << 16) * (lv / 24 + 2)) >> 15 : 0;
-    *x = 20 + (int32_t)c * 40;
-    *y = gy - rad - 4 - (j < 0 ? -j : j);
 }

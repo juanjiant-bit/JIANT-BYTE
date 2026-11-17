@@ -43,6 +43,8 @@ def parse(path):
     faces = {}
     for m in re.finditer(r"static const aafont_t AF_(\w+) = \{([^}]*)\};", t):
         name, f = m.group(1), [x.strip() for x in m.group(2).split(",")]
+        if name == "X":  # AF_X aliases S with a vertical rise; no separate glyph tables.
+            continue
         arr = lambda n: [int(v, 0) for v in re.search(r"AF_%s_%s\[\d+\] = \{([^}]*)\}" % (name, n), t)
                          .group(1).replace("\n", " ").split(",") if v.strip()]
         if re.search(r"#define AF_%s_GP 0\b" % name, t):      # (818d979, 2026-11-05) compact single-phase faces: 5 bytes
@@ -190,10 +192,19 @@ def main():
     bad = 0
     for name, f in faces.items():
         font, px, trk = spec[name]
+        if font.startswith("bdf:"):
+            print(f"  {name}: bitmap monospace, no fractional spacing")
+            continue
         font_hi = ar.open_font(font, px * SS)
         words = LOWER if f["last"] >= ord("z") else UPPER
         # a sparse face (L): the words it can draw (the firmware draws no others in it)
         words = [w for w in words if all(glyph_at(f, ord(ch.upper())) is not None for ch in w)]
+        if not words:  # Numeric-only faces use intentionally tabular, whole-pixel advances.
+            advances = {f["g"][glyph(f, ord(c)) << f["psh"]][1] for c in "0123456789"}
+            ok = len(advances) == 1 and next(iter(advances)) % 16 == 0
+            bad += not ok
+            print(f"  {name}: tabular digits share an integer pixel advance {'ok' if ok else 'FAIL'}")
+            continue
         pairs = [p for s in words for p in measure(f, font_hi, s, trk * px)]
         e = sorted(pairs, key=lambda p: -abs(p[1]))
         mx = abs(e[0][1])

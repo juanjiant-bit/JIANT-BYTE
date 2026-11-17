@@ -197,7 +197,7 @@ static void eco_being(uint32_t c, int32_t cx, int32_t cy, int32_t rq)
 #if FELUCCA_PIXEL
     if (1) {                                            /* (JIANT BYTE) the part's own being, born from its formula */
         int32_t en = eco.en[c];
-        ub_being_at(&trk[c], cx >> 4, cy >> 4, (rq + rq * en * 30 / 65536) >> 4, en >> 8, eco_off(c));
+        ub_being_at(&trk[c], cx >> 4, cy >> 4, (rq + rq * en * 30 / 65536) >> 4, en, eco_off(c));
         return;
     }
 #endif
@@ -274,11 +274,14 @@ static void graph_eco(uint32_t lf)
 {
     uint32_t c, j, links = 0, still = ANIM_OFF() != 0;
     int32_t bx[ECO_N], by[ECO_N], bot = eco_bot(), lo;
+#if FELUCCA_PIXEL
+    int32_t label_x[ECO_N], label_y[ECO_N];
+#endif
     (void)eco_step();                                   /* (the swim, once a frame) */
     (void)bg_energy();                                  /* (the output's level kept as it was read: once a frame) */
     char b[48];
 #if FELUCCA_PIXEL
-    int32_t gy = ub_scene(bot, bg_energy(), still);     /* (JIANT BYTE) stars, the mix as the horizon */
+    ub_scene(bot, bg_energy(), still);                 /* formula beings swim in the original HOME physics */
 #else
     eco_water(bot, still);
 #endif
@@ -286,18 +289,11 @@ static void graph_eco(uint32_t lf)
         eco_at(c, &bx[c], &by[c]);                      /* (codex/anim: between its last two steps) */
         bx[c] >>= 4;
         by[c] >>= 4;
-        if (lf) {                                       /* (LIFE: the sound's swim) */
+        if (lf && life.init) {                          /* LIFE may not have received its first audio block yet */
             bx[c] = (12 + ((life.bx[c] * 216) >> 16)) << 4;
             by[c] = (8 + ((life.by[c] * (bot - 16)) >> 16)) << 4;
         }
-#if FELUCCA_PIXEL
-        {                                               /* (JIANT BYTE) standing in a row on the ground, jumping */
-            int32_t x, y;
-            ub_scene_at(c, gy, (eco.r[c] >> 4) * 3 / 4 < 8 ? 8 : (eco.r[c] >> 4) * 3 / 4, eco.en[c] >> 8, &x, &y);
-            bx[c] = x << 4;
-            by[c] = y << 4;
-        }
-#endif
+
     }
     for (c = 0, j = 1500; c < ECO_N * ECO_N && lf; c++)   /* (LIFE) the strongest link: the faint ones (a third of it) not
                                                          * drawn, the picture kept readable */
@@ -326,11 +322,26 @@ static void graph_eco(uint32_t lf)
                 py = by[c] >> 4, ny;
         char num[2] = {(char)('1' + c), 0};
 #if FELUCCA_PIXEL
-        r = r * 3 / 4 < 8 << 4 ? 8 << 4 : r * 3 / 4;   /* (JIANT BYTE: a little smaller, six in a row; its number under
-                                                         * the ground) */
-        eco_being(c, bx[c], by[c], r);
-        ny = bot + 2;
-        (void)rad; (void)py;
+        r = clamp((r * 3 / 4) >> 4, 8, 18) << 4;
+        /* Portrait tentacles extend below their centre. Keep the complete
+         * silhouette and its moving track number inside the scene. */
+        rad = r >> 4;
+        px = clamp(px, rad + 3, 237 - rad);
+        py = clamp(py, rad + 12, bot - rad * 8 / 5 - 26);
+        eco_being(c, px << 4, py << 4, r);
+        ny = py + rad * 8 / 5 + 2;
+        /* When swimmers cross, keep their track numbers legible. Try nearby
+         * rows, never changing either being's audio-driven position. */
+        for (uint32_t attempt = 0; attempt < ECO_N; attempt++) {
+            uint32_t hit = 0;
+            for (j = 0; j < c; j++)
+                if (px - label_x[j] < 10 && label_x[j] - px < 10 &&
+                    ny - label_y[j] < 11 && label_y[j] - ny < 11) hit = 1;
+            if (!hit) break;
+            ny -= 12;
+            if (ny < 14) ny = bot - 14;
+        }
+        label_x[c] = px; label_y[c] = ny;
         if (1)
 #else
         eco_being(c, bx[c], by[c], r);
@@ -364,8 +375,8 @@ static void graph_eco(uint32_t lf)
         cv_text_r(234, 2, &AF_X, mac_latch ? "LATCH" : "HOLD LFO", mac_latch ? T_ACCENT : T_TEXT, T_SURF);
     fmt_int(b, song.g[G_BPM]);                          /* (V10.7.33, the owner) the tempo large: HOME held + PRESETS */
 #if FELUCCA_PIXEL
-    cv_text_r(210, 14, &AF_L, b, ui.bpm_t ? T_ACCENT : T_TEXT, T_SURF);   /* (JIANT BYTE: up, over the stars) */
-    cv_text_r(234, 26, &AF_X, "BPM", T_TEXT, T_SURF);
+    cv_text_r(210, bot - 14, &AF_L, b, ui.bpm_t ? T_ACCENT : T_TEXT, T_SURF);
+    cv_text_r(234, bot + 2, &AF_X, "BPM", T_TEXT, T_SURF);
 #else
     cv_text_r(210, bot - 22, &AF_L, b, ui.bpm_t ? T_ACCENT : T_TEXT, T_SURF);
     cv_text_r(234, bot - 2, &AF_X, "BPM", T_TEXT, T_SURF);

@@ -56,7 +56,7 @@ HUFF = [("S", "M", "L")]
 # (JIANT 0.6.56) a face's ink raised by n px in its line: IBM Plex Mono's taller ascent put its values 1 px under where
 # Chakra Petch's sat (tests/ui_render.c alignment: a value centred in its window, its unit on its baseline)
 RISE = {"IBMPlexMono-SemiBold.ttf": 1}
-UI_PRESET = "byte-pixel"            # the firmware's faces (tools/build.py; tests/text_spacing_test.py)
+UI_PRESET = "byte-readable"            # the firmware's faces (tools/build.py; tests/text_spacing_test.py)
 L_CHARS = " #+-./0123456789ABCDEFGHIJKLMNOPQRSTUVWXY"
 V_CHARS = " %+-./0123456789"
 
@@ -78,6 +78,12 @@ def preset(name):
                 # V: a card's value when it is a number: M's face at 19 px (capitals 14, a figure 12 px wide: "1000" in a
                 # card), the figures and their signs only
                 ("V", str(f / "InterTight[wght].ttf") + "@600", 19, (32, 32), [ord(c) for c in V_CHARS[1:]], 0.0, PHASES_L)]
+    if name == "byte-readable":
+        # System labels regain JIANT's legible 12 px face; formula code keeps a
+        # separate pixel monospace, so t and operators are never case-folded.
+        faces = preset("jiant-lab")
+        f = FONTS.parent / "assets" / "fonts" / "pixel" / "fixed_5x8.bdf"
+        return faces + [("F", "bdf:" + str(f), 8, (32, 126), [0x2026], 0.0, 1)]
     if name == "byte-pixel":                   # (JIANT BYTE) the demoscene's pixel faces (assets/fonts/pixel: public domain)
         f = FONTS.parent / "assets" / "fonts" / "pixel"
         return [("S", "bdf:" + str(f / "fixed_5x8.bdf"), 8, (32, 95), EXTRAS, 0.0, 1),
@@ -292,7 +298,7 @@ def emit(face, tracking, gamma, kern_min):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("out")
-    ap.add_argument("--preset", choices=["standin", "inter-tight", "chakra-petch", "jiant-lab", "byte-pixel"])
+    ap.add_argument("--preset", choices=["standin", "inter-tight", "chakra-petch", "jiant-lab", "byte-pixel", "byte-readable"])
     ap.add_argument("--face", action="append", default=[])
     ap.add_argument("--tracking", type=float, default=0.0, help="extra advance per glyph in em")
     ap.add_argument("--gamma", type=float, default=1.0, help="coverage curve; <1 thickens light-on-dark text")

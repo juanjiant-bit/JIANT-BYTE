@@ -49,6 +49,10 @@ or a random tree of operators (86-127). Each one is run and judged before it pla
 are thrown away. **MUTA** moves it: 1-63 mutates numbers, shifts and operators; 64-127 crosses it with a factory
 formula. The same knobs always give the same formula, so the project keeps the knobs, not the text.
 
+The **song generator** (HOME > GEN) now selects native MATH and WAVE presets by musical role, with DRUM-X for drums.
+Bass and melodic parts keep curated tonal formulas; textures can use rhythmic bytebeats and controlled CAOS.
+The genre still supplies harmony, rhythm, envelopes and arrangement. The same seed and settings reproduce the song.
+
 ## LIFE: the formulas talk
 
 HOME > LIFE has four knobs. **LIFE** is how alive it all is. **TALK** is how much each formula hears the others: their
@@ -66,11 +70,16 @@ it up to all of them hearing each other.
 
 ## The look
 
-A demoscene machine in JIANT's colours: pixel type, square boxes, segmented meters, JIANT FM's black, violet and
-orange by default, and palettes of old computers in MENU > COLOR (BYTE, C64, AMIGA, CGA, GAMEBOY, ATARI, CONTRAST). The formula is always on the screen, with `t` running in hex. Each formula gives birth
-to a **being**: a bytebeat becomes a sprite made of its own bits, mirrored; a floatbeat becomes a jellyfish drawn by
-its phase portrait. Mutate the formula and the being mutates with it. On HOME the six tracks' beings stand on a horizon
-drawn by the mix and jump with their sound. The power-on is a cracktro.
+A demoscene machine in JIANT's colours. The power-on reads **JIANT /B1T3** in thermal pixel lettering.
+System labels use Chakra Petch, values use Inter Tight, and large titles use Michroma; formulas keep their own
+pixel monospace with lowercase intact. Square boxes and segmented meters retain the machine's character.
+JIANT FM's black, violet and orange remain the default, with BYTE, C64, AMIGA, CGA, GAMEBOY, ATARI and CONTRAST
+available in MENU > COLOR.
+
+Each formula gives birth to a **being**: a bytebeat becomes a mirrored sprite with a stable body and moving feet;
+a floatbeat becomes a phase portrait with wave tentacles. On HOME the six tracks' beings float freely through
+space using JIANT FM's movement. Their heat follows the sound, from violet to orange and cream; muted tracks dim.
+LIFE uses the same beings and shows their connections. [Design audit and real firmware captures](docs/byte-development-review.md).
 
 ## Try it, install it
 
