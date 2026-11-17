@@ -22,6 +22,6 @@ JDK 17, Android SDK 35, Gradle 8.9:
 gradle -p android/emulator testDebugUnitTest assembleDebug
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`. `.github/workflows/android-emulator.yml` builds it and runs an Android 11 emulator with Wi-Fi/mobile data disabled. Instrumentation boots all bundled profiles and rotates each. JVM tests cover corrupt files, deferred activation, persistent updates, separate profile storage, and crash rollback including flash restoration. Real S23 Ultra performance/audio latency still require testing on the phone.
+APK: `app/build/outputs/apk/debug/app-debug.apk`. `.github/workflows/android-emulator.yml` builds it and runs an Android 11 emulator with Wi-Fi/mobile data disabled. Instrumentation boots all bundled profiles, verifies audio and held/released keys, and rotates each. After success, the workflow publishes the APK, engine catalogue, checksums and screenshots under `/android/` on the existing Pages branch, leaving firmware/installer/emulator paths unchanged. JVM tests cover corrupt files, deferred activation, persistent updates, separate profile storage, and crash rollback including flash restoration. Real S23 Ultra performance/audio latency still require testing on the phone.
 
 Source/attribution: GPL-3.0, JIANT/Felucca, Juan Ignacio Antonucci, Leo Kuroshita / Hügelton Instruments and Charles Vestal. DotGothic16 is SIL OFL; licenses included in assets.

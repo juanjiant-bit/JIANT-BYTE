@@ -2,7 +2,7 @@ name: Android offline emulator
 on:
   push:
     branches: [codex/byte-identity-generator]
-    paths: ['android/emulator/**', '.github/workflows/android-emulator.yml']
+    paths: ['android/emulator/**', 'web/android/**', '.github/workflows/android-emulator.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -50,3 +50,55 @@ jobs:
             android/emulator/screenshots/
             android/emulator/app/build/reports/
             android/emulator/app/build/outputs/androidTest-results/
+  publish:
+    needs: apk
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pages: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: source
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: site
+      - uses: actions/download-artifact@v4
+        with:
+          name: jiant-offline-apk
+          path: apk
+      - uses: actions/download-artifact@v4
+        with:
+          name: jiant-offline-test-reports
+          path: reports
+      - name: Publish tested app and immutable engines
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os,json,hashlib,shutil,datetime
+          from pathlib import Path
+          root=Path('site/android');root.mkdir(exist_ok=True)
+          apk=Path('apk/app-debug.apk');data=apk.read_bytes()
+          shutil.copyfile(apk,root/'jiant-offline.apk')
+          shutil.copyfile('source/web/android/index.html',root/'index.html')
+          assets=Path('source/android/emulator/app/src/main/assets')
+          shutil.copyfile(assets/'engines.json',root/'engines.json')
+          shutil.copytree(assets/'engines',root/'engines',dirs_exist_ok=True)
+          shots=root/'screenshots';shots.mkdir(exist_ok=True)
+          for p in Path('reports').rglob('*.png'):
+              if p.name in ['byte-public-portrait.png','byte-public-landscape.png']:
+                  shutil.copyfile(p,shots/p.name.replace('byte-public','byte'))
+          (root/'app.json').write_text(json.dumps(dict(version='0.1-beta',version_code=1,commit=os.environ['GITHUB_SHA'],built_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),size=len(data),sha256=hashlib.sha256(data).hexdigest(),workflow_run=os.environ['GITHUB_RUN_ID']),indent=2)+'\n')
+          PY
+          cd site
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add android
+          git commit -m "Publish tested Android Offline ${GITHUB_SHA::7}"
+          git push origin HEAD:gh-pages
+          gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds"
