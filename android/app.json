@@ -1,9 +1,9 @@
 {
-  "version": "0.1-beta",
-  "version_code": 1,
-  "commit": "e1a4a4d1cb2d2cc20aa933b8110746a47d17e239",
-  "built_at": "2026-11-17T21:45:20.784955+00:00",
-  "size": 1745470,
-  "sha256": "e4da397d08bed27df3bb773f0893b80e6ae20577b37f91b3a34369487016b8a4",
-  "workflow_run": "44182393401"
+  "version": "0.2-beta",
+  "version_code": 2,
+  "commit": "f581236ec288f2e5e9417666114746963b3064ef",
+  "built_at": "2026-11-17T23:54:10.569599+00:00",
+  "size": 1748902,
+  "sha256": "f5e780a52aca72df2bfadaab7f8cd94f4e152efe97222ce8d7e78c3e4c2084a7",
+  "workflow_run": "44202734130"
 }
