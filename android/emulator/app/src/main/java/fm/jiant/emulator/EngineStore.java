@@ -28,7 +28,9 @@ public final class EngineStore {
  public synchronized File wasm(JSONObject e){return new File(root,"wasm/"+e.optString("sha256")+".wasm");}
  public synchronized void install(JSONObject e,byte[] data) throws Exception {
   validate(e);
-  if(data.length!=e.getInt("size")||!sha(data).equals(e.getString("sha256"))||data[0]!=0||data[1]!=97||data[2]!=115||data[3]!=109||data[4]!=1||data[5]!=0||data[6]!=0||data[7]!=0)throw new IOException("Motor rechazado: tamaño, formato o SHA-256 incorrecto");
+  if(data.length!=e.getInt("size"))throw new IOException("Motor rechazado: tamaño esperado "+e.getInt("size")+", recibido "+data.length+" bytes");
+  if(data[0]!=0||data[1]!=97||data[2]!=115||data[3]!=109||data[4]!=1||data[5]!=0||data[6]!=0||data[7]!=0)throw new IOException("Motor rechazado: formato WASM inválido");
+  if(!sha(data).equals(e.getString("sha256")))throw new IOException("Motor rechazado: SHA-256 incorrecto");
   atomic(wasm(e),data);
  }
  public synchronized void seed(String profile,JSONObject entry,byte[] data) throws Exception {

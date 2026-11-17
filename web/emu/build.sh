@@ -33,5 +33,5 @@ import hashlib, json, os
 from pathlib import Path
 p = Path("build/emu")
 (p / "build.json").write_text(json.dumps({"product": "JIANT /B1T3", "commit": os.environ["SOURCE_COMMIT"],
-    "wasm_sha256": hashlib.sha256((p / "felucca.wasm").read_bytes()).hexdigest()}, indent=2) + "\n")
+    "wasm_size": (p / "felucca.wasm").stat().st_size, "wasm_sha256": hashlib.sha256((p / "felucca.wasm").read_bytes()).hexdigest()}, indent=2) + "\n")
 PYMETA

@@ -16,7 +16,7 @@ public final class UpdateClient {
  }
  static byte[] fetch(String url,int max) throws Exception {
   if(!trusted(url))throw new IOException("Origen de actualización no permitido");
-  HttpsURLConnection c=(HttpsURLConnection)new URL(url).openConnection();c.setInstanceFollowRedirects(false);c.setConnectTimeout(10000);c.setReadTimeout(15000);c.setRequestProperty("Cache-Control","no-cache");
+  HttpsURLConnection c=(HttpsURLConnection)new URL(url).openConnection();c.setInstanceFollowRedirects(false);c.setConnectTimeout(10000);c.setReadTimeout(15000);c.setRequestProperty("Cache-Control","no-cache");c.setRequestProperty("Accept-Encoding","identity");
   try{
    if(c.getResponseCode()!=200)throw new IOException("HTTP "+c.getResponseCode());
    if(c.getContentLengthLong()>max)throw new IOException("Descarga demasiado grande");
@@ -32,13 +32,16 @@ public final class UpdateClient {
   if(hash.equals(p.getJSONObject("active").getString("sha256"))||hash.equals(p.optString("rejected"))||p.has("pending")&&hash.equals(p.getJSONObject("pending").getString("sha256")))return false;
   return store.stage(profile,e,fetch(e.getString("url"),EngineStore.MAX_ENGINE));
  }
- private JSONObject bytePublic() throws Exception {
+ private JSONObject bytePublic(JSONObject catalog) throws Exception {
   JSONObject b=json(BYTE+"emu/build.json");JSONArray versions=new JSONArray(new String(fetch(BYTE+"firmware/versions.json",512*1024),"UTF-8"));JSONObject v=versions.getJSONObject(0);
   if(!b.getString("commit").equals(v.optString("commit")))throw new IOException("Publicación BYTE todavía en curso");
-  // Manifest does not advertise WASM length. Read the HTTP header, then enforce digest and length during download.
-  String url=BYTE+"emu/felucca.wasm";HttpsURLConnection c=(HttpsURLConnection)new URL(url).openConnection();c.setRequestMethod("HEAD");c.setConnectTimeout(10000);c.setReadTimeout(10000);long size;
-  try{if(c.getResponseCode()!=200)throw new IOException("WASM no disponible");size=c.getContentLengthLong();}finally{c.disconnect();}
-  return new JSONObject().put("version",v.getString("version")).put("commit",b.getString("commit")).put("sha256",b.getString("wasm_sha256")).put("size",size).put("url",url).put("source_repo","juanjiant-bit/JIANT-BYTE");
+  // Transport Content-Length can describe gzip bytes, never the canonical WASM size.
+  // Prefer the immutable, content-addressed catalogue entry when it matches this publication.
+  if(catalog!=null){JSONObject e=catalog.getJSONObject("profiles").getJSONObject("byte-public");
+   if(b.getString("commit").equals(e.getString("commit"))&&b.getString("wasm_sha256").equals(e.getString("sha256")))return e;
+  }
+  if(!b.has("wasm_size"))throw new IOException("Catálogo BYTE todavía en curso; se conserva la versión instalada");
+  return new JSONObject().put("version",v.getString("version")).put("commit",b.getString("commit")).put("sha256",b.getString("wasm_sha256")).put("size",b.getLong("wasm_size")).put("url",BYTE+"emu/felucca.wasm?sha256="+b.getString("wasm_sha256")).put("source_repo","juanjiant-bit/JIANT-BYTE");
  }
  private JSONObject fmPublic() throws Exception {
   JSONObject release=json("https://raw.githubusercontent.com/juanjiant-bit/JIANT/main/web/EMULATOR_BETA.json");
@@ -48,9 +51,9 @@ public final class UpdateClient {
   return new JSONObject().put("version",release.getString("version")).put("commit",source).put("sha256",file.getString("sha256")).put("size",file.getLong("size")).put("url",FM+"emu/felucca.wasm").put("source_repo","juanjiant-bit/JIANT");
  }
  public String check() {
-  int installed=0,ok=0;StringBuilder errors=new StringBuilder();JSONObject catalog=null,byteEntry=null;
-  try{catalog=json(CATALOG);if(catalog.getInt("schema")!=1||catalog.optInt("min_app",1)>1)throw new IOException("Necesita actualizar la app");}catch(Exception e){catalog=null;errors.append("Catálogo: ").append(e.getMessage()).append(". ");}
-  try{byteEntry=bytePublic();if(stage("byte-public",byteEntry))installed++;ok++;}catch(Exception e){errors.append("BYTE: ").append(e.getMessage()).append(". ");}
+  int installed=0,ok=0;StringBuilder errors=new StringBuilder(),notes=new StringBuilder();JSONObject catalog=null,byteEntry=null;
+  try{catalog=json(CATALOG);if(catalog.getInt("schema")!=1||catalog.optInt("min_app",1)>2)throw new IOException("Necesita actualizar la app");}catch(Exception e){catalog=null;errors.append("Catálogo: ").append(e.getMessage()).append(". ");}
+  try{byteEntry=bytePublic(catalog);if(stage("byte-public",byteEntry))installed++;ok++;}catch(Exception e){errors.append("BYTE: ").append(e.getMessage()).append(". ");}
   try{if(stage("fm-public",fmPublic()))installed++;ok++;}catch(Exception e){errors.append("FM: ").append(e.getMessage()).append(". ");}
   if(catalog!=null)for(String profile:new String[]{"fm-beta","byte-beta"})try{
    JSONObject e=catalog.getJSONObject("profiles").getJSONObject(profile);
@@ -59,8 +62,13 @@ public final class UpdateClient {
   }catch(Exception e){errors.append(profile).append(": ").append(e.getMessage()).append(". ");}
   if(catalog!=null)try{
    JSONObject latest=json("https://raw.githubusercontent.com/juanjiant-bit/JIANT/main/web/SPLIT_BETA.json");
-   if(!latest.getString("source").equals(catalog.getJSONObject("profiles").getJSONObject("fm-beta").getString("commit")))errors.append("FM tiene una beta de firmware más nueva; su emulador compatible aún no está publicado. ");
+   if(!latest.getString("source").equals(catalog.getJSONObject("profiles").getJSONObject("fm-beta").getString("commit")))notes.append("FM tiene una beta de firmware más nueva; su emulador compatible aún no está publicado. ");
   }catch(Exception ignored){}
-  return (installed>0?installed+" motor(es) descargado(s). Se aplican al abrir el perfil, sin cortar el audio. ":ok>0?"Motores disponibles al día. ":"Sin conexión: se conservan los motores instalados. ")+errors;
+  int pending=0;for(String p:EngineStore.PROFILES)try{if(store.info(p).has("pending"))pending++;}catch(Exception ignored){}
+  return summary(installed,ok,pending,errors.toString())+notes;
+ }
+ static String summary(int installed,int ok,int pending,String errors){
+  String result=installed>0?installed+" motor(es) descargado(s). Se aplican al abrir el perfil, sin cortar el audio. ":pending>0?pending+" actualización(es) descargada(s), pendientes de abrir el perfil. ":errors.isEmpty()&&ok>0?"Motores disponibles al día. ":"Se conservan los motores instalados. ";
+  return result+(errors.isEmpty()?"":"No se pudieron comprobar o actualizar todos los perfiles. "+errors);
  }
 }

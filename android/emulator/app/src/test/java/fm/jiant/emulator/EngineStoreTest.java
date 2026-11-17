@@ -22,4 +22,15 @@ public class EngineStoreTest {
   byte[] invalid=new byte[11];try{s.install(entry(invalid),invalid);fail();}catch(IOException expected){}
  }
  @Test public void untrustedSourcesRejected(){assertTrue(UpdateClient.trusted(UpdateClient.CATALOG));assertFalse(UpdateClient.trusted("http://juanjiant-bit.github.io/JIANT/a"));assertFalse(UpdateClient.trusted("https://evil.test/JIANT/a"));assertFalse(UpdateClient.trusted("https://juanjiant-bit.github.io/other/a"));assertFalse(UpdateClient.trusted("https://user@juanjiant-bit.github.io/JIANT/a"));}
+ @Test public void errorsAndPendingAreNotReportedAsUpToDate(){
+  assertFalse(UpdateClient.summary(0,2,0,"BYTE: tamaño incorrecto").contains("al día"));
+  assertTrue(UpdateClient.summary(0,4,2,"").contains("pendientes de abrir"));
+  assertTrue(UpdateClient.summary(0,4,0,"").contains("al día"));
+ }
+ @Test public void canonicalSizeAndDigestRemainMandatory()throws Exception{
+  EngineStore s=new EngineStore(Files.createTempDirectory("integrity").toFile());byte[] b=wasm(1);JSONObject e=entry(b);
+  try{s.install(new JSONObject(e.toString()).put("size",8),b);fail();}catch(IOException ex){assertTrue(ex.getMessage().contains("tamaño esperado 8"));}
+  byte[] changed=b.clone();changed[10]=2;try{s.install(e,changed);fail();}catch(IOException ex){assertTrue(ex.getMessage().contains("SHA-256"));}
+  s.install(e,b);assertEquals(e.getString("sha256"),EngineStore.sha(Files.readAllBytes(s.wasm(e).toPath())));
+ }
 }
