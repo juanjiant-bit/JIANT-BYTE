@@ -11,6 +11,7 @@ static void make_byte_song(uint32_t genre, uint32_t seed, uint32_t form)
     gp.energy = 60; gp.form = (uint8_t)form;
     gp.complex = 70; gp.swing = GA_AUTO; gp.human = 30;
     for (uint32_t k = 0; k < GP_N; k++) gp.amt[k] = GA_AUTO;
+    life_v[LIFE_AMT] = 100;
     gen_go();
 }
 
@@ -28,7 +29,7 @@ static uint32_t byte_song_hash(void)
 int main(void)
 {
     uint32_t songs = 0, seen = 0, bytes = 0, floats = 0;
-    int bad = 0, native = 1, reproducible = 1, varied = 1, bounded = 1, tonal = 1;
+    int bad = 0, life_off = 1, native = 1, reproducible = 1, varied = 1, bounded = 1, tonal = 1;
     ui_power_on();
     ui_rec_prefs |= PREF_SIX >> 8; rp_apply();
     for (uint32_t g = 0; g <= NGENRE + 1u; g++) {
@@ -36,6 +37,7 @@ int main(void)
         uint32_t previous = 0;
         for (uint32_t seed = 1; seed <= 3u; seed++) {
             make_byte_song(genre, seed * 37u, 0);
+            life_off &= life_v[LIFE_AMT] == 0;
             uint32_t hash = byte_song_hash();
             if (seed > 1u) varied &= hash != previous;
             previous = hash;
@@ -66,6 +68,8 @@ int main(void)
             songs++;
         }
     }
+    for (uint32_t f = 1; f <= 3; f++) { make_byte_song(1, 37, f); life_off &= life_v[LIFE_AMT] == 0; }
+    bad += check("BYTE GEN: LIFE starts at zero in LOOP, PARTS, SONG and FROM LOOP", life_off);
     bad += check("BYTE GEN: all genres and seeds use only DRUM / MATH / WAVE", native);
     bad += check("BYTE GEN: both melodic engines, bytebeats and floatbeats are selected",
                  seen == ((1u << ENGI_WAVE) | (1u << ENGI_LOFI) | (1u << ENGI_DRUM)) && bytes && floats);

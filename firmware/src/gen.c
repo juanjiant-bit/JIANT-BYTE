@@ -2828,6 +2828,7 @@ static __attribute__((noinline)) void gen_make(void)
 {
     const ggenre_t *g;
     uint32_t k, dr = NTRK, nlive = trk_live < NTRK ? trk_live : NTRK, nmel, drums, next, wet;
+    life_v[LIFE_AMT] = 0;                          /* every generated form, including FROM LOOP, starts dry */
     if (gls.u) { gls_prep(); goto parts; }            /* (FROM LOOP: the loop's song, gen_loop.c) */
     gen_clean();                                        /* (0.9.9-gen1) from NEW PROJECT's state, nothing of before */
     /* the choices from the seed: the genre (RANDOM), the root, the scale, the progression, the bass */

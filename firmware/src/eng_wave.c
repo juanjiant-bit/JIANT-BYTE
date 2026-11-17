@@ -93,8 +93,6 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     uint32_t warp = (uint32_t)clamp(p[P_E2], 0, WW_FM), amt = (uint32_t)clamp(p[P_E3], 0, 127);
     uint32_t mix = (uint32_t)clamp(p[P_E5], 0, 127), det = (uint32_t)clamp(p[P_E6], 0, 127);
     uint32_t sub = (uint32_t)clamp(p[P_E7], 0, 127), caos = (uint32_t)clamp(p[P_CAOS], 0, 127);
-    const int16_t *talk = life_talk(tr, n);             /* (JIANT BYTE) LIFE: TALK, the others' sound into the phase */
-    caos = (uint32_t)clamp((int32_t)caos + life_brk(tr), 0, 127);   /* (.. BREAK: the others' sound moves POS) */
     int32_t pos = clamp(p[P_E1] + ((m->shape - (64 << 8)) >> 8), 0, 127);   /* (the matrix's SHAPE moves POS) */
     uint32_t inc = pitch_inc(clamp(m->pitch16, 0, 2047)), nu = det ? 3u : 1u, need_b = mix || warp == WW_FM;
     const fvm_prog_t *pa, *pb;
@@ -129,7 +127,7 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
             uint32_t ph = v->ph[u], ui = u == 0u ? inc : u == 1u ? inc + (inc >> 16) * det * 3u : inc - (inc >> 16) * det * 3u;
             uint32_t o;
             for (i = 0; i < n; i++) {
-                W[i] = (wave_warp(ph >> 16, warp == WW_FM ? WW_OFF : warp, amt) + (talk ? (uint32_t)(talk[i] * 2) : 0u)) & 0xFFFFu;
+                W[i] = (wave_warp(ph >> 16, warp == WW_FM ? WW_OFF : warp, amt)) & 0xFFFFu;
                 ph += ui;
             }
             for (o = 0; o < n; o += FVM_BLK) {

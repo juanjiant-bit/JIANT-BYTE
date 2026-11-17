@@ -2088,10 +2088,8 @@ static uint32_t voice_block(track_t *t, const engine_t *e, voice_t *v, int32_t *
     if (v->vel > 110)                               /* accent opens the filter with the env */
         m.cutoff += (m.envq15 * 24) >> 7;
     m.shape = (64 << 8) + ((c->lfo * p[P_LD_SHP]) >> 7) + ((m.envq15 * p[P_ED_SHP]) >> 7);
-    if (MOD.on == 1u)                               /* the modulation matrix (mod.c; 2: LIFE's sends alone) */
+    if (MOD.on == 1u)                               /* the modulation matrix (mod.c) */
         mod_voice(t, v, &m, fsum);
-    if (c->lv | c->lcut | c->lfine)                     /* (V10.7.34) LIFE: the voice's own, the other tracks' (life.c) */
-        life_voice(c->ti * NVOICE + (uint32_t)(v - t->v), v, &m, &c->lv, !off);
     m.cutoff += fn_voice(t, v->pitch16, c->ti);     /* (filters2) FILTER 2 */
     vo_off_c[MC_CPU() & 1u] = (uint8_t)off;
     {
@@ -2226,12 +2224,6 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     }
     if (e == &ENG_EXT_GONE)                                /* (V10.54) INPUT, PLAY THRU: the input (eng_input.c) */
         nr += AIN_THRU(t, out, n);                     /* (through a pointer: track_render runs from RAM too) */
-    if (nr && e != &ENG_LOFI && e != &ENG_WAVE && (life.pg[ti] || (lpt && life.pa[ti]))) {   /* (V10.7.34) LIFE's cross-FM
-                                                         * (JIANT BYTE: TALK; the formulas hear it inside: life_talk) */
-        void (*f)(uint32_t, int32_t *, uint32_t, int32_t) = life_pm;
-        FM1_OPAQUE(f);
-        f(ti, out, n, lpt);
-    }
     if (nr && e == &ENG_DRUM)                           /* (0.6.16) DRUM-X: DRV and the knee on the kit's sum */
         drum_bus(t, out, n);
     if (nr && (t->p[P_FTYPE] || t->p[P_FCUT] < 127 || t->p[P_FRES] || tf_on[(uint32_t)(t - trk) % NTRK] ||
@@ -2240,6 +2232,11 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
                tf_xb[(uint32_t)(t - trk) % NTRK] || tf_cmb[(uint32_t)(t - trk) % NTRK]))
         /* (JIANT 0.5) the FILTER (track_post); 0.6.8: and a block more to leave the chain (track_filter's fade) */
         track_post(t, e, out, n);
+    if (nr && (lpt || life.active[ti])) {
+        void (*f)(uint32_t, int32_t *, uint32_t, int32_t) = life_process;
+        FM1_OPAQUE(f);
+        f(ti, out, n, lpt);
+    } else if (!nr) life.active[ti] = 0;
     if (snap)
         memcpy(t->p, p_new, sizeof p_new);
     else if (fade)

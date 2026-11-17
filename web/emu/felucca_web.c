@@ -493,6 +493,7 @@ EXPORT void web_test_heavy(void)
     dx_fmod[0][DFM_RATE] = 12;
     dx_fmod[1][DFM_BEND] = 90;
     dx_fmod[2][DFM_CRUSH] = 8;
+    life_v[LIFE_AMT] = life_v[LIFE_PULSE] = life_v[LIFE_COLOR] = life_v[LIFE_LINK] = 100;
     for (i = 0; i < 16u; i++) {
         uint8_t n[4];
         uint32_t k = 0;

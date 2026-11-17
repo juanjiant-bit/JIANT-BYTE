@@ -754,19 +754,17 @@ static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CR
 /* (V10.7.34, the owner: "organic, self-modulating voices") LIFE (life.c): HOME > LIFE's four, LIFE FILTER PITCH FX (0..100;
  * LIFE 0: every voice and track as before, bit for bit), then each track's LIFE (EDIT > VOICES 3 KNOB 2, ID_LIF; 0..100,
  * times the global one). Not song or track parameters (as BALANCE: no slot left): kept with the project ('X' 'L',
- * project.c proj_xm; a project without it, every one before V10.7.34: these defaults, LIFE on) */
+ * project.c proj_xm; a project without it, every one before V10.7.34: these defaults, LIFE off) */
 #define ID_LIF 0xEFu
-enum { LIFE_AMT, LIFE_FILT, LIFE_PIT, LIFE_FX, LIFE_N };
+enum { LIFE_AMT, LIFE_PULSE, LIFE_COLOR, LIFE_LINK, LIFE_N };
 #ifndef LIFE_DEF
-#define LIFE_DEF 25
+#define LIFE_DEF 0
 #endif
-static const int8_t LIFE_DEFS[LIFE_N] = {LIFE_DEF, 30, 10, 25};
+static const int8_t LIFE_DEFS[LIFE_N] = {LIFE_DEF, 35, 35, 25};
 #define LIFE_TDEF 100
 static const param_desc_t LIFE_DESC __attribute__((section(".rodata.tape"))) = PD("LIFE", F_PCT, 0, 100, LIFE_TDEF);   /* (the track's) */
-/* (JIANT BYTE) LIFE is the formulas talking to each other (life.c): TALK (LIFE_FILT's place) how much each hears the
- * others (their sound into its time or its phase: FM between the parts), BREAK (LIFE_PIT's) how much the others' sound
- * breaks it (its CAOS up while they sound), WEB (LIFE_FX's) who hears whom (0: each the one before it, 100: all) */
-static const char *const LIFE_NM[LIFE_N] = {"LIFE", "TALK", "BREAK", "WEB"};   /* (HOME > LIFE's cards) */
+/* Musical LIFE, no changes to formula clocks or CAOS. Values retain the four-slot storage layout. */
+static const char *const LIFE_NM[LIFE_N] = {"LIFE", "PULSE", "COLOR", "LINK"};
 static int16_t life_v[LIFE_N + NTRK] __attribute__((section(".pool")));   /* (life_defaults at power-on: main.c) */
 static int32_t life_def(uint32_t k) { return k < LIFE_N ? LIFE_DEFS[k] : LIFE_TDEF; }   /* (value k of life_v) */
 static void life_defaults(void)

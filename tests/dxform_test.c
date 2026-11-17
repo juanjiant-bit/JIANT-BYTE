@@ -200,9 +200,9 @@ int main(int argc, char **argv)
             dx_fmod[l][0] = (int8_t)l-4; dx_fmod[l][1] = (int8_t)(l*15); dx_fmod[l][2] = (int8_t)l;
         }
         project_capture(&q);
-        q.bal=1; q.dnz[1]=42; q.cru[2]=80; q.life[0]=-1; /* all preceding optional XM/XC/XL blocks */
+        q.bal=1; q.dnz[1]=42; q.cru[2]=80; q.life[0]=1; /* all preceding optional XM/XC/XL blocks */
         int packed=proj_pack(&st,&q), read=packed && proj_import(&r,st.raw,sizeof st.raw);
-        dxf_ok(read && !memcmp(q.dx_fmod,r.dx_fmod,sizeof q.dx_fmod) && r.dnz[1]==42 && r.life[0]==-1,
+        dxf_ok(read && !memcmp(q.dx_fmod,r.dx_fmod,sizeof q.dx_fmod) && r.dnz[1]==42 && r.life[0]==1,
                "DQ modifiers round trip after all optional effects/LIFE blocks");
         if (read) {
             uint32_t at=0;

@@ -53,12 +53,12 @@ The **song generator** (HOME > GEN) now selects native MATH and WAVE presets by 
 Bass and melodic parts keep curated tonal formulas; textures can use rhythmic bytebeats and controlled CAOS.
 The genre still supplies harmony, rhythm, envelopes and arrangement. The same seed and settings reproduce the song.
 
-## LIFE: the formulas talk
+## LIFE: musical movement
 
-HOME > LIFE has four knobs. **LIFE** is how alive it all is. **TALK** is how much each formula hears the others: their
-sound goes into its time or its phase, which is FM between the tracks' formulas. **BREAK** is how much the others'
-sound breaks it (its CAOS rises while they play). **WEB** sets who hears whom, from each track hearing the one before
-it up to all of them hearing each other.
+HOME > LIFE has four knobs. **LIFE** sets the overall depth and starts at **0**, including every GEN form.
+**PULSE** adds a gentle beat-synchronized breath, **COLOR** blends a slow parallel lowpass, and **LINK** makes tracks
+respond softly to the other tracks' envelopes. These controls preserve oscillator/formula timing and pitch;
+turning up LIFE no longer injects cross-track FM or increases CAOS. See [musical LIFE](docs/life-musical.md).
 
 ## Formulas everywhere
 

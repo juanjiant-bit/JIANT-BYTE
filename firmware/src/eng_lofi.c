@@ -137,9 +137,6 @@ static uint32_t lofi_motion(int32_t m)
  * (the formula's t >> 13 steps once a value). Out: *mul (Q8 a note step, LIBRE), *sy (the song's clock for the slow
  * bits) with *sb / *sr (slow t at the block's start, its step a sample Q16), *inc (UNSYNC on a value: the slow time's
  * step a sample, Q8), *key (LK_FIJO: all of t the song's, qb / qr) */
-/* (JIANT BYTE) LIFE: what a part hears of the others (TALK), how much they break it (BREAK): life.c, after */
-static const int16_t *life_talk(uint32_t ti, uint32_t n);
-static int32_t life_brk(uint32_t ti);
 enum { LK_LIBRE, LK_ALTURA, LK_FIJO };
 typedef struct { uint32_t mul, sy, sb, sr, inc, key, qb, qr; } lofi_tm_t;
 static void lofi_time(const int16_t *p, lofi_tm_t *m)
@@ -421,15 +418,9 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
     uint32_t tws[LOFI_N * 2u], vals[LOFI_N * 2u], ne = 0, k = 0, full = bits >= 16, h;
     uint8_t frq[LOFI_N];                                /* (JIANT BYTE) FULL: where between t and t + 1, Q8 */
     uint32_t caos = (uint32_t)clamp(p[P_CAOS], 0, 127), qr, qb, key, qm = 0;
-    const int16_t *talk;
     int32_t fb0 = held;
     lofi_time(p, &tmc);
     mul = tmc.mul; sy = tmc.sy; sb = tmc.sb; sr = tmc.sr; tinc = tmc.inc; key = tmc.key; qb = tmc.qb; qr = tmc.qr;
-    {                                                   /* (JIANT BYTE) LIFE: the others break it, it hears them */
-        uint32_t tr = (uint32_t)(t - trk) % NTRK;
-        caos = (uint32_t)clamp((int32_t)caos + life_brk(tr), 0, 127);
-        talk = life_talk(tr, n);
-    }
     hold *= 1 + (p[P_E5] >> 3);                         /* (0.5.4) GRIT: each sample held up to 16 x longer */
     if (n > LOFI_N)
         n = LOFI_N;
@@ -445,8 +436,6 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
                     te = (c1 & 255u) | ((cts >> 8) & ~255u);   /* (MOTN: the slow bits at
                                                          * their own speed; 64: t as written) */
                     te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
-                    if (talk)                            /* (TALK: the others' sound into its time) */
-                        te += (uint32_t)(talk[i] >> 5);
                     tl = lofi_mut((te & lm) + t0, var);  /* (VAR: mutated) */
                     tws[ne + h * LOFI_N] = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
                 }
@@ -532,16 +521,10 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     const fvm_prog_t *pg = lofi_prog(t, wk, 1, f);
     uint32_t T[LOFI_N], W[LOFI_N], vals[LOFI_N];
     uint32_t caos = (uint32_t)clamp(p[P_CAOS], 0, 127), qr, qb, key, qm = 0;
-    const int16_t *talk;
     int32_t fb0 = fb;
     fvm_env_t en = {{T, W, 0, 0, 0}, {0}, &v->s[6]};
     lofi_time(p, &tmc);                                 /* (JIANT BYTE) TIME and MOTION */
     mul = tmc.mul; sy = tmc.sy; sb = tmc.sb; sr = tmc.sr; tinc = tmc.inc; key = tmc.key; qb = tmc.qb; qr = tmc.qr;
-    {                                                   /* (JIANT BYTE) LIFE: the others break it, it hears them */
-        uint32_t tr = (uint32_t)(t - trk) % NTRK;
-        caos = (uint32_t)clamp((int32_t)caos + life_brk(tr), 0, 127);
-        talk = life_talk(tr, n);
-    }
     xm_env(&en, pg);
     en.u[FU_NOTE] = v->note;
     en.u[FU_VEL] = v->vel;
@@ -558,7 +541,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
             tl = lofi_mut(te & lm, var);
             tw = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
             T[i] = tw;
-            W[i] = ((tw << 8 | ctf >> 16) << 3) + (talk ? (uint32_t)(talk[i] * 2) : 0u);   /* (the note's phase:
+            W[i] = ((tw << 8 | ctf >> 16) << 3);   /* (the note's phase:
                                                          * MATH's x, in turns; TALK: the others' sound into it, FM) */
             ctf += ti;
             ctt += ctf >> 24;
@@ -580,7 +563,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
                                                          * the sines, Q8): the formula modulates itself, FM-like; the
                                                          * output of a sample feeds the next: one sample a run */
             int32_t d = (fb * fbk) >> 10;
-            uint32_t T1 = tw + (uint32_t)(d >> 8), W1 = (((tw << 8 | tf >> 16) + (uint32_t)d) << 3) + (talk ? (uint32_t)(talk[i] * 2) : 0u), o1;
+            uint32_t T1 = tw + (uint32_t)(d >> 8), W1 = (((tw << 8 | tf >> 16) + (uint32_t)d) << 3), o1;
             fvm_env_t e1 = {{&T1, &W1, 0, 0, 0}, {0}, &v->s[6]};   /* (FEEDBK: no cross-mod here) */
             e1.u[FU_NOTE] = v->note;
             e1.u[FU_VEL] = v->vel;

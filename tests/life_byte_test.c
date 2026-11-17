@@ -1,111 +1,78 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
-/* (JIANT BYTE) LIFE as the formulas talking (life.c life_talk, life_brk): two parts, track 1 a WAVE, track 2 a MATH
- * FLOAT (and a BYTE), through the mix, each render in a fresh child (the FX's and the master's state would leak):
- *   TALK    track 2 sounds otherwise with track 1 sounding than alone (it hears it); TALK 0 BREAK 0: the same
- *   BREAK   with track 1 sounding, BREAK up breaks track 2 (another sound than TALK alone)
- *   LIFE 0  nothing of it: track 2 the same, track 1 sounding or not
- *   every render bounded
- *   cc -O2 -Ibuild/gen -Ifirmware/src -o build/host/life_byte_test tests/life_byte_test.c -lm */
-#include <stdarg.h>
+/* Musical LIFE: post-synthesis processing, exact bypass, bounded dynamics, clock lock,
+ * independent controls, normalized LINK and identical oscillator/formula state. */
 #define main hostsim_main
 #include "hostsim.c"
 #undef main
-
 static int fails;
-static void ok(int c, const char *fmt, ...)
-{
-    va_list ap;
-    char b[300];
-    va_start(ap, fmt);
-    vsnprintf(b, sizeof b, fmt, ap);
-    va_end(ap);
-    printf("lifeb: %-100s %s\n", b, c ? "ok" : "FAIL");
-    if (!c)
-        fails++;
+#define CHECK(c,s) do { printf("lifeb: %-76s %s\n",s,(c)?"ok":"FAIL");if(!(c))fails++; } while(0)
+#define NB 768u
+#define NS (NB * CTL)
+static int32_t dry[NS], lwet[NS];
+static uint32_t os0[16], os1[16];
+static void setup(int amt,int pulse,int color,int link) {
+    memset(trk,0,sizeof trk); host_tracks_init(); life_reset();
+    memset(track_env,0,sizeof track_env); memset(&MOD,0,sizeof MOD);
+    life_defaults(); life_v[LIFE_AMT]=amt;life_v[LIFE_PULSE]=pulse;life_v[LIFE_COLOR]=color;life_v[LIFE_LINK]=link;
+    song.g[G_BPM]=120;song.g[G_CLOCK]=0;song.playing=1;clk_n=clk_pos=0;mns_clk=0;track_follow_mask=0;
+    for(unsigned k=0;k<NTRK;k++){trk[k].p[P_MUTE]=0;life_v[LIFE_N+k]=100;}
 }
-enum { NB = 160u, NS = NB * 2u * CTL };
-/* track 2 a MATH (preset pr), track 1 a WAVE sounding or not; LIFE amt, TALK, BREAK, WEB 100 */
-static void render(uint32_t pr, int src, int32_t amt, int32_t talk, int32_t brk, int32_t *m)
-{
-    int fd[2];
-    pid_t pid;
-    if (pipe(fd)) return;
-    pid = fork();
-    if (!pid) {
-        static int32_t o[NS];
-        uint32_t k, b;
-        size_t off = 0;
-        close(fd[0]);
-        memset(trk, 0, sizeof trk);
-        host_tracks_init();
-        life_reset();
-        host_preset(&trk[0], ENGI_WAVE, 1);              /* (FM KEYS) */
-        host_preset(&trk[1], ENGI_LOFI, pr);
-        for (k = 0; k < NTRK; k++) trk[k].p[P_DIST] = trk[k].p[P_CHOR] = trk[k].p[P_DLY] = trk[k].p[P_REV] = 0;
-        life_v[LIFE_AMT] = (int16_t)amt;
-        life_v[LIFE_FILT] = (int16_t)talk;
-        life_v[LIFE_PIT] = (int16_t)brk;
-        life_v[LIFE_FX] = 100;
-        if (src) trk_note_on(&trk[0], 48, 110);
-        trk_note_on(&trk[1], 60, 100);
-        for (b = 0; b < NB; b++)
-            mix_block(o + b * 2u * CTL, CTL);
-        while (off < sizeof o) {
-            ssize_t w = write(fd[1], (char *)o + off, sizeof o - off);
-            if (w <= 0) break;
-            off += (size_t)w;
-        }
-        _exit(0);
-    }
-    close(fd[1]);
-    {
-        size_t off = 0;
-        while (off < NS * sizeof(int32_t)) {
-            ssize_t r = read(fd[0], (char *)m + off, NS * sizeof(int32_t) - off);
-            if (r <= 0) break;
-            off += (size_t)r;
-        }
-    }
-    close(fd[0]);
-    waitpid(pid, 0, 0);
+static void clock_at(uint32_t sample) {
+    uint32_t step=div_samples(2);clk_n=sample/step;clk_pos=sample%step;mns_clk++;
 }
-/* track 2 alone in the mix: the render with track 1 sounding, minus track 1's own (rendered by itself) */
-static int32_t a[NS], b[NS], c[NS], d[NS], one[NS];
-static double peak(const int32_t *x) { double p = 0; uint32_t i; for (i = 0; i < NS; i++) if (fabs(x[i] / 32768.0) > p) p = fabs(x[i] / 32768.0); return p; }
-static double corr(const int32_t *x, const int32_t *y)
-{
-    double xy = 0, xx = 0, yy = 0;
-    uint32_t i;
-    for (i = 0; i < NS; i++) xy += (double)x[i] * y[i], xx += (double)x[i] * x[i], yy += (double)y[i] * y[i];
-    return xx > 0 && yy > 0 ? xy / sqrt(xx * yy) : 0;
-}
-int main(int argc, char **argv)
-{
-    uint32_t pr, i;
-    (void)argc;
-    (void)argv;
-    for (pr = 3; pr <= 3u; pr++) {                       /* (MATH KEYS: a FLOAT) */
-        render(pr, 1, 100, 100, 0, a);                   /* TALK, track 1 sounding */
-        render(pr, 0, 100, 100, 0, b);                   /* .. alone */
-        render(pr, 1, 100, 0, 0, c);                     /* TALK 0 BREAK 0, track 1 sounding */
-        render(pr, 0, 100, 0, 0, d);                     /* .. alone */
-        /* track 1's own part out: the same WAVE rendered with nothing else is not available bit for bit (the mix's
-         * dynamics): compare the sums directly, the differences tell */
-        { double ea = 0, ec = 0; uint32_t q; for (q = 0; q < NS; q++) ea += (double)a[q] * a[q], ec += (double)c[q] * c[q];
-          printf("lifeb: level with TALK 100 x%.2f of TALK 0\n", sqrt(ea / ec)); }
-        ok(memcmp(a, c, sizeof a) != 0 && corr(a, c) < 0.98, "TALK 100: the mix with track 1 sounding moves (track 2 hears it: %.3f)", corr(a, c));
-        ok(!memcmp(b, d, sizeof b), "track 1 silent: TALK changes nothing (nothing to hear)");
-        render(pr, 1, 100, 0, 100, one);                 /* BREAK alone */
-        ok(memcmp(one, c, sizeof one) != 0 && corr(one, c) < 0.999, "BREAK 100: track 2 broken while track 1 sounds (%.3f)", corr(one, c));
-        render(pr, 1, 0, 100, 100, a);                   /* LIFE 0 */
-        ok(!memcmp(a, c, sizeof a), "LIFE 0: TALK and BREAK do nothing, bit for bit");
-        ok(peak(one) <= 1.0 && peak(c) <= 1.0, "bounded (peaks %.3f %.3f)", peak(one), peak(c));
+static double rms(const int32_t*a) {double e=0;for(unsigned i=0;i<NS;i++)e+=(double)a[i]*a[i];return sqrt(e/NS);}
+static double correlation(const int32_t*a,const int32_t*b) {double ab=0,aa=0,bb=0;for(unsigned i=0;i<NS;i++){ab+=(double)a[i]*b[i];aa+=(double)a[i]*a[i];bb+=(double)b[i]*b[i];}return ab/sqrt(aa*bb);}
+/* Synthetic bandlimited source through precisely the stage used by every engine. */
+static void stage(int amt,int p,int c,int l,int per,int32_t*out) {
+    int32_t b[CTL];setup(amt,p,c,l);life_v[LIFE_N]=per;dx_xon=0;
+    for(unsigned k=0;k<NB;k++){
+        clock_at(k*CTL);track_env[1]=16000;life_master();
+        for(unsigned i=0;i<CTL;i++){unsigned n=k*CTL+i;b[i]=sine_i(n*42852281u)/2+sine_i(n*214261405u)/4;}
+        life_process(0,b,CTL,life_pt(0,0));memcpy(out+k*CTL,b,sizeof b);
     }
-    render(0, 1, 100, 100, 100, a);                      /* a BYTE part: hears and breaks too */
-    render(0, 1, 100, 0, 0, b);
-    ok(memcmp(a, b, sizeof a) != 0 && peak(a) <= 1.0, "BYTE: TALK and BREAK move it, bounded (peak %.3f)", peak(a));
-    (void)i;
-    printf(fails ? "lifeb: %d FAILED\n" : "lifeb: all ok\n", fails);
-    return fails != 0;
+}
+/* Engine state and samples, with identical notes/presets. The global FX are deliberately absent. */
+static void engine(unsigned e,int amt,int32_t*out,uint32_t*state) {
+    int32_t b[CTL];setup(amt,100,100,100);rng_state=1234;
+    host_preset(&trk[0],e,e==ENGI_WAVE?1:9);
+    trk[0].p[P_DIST]=trk[0].p[P_CHOR]=trk[0].p[P_DLY]=trk[0].p[P_REV]=0;
+    trk[0].p[P_DRIFT]=127;trk_note_on(&trk[0],60,100);
+    for(unsigned k=0;k<NB;k++){
+        clock_at(k*CTL);track_env[1]=16000;life_master();track_render(&trk[0],b,CTL);memcpy(out+k*CTL,b,sizeof b);
+    }
+    memset(state,0,16*sizeof *state);memcpy(state,trk[0].v[0].s,sizeof trk[0].v[0].s < 16*sizeof *state ? sizeof trk[0].v[0].s : 16*sizeof *state);
+}
+int main(void) {
+    setup(0,0,0,0);CHECK(life_def(LIFE_AMT)==0,"power-on LIFE default is zero");
+    stage(0,100,100,100,100,dry);stage(100,0,0,0,100,lwet);
+    CHECK(!memcmp(dry,lwet,sizeof dry),"zero controls are bit-identical to LIFE off");
+    stage(100,100,100,100,0,lwet);CHECK(!memcmp(dry,lwet,sizeof dry),"per-track LIFE zero is an exact bypass");
+    for(unsigned k=0;k<4;k++){
+        stage(100,k==0||k==3?100:0,k==1||k==3?100:0,k==2||k==3?100:0,100,lwet);
+        double r=rms(lwet)/rms(dry),co=correlation(dry,lwet);int peak=0;
+        for(unsigned i=0;i<NS;i++)if(abs(lwet[i])>peak)peak=abs(lwet[i]);
+        printf("lifeb: control %u RMS %.4fx, correlation %.6f, peak %d\n",k,r,co,peak);
+        CHECK(memcmp(dry,lwet,sizeof dry)&&r>0.65&&r<=1.001&&co>0.97&&peak<=24576,"each control and combined maximum stay audible, correlated and bounded");
+    }
+    setup(100,100,0,0);
+    for(unsigned bpm=60;bpm<=180;bpm+=60){song.g[G_BPM]=bpm;unsigned step=div_samples(2);
+        clock_at(4*step);life_master();unsigned a=life.pulse;clock_at(6*step);life_master();unsigned b=life.pulse;
+        CHECK(a<=1&&b>=1022,"PULSE locks to the beat at 60/120/180 BPM, full gain on beats");
+    }
+    setup(100,0,0,100);trk_live=2;track_env[1]=16000;
+    for(unsigned i=0;i<100;i++)life_master();unsigned two=life.link[0];
+    trk_live=NTRK;for(unsigned k=1;k<NTRK;k++)track_env[k]=16000;
+    for(unsigned i=0;i<100;i++)life_master();unsigned many=life.link[0];
+    CHECK(abs((int)two-(int)many)<=4,"LINK averages source envelopes: more tracks do not multiply depth");
+    for(unsigned e=0;e<2;e++){engine(e?ENGI_LOFI:ENGI_WAVE,0,dry,os0);engine(e?ENGI_LOFI:ENGI_WAVE,100,lwet,os1);
+        CHECK(!memcmp(os0,os1,sizeof os0),"LIFE leaves oscillator/formula phase and state unchanged");
+        CHECK(memcmp(dry,lwet,sizeof dry)&&rms(lwet)>0.6*rms(dry),"WAVE/MATH are modulated without losing the voice");
+    }
+    /* Stereo image sides must receive the same transfer as the mono sum. */
+    setup(100,100,100,100);dx_xon=1;int32_t b[CTL];int stereo=1;
+    for(unsigned k=0;k<40;k++){clock_at(k*CTL);life_master();for(unsigned i=0;i<CTL;i++)b[i]=dx_sl[i]=dx_sr[i]=sine_i((k*CTL+i)*40000000u);
+        life_process(0,b,CTL,256);stereo&=!memcmp(b,dx_sl,sizeof b)&&!memcmp(b,dx_sr,sizeof b);}
+    CHECK(stereo,"stereo image stays coherent: sum and sides use the same processing");
+    puts(fails?"lifeb: FAILED":"lifeb: all ok");return !!fails;
 }
