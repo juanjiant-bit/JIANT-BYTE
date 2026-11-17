@@ -2979,8 +2979,8 @@ static __attribute__((noinline)) void gen_make(void)
             if (np < 2u && !gs.act[RL_PAD] && gp.amt[GP_CHORDS] == GA_AUTO) {   /* (V10.8: a part set OFF stays off) */ gs.act[RL_PAD] = 1; gs.amt[GP_CHORDS] = 60; pri[np++] = RL_PAD; }
         }
         for (k = 0; k < GP_N - 1u; k++) if (!gs.act[PRI[k + 1u]]) pri[np++] = PRI[k + 1u];   /* (the silent ones after) */
-        for (k = 0; k < NTRK && dr == NTRK; k++) if (drum_track(&trk[k])) dr = k;
-        if (dr == NTRK) { dr = nlive > 3u ? 3u : nlive - 1u; set_engine_of(&trk[dr], ENGI_DRUM); }
+        for (k = 0; drums && k < nlive && dr == NTRK; k++) if (drum_track(&trk[k])) dr = k;
+        if (drums && dr == NTRK) { dr = nlive > 3u ? 3u : nlive - 1u; set_engine_of(&trk[dr], ENGI_DRUM); }
         for (k = 0; k < RL_N; k++) gs.trk_of[k] = NTRK;
         next = 0;
         for (k = 0; k < NTRK; k++) {

@@ -55,6 +55,7 @@ typedef struct {
     uint8_t cap, n, depth, nstate, ty;   /* ty: the result's type */
     uint16_t uses;               /* the per-sample variables it reads (1 << FA_..): the host makes only those */
     uint8_t npool;
+    uint8_t life_in, life_num, life_fn, life_ft; /* typed input/literal indices (+1), safe prefix fragment */
     uint8_t pool[FVM_POOL];
 } fvm_prog_t;
 static inline void fvm_prog_init(fvm_prog_t *p, fvm_ins_t *ins, uint32_t cap)
@@ -140,10 +141,11 @@ static uint32_t fvm_op1(uint32_t op, uint32_t a)
 }
 
 /* ---- the machine */
-static __attribute__((noinline)) void fvm_run(const fvm_prog_t *p, const fvm_env_t *e, fvm_scratch_t *sc,
-                                              uint32_t n, uint32_t *out)
+typedef struct { uint8_t input, number; uint32_t value; const int32_t *offset; } fvm_patch_t;
+static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_env_t *e, fvm_scratch_t *sc,
+                                              uint32_t n, uint32_t *out, const fvm_patch_t *patch)
 {
-    uint32_t pc, sp = 0u, i;
+    uint32_t pc, sp = 0u, i, injected[FVM_BLK];
     if (n > FVM_BLK)
         n = FVM_BLK;
     if (!p->n) {
@@ -156,6 +158,7 @@ static __attribute__((noinline)) void fvm_run(const fvm_prog_t *p, const fvm_env
         uint32_t op = in->op, md = in->md, b = in->k;
         uint32_t *L;
         const uint32_t *R = 0;
+        if (patch && pc + 1u == patch->number) b = patch->value;
         if (op == FO_PUSH) {
             L = sc->s[sp++];
             if (md == FM_ARR && e->arr[b]) {
@@ -170,6 +173,8 @@ static __attribute__((noinline)) void fvm_run(const fvm_prog_t *p, const fvm_env
                 for (i = 0; i < n; i++)
                     L[i] = b;
             }
+            if (patch && pc + 1u == patch->input)
+                for (i=0;i<n;i++) L[i] += (uint32_t)patch->offset[i];
             continue;
         }
         if (FO_ISBIN(op) || op == FO_LP || op == FO_HP) {
@@ -182,6 +187,10 @@ static __attribute__((noinline)) void fvm_run(const fvm_prog_t *p, const fvm_env
             } else if (md == FM_UNI) {
                 b = e->u[b];
             }
+        }
+        if (patch && pc + 1u == patch->input) {
+            for(i=0;i<n;i++)injected[i]=(R?R[i]:b)+(uint32_t)patch->offset[i];
+            R=injected;
         }
         L = sc->s[sp - 1u];
         switch (op) {
@@ -210,7 +219,7 @@ static __attribute__((noinline)) void fvm_run(const fvm_prog_t *p, const fvm_env
             break;
         }
         case FO_PH: {                                /* ph(f): f Hz (FIX), the phase in 32 bits, out in turns */
-            int32_t *st = &e->state[in->sl];
+            int32_t *st = &e->state[in->sl & 7u];
             uint32_t s = (uint32_t)*st;
             for (i = 0; i < n; i++) {
                 s += (uint32_t)(((int64_t)(int32_t)L[i] * (int64_t)FVM_PH_K) >> 16);
@@ -221,7 +230,7 @@ static __attribute__((noinline)) void fvm_run(const fvm_prog_t *p, const fvm_env
         }
         case FO_LP:
         case FO_HP: {                                /* one pole: y += (x - y) k; hp = x - y */
-            int32_t *st = &e->state[in->sl], y = *st;
+            int32_t *st = &e->state[in->sl & 7u], y = *st;
             for (i = 0; i < n; i++) {
                 int32_t x = (int32_t)L[i], k = (int32_t)(R ? R[i] : b);
                 k = k < 0 ? 0 : k > 65536 ? 65536 : k;
@@ -236,6 +245,9 @@ static __attribute__((noinline)) void fvm_run(const fvm_prog_t *p, const fvm_env
     for (i = 0; i < n; i++)
         out[i] = sc->s[0][i];
 }
+
+static __attribute__((noinline)) void fvm_run(const fvm_prog_t *p,const fvm_env_t *e,fvm_scratch_t *s,uint32_t n,uint32_t *out)
+{ fvm_exec(p,e,s,n,out,0); }
 
 /* the result as a sample (Q15): INT its low byte, as bytebeat ((v & 255) * 256 - 32640, MATH's); FIX -1 .. 1 */
 static inline int32_t fvm_sample(uint32_t ty, uint32_t v)
@@ -651,7 +663,7 @@ static uint32_t fvm_expr(fvm_cc_t *c)
 }
 
 /* ---- the tree to the program */
-static void fvm_emit(fvm_cc_t *c, uint32_t op, uint32_t md, uint32_t k, uint32_t sl)
+static void fvm_emit(fvm_cc_t *c, uint32_t op, uint32_t md, uint32_t k, uint32_t sl, uint32_t ty, uint32_t rhs)
 {
     fvm_ins_t *in;
     if (c->p->n >= c->p->cap) {
@@ -661,7 +673,7 @@ static void fvm_emit(fvm_cc_t *c, uint32_t op, uint32_t md, uint32_t k, uint32_t
     in = &c->p->ins[c->p->n++];
     in->op = (uint8_t)op;
     in->md = (uint8_t)md;
-    in->sl = (uint16_t)sl;
+    in->sl = (uint16_t)(sl | (ty << 8) | (rhs << 9));
     in->k = k;
 }
 static void fvm_push_sp(fvm_cc_t *c, int32_t d)
@@ -707,22 +719,22 @@ static void fvm_gen(fvm_cc_t *c, uint32_t x)
     case NK_UNI:
     case NK_ARR:
         md = fvm_leaf(n, &k);
-        fvm_emit(c, FO_PUSH, md, k, 0);
+        fvm_emit(c, FO_PUSH, md, k, 0, n->ty, n->ty);
         fvm_push_sp(c, 1);
         return;
     case NK_OP1:
         fvm_gen(c, n->a);
-        fvm_emit(c, n->op, FM_STK, 0, 0);
+        fvm_emit(c, n->op, FM_STK, 0, 0, n->ty, 0);
         return;
     case NK_TAB:
         fvm_gen(c, n->a);
-        fvm_emit(c, FO_TAB, FM_STK, n->v, 0);
+        fvm_emit(c, FO_TAB, FM_STK, n->v, 0, n->ty, 0);
         return;
     case NK_SEL:
         fvm_gen(c, n->a);
         fvm_gen(c, n->b);
         fvm_gen(c, n->c);
-        fvm_emit(c, FO_SEL, FM_STK, 0, 0);
+        fvm_emit(c, FO_SEL, FM_STK, 0, 0, n->ty, 0);
         fvm_push_sp(c, -2);
         return;
     case NK_ST:
@@ -732,7 +744,7 @@ static void fvm_gen(fvm_cc_t *c, uint32_t x)
         }
         fvm_gen(c, n->a);
         if (n->op == FO_PH) {
-            fvm_emit(c, FO_PH, FM_STK, 0, c->p->nstate++);
+            fvm_emit(c, FO_PH, FM_STK, 0, c->p->nstate++, n->ty, 0);
             return;
         }
         md = fvm_leaf(&ND(n->b), &k);
@@ -740,7 +752,7 @@ static void fvm_gen(fvm_cc_t *c, uint32_t x)
             fvm_gen(c, n->b);
             fvm_push_sp(c, -1);
         }
-        fvm_emit(c, n->op, md, k, c->p->nstate++);
+        fvm_emit(c, n->op, md, k, c->p->nstate++, n->ty, ND(n->b).ty);
         return;
     case NK_OP2: {
         uint32_t op = n->op, l = n->a, r = n->b, ml = fvm_leaf(&ND(l), &k);
@@ -756,7 +768,7 @@ static void fvm_gen(fvm_cc_t *c, uint32_t x)
             fvm_gen(c, r);
             fvm_push_sp(c, -1);
         }
-        fvm_emit(c, op, md, k, 0);
+        fvm_emit(c, op, md, k, 0, n->ty, ND(r).ty);
         return;
     }
     }
@@ -802,6 +814,23 @@ static uint32_t fvm_compile(fvm_cc_t *c, fvm_prog_t *p, const char *src, uint32_
         return c->err.code;
     }
     p->depth = (uint8_t)c->maxsp;
+    { /* Compiler-derived, stack-complete prefixes only. No state, tables or cross-track reads. */
+        uint32_t i, sp=0, safe=1;
+        for(i=0;i<p->n;i++) {
+            const fvm_ins_t *in=&p->ins[i]; uint32_t op=in->op;
+            if(op==FO_PUSH) sp++;
+            else if((FO_ISBIN(op)||op==FO_LP||op==FO_HP)&&in->md==FM_STK) sp--;
+            else if(op==FO_SEL) sp-=2;
+            if(op==FO_PH||op==FO_LP||op==FO_HP||op==FO_TAB||(in->md==FM_ARR&&in->k>=FA_X)) safe=0;
+            if(safe && sp==1 && i<8u) {p->life_fn=(uint8_t)(i+1);p->life_ft=(uint8_t)((in->sl>>8)&1u);}
+            if((op==FO_PUSH||FO_ISBIN(op))&&in->md==FM_ARR&&in->k<=FA_TS &&
+               (!p->life_in || (in->k==FA_W&&p->ins[p->life_in-1u].k!=FA_W))) p->life_in=(uint8_t)(i+1);
+            if(!p->life_num&&in->md==FM_IMM&&(op==FO_PUSH||FO_ISBIN(op))) {
+                uint32_t q=(in->sl&512u)?in->k>>8:in->k<<8;
+                if(in->k && in->k<=((in->sl&512u)?32u*65536u:32u) && q) p->life_num=(uint8_t)(i+1);
+            }
+        }
+    }
     return FE_OK;
 }
 #undef ND

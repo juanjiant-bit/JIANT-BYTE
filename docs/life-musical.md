@@ -1,5 +1,7 @@
 # LIFE musical — BYTE v0.3
 
+**Implementación actual: [v0.6, intermodulación entre fórmulas](byte-v06.md).**
+
 **Actualizado en v0.4:** curva progresiva, rango más amplio y extremos audibles. Ver [controles y comparaciones actuales](byte-v04.md). Lo siguiente documenta la primera revisión v0.3.
 
 GEN empieza con **LIFE en 0** en LOOP, PARTS, SONG y FROM LOOP. También es el valor inicial de un proyecto nuevo.

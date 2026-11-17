@@ -469,6 +469,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
             ph = p2;
             inc += dinc;
         }
+        if(fl.on)fl_envelope(ea1>>15); /* actual hit decay gates what this formula donates */
         formula_run(pg, &en, &wk->s, m, o);
         for (i = 0; i < m; i++, ga += dga) {
             int32_t s = ((int32_t)o[i] >> 1) * 3 >> 2;      /* (x 3/4: a formula's wave fuller than the sine the lane's

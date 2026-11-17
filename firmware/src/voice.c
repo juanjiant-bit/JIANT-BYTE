@@ -2112,11 +2112,13 @@ static uint32_t voice_block(track_t *t, const engine_t *e, voice_t *v, int32_t *
             pn = VP[vi & 7u] * c->img / 127;
             memcpy(vb, out + off, n * sizeof *out);
         }
+        if(fl.on)fl_bind(t,v,(uint32_t)c->lv);
         vi += c->ti * NVOICE;
         if (VH_ST(vh_c[vi]) && e->half && !off)         /* (codex/voices) at half the rate */
             voice_half(t, e, v, out, n, &m, vi);
         else
             e->render(t, v, out + off, n, &m);
+        if(fl.on)fl_unbind();
         if (img) {
             int32_t g = pn > 0 ? pn : -pn, *sd = (pn > 0 ? dx_sl : dx_sr) + off;
             for (j = 0; j < n; j++)
@@ -2155,7 +2157,7 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     bend16 = bend >= 0 ? bend / 16 : -((-bend + 15) / 16);
     bend_fine = (bend - bend16 * 16) * 2367 / 2560;
     uint32_t nr = 0, fade = t->xf_on && t->xf, snap = fade && xf_snap_t == ti;
-    int32_t damt, lpt = 0;
+    int32_t damt;
     int16_t pe_new[8], p_new[P_COUNT];
     for (i = 0; i < n; i++)
         out[i] = 0;
@@ -2196,7 +2198,7 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
                                                          * the RAM copy's too (mix_part_m0), life.c past its direct reach */
             int32_t (*f)(uint32_t, int32_t *) = life_ctx;
             FM1_OPAQUE(f);
-            lpt = f(ti, &c.lv);
+            (void)f(ti, &c.lv);
         }
         for (i = 0; i < NVOICE; i++) {
             voice_t *v = &t->v[i];
@@ -2247,11 +2249,6 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
                tf_xb[(uint32_t)(t - trk) % NTRK] || tf_cmb[(uint32_t)(t - trk) % NTRK]))
         /* (JIANT 0.5) the FILTER (track_post); 0.6.8: and a block more to leave the chain (track_filter's fade) */
         track_post(t, e, out, n);
-    if (nr && (lpt || life.active[ti])) {
-        void (*f)(uint32_t, int32_t *, uint32_t, int32_t) = life_process;
-        FM1_OPAQUE(f);
-        f(ti, out, n, lpt);
-    } else if (!nr) life.active[ti] = 0;
     if (snap)
         memcpy(t->p, p_new, sizeof p_new);
     else if (fade)

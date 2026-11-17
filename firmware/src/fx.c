@@ -3181,6 +3181,7 @@ static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (
     master_begin();
     duck_block();
     perf = perf_begin(n);                               /* the FX hold layer at work (perform.c) */
+    { void (*f)(uint32_t)=life_formula_block; FM1_OPAQUE(f); f(trk_hush); }
     if (!mc_off && mc_live()) {                         /* (0.6.71) core 1 at its parts meanwhile; (0.6.75) and the buses */
         c1m = mc_split(mc_fx_tk + 4u * MC_VW);
         if (mc_run(mc_job, c1m | MC_FX | n << 8))

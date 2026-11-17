@@ -497,7 +497,7 @@ EXPORT void web_test_heavy(void)
     trk[3].p[P_E5] = 96; trk[3].p[P_E6] = 80; /* formula MOD ENV + FOLD */
     trk[0].p[P_DTYPE] = 11; trk[0].p[P_DIST] = 48; trk[0].p[P_DTONE] = -32; dnz_v[0] = 36;
     perf_held |= PF_BIT(PF_ATK) | PF_BIT(PF_WOB); /* formula FOLD + phase warp */
-    life_v[LIFE_AMT] = life_v[LIFE_PULSE] = life_v[LIFE_COLOR] = life_v[LIFE_LINK] = 100;
+    life_v[LIFE_AMT] = life_v[LIFE_NUMBERS] = life_v[LIFE_FRAGMENTS] = life_v[LIFE_LINK] = 100;
     for (i = 0; i < 16u; i++) {
         uint8_t n[4];
         uint32_t k = 0;

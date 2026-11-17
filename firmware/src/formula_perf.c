@@ -7,7 +7,7 @@ static __attribute__((noinline)) void formula_run(const fvm_prog_t *p, const fvm
                                                 fvm_scratch_t *scratch, uint32_t n, uint32_t *out)
 {
     uint32_t mask=formula_punch;
-    if (!mask) { fvm_run(p,src,scratch,n,out); return; }
+    if (!mask) { fl_run(p,src,scratch,n,out); return; }
     fvm_env_t e=*src;
     uint32_t x[3][FVM_BLK],i,j;
     if(n>FVM_BLK)n=FVM_BLK;
@@ -25,7 +25,7 @@ static __attribute__((noinline)) void formula_run(const fvm_prog_t *p, const fvm
         e.arr[j]=x[j];
     }
     if(mask&16u) { e.u[FU_A]=(e.u[FU_A]+5u)&127u;e.u[FU_AF]=(e.u[FU_AF]+24576u)&65535u; }
-    fvm_run(p,&e,scratch,n,out);
+    fl_run(p,&e,scratch,n,out);
     if(mask&896u) for(i=0;i<n;i++) {
         int32_t v=p->ty==FT_FIX?clamp((int32_t)out[i],-65536,65535):((int32_t)(out[i]&255u)-128)*512;
         if(mask&128u) { v*=3;v=v>65535?131070-v:v < -65536?-131072-v:v; }
