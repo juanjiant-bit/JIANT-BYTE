@@ -6,7 +6,7 @@ no ejecutan código externo. Esta versión ofrece 24 fórmulas seleccionables, c
 
 ## Cómo tocarlo
 
-1. Selecciona la pista DRUM y gira **PRESETS** hasta **FLOAT KIT** (después de LATIN PERC).
+1. Selecciona la pista DRUM y gira **PRESETS** hasta **FLOAT KIT** (después de LATIN PERC); pulsa **OCT+** para cargarlo.
 2. En **EDIT → SOUND → FORMULA**, usa los cuatro controles:
    - **SOUND**: instrumento BD, SD, CP, CH, OH, TM, RS o CB.
    - **FORMULA**: CLASSIC, o una de las 24 fórmulas. CLASSIC usa el oscilador DRUM-X habitual.
