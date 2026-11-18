@@ -76,6 +76,51 @@ static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
     return w;
 }
 
+/* (byte-cpu-light) A formula of the bank that is f(w, A) alone and smooth, drawn once into a table of 128 points a
+ * part and an oscillator at its POS, read by every voice and unison voice of the part (linear between points: under
+ * -48 dB for the bank's partials up to the 7th; SAWSQ's and PULSE's edges a ramp of 1/128 turn). BITS STEP NOISE stay exact, as CAOS
+ * (POS moving inside a block), LIFE's own voice and USER. Only a part of more than one voice or with unison (where the
+ * table is shared); a single line runs the formula as written. */
+static uint32_t trk_nvoice(const track_t *t);   /* (voice.c) */
+#define WT_N 128u
+static int16_t wt_tab[NTRK][2][WT_N + 1u];
+static uint16_t wt_key[NTRK][2];                    /* 1 + formula x 128 + POS (0: none) */
+static int wt_smooth(uint32_t f) { return f != 10u && f != 11u && f != 13u; }   /* (SAWSQ PULSE too: their edge a 1/128 turn ramp) */
+static const int16_t *wt_get(uint32_t tr, uint32_t o, const fvm_prog_t *pg, uint32_t f, uint32_t pos, uint32_t many,
+                             const fvm_env_t *e0, lofi_work_t *wk)
+{
+    uint16_t key = (uint16_t)(1u + f * 128u + pos);
+    uint32_t i, k, W[FVM_BLK], T[FVM_BLK] = {0}, y[FVM_BLK];
+    if (!pg->n || pg->nstate || (pg->uses & ~(1u << FA_W)) || !wt_smooth(f))
+        return 0;
+    if (!many)                                          /* (one voice, no unison: the formula as written) */
+        return 0;
+    if (wt_key[tr][o] == key)
+        return wt_tab[tr][o];
+    {
+        fvm_env_t e = *e0;
+        e.arr[FA_T] = T; e.arr[FA_W] = W;
+        e.u[FU_AF] = pos * 516u;
+        for (k = 0; k < WT_N; k += FVM_BLK) {
+            for (i = 0; i < FVM_BLK; i++) W[i] = (k + i) * (65536u / WT_N);
+            fvm_run(pg, &e, &wk->s, FVM_BLK, y);
+            for (i = 0; i < FVM_BLK; i++) wt_tab[tr][o][k + i] = (int16_t)clamp((int32_t)y[i] >> 1, -32768, 32767);
+        }
+    }
+    wt_tab[tr][o][WT_N] = wt_tab[tr][o][0];
+    wt_key[tr][o] = key;
+    return wt_tab[tr][o];
+}
+static inline void wt_read(const int16_t *t, const uint32_t *W, uint32_t n, uint32_t *y)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++) {
+        uint32_t w = W[i] & 0xFFFFu, j = w >> 9;
+        int32_t a = t[j];
+        y[i] = (uint32_t)((a + (((t[j + 1u] - a) * (int32_t)(w & 511u)) >> 9)) * 2);
+    }
+}
+
 static void wave_note_on(track_t *t, voice_t *v)
 {
     (void)t;
@@ -96,6 +141,7 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     int32_t pos = clamp(p[P_E1] + ((m->shape - (64 << 8)) >> 8), 0, 127);   /* (the matrix's SHAPE moves POS) */
     uint32_t inc = pitch_inc(clamp(m->pitch16, 0, 2047)), nu = det ? 3u : 1u, need_b = mix || warp == WW_FM;
     const fvm_prog_t *pa, *pb;
+    const int16_t *ta, *tb;
     uint32_t W[LOFI_N], T[LOFI_N], ya[LOFI_N], yb[LOFI_N];
     int32_t acc[LOFI_N];
     fvm_env_t ea = {{T, W, 0, 0, 0}, {0}, &v->s[6]}, eb = {{T, W, 0, 0, 0}, {0}, &v->s[7]};
@@ -118,6 +164,11 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     ea.u[FU_AF] = eb.u[FU_AF] = (uint32_t)acc[0];
     ea.u[FU_NOTE] = eb.u[FU_NOTE] = v->note;
     ea.u[FU_VEL] = eb.u[FU_VEL] = v->vel;
+    {   /* (byte-cpu-light) the parts' tables, CAOS off (POS still in the block) */
+        uint32_t many = nu > 1u || trk_nvoice(t) > 1u, exact = caos || warp == WW_QUANT;   /* (QUANT's steps land on the edges) */
+        ta = exact ? 0 : wt_get(tr, 0, pa, fa, (uint32_t)pos, many, &ea, wk);
+        tb = exact || !pb ? 0 : wt_get(tr, 1, pb, fb, (uint32_t)pos, many, &eb, wk);
+    }
     {
         uint32_t posa[LOFI_N];                       /* POS per sample (CAOS moves it): the formula reads A a block,
                                                       * so a CAOS block splits in runs of FVM_BLK at its first value */
@@ -136,13 +187,15 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
                 ea.arr[FA_W] = eb.arr[FA_W] = W + o;
                 ea.u[FU_AF] = eb.u[FU_AF] = posa[o];
                 if (pb) {
-                    (u ? fvm_run : formula_run)(pb, &eb, &wk->s, c, yb + o);   /* (byte-cpu-light: LIFE on the
+                    if (tb) { wt_read(tb, W + o, c, yb + o); if (!u) fl_post(pb, &eb, &wk->s, c, yb + o); }
+                    else (u ? fvm_run : formula_run)(pb, &eb, &wk->s, c, yb + o);   /* (byte-cpu-light: LIFE on the
                                                      * first unison voice; the detuned two plain) */
                     if (warp == WW_FM)                   /* FM: B into A's phase, AMT the index (up to a turn) */
                         for (k = 0; k < c; k++)
                             W[o + k] = (W[o + k] + (uint32_t)(((int32_t)yb[o + k] * (int32_t)amt) >> 7)) & 0xFFFFu;
                 }
-                (u ? fvm_run : formula_run)(pa, &ea, &wk->s, c, ya + o);
+                if (ta) { wt_read(ta, W + o, c, ya + o); if (!u) fl_post(pa, &ea, &wk->s, c, ya + o); }
+                else (u ? fvm_run : formula_run)(pa, &ea, &wk->s, c, ya + o);
             }
             for (i = 0; i < n; i++) {
                 int32_t a = (int32_t)ya[i], b = pb ? (int32_t)yb[i] : 0;

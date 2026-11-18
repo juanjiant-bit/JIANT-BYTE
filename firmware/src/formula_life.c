@@ -94,9 +94,9 @@ static int32_t fl_other_h(uint32_t id,uint32_t k,uint32_t weight)
 {
     return (fl.sum[k]-(int32_t)fl.node[fl.rd][id].wave[k]*(int32_t)fl.gate[id])/(int32_t)weight;
 }
-static __attribute__((noinline)) void fl_run(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,uint32_t n,uint32_t*out)
+/* (byte-cpu-light) LIFE on a formula's output already made (fl_run's, or WAVE's table read: eng_wave.c) */
+static __attribute__((noinline)) void fl_post(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,uint32_t n,uint32_t*out)
 {
-    fvm_run(p,e,sc,n,out);
     uint32_t c=MC_CPU()&1u,id=fl_ctx[c].id;
     if(!fl.on||!id||!p->n||!n)return;
     if(n>FVM_BLK)n=FVM_BLK;
@@ -251,4 +251,10 @@ static __attribute__((noinline)) void fl_run(const fvm_prog_t*p,const fvm_env_t*
         int32_t sample=(int32_t)out[i]*gain/256;
         out[i]=p->ty==FT_FIX?(uint32_t)(sample*2):(uint32_t)clamp((sample+32640+128)/256,0,255);
     }
+}
+
+static __attribute__((noinline)) void fl_run(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,uint32_t n,uint32_t*out)
+{
+    fvm_run(p,e,sc,n,out);
+    fl_post(p,e,sc,n,out);
 }
