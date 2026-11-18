@@ -58,6 +58,7 @@ jobs:
         if: steps.tc.outcome == 'success'
         env:
           SOURCE_COMMIT: ${{ github.sha }}
+          FELUCCA_REPIN: "1"                 # (byte-cpu-light: the audio layout re-pinned for the new code)
           AC79_SDK: /home/runner/fw-AC79_AIoT_SDK
           JIELI_TOOLCHAIN: /home/runner/.jieli/toolchain
         run: |
