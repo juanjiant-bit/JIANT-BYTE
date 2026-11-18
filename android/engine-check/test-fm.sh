@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p android/engine-check/reports
+trap 'adb logcat -d > android/engine-check/reports/logcat.txt; adb shell screencap -p /sdcard/fm-update-last.png; adb pull /sdcard/fm-update-last.png android/engine-check/reports/last-screen.png' EXIT
 curl --fail --retry 3 -L https://juanjiant-bit.github.io/JIANT-BYTE/android/jiant-offline.apk -o /tmp/jiant-offline.apk
 printf '%s\n' 'f5e780a52aca72df2bfadaab7f8cd94f4e152efe97222ce8d7e78c3e4c2084a7  /tmp/jiant-offline.apk' | sha256sum -c -
 adb install -r /tmp/jiant-offline.apk

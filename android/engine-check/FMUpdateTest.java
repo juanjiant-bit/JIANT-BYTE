@@ -11,11 +11,19 @@ import static org.junit.Assert.*;
 /** Public APK0.2: bundled FM46/47 to published FM48/49 over real HTTPS, then offline. */
 @RunWith(AndroidJUnit4.class)
 public class FMUpdateTest extends OfflineTest {
+ private android.webkit.WebView findWeb(android.view.View v){if(v instanceof android.webkit.WebView)return (android.webkit.WebView)v;if(v instanceof android.view.ViewGroup)for(int n=0;n<((android.view.ViewGroup)v).getChildCount();n++){var w=findWeb(((android.view.ViewGroup)v).getChildAt(n));if(w!=null)return w;}return null;}
+ @Override protected String js(MainActivity a,String code)throws Exception{
+  var i=InstrumentationRegistry.getInstrumentation();android.webkit.WebView[] w={null};i.runOnMainSync(()->w[0]=findWeb(a.getWindow().getDecorView()));
+  assertNotNull("Player closed: error="+a.bootError+" profile="+a.bootedProfile+" focus="+a.hasWindowFocus()+" finishing="+a.isFinishing(),w[0]);return super.js(a,code);
+ }
  private File root(){return InstrumentationRegistry.getInstrumentation().getTargetContext().getFilesDir();}
  private EngineStore store()throws Exception{return new EngineStore(new File(root(),"engines"));}
  private void key(MainActivity a,String code,boolean down)throws Exception{js(a,"document.dispatchEvent(new KeyboardEvent('key"+(down?"down":"up")+"',{code:'"+code+"',bubbles:true}));");Thread.sleep(150);}
  private MainActivity boot(String p)throws Exception{
-  var i=InstrumentationRegistry.getInstrumentation();var c=i.getTargetContext();MainActivity a=(MainActivity)i.startActivitySync(new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));i.runOnMainSync(()->a.openProfile(p));
+  var i=InstrumentationRegistry.getInstrumentation();var c=i.getTargetContext();MainActivity a=(MainActivity)i.startActivitySync(new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));long focusedUntil=System.currentTimeMillis()+10000;
+  while(!a.hasWindowFocus()&&System.currentTimeMillis()<focusedUntil)Thread.sleep(100);
+  assertTrue("Activity must be focused before opening a player",a.hasWindowFocus());Thread.sleep(300);
+  i.runOnMainSync(()->a.openProfile(p));
   long end=System.currentTimeMillis()+25000;while(!p.equals(a.bootedProfile)&&System.currentTimeMillis()<end)Thread.sleep(100);assertEquals(a.bootError,p,a.bootedProfile);
   end=System.currentTimeMillis()+20000;while(!"true".equals(js(a,"window.jiantDiagnostics.clock>=3000"))&&System.currentTimeMillis()<end)Thread.sleep(100);assertEquals("true",js(a,"window.jiantDiagnostics.clock>=3000"));return a;
  }
