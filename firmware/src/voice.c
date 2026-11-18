@@ -941,7 +941,7 @@ static uint32_t load_cost_q8(const track_t *t)          /* a voice more of part 
         uint32_t half = mc_tk[ti] * (HALF_FRAMES / CTL) / nv;
         c = half * 25600u / (HALF_FRAMES * LOAD_FRAME_TICKS);
     } else
-        c = (e == &ENG_LOFI ? math_music_cost(t) : 3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
+        c = (e == &ENG_LOFI ? math_music_cost(t) : t->engine==ENGI_FORM?form_cost(t):3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
     return load_cores2 ? (c * LOAD_SHARE_Q8) >> 8 : c;
 }
 static void load_take(const track_t *t)                 /* a voice added: into the prediction */

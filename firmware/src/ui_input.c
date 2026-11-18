@@ -2006,7 +2006,7 @@ static void rec_clear_auto(uint32_t b)
         for (f = FAM_HOME + 1u; f < FAM_COUNT && FAM_BTN[f] != b; f++)
             ;
         for (i = 0; i < NPAGES; i++)
-            if (PAGES[i].fam == f && (PAGES[i].scope == SC_TRACK || PAGES[i].scope == SC_ENGINE))
+            if (PAGES[i].fam == f && (PAGES[i].scope == SC_TRACK || PAGES[i].scope == SC_ENGINE || (PAGES[i].scope==SC_FORM&&trk_eng(TSEL)==ENGI_FORM)))
                 for (k = 0; k < 4u; k++)
                     if (PAGES[i].id[k] < P_COUNT && !(f == FAM_EDIT && PAGES[i].id[k] == P_DIST))   /* (EDIT > FILTER's
                                                          * DRV is the part's DIST: FX's) */

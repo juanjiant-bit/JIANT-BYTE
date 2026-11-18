@@ -605,7 +605,7 @@ static const char MATH_FUNC_DEFAULT[] = "func{let bt=P%64;let r=bt*(1+int(D*3));
 static const char MATH_FUNC_BEAT[] = "func{let bt=P%32;let st=int(bt*4);return sat(note(n-24+(st^(st>>2))%5*3,bt*4%1,A)*.8+(bt<24)*(kick(bt%(1.5+D*.5))*.8+snare((bt+1)%(2-B))*.4+hat(bt*(2+int(C*3)*2)%1)*.6));}";
 static uint32_t func_clock_begin,func_clock_end;
 static uint8_t func_song_mask;
-static int func_song(const track_t*t){return t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==5;}
+static int func_song(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]!=0:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==5;}
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
 static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
 static uint32_t math_music_cost(const track_t*t){

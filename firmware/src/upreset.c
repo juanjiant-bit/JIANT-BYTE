@@ -461,7 +461,7 @@ static int up_load(uint32_t k)
         fm1_irq_off();                                  /* the audio ISR must not see half a sound */
         t->eng_req = r->engine;
         for (i = 0; i < P_COUNT; i++)
-            if (!param_kept(i))
+            if (!param_kept(i) || (r->engine==ENGI_FORM&&form_owned_param(i)))
                 t->p[i] = v[i];
         t->preset = 0;
         fm1_irq_on();

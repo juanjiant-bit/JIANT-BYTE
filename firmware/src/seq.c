@@ -439,7 +439,7 @@ static uint32_t chord_build_mode(const track_t *t, uint32_t root, uint8_t *out, 
     uint32_t vc = (uint32_t)t->p[P_CVOI], n = 0, i, j, ti = trk_index(t) % NTRK, any = mode & 0x80u, peek = mode & 0x40u;
     int32_t nt[KB_CH + 1], r = (int32_t)root;           /* (V10.25 SCENE any: any voice; V10.27 peek: the screen's, */
     mode &= 0x3Fu;                                      /* LEAD's last chord not written: drawing changed the voicing) */
-    if (!mode || mode > CD_POW || e->oneshot || (e->keys && e->keys(t, 0) >= 0) || ((t->p[P_VOICE] & 3) != V_POLY && !any)) {   /* (DRONE: as POLY) */
+    if (!mode || mode > CD_POW || e == &ENG_FORM || e->oneshot || (e->keys && e->keys(t, 0) >= 0) || ((t->p[P_VOICE] & 3) != V_POLY && !any)) {   /* (DRONE: as POLY) */
         out[0] = (uint8_t)root;
         return 1;
     }
@@ -3194,7 +3194,7 @@ static __attribute__((noinline)) int func_song_tick(track_t*t)
     if((func_song_mask&bit)&&!func_song(t)){seq_release(t);func_song_mask&=(uint8_t)~bit;}
     if(func_song(t)){
         if(song.playing){
-            uint32_t root=(uint32_t)clamp(60+t->p[P_E6],36,84),active=0;
+            uint32_t root=(uint32_t)clamp(60+(t->eng_req==ENGI_FORM?0:t->p[P_E6]),36,84),active=0;
             if(t->seq_n&&t->seq_notes[0]!=root)seq_release(t);
             for(uint32_t k=0;k<NVOICE;k++)active|=t->v[k].active&&t->v[k].gate&&t->v[k].note==root;
             if(!active&&!t->xp_n&&!t->p[P_MUTE]&&trk_index(t)<trk_live){seq_note_on(t,root,110);t->seq_notes[0]=(uint8_t)root;t->seq_n=1;t->seq_hold=1;}

@@ -186,11 +186,24 @@ static void graph_focus_lz(const track_t *t)
             cv_clip_text(x + 2, 121 - AF_X_CAP_Y, &AF_X, di->label, i == k ? T_INK : T_TEXT, bg, 23);
     }
 }
+/* FORM's references stay readable beyond the narrow four parameter cards. */
+static void form_cap(int32_t x,int32_t y,const char*s,uint16_t c){cv_text_on(x,y-AF_S_CAP_Y,&AF_S,s,c,T_BG);}
+static __attribute__((noinline)) void graph_form_lz(const track_t*t){
+ uint32_t a=(uint32_t)clamp(t->p[P_E0],0,21),b=(uint32_t)clamp(t->p[P_E1],0,21),m=(uint32_t)clamp(t->p[P_E2],0,127);
+ form_cap(8,5,"A",T_THEME);form_cap(24,5,FORM_NAMES[a],T_TEXT);
+ form_cap(8,25,"B",T_THEME);form_cap(24,25,FORM_NAMES[b],T_TEXT);
+ cv_rect(8,47,224,5,T_RAISE);cv_rect(8,47,(int32_t)(m*224u/127u),5,T_THEME);
+ form_cap(8,65,"RHYTHM A / B",T_DIM);
+ for(uint32_t i=0;i<16;i++){uint32_t aa=(FORM_STATE[a].kick|FORM_STATE[a].snare|FORM_STATE[a].hat)>>i&1u,bb=(FORM_STATE[b].kick|FORM_STATE[b].snare|FORM_STATE[b].hat)>>i&1u;cv_rect(8+(int32_t)i*14,81,10,8,aa?T_THEME:T_RAISE);cv_rect(8+(int32_t)i*14,94,10,8,bb?T_THEME:T_RAISE);}
+ form_cap(8,118,t->p[P_LRTRG]?"SONG: PLAY / STOP":"NOTE: HOLD A KEY",T_TEXT);
+}
 /* the lens's panel for EDIT's page pg (1), else 0 (its own) */
 static int graph_edit_lz(const track_t *t, const page_t *pg)
 {
     uint32_t e = trk_eng(t);
-    if ((pg->scope == SC_ENGINE && e != ENGI_DRUM && !(FELUCCA_FM4 && e == ENGI_DIGITAL)) || pg->graph == GR_SWARM)
+    if(e==ENGI_FORM&&(pg->scope==SC_ENGINE||pg->scope==SC_FORM))
+        graph_form_lz(t);
+    else if ((pg->scope == SC_ENGINE && e != ENGI_DRUM && !(FELUCCA_FM4 && e == ENGI_DIGITAL)) || pg->graph == GR_SWARM)
         graph_sound_lz(t);
     else if (pg->id[0] == P_FTYPE)
         graph_filter_lz(t, pg);

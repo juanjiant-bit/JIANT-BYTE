@@ -642,6 +642,7 @@ static int page_visible(uint32_t i)
         return te == ENGI_INPUT && TSEL->p[P_E0] == AIN_SW;
     if (PAGES[i].graph == GR_LYRIC || PAGES[i].graph == GR_LYRSTEP)
         return trk_engp(TSEL) == &ENG_VOX_GONE;
+    if(PAGES[i].scope==SC_FORM)return te==ENGI_FORM;
     if (PAGES[i].graph == GR_PATS_ || PAGES[i].graph == GR_CHANCE_)   /* (0.6.37) PHRASES, a step's CHANCE: out of the */
         return FELUCCA_PHRASES && !ui.home && ui.page == i;   /* SEQ pages' cycle (only where code put the screen;
                                                          * V10.7.33: out, core.h) */
@@ -866,7 +867,7 @@ static void chain_play_ui(void)
 static int lock_page_ok(uint32_t i)
 {
     uint32_t k;
-    if (i >= NPAGES || (PAGES[i].scope != SC_TRACK && PAGES[i].scope != SC_ENGINE) || PAGES[i].graph == GR_MOD ||
+    if (i >= NPAGES || (PAGES[i].scope != SC_TRACK && PAGES[i].scope != SC_ENGINE && PAGES[i].scope != SC_FORM) || PAGES[i].graph == GR_MOD ||
         PAGES[i].graph == GR_MSEQ)
         return 0;
     for (k = 0; k < 4u; k++)

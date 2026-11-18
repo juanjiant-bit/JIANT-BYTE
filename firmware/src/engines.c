@@ -10,6 +10,7 @@
 #include "fvm_gen.c"         /* (JIANT BYTE) the equations' generator (MATH's USER) */
 #include "filt.c"            /* (JIANT BYTE) the filter TYPEs (ANALOG retired) */
 #include "eng_lofi.c"
+#include "eng_form.c"
 #include "eng_wave.c"            /* (JIANT BYTE) WAVE: a parametric wavetable of formulas (engine 13, ADD's) */
 #include "eng_formant.c"
 #include "eng_drum.c"           /* DRUM: the 8-lane DRUM-X kit (drumx_voice.c) */
@@ -75,11 +76,12 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_WAVE,                   /* 13: (JIANT BYTE) WAVE (eng_wave.c), in the retired ADD's number */
     &ENG_LOFI,                   /* 14: (JIANT BYTE) ANIMAL retired: plays as MATH */
     &ENG_LOFI,                   /* 15: (JIANT BYTE) INPUT (EXT, SWARM) retired: plays as MATH */
+    &ENG_FORM,                   /* 16: FORM, a distinct procedural composition engine */
 };
 
 /* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
  * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
-static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3};   /* (13: WAVE) */
+static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 16};   /* (13: WAVE) */
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
 static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 0u]; }
 
@@ -93,6 +95,7 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     ENGI_DRUM,                   /* DRUM (DRUM-X, its formula lanes) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE */
     ENGI_LOFI,                   /* MATH (BYTE FLOAT) */
+    ENGI_FORM,
     /* (JIANT BYTE) retired, their numbers MATH's or WAVE's (ENG_LIVE): WHEEL ADD FM6 PHASE STRING WEST ANIMAL */
 #if FELUCCA_FM4
     ENGI_DIGITAL,                /* DIGITAL (retired, FELUCCA_FM4 builds only): after the rest */
@@ -107,6 +110,7 @@ static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
 #endif
     ENGI_LOFI, ENGI_DRUM,        /* (JIANT BYTE: every engine of JIANT FM's out but DRUM-X; MATH's place kept first) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE: after the rest */
+    ENGI_FORM,
 };
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them

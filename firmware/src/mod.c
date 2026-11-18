@@ -635,13 +635,13 @@ BTAPP_FN static const char *mod_dst_name_bt(const track_t *t, int32_t v)
     if (v >= MD_E1 && v < MD_CLIP) return track_desc(t, P_E0 + (uint32_t)v - MD_E1)->label;
     if (v == MD_CUT) {
         static const uint8_t CUT_ID[NENGINES] = {P_E4, P_FCUT, P_E2, P_FCUT, P_FCUT, P_E0, P_FCUT, P_FCUT,
-                                                P_FCUT, P_FCUT, P_FCUT, P_E2, P_E2, P_FCUT, P_FCUT, P_FCUT};
+                                                P_FCUT, P_FCUT, P_FCUT, P_E2, P_E2, P_FCUT, P_FCUT, P_FCUT, P_FCUT};
         if (e == ENGI_DRUM) return N_MDST[MD_FCUT];
         return track_desc(t, CUT_ID[e])->label;
     }
     if (v == MD_SHP) {
         static const uint8_t SHP_ID[NENGINES] = {P_MORPH, P_MORPH, P_E2, P_MORPH, P_MORPH, P_E4, P_MORPH, P_E6,
-                                                P_E2, P_MORPH, P_MORPH, P_E1, P_MORPH, P_E5, P_MORPH, P_MORPH};
+                                                P_E2, P_MORPH, P_MORPH, P_E1, P_MORPH, P_E5, P_MORPH, P_MORPH, P_E3};
         k = e == ENGI_LOFI && t->p[P_E1] >= RW_BYTE ? P_E3 : SHP_ID[e];
         return track_desc(t, k)->label;
     }
