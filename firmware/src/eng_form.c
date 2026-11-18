@@ -37,7 +37,7 @@ static const form_state_t FORM_STATE[FORM_N]={
 static int form_owned_param(uint32_t id){return id==P_SDIV||id==P_SLEN||id==P_SSWING||id==P_ROOT||id==P_SCALE||id==P_CHRD||id==P_CVOI;}
 static const param_desc_t *form_common_desc(uint32_t id){
  static const param_desc_t detune={"DETUNE",F_PCT,0,127,24,0};
- static const param_desc_t run={"RUN",F_ENUM,0,1,1,FORM_RUN},domain={"DOMAIN",F_ENUM,0,4,0,FORM_DOMAIN},drums={"DRUMS",F_PCT,0,127,100,0},cycle={"CYCLE",F_STEPS,1,64,32,0};
+ static const param_desc_t run={"RUN",F_ENUM,0,1,1,FORM_RUN},domain={"DOMAIN",F_ENUM,0,4,0,FORM_DOMAIN},drums={"DRUMS",F_PCT,0,127,100,0},cycle={"CYCLE",F_INT,1,64,32,0};
  return id==P_DETUNE?&detune:id==P_LRTRG?&run:id==P_CAOS?&domain:id==P_KEY?&drums:id==P_SLEN?&cycle:0;
 }
 #define FP(k,label,echo,space) {label,{k,(k+1)%FORM_N,0,64,0,100,0,64},{0,0,127,24},0,TAG(FX),FX(0,24,echo,space),0,MODS(P_LRTRG,1,P_CAOS,0,P_KEY,100,P_SLEN,32,P_ROOT,0,P_SCALE,2,P_CHRD,1,P_CVOI,0,P_DETUNE,24)}
