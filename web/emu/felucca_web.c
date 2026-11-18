@@ -602,7 +602,7 @@ EXPORT uint32_t web_trk_live(void) { return trk_live; }
 static char web_func_text[256];static uint32_t web_func_pos;
 EXPORT char *web_func_buffer(void){return web_func_text;}
 EXPORT uint32_t web_func_error_pos(void){return web_func_pos;}
-EXPORT const char *web_func_get(uint32_t track){const char*s=lyr_get(track%NTRK);return math_is_func(s)?s:MATH_FUNC_DEFAULT;}
+EXPORT const char *web_func_get(uint32_t track){track%=NTRK;return math_func_text(&trk[track],lyr_get(track));}
 EXPORT uint32_t web_func_apply(uint32_t track){
     if(track>=NTRK)return FE_ARGS;
     web_func_text[255]=0;gq_work_t*w=proj_ws();fvm_err_t err={0,0};
@@ -611,6 +611,8 @@ EXPORT uint32_t web_func_apply(uint32_t track){
     web_func_pos=err.pos;if(rc)return rc;
     track_t*t=&trk[track];song.sel=(uint8_t)track;
     if(t->eng_req!=ENGI_LOFI)set_engine_of(t,ENGI_LOFI);
-    if(t->p[P_E1]!=RW_FUNC){t->p[P_E2]=64;t->p[P_E3]=32;t->p[P_E4]=16;t->p[P_E5]=0;}
-    t->p[P_E1]=RW_FUNC;lyr_set(track,web_func_text);math_hash[track]=0;math_poll();ui.force=1;return 0;
+    if(t->p[P_E1]!=RW_FUNC){t->p[P_E0]=4;t->p[P_E2]=80;t->p[P_E3]=0;t->p[P_E4]=64;t->p[P_E5]=64;}
+    t->p[P_E1]=RW_FUNC;t->p[P_E7]=0;lyr_set(track,web_func_text);math_hash[track]=0;math_poll();ui.force=1;return 0;
 }
+
+EXPORT uint32_t web_func_mode(uint32_t track,int32_t mode){track%=NTRK;track_t*t=&trk[track];if(mode>=0){t->p[P_E0]=mode?5:4;if(mode)t->p[P_SUS]=127;ui.force=1;}return t->p[P_E1]!=RW_FUNC||func_song(t);}

@@ -2923,7 +2923,7 @@ static __attribute__((noinline)) void mc_job(uint32_t a)  /* core 1: the buses (
 static uint32_t mc_cost(const track_t *t)               /* a part's share of the work, roughly: its voices by engine */
 {
     const engine_t *e = ENGINES[t->engine];
-    uint32_t k, v = 0, w = e == &ENG_LOFI ? 2u : 3u;   /* (JIANT BYTE: FM6 retired) */   /* (V10.7.36: WEST 3) */
+    uint32_t k, v = 0, w = e == &ENG_LOFI ? math_music_cost(t) : 3u;   /* (JIANT BYTE: FM6 retired) */   /* (V10.7.36: WEST 3) */
     for (k = 0; k < NVOICE; k++)
         v += t->v[k].active;
     return v ? 1u + v * w : 0u;

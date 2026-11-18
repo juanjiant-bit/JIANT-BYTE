@@ -110,7 +110,7 @@ static void name_open(uint32_t kind, uint32_t slot)
     nm.num = nm.key = nm.rep = nm.ferr = nm.fpos = 0;
     b[0] = 0;
     if(kind==NK_FUNC){
-        const char *text=lyr_get(slot);if(!math_is_func(text))text=MATH_FUNC_DEFAULT;
+        const char *text=math_func_text(&trk[slot%NTRK],lyr_get(slot));
         str_cpy(nm.s,text,sizeof nm.s);nm.len=(uint8_t)str_len(nm.s);nm.cur=0;return;
     }
     if (kind == NK_DX_FORM) {
@@ -290,7 +290,7 @@ static void name_ok(void)
         gq_work_t*w=proj_ws();fvm_err_t err={0,0};uint32_t rc=fvm_compile(&w->cc,FVM_FULL(&w->pg),b,str_len(b),&err);
         if(!rc&&(!w->pg.p.func||w->pg.p.nstate>2u)){rc=FE_STATE;err.pos=0;}
         if(rc){nm.ferr=(uint8_t)rc;nm.fpos=(uint8_t)err.pos;nm.cur=err.pos<nm.len?(uint8_t)err.pos:nm.len;ui.force=1;return;}
-        lyr_set(nm.slot,b);math_hash[nm.slot]=0;math_poll();name_close();ui_message("FUNC APPLIED");return;
+        trk[nm.slot].p[P_E7]=0;lyr_set(nm.slot,b);math_hash[nm.slot]=0;math_poll();name_close();ui_message("FUNC APPLIED");return;
     }
     if (nm.kind == NK_DX_FORM) {
         gq_work_t *w = proj_ws(); fvm_err_t e = {0,0};

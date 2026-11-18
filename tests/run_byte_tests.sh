@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 OUT=build/byte-check
 mkdir -p "$OUT"
 python3 -c 'import tools.build as b; b.generate()' > "$OUT/generate.log"
-for test in fvm funcbeat funcbeat_ui byte wave life_byte life_sound life_extreme byte_generation song_generator fuga dxform voice_limit byte_myloop byte_controls byte_automation; do
+for test in fvm funcbeat funcbeat_ui funcsong byte wave life_byte life_sound life_extreme byte_generation song_generator fuga dxform voice_limit byte_myloop byte_controls byte_automation; do
     echo "BYTE: $test"
     # ui_test.c still contains unused helpers for retired FM engines. GCC 14+
     # diagnoses their declarations; they are eliminated from these host checks.
@@ -21,6 +21,7 @@ for test in fvm funcbeat funcbeat_ui byte wave life_byte life_sound life_extreme
 done
 python3 tests/life_sound_test.py
 python3 tests/life_extreme_test.py
+python3 tests/funcsong_test.py
 python3 tests/font_pack_test.py
 python3 tests/text_spacing_test.py build/gen/ui_fonts.h
 echo "BYTE: all host checks passed (logs in $OUT)"

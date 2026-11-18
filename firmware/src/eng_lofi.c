@@ -601,18 +601,35 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     v->ph[1] = ts;
 }
 
-static const char MATH_FUNC_DEFAULT[] = "func{state q;fn tone(z)=sin(z)+q*.4*sin(z*2);q=q+(A-q)*.002;let l=sin(ph(.2+C*4));return tone(w+B*.1*l)*(.6-D*.3);}";
+static const char MATH_FUNC_DEFAULT[] = "func{let bt=P%64;let r=bt*(1+int(D*3));return sat(chord(n-12+\"0573\"[int(bt/8)]-48,bt%8,A)*.5+note(n+\"0247\"[int(r)]-48,r%1,A)*.5+(bt>8&&bt<48)*(kick(bt%1)*.75+snare((bt+1)%(2-B))*.5+hat(bt*(2+int(C*3)*2)%1)*.75));}";
+static const char MATH_FUNC_BEAT[] = "func{let bt=P%32;let st=int(bt*4);return sat(note(n-24+(st^(st>>2))%5*3,bt*4%1,A)*.8+(bt<24)*(kick(bt%(1.5+D*.5))*.8+snare((bt+1)%(2-B))*.4+hat(bt*(2+int(C*3)*2)%1)*.6));}";
+static uint32_t func_clock_begin,func_clock_end;
+static uint8_t func_song_mask;
+static int func_song(const track_t*t){return t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==5;}
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
+static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
+static uint32_t math_music_cost(const track_t*t){
+    if(t->p[P_E1]!=RW_FUNC)return 2u;
+    const fvm_prog_t*p=lofi_slot((uint32_t)(t-trk)%NTRK);uint32_t cost=2;
+    for(uint32_t k=0;k<p->n;k++)if(p->ins[k].op==FO_MUSIC)cost+=p->ins[k].k==1u?4u:1u;
+    return cost;
+}
 static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32_t*out,uint32_t n,const vmod_t*m,uint32_t inc,const tsvf_t*flt)
 {
-    uint32_t T[LOFI_N],W[LOFI_N],S[LOFI_N],Y[LOFI_N],q=(uint32_t)v->s[2],ph=v->ph[0],rate;
+    uint32_t T[LOFI_N],W[LOFI_N],S[LOFI_N],P[LOFI_N],Y[LOFI_N],q=(uint32_t)v->s[2],ph=v->ph[0],rate;
     const fvm_prog_t*p=lofi_slot((uint32_t)(t-trk));
     fvm_env_t en={{T,W,S,0,0},{0},&v->s[6]};xm_env(&en,p);
     for(uint32_t k=0;k<4;k++){uint32_t a=(uint32_t)clamp(t->p[P_E2+k],0,127);en.u[FU_A+k]=a*2u;en.u[FU_AF+k]=a*65536u/127u;}
     en.u[FU_NOTE]=v->note;en.u[FU_VEL]=v->vel;en.u[FU_HZ]=(uint32_t)(((uint64_t)inc*FS)>>16);
     en.u[FU_BEAT]=lofi_sync(&rate)*8u;en.u[FU_STEP]=t->seq_idx;
+    en.u[FU_BPS]=(uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300);en.arr[FA_BEAT]=P;
     if(n>LOFI_N)n=LOFI_N;
-    for(uint32_t i=0;i<n;i++){T[i]=q+i;W[i]=ph>>16;S[i]=(uint32_t)(((uint64_t)(q+i)*65536u)/FS);ph+=inc;}
+    if(!n)return;
+    uint32_t pos,step,rem,carry=0,den;
+    if(func_song(t)){pos=func_clock_begin;den=n;step=(func_clock_end-pos)/den;rem=(func_clock_end-pos)%den;}
+    else {uint64_t ticks=(uint64_t)q<<16;den=en.u[FU_BPS];pos=(uint32_t)(ticks/den);carry=(uint32_t)(ticks%den);step=65536u/den;rem=65536u%den;}
+    /* Exact integer interpolation: no 64-bit division in the sample loop. */
+    for(uint32_t i=0;i<n;i++){T[i]=q+i;W[i]=ph>>16;S[i]=(uint32_t)(((uint64_t)(q+i)*65536u)/FS);ph+=inc;P[i]=pos&0x7fffffffu;pos+=step;carry+=rem;if(carry>=den){carry-=den;pos++;}}
     lofi_run(p,&en,&lofi_work[MC_CPU()&1u],n,Y);
     int32_t y1=v->s[4],y2=v->s[5],kd=8192-(t->p[P_FRES]>50?t->p[P_FRES]:50)*7600/127;
     for(uint32_t i=0;i<n;i++){int32_t sample=fvm_sample(FT_FIX,Y[i]);out[i]+=voice_amp(soft_knee(svf_mode(flt,sample>>1,&y1,&y2,ft_voice(t->p),kd),16000)<<1,m,i);}
@@ -623,7 +640,9 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
     if(t->p[P_E1]==RW_FUNC){
         static const param_desc_t control[4]={{"A",F_PCT,0,127,64,0},{"B",F_PCT,0,127,32,0},{"C",F_PCT,0,127,16,0},{"D",F_PCT,0,127,0,0}};
-        return k>=2u&&k<=5u?&control[k-2u]:k==1u?0:&LOFI_NONE;
+        static const char*const runs[]={"-","-","-","-","NOTE","SONG"},*const forms[]={"CUSTOM","SONG","BEAT"};
+        static const param_desc_t run={"RUN",F_ENUM,4,5,5,runs},form={"FORM",F_ENUM,0,2,1,forms},root={"ROOT",F_INT,-24,24,0,0};
+        return k==0u?&run:k>=2u&&k<=5u?&control[k-2u]:k==6u?&root:k==7u?&form:0;
     }
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */
         return &LOFI_MOTN;
@@ -727,12 +746,13 @@ static const preset_t LOFI_PRESETS[] = {
      MODS(P_FCUT, 100, P_LWAVE, LW_SH, P_LRATE, -10, P_LD_FLT, 16, MMOD(1, PS_RAND, PD_PAN, 40))},
     {"FLOAT PAD", {2, 6, 112, 0, 0, 0, 0, 0}, {80, 90, 69, 100}, 0, 1 | TAG(PAD), FX(30, 10, 50, 40), PAT(3), BREATHE(14, 0, 0),
      MODS(P_FCUT, 90)},
-    {"FUNC INIT", {4,8,64,32,16,0,0,0}, {0,70,100,45}, 0, TAG(KEYS), FX(0,0,0,20)},
+    {"FUNC SONG", {5,8,80,0,64,64,0,1}, {0,0,127,24}, 0, TAG(KEYS), FX(0,0,0,0)},
+    {"FUNC BEAT", {5,8,64,0,64,64,0,2}, {0,0,127,24}, 0, TAG(BASS), FX(0,0,0,0)},
 };
 /* (V10.6i) browsed: the voices to play, the experiments, INIT (ui.c: in LOFI_ORDER's place; LOFI_PC stays) */
 static const uint8_t MATH_ORDER[] = {3, 4, 5, 6, 7, 11,   /* to play */
                                      0, 1, 2, 8, 10,      /* experiments */
-                                     9,12};                  /* INIT / FUNC */
+                                     9,12,13};                  /* INIT / FUNC */
 _Static_assert(sizeof MATH_ORDER == NELEM(LOFI_PRESETS), "MATH's browsing order: every preset once");
 
 static const engine_t ENG_LOFI = {

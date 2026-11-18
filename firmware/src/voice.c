@@ -941,7 +941,7 @@ static uint32_t load_cost_q8(const track_t *t)          /* a voice more of part 
         uint32_t half = mc_tk[ti] * (HALF_FRAMES / CTL) / nv;
         c = half * 25600u / (HALF_FRAMES * LOAD_FRAME_TICKS);
     } else
-        c = (e == &ENG_LOFI ? 2u : 3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
+        c = (e == &ENG_LOFI ? math_music_cost(t) : 3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
     return load_cores2 ? (c * LOAD_SHARE_Q8) >> 8 : c;
 }
 static void load_take(const track_t *t)                 /* a voice added: into the prediction */
@@ -1632,6 +1632,7 @@ static volatile uint8_t asleep_hit;                     /* (0.6.28) a note went 
                                                          * silenced track's voices end, it costs nothing) */
 static void trk_note_on(track_t *t, uint32_t note, uint32_t vel)
 {
+    if(func_song(t)&&!t->dr_seq)return; /* SONG has one transport-owned voice. */
     uint32_t any = 0, i, mode = trk_vmode(t);
     if ((uint32_t)(t - trk) >= trk_live && !t->p[P_MUTE]) {
         asleep_hit = 1;                                 /* (0.6.28) a note for a track asleep: the UI says so */
@@ -1691,6 +1692,7 @@ static void trk_note_on(track_t *t, uint32_t note, uint32_t vel)
 
 static void trk_note_off(track_t *t, uint32_t note)
 {
+    if(func_song(t)&&!t->dr_seq)return;
     uint32_t i, k = 0, mode = trk_vmode(t);
     for (i = 0; i < t->xp_n; i++)                       /* not sounding yet (engine switch): forget it */
         if (t->xp_note[i] != note) {

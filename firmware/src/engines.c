@@ -220,10 +220,10 @@ static void math_poll_ws(gq_work_t *w)
     uint32_t used=0;
     for(uint32_t offset=0;offset<NTRK;offset++){
         uint32_t tr=(cursor+offset)%NTRK;
-        const track_t*t=&trk[tr];const char*lt=lyr_txt[tr];
+        track_t*t=&trk[tr];const char*lt=lyr_txt[tr];
         uint32_t seed,band,h=0,k,var,request=math_request[tr],func=t->p[P_E1]==RW_FUNC;char text[256];
         if(eng_idx(t->eng_req)!=ENGI_LOFI||(t->p[P_E1]!=RW_USER&&!func))continue;
-        if(func&&!math_is_func(lt))lt=MATH_FUNC_DEFAULT;
+        if(func){if(t->p[P_E0]<4){t->p[P_E0]=5;t->p[P_SUS]=127;}lt=math_func_text(t,lt);}
         if(!func&&math_is_func(lt))lt=""; /* keep FUNC text, generate a normal USER program */
         seed=(uint32_t)clamp(t->p[P_E2],0,191);var=(uint32_t)clamp(t->p[P_E3],0,127);
         /* A route removal is restored on the next UI frame; pending values are

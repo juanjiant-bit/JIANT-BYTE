@@ -23,6 +23,7 @@ static __attribute__((noinline)) void fvm_func_run(const fvm_prog_t *p,const fvm
             if(FO_ISBIN(op)){stack[sp-1]=fvm_op2(op,a,b);continue;}
             if(FO_ISUN(op)){stack[sp-1]=fvm_op1(op,a);continue;}
             switch(op){
+            case FO_MUSIC:{uint32_t z=0,y=0;if(in->k<2u){z=stack[--sp];y=stack[--sp];}stack[sp-1]=fvm_music(in->k,stack[sp-1],y,z,e,i);break;}
             case FO_SEL:{uint32_t y=stack[--sp],x=stack[--sp];stack[sp-1]=stack[sp-1]?x:y;break;}
             case FO_TAB:stack[sp-1]=p->pool[(in->k>>8)+a%(in->k&255u)];break;
             case FO_PH:{uint32_t q=(uint32_t)e->state[in->sl&7u];q+=(uint32_t)(((int64_t)(int32_t)a*FVM_PH_K)>>16);e->state[in->sl&7u]=(int32_t)q;stack[sp-1]=q>>16;break;}

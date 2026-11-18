@@ -5,7 +5,7 @@
 #define LONGNS (CTL*2757u)
 static int32_t audio[LONGNS];
 static void scene(unsigned level,unsigned hit,unsigned kind){
- config(level,100,100,100);trk_live=3;host_preset(&trk[0],ENGI_WAVE,1);host_preset(&trk[1],ENGI_LOFI,12);host_drums(&trk[2]);memset(dx_form,0,sizeof dx_form);dx_kit_load(kind?0:DX_NKIT);
+ config(level,100,100,100);trk_live=3;host_preset(&trk[0],ENGI_WAVE,1);host_preset(&trk[1],ENGI_LOFI,12);trk[1].p[P_E0]=4;trk[1].p[P_E7]=0;host_drums(&trk[2]);memset(dx_form,0,sizeof dx_form);dx_kit_load(kind?0:DX_NKIT);
  const char*s="func{state q;q=q+(A-q)*.002;return sin(w)+q*.4*sin(w*3);}";
  compile(&src,s);*lofi_slot(1)=src.p;lofi_prg_id[1]=0x400;math_ver[1]=0;
  for(unsigned k=0;k<3;k++){trk[k].p[P_DIST]=trk[k].p[P_CHOR]=trk[k].p[P_DLY]=trk[k].p[P_REV]=0;trk[k].p[P_SUS]=127;trk[k].p[P_LEVEL]=100;trk[k].p[P_VOICE]=V_POLY;trk[k].p[P_DRIFT]=127;}

@@ -6,7 +6,7 @@ static project_t a,b;static project_store_t stored;
 static const char program[]="func{state q;q=q+0.01;return sin(w)*(.2+A*.5);}";
 int main(void){
  ui_power_on();song.sel=0;select_engine(ENGI_LOFI);frame();int32_t out[2*CTL];for(unsigned j=0;j<16;j++)mix_block(out,CTL);
- TSEL->p[P_E1]=RW_FUNC;lyr_set(0,program);math_poll();assert(lofi_prg[0].func&&lofi_prg[0].nstate==1);
+ TSEL->p[P_E1]=RW_FUNC;TSEL->p[P_E0]=4;lyr_set(0,program);math_poll();assert(lofi_prg[0].func&&lofi_prg[0].nstate==1);
  TSEL->p[P_SUS]=127;voice_limit[0]=1;trk_note_on(TSEL,60,110);
  life_v[0]=100;life_v[1]=65;life_v[2]=60;life_v[3]=40;
  life_formula_block(0);track_render(TSEL,out,CTL);assert(TSEL->v[0].s[6]==(int32_t)CTL*655);

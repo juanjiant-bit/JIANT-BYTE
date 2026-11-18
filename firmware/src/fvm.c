@@ -38,8 +38,8 @@
 
 enum { FT_INT, FT_FIX };
 /* the per-sample variables (fvm_env_t arr[]) and the block's (u[]) */
-enum { FA_T, FA_W, FA_TS, FA_X, FA_XF, FA_O1, FA_O6 = FA_O1 + 5, FA_IN, FA_N };   /* (FA_IN: an effect's input) */   /* (FA_O1..: the parts' outputs, cross-mod) */
-enum { FU_A, FU_B, FU_C, FU_D, FU_AF, FU_BF, FU_CF, FU_DF, FU_NOTE, FU_VEL, FU_STEP, FU_BEAT, FU_HZ, FU_N };
+enum { FA_T, FA_W, FA_TS, FA_X, FA_XF, FA_O1, FA_O6 = FA_O1 + 5, FA_IN, FA_BEAT, FA_N };   /* (FA_IN: an effect's input) */   /* (FA_O1..: the parts' outputs, cross-mod) */
+enum { FU_A, FU_B, FU_C, FU_D, FU_AF, FU_BF, FU_CF, FU_DF, FU_NOTE, FU_VEL, FU_STEP, FU_BEAT, FU_HZ, FU_BPS, FU_N };
 
 typedef struct {
     uint8_t op, md;              /* md: the right operand (or a push's value): FM_STK FM_IMM FM_UNI FM_ARR */
@@ -116,7 +116,7 @@ static inline uint32_t fvm_hash(uint32_t h)
 #define FVM_ENUM(n, e) FO_##n,
 enum { FVM_OPS2(FVM_ENUM) FO_NBIN,
        FVM_OPS1(FVM_ENUM) FO_NUN,
-       FO_PUSH, FO_SEL, FO_TAB, FO_PH, FO_LP, FO_HP, FO_SAVE };
+       FO_PUSH, FO_SEL, FO_TAB, FO_PH, FO_LP, FO_HP, FO_SAVE, FO_MUSIC };
 #undef FVM_ENUM
 #define FO_ISBIN(o) ((o) < FO_NBIN)
 #define FO_ISUN(o) ((o) > FO_NBIN && (o) < FO_NUN)
@@ -142,6 +142,7 @@ static uint32_t fvm_op1(uint32_t op, uint32_t a)
 
 /* ---- the machine */
 typedef struct { uint8_t input, number; uint32_t value; const int32_t *offset; } fvm_patch_t;
+#include "fvm_music.c"
 #include "fvm_func_run.c"
 static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_env_t *e, fvm_scratch_t *sc,
                                               uint32_t n, uint32_t *out, const fvm_patch_t *patch)
@@ -263,7 +264,7 @@ static inline int32_t fvm_sample(uint32_t ty, uint32_t v)
 }
 
 /* ---- the compiler: the text to a tree (types and folding as it is built), the tree to the program */
-enum { NK_NUM, NK_ARR, NK_UNI, NK_OP1, NK_OP2, NK_SEL, NK_TAB, NK_ST, NK_LOCAL, NK_STATE, NK_ARG, NK_CALL };
+enum { NK_NUM, NK_ARR, NK_UNI, NK_OP1, NK_OP2, NK_SEL, NK_TAB, NK_ST, NK_LOCAL, NK_STATE, NK_ARG, NK_CALL, NK_MUSIC };
 typedef struct {
     uint8_t kind, op, ty, a, b, c;   /* a b c: children (node indices) */
     uint32_t v;                  /* NK_NUM its value; NK_ARR / NK_UNI the index; NK_TAB the table (offset << 8 | length) */
@@ -446,23 +447,29 @@ static const struct { char nm[5]; uint8_t kind, ty, ix; } FVM_VARS[] = {
     {"a", NK_UNI, FT_INT, FU_A}, {"b", NK_UNI, FT_INT, FU_B}, {"c", NK_UNI, FT_INT, FU_C}, {"d", NK_UNI, FT_INT, FU_D},
     {"A", NK_UNI, FT_FIX, FU_AF}, {"B", NK_UNI, FT_FIX, FU_BF}, {"C", NK_UNI, FT_FIX, FU_CF}, {"D", NK_UNI, FT_FIX, FU_DF},
     {"n", NK_UNI, FT_INT, FU_NOTE}, {"v", NK_UNI, FT_INT, FU_VEL}, {"s", NK_UNI, FT_INT, FU_STEP},
-    {"p", NK_UNI, FT_FIX, FU_BEAT}, {"freq", NK_UNI, FT_FIX, FU_HZ},
+    {"P", NK_ARR, FT_FIX, FA_BEAT}, {"p", NK_UNI, FT_FIX, FU_BEAT}, {"freq", NK_UNI, FT_FIX, FU_HZ},
     {"O1", NK_ARR, FT_FIX, FA_O1}, {"O2", NK_ARR, FT_FIX, FA_O1 + 1}, {"O3", NK_ARR, FT_FIX, FA_O1 + 2},   /* (JIANT BYTE) */
     {"O4", NK_ARR, FT_FIX, FA_O1 + 3}, {"O5", NK_ARR, FT_FIX, FA_O1 + 4}, {"O6", NK_ARR, FT_FIX, FA_O1 + 5},   /* cross-mod */
     {"I", NK_ARR, FT_FIX, FA_IN},                    /* (JIANT BYTE) an effect's input (fx.c dist_eq) */                  /* (JIANT BYTE) the song's position in beats (a modifier's clock) */
 };
 enum { FC_SIN, FC_COS, FC_TRI, FC_SAW, FC_SQR, FC_ABS, FC_MIN, FC_MAX, FC_FLOOR, FC_INT, FC_FIX, FC_RND, FC_SAT,
-       FC_CLIP, FC_PH, FC_LP, FC_HP };
+       FC_CLIP, FC_PH, FC_LP, FC_HP, FC_NOTE, FC_CHORD, FC_KICK, FC_SNARE, FC_HAT };
 static const struct { char nm[6]; uint8_t id, nargs; } FVM_CALLS[] = {
     {"sin", FC_SIN, 1}, {"cos", FC_COS, 1}, {"tri", FC_TRI, 1}, {"saw", FC_SAW, 1}, {"sqr", FC_SQR, 1},
     {"abs", FC_ABS, 1}, {"min", FC_MIN, 2}, {"max", FC_MAX, 2}, {"floor", FC_FLOOR, 1}, {"int", FC_INT, 1},
     {"fix", FC_FIX, 1}, {"rnd", FC_RND, 1}, {"sat", FC_SAT, 1}, {"clip", FC_CLIP, 1}, {"ph", FC_PH, 1},
     {"lp", FC_LP, 2}, {"hp", FC_HP, 2},
+    {"note", FC_NOTE, 3}, {"chord", FC_CHORD, 3}, {"kick", FC_KICK, 1}, {"snare", FC_SNARE, 1}, {"hat", FC_HAT, 1},
 };
 
 static uint32_t fvm_call(fvm_cc_t *c, uint32_t id, uint32_t *ar)
 {
     uint32_t a = ar[0], b = ar[1], fx = ND(a).ty == FT_FIX;
+    if(id>=FC_NOTE){
+        if(!c->p->func){fvm_fail(c,FE_NAME);return 0;}
+        c->p->uses|=1u<<FA_T;
+        return fvm_new(c,NK_MUSIC,FO_MUSIC,FT_FIX,id<FC_KICK?fvm_toint(c,a):fvm_tofix(c,a),id<FC_KICK?fvm_tofix(c,b):0,id<FC_KICK?fvm_tofix(c,ar[2]):0,id-FC_NOTE);
+    }
     switch (id) {
     case FC_SIN: return fx ? fvm_un(c, FO_SINF, a, FT_FIX) : fvm_un(c, FO_SINI, a, FT_INT);
     case FC_COS: return fx ? fvm_un(c, FO_SINF, fvm_bin(c, FO_ADD, a, fvm_num(c, FT_FIX, 16384u), FT_FIX), FT_FIX)
@@ -554,7 +561,7 @@ static uint32_t fvm_primary(fvm_cc_t *c)
         nm[n] = 0;
         fvm_ws(c);
         if (fvm_ch(c) == '(') {
-            uint32_t ar[2] = {0, 0}, na = 0;
+            uint32_t ar[3] = {0, 0, 0}, na = 0;
             c->i++;
             for (k = 0; k < NELEM(FVM_CALLS); k++)
                 if (!fvm_cmp(FVM_CALLS[k].nm, nm))
@@ -568,7 +575,7 @@ static uint32_t fvm_primary(fvm_cc_t *c)
             }
             if (!fvm_eat(c, ")")) {
                 do {
-                    if (na >= 2u) {
+                    if (na >= 3u) {
                         fvm_fail(c, FE_ARGS);
                         return 0u;
                     }
@@ -733,6 +740,12 @@ static void fvm_gen_inner(fvm_cc_t *c, uint32_t x)
     if (c->err.code)
         return;
     switch (n->kind) {
+    case NK_MUSIC:
+        fvm_gen(c,n->a);
+        if(n->v<2u){fvm_gen(c,n->b);fvm_gen(c,n->c);}
+        fvm_emit(c,FO_MUSIC,FM_IMM,n->v,0,FT_FIX,0);
+        if(n->v<2u)fvm_push_sp(c,-2);
+        return;
     case NK_ARG:
         if(!c->call_depth){fvm_fail(c,FE_NAME);return;}
         fvm_emit(c,FO_PUSH,FM_LOCAL,5u+c->call_depth,0,FT_FIX,FT_FIX);fvm_push_sp(c,1);return;
@@ -859,7 +872,11 @@ static uint32_t fvm_compile(fvm_cc_t *c, fvm_prog_t *p, const char *src, uint32_
         return c->err.code;
     }
     p->depth = (uint8_t)c->maxsp;
-    if(p->func){p->life_fn=p->n;p->life_ft=FT_FIX;return FE_OK;}
+    if(p->func){
+        uint32_t voices=0;for(uint32_t k=0;k<p->n;k++)if(p->ins[k].op==FO_MUSIC)voices+=p->ins[k].k==1u?4u:1u;
+        if(voices>8u){p->n=0;if(e){e->code=FE_LONG;e->pos=(uint16_t)len;}return FE_LONG;}
+        p->life_fn=p->n;p->life_ft=FT_FIX;return FE_OK;
+    }
     { /* Compiler-derived, stack-complete prefixes only. No state, tables or cross-track reads. */
         uint32_t i, sp=0, safe=1, waveform=0;
         for(i=0;i<p->n;i++) {
