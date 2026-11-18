@@ -70,7 +70,7 @@ static const ng_t CG_HOME[] = {
 #endif
                                {"MACROS", "MACRO"}, {"LIVE MIX", "LIVE"}, {"TRACKS", "TRK"}, {"TIMELINE", "TIME"},
                                {"ARRANGE", "ARR"}, {"PARTS", 0}, {"GEN", 0}};
-static const nv_t CE_SYN[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("MORPH", 0, 0, 1), NV("RETRIG", 0, 0, 1),
+static const nv_t CE_SYN[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("CLOCK",0,0,1), NV("NOTES",0,0,1), NV("LAYERS",0,0,1), NV("MORPH", 0, 0, 1), NV("RETRIG", 0, 0, 1),
                               NV("ROTOR", 0, 0, 1), NV("WORDS", 0, 0, 1), NV("SWARM", 0, 0, 1), NV("SWARM 2", 0, 0, 1),
                               NV("FILTER", 0, 1, 1), NV("FILTER 2", 0, 1, 1), NV("TONE", 0, 1, 1), NV("VOICES", 0, 2, 1),
                               NV("VOICES 2", 0, 2, 1), NV("VOICES 3", 0, 2, 1), NV("AUTO KNOBS", 0, 3, 2)};   /* (VOICES 3: EXT's) */   /* (V10.7.35, the owner: the sound first, its
@@ -84,7 +84,7 @@ static const nv_t CE_FM6[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("
                               NV("VOICES", 0, 3, 1), NV("VOICES 2", 0, 3, 1)};   /* (V10.7.35: the sound first) */
 static const ng_t CG_FM6[] = {{"SOUND", 0}, {"OPERATOR", "OPS"}, {"TONE", 0}, {"VOICES", 0}};
 static const nv_t CE_DRM[] = {NV("EDIT 1", "KIT", 0, 0), NV("EDIT 2", "KIT 2", 0, 0), NV("KIT 3", 0, 0, 0), NV("KIT 4", 0, 0, 0),
-                              NV("SOUND", 0, 1, 2), NV("SOUND 2", 0, 1, 2), NV("SOUND 3", 0, 1, 2), NV("SOUND 4", 0, 1, 2),
+                              NV("FORMULA", 0, 1, 2), NV("FORM MOD", 0, 1, 2), NV("SOUND", 0, 1, 2), NV("SOUND 2", 0, 1, 2), NV("SOUND 3", 0, 1, 2), NV("SOUND 4", 0, 1, 2),
                               NV("LEVELS", 0, 2, 1), NV("LEVELS 2", 0, 2, 1), NV("KIT LFO", 0, 3, 1), NV("FILTER", 0, 3, 1),
                               NV("STEREO", 0, 3, 1), NV("VOICES", 0, 3, 1), NV("VOICES 3", 0, 3, 1)};   /* (codex/coherence: PLAY, was VOICE; in TONE,
                                                          * a kit's one page of it) */

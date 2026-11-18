@@ -1350,11 +1350,11 @@ static void draw_columns(void)
         }
         return;
     }
-    if (home_life()) {                                  /* (V10.7.34) HOME's LIFE: LIFE FILTER PITCH FX (life.c) */
+    if (home_life()) {                                  /* (V10.7.34) HOME's LIFE: LIFE PULSE COLOR LINK (life.c) */
         for (c = 0; c < 4u; c++) {
             fmt_int(val, life_v[c]);
             draw_column(c, LIFE_NM[c], val, "%", c && !life_v[LIFE_AMT] ? T_DIM : VAL(c), life_v[c] * 10,
-                        c == 0u ? ICON_MOD : c == 1u ? ICON_CUTOFF : c == 2u ? ICON_PITCH : ICON_REVERB);
+                        c == 0u ? ICON_MOD : c == 1u ? ICON_ENV : c == 2u ? ICON_CUTOFF : ICON_MIX);
         }
         return;
     }
@@ -1942,7 +1942,7 @@ static void spl_word(const uint8_t *bm, int32_t w, int32_t h, int32_t x0, int32_
 {
     int32_t x, y, nb = (w + 7) / 8;
     for (y = 0; y < h; y++) {
-        uint16_t c = ux_mix(T_K(3), T_ACCENT, y * 100 / (h - 1));   /* (yellow to the accent, down) */
+        uint16_t c = heat_col(244 - y * 180 / (h - 1));   /* (yellow to the accent, down) */
         for (x = 0; x < w; x++)
             if (bm[y * nb + x / 8] >> (7 - x % 8) & 1u) {
                 cv_rect(x0 + x * k + 3, y0 + y * k + 3, k, k, ux_mix(T_BG, T_ACCENT, 30));   /* (the shadow) */
@@ -1970,7 +1970,7 @@ static void spl_frame(uint32_t ms, uint32_t moving)
                 cv_rect(0, cy + y, 240, 1, ux_mix(T_BG, bc, (9 - (y < 0 ? -y : y)) * 100 / 9));
         }
         spl_word(LOGO_JIANT, LOGO_JIANT_W, LOGO_JIANT_H, (240 - LOGO_JIANT_W * 4) / 2, 34, 4);
-        spl_word(LOGO_BYTE, LOGO_BYTE_W, LOGO_BYTE_H, (240 - LOGO_BYTE_W * 4) / 2, 100, 4);
+        spl_word(LOGO_BITE, LOGO_BITE_W, LOGO_BITE_H, (240 - LOGO_BITE_W * 4) / 2, 100, 4);
         if (y0) {
             for (k = 0; k < 2; k++)
                 cv_text_in(0, 166 + k * 12, 240, &AF_S, SPLASH_LINES[k], T_TEXT, T_BG);

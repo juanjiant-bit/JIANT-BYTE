@@ -1,36 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
-/* PFX (JIANT, FELUCCA-TONIC-SPEC.md fase 7): the punch-in MIDI effects of the FX layer. They act on the notes and
- * the sound of the tracks while their key is held (or latched: FX LATCH), never on what is stored: let go, all is
- * as it was. White keys after the audio ones (perform.c PF_*):
- *   D4 OCT-, E4 OCT+   every voice an octave down / up (both: none), at once, notes held too
- *   F4 1/2 TEMPO       the track's sequencer at half speed; let go, it is back where it would have been (p2: LIVE's
- *                      RATE /2, seq_live.c; the LOOPs a LIVE LOOP of the last N steps)
- *   (G4, A4: WOBBLE, DLY 1/16 since V10.7.36, audio effects in perform.c; DEC- DEC+ were here)
- *   B4 C5              STUTTER 1/8, 1/16 (JIANT 0.4; were 1/16 1/32): the notes the track struck last together (a
- *                      step's chord, a drum step's hits) again at the rate, gated half; the sequencer's own notes wait
- *   D5 ATK+            (JIANT, was STUTTER 1/16T) every synth's attack slow (two thirds of the way to the longest);
- *                      (0.4) a DRUM hit faded in over ~35 ms (eng_drum.c): everything softer
- *   E5 ARP             those notes one at a time at 1/16, up two octaves; (JIANT 0.4) DRUM: a fill, a new one at
- *                      every press (pfx_fill: snare, toms down, hats, claps, rim, rests, its own accents)
- *   F5 RANDOM          each new note: an octave, a fifth or a fourth away now and then (DRUM: +-3 semitones); and
- *                      (JIANT) the sequencer plays a step of its pattern at random now and then (seq.c seq_tick)
- * (JIANT) Quantized: an effect pressed while the transport runs goes in on the next 1/16 of the transport (clk_pos),
- * so a repeat starts on the grid; let go, at once. The lane records the presses as they were (to the nearest step).
- * Of the repeats (STUTTER, ARP) the fastest held plays. They act on every track (V10.7.36: A#4 is LIFE MAX now, the
- * ALL / SYN / DRM selector is gone; a lane saved with SYN or DRM plays on every track).
- * (V10.7.36) G5 is COMB (perform.c): the lane is cleared by REC + FX (ui_input.c) or FX + PRESETS, KNOB 4 CLEAR, no
- * longer by a key. A lane step holding 4 or 5 (DEC- / DEC+ of before) plays nothing.
- * (V10.7.36) A#4 LIFE MAX: HOME > LIFE's LIFE FILTER PITCH FX at 100 % for the block (before macro_master: LIFE's own
- * block sees them, the parts too), the user's values back in pfx_end: nothing outside the ISR sees them, nothing saves
- * them; at once, not on the 1/16.
- * The punch-in lane (the automation): a section's 64 steps of 1/16 (4 bars, from the transport's start or the
- * section's), one effect a step (pfx_lane: a nibble, 0 none, 1..10 D4 .. F5) and the tracks it acts on (pfx_ltgt).
- * Recording (REC armed, playing, not a song): the steps that pass while a MIDI effect is held get it (the lowest held).
- * Played back with the held ones.
- * Saved with the section (project.c FUNA: the 33 spare bytes at PROJ_PFX_OFF), staged by the song (song_chain.c).
- * In the ISR: pfx_block before the events (what acts on each track, the repeats, the attacks put in), pfx_end after
- * the parts (the decays back: as mod.c, nothing outside the ISR sees them). Idle: one test a block. */
+/* The contiguous ten white keys retain their recorded lane codes.
+ * G5 adds a live ensemble profile. The audio block resolves held and recorded
+ * keys before LIFE snapshots the active formulas for both render cores. */
 static uint8_t pfx_in;                /* a repeat's own note-on (pfx_note lets it through) */
 static uint8_t pfx_any;               /* a track has something running (or to put back) */
 static uint32_t pfx_blk;              /* blocks: the notes of one block were struck together */
@@ -152,7 +124,7 @@ static uint32_t pfx_rec_held;                           /* (0.6.28) the effects 
                                                          * lane (a latched one wrote itself on every step it passed) */
 static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
 {
-    uint32_t k, b = beat_samples(), lane = 0, raw = held & pfx_rec_held, nw;
+    uint32_t k, b = beat_samples(), lane = 0, raw = held & pfx_rec_held & PF_FORMULA, nw;
     pfx_blk++;
     if (held & PF_BIT(PF_RING)) {                       /* (JIANT BYTE) CAOS MAX: every formula part at CAOS 127 for this
                                                          * block (pfx_end: back) */
@@ -206,10 +178,14 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
                 pfx_lane_put(st, pfx_rold);             /* let go in a step's first half: that step as it was */
             pfx_rh = 0;
             if ((k = pfx_lane_at(st)) != 0u && k <= 10u)
-                lane = PF_BIT(PF_OCTD + k - 1u) & PF_MIDI;   /* (V10.7.36: 4, 5 nothing: G4 A4 are not on the notes now) */
+                lane = PF_BIT(PF_OCTD + k - 1u) & PF_MIDI;   /* all ten formula operators */
         }
     }
-    pfx_lnow = lane;                                    /* (V10.6z3: the editor's PUNCH push) */
+    pfx_lnow = lane;
+    formula_punch = ((held | lane) & PF_FORMULA) >> PF_OCTD;
+    if(held & PF_BIT(PF_COMB))formula_punch |= 1u<<10;
+    held &= ~(PF_FORMULA|PF_BIT(PF_COMB)); lane &= ~PF_FORMULA;
+
     if (!held && !pfx_any && !lane && !nw)
         return;
     pfx_any = 0;
@@ -264,6 +240,7 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
 /* after the parts: what ATK+ changed, back; (V10.7.36) LIFE MAX's */
 static __attribute__((noinline)) void pfx_end(void)
 {
+    formula_punch = 0;
     uint32_t k;
     if (pfx_life.on) {
         for (k = 0; k < 4u; k++)

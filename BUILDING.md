@@ -100,6 +100,17 @@ cost (`tests/cpu_baseline.txt`, `tests/target_budget.txt`). After an intended ch
 the sound, `GOLDEN_UPDATE=1 sh tests/run_tests.sh` rewrites the hashes; `BUDGET_UPDATE=1`
 does the same for the cost files.
 
+## BYTE host checks without the device SDK
+
+```
+tests/run_byte_tests.sh
+```
+
+Generates the UI/data headers and checks FVM, MATH, WAVE, LIFE, native song generation, complete song playback/save,
+and font packing/spacing. Requires a C compiler, Python 3, NumPy, Pillow and fontTools. Logs are in `build/byte-check/`.
+This does not replace the full firmware build or testing on the FM-1. The legacy full suite still contains tests
+for retired FM engines and requires the installable firmware artifacts.
+
 ## Install
 
 Use the web installer in Chrome or Edge:

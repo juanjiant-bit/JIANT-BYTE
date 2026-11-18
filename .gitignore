@@ -8,3 +8,7 @@ android/probe/app/build/
 android/stems/.gradle/
 android/stems/.kotlin/
 android/stems/local.properties
+android/emulator/.gradle/
+android/emulator/local.properties
+android/emulator/app/build/
+android/emulator/build/

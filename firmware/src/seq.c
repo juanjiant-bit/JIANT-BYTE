@@ -54,6 +54,7 @@ static volatile uint8_t kb_asleep;       /* MENU > SCREEN OFF (ui.c): the screen
                                           * wakes it (silent, no layer, its release nothing) */
 static uint8_t last_note = 60;
 static volatile uint8_t transport_req;   /* 1 start, 2 stop, 3 restart (from the UI) */
+static volatile uint8_t keep_req; /* FM49: carry held notes while directly auditioning presets. */
 static volatile uint8_t panic_req;       /* bit per track: release every sounding note (preset / engine change) */
 static volatile uint8_t midi_hint;       /* MIDI IN played track n - 1, which is not the selected one (the UI says so) */
 
@@ -112,7 +113,7 @@ static void seq_note_off(track_t *t, uint32_t note)
         mo_send(0x80u | trk_midi_ch(i), mo_out[i][note] - 1u, 0);
         mo_out[i][note] = 0;
     }
-    trk_note_off(t, note);
+    t->dr_seq=1;trk_note_off(t, note);t->dr_seq=0;
 }
 static __attribute__((noinline)) void mo_flush_of(uint32_t mask)   /* the notes sent on, of these tracks: off */
 {
@@ -438,7 +439,7 @@ static uint32_t chord_build_mode(const track_t *t, uint32_t root, uint8_t *out, 
     uint32_t vc = (uint32_t)t->p[P_CVOI], n = 0, i, j, ti = trk_index(t) % NTRK, any = mode & 0x80u, peek = mode & 0x40u;
     int32_t nt[KB_CH + 1], r = (int32_t)root;           /* (V10.25 SCENE any: any voice; V10.27 peek: the screen's, */
     mode &= 0x3Fu;                                      /* LEAD's last chord not written: drawing changed the voicing) */
-    if (!mode || mode > CD_POW || e->oneshot || (e->keys && e->keys(t, 0) >= 0) || ((t->p[P_VOICE] & 3) != V_POLY && !any)) {   /* (DRONE: as POLY) */
+    if (!mode || mode > CD_POW || e == &ENG_FORM || e->oneshot || (e->keys && e->keys(t, 0) >= 0) || ((t->p[P_VOICE] & 3) != V_POLY && !any)) {   /* (DRONE: as POLY) */
         out[0] = (uint8_t)root;
         return 1;
     }
@@ -1796,8 +1797,11 @@ static ramp_t rmp[NTRK] __attribute__((section(".bss.swarm")));   /* (out of the
 /* -------------------------------------------------------- sequencer --- */
 static void fg_reset(void);                         /* (fugue.c) */
 static void gl_reset(void);                         /* (seq2f: the global lane) */
+static void seq_release(track_t*);
 static void seq_start(void)
 {
+    for(uint32_t k=0;k<NTRK;k++)if(func_song_mask&(1u<<k))seq_release(&trk[k]);
+    func_song_mask=0;func_clock_begin=func_clock_end=0;
     memset(shift_valid, 0, sizeof shift_valid);
     uint32_t i;
     ms_clock = 0;                                  /* (JIANT) the modulation sequences from their step 0 */
@@ -2617,7 +2621,7 @@ static void seq_stop(void)
     uint32_t i;
     if (song.playing && mo_clock_on())             /* (0.6.72) MIDI OUT CLOCK / ALL: STOP */
         mo_send(0xFCu, 0, 0);
-    song.playing = 0;
+    song.playing = 0;func_song_mask=0;
     cin_left = 0;                                  /* (a count-in: cancelled, nothing recorded) */
     cin_flush = 0;
     memset(cin_n, 0, sizeof cin_n);
@@ -3184,8 +3188,25 @@ static void seq_due(track_t *t, uint32_t n)
     }
 }
 
+static __attribute__((noinline)) int func_song_tick(track_t*t)
+{
+    uint32_t bit=1u<<trk_index(t);
+    if((func_song_mask&bit)&&!func_song(t)){seq_release(t);func_song_mask&=(uint8_t)~bit;}
+    if(func_song(t)){
+        if(song.playing){
+            uint32_t root=(uint32_t)clamp(60+(t->eng_req==ENGI_FORM?0:t->p[P_E6]),36,84),active=0;
+            if(t->seq_n&&t->seq_notes[0]!=root)seq_release(t);
+            for(uint32_t k=0;k<NVOICE;k++)active|=t->v[k].active&&t->v[k].gate&&t->v[k].note==root;
+            if(!active&&!t->xp_n&&!t->p[P_MUTE]&&trk_index(t)<trk_live){seq_note_on(t,root,110);t->seq_notes[0]=(uint8_t)root;t->seq_n=1;t->seq_hold=1;}
+            func_song_mask|=(uint8_t)bit;t->seq_idx=(uint16_t)((lofi_sync(&active)>>11)%(uint32_t)t->p[P_SLEN]);
+        }
+        return 1;
+    }
+    return 0;
+}
 static void seq_tick(track_t *t, uint32_t n)
 {
+    if(((func_song_mask&(1u<<trk_index(t)))||func_song(t))&&func_song_tick(t))return;
     uint32_t period, len, lon, nf;
     if (n > blk_n)
         blk_n = n;                                    /* (ctl64: ticked on its own, by a test, with more than a block) */
@@ -3412,7 +3433,7 @@ static __attribute__((noinline)) void panic_block(void)   /* (mo_block, before e
 }
 static void events_block(uint32_t n)
 {
-    uint32_t i, pr, fo, seq_n = n;
+    uint32_t i, pr, fo, kp, seq_n = n;
     uint32_t clock_mode = (uint32_t)song.g[G_CLOCK];
     blk_n = n ? n : 1u;                                /* (ctl64: ev_at) */
     ev_off = 0;
@@ -3456,6 +3477,7 @@ static void events_block(uint32_t n)
     if (pr)
         mo_flush_of(pr);                               /* (0.6.72) their MIDI OUT notes too */
     fo = pr;                                           /* (0.6.13) sound loads: what sounds fades on the old sound */
+    kp=keep_req&pr;keep_req^=(uint8_t)kp;
     pr |= ovf_pr;                                      /* (a lost MIDI note-off: every track, panic_block) */
     ovf_pr = 0;
     for (i = 0; i < NTRK; i++) {
@@ -3474,7 +3496,7 @@ static void events_block(uint32_t n)
                 arp_silence(t);
             {   /* (0.6.41) another engine: what is held sounds on in it (kept past the release, which forgets) */
                 uint8_t hn[4], hv[4];
-                uint32_t hc = t->eng_req != t->engine ? xf_held(t, hn, hv) : 0u, h;
+                uint32_t hc = t->eng_req != t->engine || ((kp>>i)&1u) ? xf_held(t, hn, hv) : 0u, h;
                 if (!hc)                            /* (stuck notes) carried: the MIDI notes keep their owners, their
                                                      * note-offs end them on the new engine (they hung) */
                     midi_forget_track(i);
@@ -3528,6 +3550,7 @@ static void events_block(uint32_t n)
                 seq_n = midi_clock_advance(fm1_ms);
         }
     }
+    func_clock_begin=lofi_sync(&i)*8u;
     chain_tick(seq_n);
     live_q(seq_n);                                  /* (p2) LIVE: what goes in now (seq_live.c; idle: a test) */
     for (i = 0; i < NTRK; i++)
@@ -3540,7 +3563,7 @@ static void events_block(uint32_t n)
     if (song.playing)
         click_tick(seq_n);
     for (i = 0; i < NPART; i++)
-        arp_step(&trk[i], clock_mode ? seq_n : n, clock_mode && song.playing ? seq_n : n);
+        if(!func_song(&trk[i]))arp_step(&trk[i], clock_mode ? seq_n : n, clock_mode && song.playing ? seq_n : n);
     beat_pos += clock_mode ? seq_n : n;               /* the beat the ARP LED flashes on (ui_leds) */
     if (beat_pos >= beat_samples()) {
         beat_pos -= beat_samples();
@@ -3549,6 +3572,7 @@ static void events_block(uint32_t n)
         if (!beat_n && song.playing)
             bar_n++;
     }
+    func_clock_end=song.playing?lofi_sync(&i)*8u:func_clock_begin;
     if (song.playing)
         song.tick++;
     ev_off = 0;

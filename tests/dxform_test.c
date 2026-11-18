@@ -33,6 +33,7 @@ static void kit(void)
     host_drums(&trk[0]);
     trk[0].p[P_DIST] = trk[0].p[P_CHOR] = trk[0].p[P_DLY] = trk[0].p[P_REV] = 0;
 }
+static void coldkit(void) { memset(drum_kit, 0, sizeof drum_kit); kit(); }
 static uint32_t hit_lane = 0;                        /* (the lane hit: DV_KICK unless set) */
 /* the KICK lane hit at the start (and again at half, if twice), NS samples */
 static void hit(double *y, int twice)
@@ -137,7 +138,7 @@ int main(int argc, char **argv)
         for (k = 0; k < 8u; k++)
             dx_form[k] = (uint8_t)((k * 5u) % (DX_NFORM + 1u));
         project_capture(&q);
-        dxf_ok(proj_pack(&st, &q) == 0 || 1, "the project packed");
+        dxf_ok(proj_pack(&st, &q), "the project packed");
         memset(&r, 0, sizeof r);
         if (!proj_import(&r, st.raw, (int)sizeof st.raw)) {
             dxf_ok(0, "the project read back");
@@ -165,6 +166,103 @@ int main(int argc, char **argv)
         }
         hit_lane = 0;
         dxf_ok(!bad, "the floatbeat kit: every lane sounds near its oscillator's level, bounded (%u off)", bad);
+    }
+    {
+        /* Every lane of FLOAT KIT comes from its formula, including CLAP whose classic noise mix is 127. */
+        bad = 0;
+        for (uint32_t l = 0; l < 8u; l++) {
+            coldkit(); dx_kit_load(DX_NKIT); hit_lane = l;
+            hit(ya, 0);
+            if(energy(ya, 0, NS) < 1e-3 || peak(ya, NS) > 1.0) {printf("dxform: FLOAT lane %u silent or high peak %g\n",l,peak(ya,NS));bad++;}
+            for (uint32_t m = 0; m < DFM_N; m++) {
+                coldkit(); dx_kit_load(DX_NKIT);
+                dx_fmod[l][m] = m == DFM_RATE ? 12 : m == DFM_BEND ? 90 : 12;
+                hit(yb, 0);
+                double delta = 0;
+                for (uint32_t j = 0; j < NS; j++) delta += (ya[j]-yb[j])*(ya[j]-yb[j]);
+                if (!(delta > 1e-5 && peak(yb, NS) <= 1.0)) {
+                    printf("dxform: lane %u modifier %u delta %g peak %g\n", l,m,delta,peak(yb,NS)); bad++;
+                }
+                coldkit(); dx_kit_load(DX_NKIT); dx_fmod[l][m] = m == DFM_RATE ? 12 : m == DFM_BEND ? 90 : 12;
+                hit(yc, 0);
+                if(memcmp(yb,yc,sizeof yb)) {printf("dxform: lane %u modifier %u not deterministic\n",l,m);bad++;}
+            }
+        }
+        hit_lane = 0;
+        memset(dx_fmod, 0, sizeof dx_fmod);
+        dxf_ok(!bad, "FLOAT KIT: all eight lanes sound; RATE/BEND/BITS each audible, bounded and deterministic");
+    }
+    {
+        static project_t q, r;
+        static project_store_t st;
+        kit(); dx_kit_load(DX_NKIT);
+        for (uint32_t l=0; l<8u; l++) {
+            dx_fmod[l][0] = (int8_t)l-4; dx_fmod[l][1] = (int8_t)(l*15); dx_fmod[l][2] = (int8_t)l;
+        }
+        project_capture(&q);
+        q.bal=1; q.dnz[1]=42; q.cru[2]=80; q.life[0]=1; /* all preceding optional XM/XC/XL blocks */
+        int packed=proj_pack(&st,&q), read=packed && proj_import(&r,st.raw,sizeof st.raw);
+        dxf_ok(read && !memcmp(q.dx_fmod,r.dx_fmod,sizeof q.dx_fmod) && r.dnz[1]==42 && r.life[0]==1,
+               "DQ modifiers round trip after all optional effects/LIFE blocks");
+        if (read) {
+            uint32_t at=0;
+            for(uint32_t j=68;j+2+sizeof q.dx_fmod<PROJ_STORE_SIZE;j++)
+                if(st.raw[j]=='D' && st.raw[j+1]=='Q' && !memcmp(st.raw+j+2,q.dx_fmod,sizeof q.dx_fmod)) at=j;
+            dxf_ok(at!=0,"DQ extension found at the tail");
+            if(at) {
+                memset(st.raw+at,0,2+sizeof q.dx_fmod);
+                uint32_t sum=proj_hash(st.raw,PROJ_STORE_SIZE-4); memcpy(st.raw+PROJ_STORE_SIZE-4,&sum,4);
+                memset(&r,0x7f,sizeof r);
+                int ok=proj_import(&r,st.raw,sizeof st.raw); uint32_t nonzero=0;
+                for(uint32_t j=0;j<sizeof r.dx_fmod;j++)nonzero|=((uint8_t*)r.dx_fmod)[j];
+                dxf_ok(ok && !nonzero && r.cru[2]==80,"older project without DQ loads neutral modifiers, other fields intact");
+            }
+        }
+        memset(dx_fmod,0,sizeof dx_fmod);
+    }
+    {
+        kit(); song.sel=0; dx_ui_lane=0;
+        go_title("FORMULA");
+        dxf_ok(page_visible(ui.page) && dx_pagen(cur_page())==9,"FORMULA page available on DRUM");
+        dx_form[0]=0; dx_knob(cur_page(),1,1);
+        dxf_ok(dx_form[0]==1,"FORMULA selects the first formula directly from CLASSIC");
+        go_title("FORM MOD");
+        for(int j=0;j<150;j++)for(int k=1;k<4;k++)dx_knob(cur_page(),k,1);
+        dxf_ok(dx_fmod[0][0]==24 && dx_fmod[0][1]==127 && dx_fmod[0][2]==12,"modifier UI upper bounds");
+        for(int j=0;j<180;j++)for(int k=1;k<4;k++)dx_knob(cur_page(),k,-1);
+        dxf_ok(dx_fmod[0][0]==-24 && !dx_fmod[0][1] && !dx_fmod[0][2],"modifier UI lower bounds");
+        memset(dx_fmod,0,sizeof dx_fmod);
+    }
+    {
+        static project_t q, r; static project_store_t st;
+        coldkit(); dx_kit_load(DX_NKIT); song.sel=0; dx_ui_lane=0; go_title("FORMULA");
+        dxf_ok(act_cols()==16u && act_ready(), "FORMULA exposes OCT+ editor without sacrificing four sound controls");
+        act_do();
+        dxf_ok(nm.kind==NK_DX_FORM && !strcmp(nm.s,DX_FORMS[16]), "editor opens with the actual lane expression");
+        str_cpy(nm.s,"sin(w*2)",sizeof nm.s); nm.len=8;nm.cur=0;name_ok();
+        dxf_ok(!name_on() && dx_form[0]==DX_USER && !strcmp(dx_text[0],"sin(w*2)"), "valid free text applies as USER");
+        hit(ya,0); coldkit(); dx_form[0]=1; hit(yb,0);
+        dxf_ok(corr(ya,yb,NS)<0.9 && energy(ya,0,NS)>1e-3, "edited expression changes actual percussion audio");
+        dx_form[0]=DX_USER;
+        name_open(NK_DX_FORM,0); str_cpy(nm.s,"sin(",sizeof nm.s);nm.len=4;nm.cur=0;name_ok();
+        dxf_ok(name_on() && nm.ferr && !strcmp(dx_text[0],"sin(w*2)"), "syntax error stays in editor and keeps last valid sound");
+        str_cpy(nm.s,"unknown(w)",sizeof nm.s);nm.len=10;name_ok();
+        dxf_ok(nm.ferr==FE_NAME && !strcmp(dx_text[0],"sin(w*2)"), "unknown functions rejected transactionally");
+        name_close(); name_open(NK_DX_FORM,0); nm.cur=6;nm_knob(1,1);name_close();
+        dxf_ok(!strcmp(dx_text[0],"sin(w*2)"), "OCT- cancels staged text edits");
+        name_open(NK_DX_FORM,0);nm.cur=0;nm.num=1;nm_white(4);nm_commit();
+        dxf_ok(nm.s[0]=='(' && nm.len==9, "device keyboard inserts formula operators without sounding notes");
+        name_close();
+        for(unsigned l=0;l<8;l++) {memset(dx_text[l],' ',DX_TEXT-1);memcpy(dx_text[l],"sin(w)",6);dx_text[l][DX_TEXT-1]=0;dx_form[l]=DX_USER;}
+        project_capture(&q);int ok=proj_pack(&st,&q)&&proj_import(&r,st.raw,sizeof st.raw);
+        dxf_ok(ok && !memcmp(q.dx_text,r.dx_text,sizeof q.dx_text) && !memcmp(q.dx_form,r.dx_form,8), "all eight 63-character USER formulas persist with the section");
+        if(ok) {
+            unsigned at=0;for(unsigned j=68;j+10<PROJ_STORE_SIZE;j++)if(st.raw[j]=='D'&&st.raw[j+1]=='U'&&st.raw[j+2]==63)at=j;
+            dxf_ok(at!=0,"DU text extension follows DQ modifiers");
+            if(at) {st.raw[at+2]=64;uint32_t sum=proj_hash(st.raw,PROJ_STORE_SIZE-4);memcpy(st.raw+PROJ_STORE_SIZE-4,&sum,4);
+                dxf_ok(!proj_import(&r,st.raw,sizeof st.raw),"oversized imported formula is rejected");}
+        }
+        dx_kit_load(DX_NKIT);dxf_ok(!dx_text[0][0] && dx_form[0]==17,"FLOAT KIT restores clean factory formulas");
     }
     printf(dxf_fails ? "dxform: %d FAILED\n" : "dxform: all ok\n", dxf_fails);
     return dxf_fails != 0;

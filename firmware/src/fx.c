@@ -295,6 +295,11 @@ static __attribute__((noinline)) void dist_eq(track_t *t, int32_t *b, uint32_t n
     for (i = 0; i < n; i++) {
         int32_t v = (int32_t)y[i] >> 1;
         v = v > 98304 ? 98304 : v < -98304 ? -98304 : v;
+        /* Every formula distortion shares the same audible TONE stage. */
+        int32_t tone=clamp(32000-t->p[P_DIST]*95+t->p[P_DTONE]*300,2500,32767);
+        t->dist_lp1 += mulq15(v-t->dist_lp1,tone);
+        t->dist_lp2 += mulq15(t->dist_lp1-t->dist_lp2,tone);
+        v=t->dist_lp2;
         b[i] = b[i] + ((((v - b[i]) >> 2) * (w0 + dw * (int32_t)(i + 1))) >> 10);   /* (DIST's blend: its amount in) */
     }
 }
@@ -318,7 +323,7 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
     mk = type == DT_HARD || type == DT_FOLD ? 30000 - d * 60 : 30000 - d * 120;   /* make-up */
     if (type >= DT_EQ0 && type < DT_EQ0 + DIST_NEQ) {   /* (JIANT BYTE) a formula */
         dist_eq(t, b, n, type, w0, dw);
-        return;
+        goto noise;
     }
     if (type > DT_AMP)
         type = DT_SOFT;
@@ -346,6 +351,7 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
         t->dist_lp1 = l1;
         t->dist_lp2 = l2;
     }
+noise:
     if (FELUCCA_XFX && dnz_v[ti]) {                     /* (V10.7.30) NOISE, in the flash */
         void (*f)(track_t *, int32_t *, uint32_t) = dist_noise;
         FM1_OPAQUE(f);
@@ -2598,7 +2604,7 @@ static __attribute__((noinline)) void drum_mix(int32_t *ol, int32_t *or_, uint32
  * calibrate the control signal. UI meters and shared FX returns are excluded. */
 static __attribute__((noinline)) void track_follow_peak(const track_t *t, const int32_t *b, uint32_t n)
 {
-    uint32_t ti = (uint32_t)(t - trk), i, st = ((life.fol & ~life.tapm) >> ti & 1u) ? 4u : 1u;   /* (V10.7.34: LIFE's
+    uint32_t ti = (uint32_t)(t - trk), i, st = ((life.fol >> ti) & 1u) ? 4u : 1u;   /* (V10.7.34: LIFE's
                                                          * own, every 4th sample) */
     int32_t pl = 0, pr = 0, level = mp_lvl[ti] >> 8, pan = mp_pan[ti] >> 8;
     for (i = 0; i < n; i += st) {
@@ -2612,8 +2618,6 @@ static __attribute__((noinline)) void track_follow_peak(const track_t *t, const 
     pl = pl * (64 - (pan > 0 ? pan : 0)) >> 6;
     pr = pr * (64 + (pan < 0 ? pan : 0)) >> 6;
     track_pk[ti] = (int16_t)clamp(pl > pr ? pl : pr, 0, 32767);
-    if ((life.tapm >> ti) & 1u)                         /* (V10.7.34) its samples for LIFE's cross-FM (life.c) */
-        life_tap(ti, b, n, level);
 }
 /* mix_part's RAM copy may be out of the new helper's direct-call range. */
 static void (*const volatile TRACK_FOLLOW)(const track_t *, const int32_t *, uint32_t) = track_follow_peak;
@@ -2919,7 +2923,7 @@ static __attribute__((noinline)) void mc_job(uint32_t a)  /* core 1: the buses (
 static uint32_t mc_cost(const track_t *t)               /* a part's share of the work, roughly: its voices by engine */
 {
     const engine_t *e = ENGINES[t->engine];
-    uint32_t k, v = 0, w = e == &ENG_LOFI ? 2u : 3u;   /* (JIANT BYTE: FM6 retired) */   /* (V10.7.36: WEST 3) */
+    uint32_t k, v = 0, w = e == &ENG_LOFI ? math_music_cost(t) : e==&ENG_FORM?form_cost(t):3u;   /* (JIANT BYTE: FM6 retired) */   /* (V10.7.36: WEST 3) */
     for (k = 0; k < NVOICE; k++)
         v += t->v[k].active;
     return v ? 1u + v * w : 0u;
@@ -3177,6 +3181,7 @@ static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (
     master_begin();
     duck_block();
     perf = perf_begin(n);                               /* the FX hold layer at work (perform.c) */
+    { void (*f)(uint32_t)=life_formula_block; FM1_OPAQUE(f); f(trk_hush); }
     if (!mc_off && mc_live()) {                         /* (0.6.71) core 1 at its parts meanwhile; (0.6.75) and the buses */
         c1m = mc_split(mc_fx_tk + 4u * MC_VW);
         if (mc_run(mc_job, c1m | MC_FX | n << 8))

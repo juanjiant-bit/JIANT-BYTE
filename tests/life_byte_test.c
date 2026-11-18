@@ -1,111 +1,104 @@
-/* SPDX-License-Identifier: GPL-3.0-only
- * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
-/* (JIANT BYTE) LIFE as the formulas talking (life.c life_talk, life_brk): two parts, track 1 a WAVE, track 2 a MATH
- * FLOAT (and a BYTE), through the mix, each render in a fresh child (the FX's and the master's state would leak):
- *   TALK    track 2 sounds otherwise with track 1 sounding than alone (it hears it); TALK 0 BREAK 0: the same
- *   BREAK   with track 1 sounding, BREAK up breaks track 2 (another sound than TALK alone)
- *   LIFE 0  nothing of it: track 2 the same, track 1 sounding or not
- *   every render bounded
- *   cc -O2 -Ibuild/gen -Ifirmware/src -o build/host/life_byte_test tests/life_byte_test.c -lm */
-#include <stdarg.h>
+/* SPDX-License-Identifier: GPL-3.0-only */
 #define main hostsim_main
 #include "hostsim.c"
 #undef main
-
 static int fails;
-static void ok(int c, const char *fmt, ...)
-{
-    va_list ap;
-    char b[300];
-    va_start(ap, fmt);
-    vsnprintf(b, sizeof b, fmt, ap);
-    va_end(ap);
-    printf("lifeb: %-100s %s\n", b, c ? "ok" : "FAIL");
-    if (!c)
-        fails++;
+#define CHECK(c,s) do{int q=!!(c);printf("lifeb: %s %s\n",s,q?"ok":"FAIL");fails+=!q;}while(0)
+#define NS 32768u
+static int32_t dry[NS],lwet[NS],other[NS];
+static const char *target_text="sin(w*2.0)";
+static fvm_full_t recv,src;static fvm_cc_t cc;static fvm_scratch_t scratch;
+static void compile(fvm_full_t *p,const char*s){CHECK(!fvm_compile(&cc,FVM_FULL(p),s,strlen(s),0),s);}
+static void config(int amt,int numbers,int fragments,int link){
+ memset(trk,0,sizeof trk);host_tracks_init();life_reset();memset(&MOD,0,sizeof MOD);rng_state=1234;trk_live=4;voice_limits_default();
+ life_defaults();life_v[LIFE_AMT]=amt;life_v[LIFE_NUMBERS]=numbers;life_v[LIFE_FRAGMENTS]=fragments;life_v[LIFE_LINK]=link;
+ for(unsigned k=0;k<NTRK;k++){trk[k].p[P_MUTE]=0;trk[k].p[P_LEVEL]=127;}
 }
-enum { NB = 160u, NS = NB * 2u * CTL };
-/* track 2 a MATH (preset pr), track 1 a WAVE sounding or not; LIFE amt, TALK, BREAK, WEB 100 */
-static void render(uint32_t pr, int src, int32_t amt, int32_t talk, int32_t brk, int32_t *m)
-{
-    int fd[2];
-    pid_t pid;
-    if (pipe(fd)) return;
-    pid = fork();
-    if (!pid) {
-        static int32_t o[NS];
-        uint32_t k, b;
-        size_t off = 0;
-        close(fd[0]);
-        memset(trk, 0, sizeof trk);
-        host_tracks_init();
-        life_reset();
-        host_preset(&trk[0], ENGI_WAVE, 1);              /* (FM KEYS) */
-        host_preset(&trk[1], ENGI_LOFI, pr);
-        for (k = 0; k < NTRK; k++) trk[k].p[P_DIST] = trk[k].p[P_CHOR] = trk[k].p[P_DLY] = trk[k].p[P_REV] = 0;
-        life_v[LIFE_AMT] = (int16_t)amt;
-        life_v[LIFE_FILT] = (int16_t)talk;
-        life_v[LIFE_PIT] = (int16_t)brk;
-        life_v[LIFE_FX] = 100;
-        if (src) trk_note_on(&trk[0], 48, 110);
-        trk_note_on(&trk[1], 60, 100);
-        for (b = 0; b < NB; b++)
-            mix_block(o + b * 2u * CTL, CTL);
-        while (off < sizeof o) {
-            ssize_t w = write(fd[1], (char *)o + off, sizeof o - off);
-            if (w <= 0) break;
-            off += (size_t)w;
-        }
-        _exit(0);
-    }
-    close(fd[1]);
-    {
-        size_t off = 0;
-        while (off < NS * sizeof(int32_t)) {
-            ssize_t r = read(fd[0], (char *)m + off, NS * sizeof(int32_t) - off);
-            if (r <= 0) break;
-            off += (size_t)r;
-        }
-    }
-    close(fd[0]);
-    waitpid(pid, 0, 0);
+static double delta(const int32_t*a,const int32_t*b){double d=0,e=1;for(unsigned i=0;i<NS;i++){double x=(double)a[i]-b[i];d+=x*x;e+=(double)a[i]*a[i];}return sqrt(d/e);}
+/* Execute two actual compiled formulas, snapshots from the previous control block.
+ * Both orders are tested. Fragments are evaluated on a normalized cycle,
+ * independently of the pitch/clock used to render the donor audio. */
+static void vm(const char*donor,int amt,int number,int frag,int link,int reverse,int quiet,int32_t*out){
+ config(amt,number,frag,link);compile(&recv,target_text);compile(&src,donor);
+ fvm_ins_t saved[FVM_MAXINS];memcpy(saved,recv.ins,sizeof saved);
+ for(unsigned k=0;k<2;k++){trk[k].v[0].active=1;trk[k].v[0].stage=2;trk[k].v[0].env_out=32767;trk[k].v[0].note=60+k*7;}
+ uint32_t T[FVM_BLK],W[FVM_BLK],values[FVM_BLK];int32_t state[8]={0};
+ fvm_env_t e={{T,W,0},{0},state};e.u[FU_AF]=32768;
+ for(unsigned o=0;o<NS;o+=FVM_BLK){
+  if(quiet==6){trk[1].p[P_LEVEL]=32;trk[1].v[0].env_out=6000;}if(quiet==1)trk[1].p[P_MUTE]=1;if(quiet==2||(quiet==5&&o>=NS/2))trk[1].v[0].active=0;if(quiet==4)life_v[LIFE_N]=0;
+  life_formula_block(quiet==3?2:0);
+  for(unsigned a=0;a<2;a++){
+   unsigned k=reverse?1-a:a;for(unsigned j=0;j<FVM_BLK;j++){T[j]=(o+j)*3;W[j]=((o+j)*(k?725:389))&65535;}
+   fl_bind(&trk[k],&trk[k].v[0],fl.depth[k]);fl_run(k?&src.p:&recv.p,&e,&scratch,FVM_BLK,values);fl_unbind();
+   if(!k)for(unsigned j=0;j<FVM_BLK;j++)out[o+j]=fvm_sample(recv.p.ty,values[j]);
+  }
+ }
+ CHECK(!memcmp(saved,recv.ins,sizeof saved),"receiving program is unchanged");
 }
-/* track 2 alone in the mix: the render with track 1 sounding, minus track 1's own (rendered by itself) */
-static int32_t a[NS], b[NS], c[NS], d[NS], one[NS];
-static double peak(const int32_t *x) { double p = 0; uint32_t i; for (i = 0; i < NS; i++) if (fabs(x[i] / 32768.0) > p) p = fabs(x[i] / 32768.0); return p; }
-static double corr(const int32_t *x, const int32_t *y)
-{
-    double xy = 0, xx = 0, yy = 0;
-    uint32_t i;
-    for (i = 0; i < NS; i++) xy += (double)x[i] * y[i], xx += (double)x[i] * x[i], yy += (double)y[i] * y[i];
-    return xx > 0 && yy > 0 ? xy / sqrt(xx * yy) : 0;
+static void engine(unsigned source,int amt,int same,int reverse,int32_t*out,uint32_t*clock){
+ config(amt,65,60,40);memset(drum_kit,0,sizeof drum_kit);
+ host_preset(&trk[0],ENGI_WAVE,1);trk[0].p[P_E6]=0;trk[0].p[P_VOICE]=V_POLY;trk[0].p[P_SUS]=127;trk[0].p[P_DIST]=0;
+ if(source==ENGI_DRUM){host_drums(&trk[1]);dx_kit_load(DX_NKIT);}else host_preset(&trk[1],source,9);
+ for(unsigned k=0;k<2;k++){trk[k].p[P_DIST]=trk[k].p[P_CHOR]=trk[k].p[P_DLY]=trk[k].p[P_REV]=0;}
+ trk_note_on(&trk[0],60,110);trk_note_on(&trk[same?0:1],source==ENGI_DRUM?36:67,110);
+ int32_t b[CTL];for(unsigned o=0;o<NS;o+=CTL){life_formula_block(0);for(unsigned a=0;a<2;a++){unsigned k=reverse?1-a:a;track_render(&trk[k],b,CTL);if(!k)memcpy(out+o,b,sizeof b);}}
+ *clock=trk[0].v[0].ph[0];
 }
-int main(int argc, char **argv)
+static void network(unsigned receiver,unsigned donor,int amt,int third,int change,int fragments_only,int32_t *out)
 {
-    uint32_t pr, i;
-    (void)argc;
-    (void)argv;
-    for (pr = 3; pr <= 3u; pr++) {                       /* (MATH KEYS: a FLOAT) */
-        render(pr, 1, 100, 100, 0, a);                   /* TALK, track 1 sounding */
-        render(pr, 0, 100, 100, 0, b);                   /* .. alone */
-        render(pr, 1, 100, 0, 0, c);                     /* TALK 0 BREAK 0, track 1 sounding */
-        render(pr, 0, 100, 0, 0, d);                     /* .. alone */
-        /* track 1's own part out: the same WAVE rendered with nothing else is not available bit for bit (the mix's
-         * dynamics): compare the sums directly, the differences tell */
-        { double ea = 0, ec = 0; uint32_t q; for (q = 0; q < NS; q++) ea += (double)a[q] * a[q], ec += (double)c[q] * c[q];
-          printf("lifeb: level with TALK 100 x%.2f of TALK 0\n", sqrt(ea / ec)); }
-        ok(memcmp(a, c, sizeof a) != 0 && corr(a, c) < 0.98, "TALK 100: the mix with track 1 sounding moves (track 2 hears it: %.3f)", corr(a, c));
-        ok(!memcmp(b, d, sizeof b), "track 1 silent: TALK changes nothing (nothing to hear)");
-        render(pr, 1, 100, 0, 100, one);                 /* BREAK alone */
-        ok(memcmp(one, c, sizeof one) != 0 && corr(one, c) < 0.999, "BREAK 100: track 2 broken while track 1 sounds (%.3f)", corr(one, c));
-        render(pr, 1, 0, 100, 100, a);                   /* LIFE 0 */
-        ok(!memcmp(a, c, sizeof a), "LIFE 0: TALK and BREAK do nothing, bit for bit");
-        ok(peak(one) <= 1.0 && peak(c) <= 1.0, "bounded (peaks %.3f %.3f)", peak(one), peak(c));
-    }
-    render(0, 1, 100, 100, 100, a);                      /* a BYTE part: hears and breaks too */
-    render(0, 1, 100, 0, 0, b);
-    ok(memcmp(a, b, sizeof a) != 0 && peak(a) <= 1.0, "BYTE: TALK and BREAK move it, bounded (peak %.3f)", peak(a));
-    (void)i;
-    printf(fails ? "lifeb: %d FAILED\n" : "lifeb: all ok\n", fails);
-    return fails != 0;
+ config(amt,fragments_only?0:65,60,fragments_only?0:40);memset(drum_kit,0,sizeof drum_kit);dx_mute=0;
+ unsigned eng[3]={receiver,donor,ENGI_WAVE};
+ if(third){unsigned ids[3]={ENGI_WAVE,ENGI_LOFI,ENGI_DRUM};for(unsigned i=0;i<3;i++)if(ids[i]!=receiver&&ids[i]!=donor)eng[2]=ids[i];}
+ for(unsigned k=0;k<(third?3:2);k++){
+  if(eng[k]==ENGI_DRUM||eng[k]==99){host_drums(&trk[k]);dx_kit_load(DX_NKIT);if(eng[k]==99)memset(dx_form,0,sizeof dx_form);else if(change==(int)k)dx_form[0]=1;}
+  else {host_preset(&trk[k],eng[k],eng[k]==ENGI_WAVE?1:9);if(change==(int)k) {if(eng[k]==ENGI_WAVE)trk[k].p[P_E0]=3;else host_preset(&trk[k],eng[k],1);}}
+  trk[k].p[P_VOICE]=V_POLY;trk[k].p[P_SUS]=127;trk[k].p[P_DRIFT]=127;
+  trk[k].p[P_DIST]=trk[k].p[P_CHOR]=trk[k].p[P_DLY]=trk[k].p[P_REV]=0;
+  trk_note_on(&trk[k],(eng[k]==ENGI_DRUM||eng[k]==99)?36:60+k*7,110);
+ }
+ int32_t b[CTL];for(unsigned o=0;o<NS;o+=CTL){life_formula_block(0);for(unsigned k=0;k<(third?3:2);k++){track_render(&trk[k],b,CTL);if(!k)memcpy(out+o,b,sizeof b);}}
 }
+#ifndef LIFE_TEST_LIBRARY
+int main(void){
+ config(0,0,0,0);fl.gate[0]=100;fl.node[fl.rd][0].wave[0]=300;fl.sum[0]=10000;
+ CHECK(fl_other_h(0,0,200)==-100,"negative donor remains negative after self subtraction");
+ fl.node[fl.rd][0].wave[0]=-300;fl.sum[0]=-10000;
+ CHECK(fl_other_h(0,0,200)==100,"negative self is removed with signed arithmetic");
+ int monotonic=1;for(int i=1;i<=100;i++)monotonic&=life_curve(i)>=life_curve(i-1);
+ CHECK(monotonic&&life_curve(0)==0&&life_curve(50)==48&&life_curve(75)==126&&life_curve(100)==256,"master audio taper preserved");
+ vm("sin(w*7.0)",0,100,100,100,0,0,dry);
+ vm("sin(w*7.0)",100,0,0,0,0,0,lwet);CHECK(!memcmp(dry,lwet,sizeof dry),"zero controls exact bypass");
+ for(unsigned k=0;k<3;k++){vm("sin(w*7.0)",100,k==0?100:0,k==1?100:0,k==2?100:0,0,0,lwet);printf("control %u relative difference %.4f\n",k,delta(dry,lwet));CHECK(delta(dry,lwet)>.1,"each control changes actual receiving samples");}
+ vm("sin(w*7.0)",100,0,100,0,0,0,lwet);vm("sin(w*3.0)",100,0,100,0,0,0,other);CHECK(delta(lwet,other)>.1,"changing donor instructions changes destination through the evaluated waveform profile");
+ vm("t*5",100,0,100,0,0,0,lwet);CHECK(delta(dry,lwet)>.1,"integer fragment modulates FIX destination");
+ target_text="t*2";vm("sin(w*7.0)",0,0,0,0,0,0,dry);vm("sin(w*7.0)",100,0,100,0,0,0,lwet);CHECK(delta(dry,lwet)>.1,"FIX fragment modulates INT destination");
+ target_text="sin(w*2.0)";vm("sin(w*7.0)",0,0,0,0,0,0,dry);
+ vm("sin(w*7.0)",100,65,60,40,0,0,lwet);vm("sin(w*7.0)",100,65,60,40,1,0,other);CHECK(!memcmp(lwet,other,sizeof lwet),"render order independence");
+ for(int k=1;k<=4;k++){vm("sin(w*7.0)",100,100,100,100,0,k,lwet);CHECK(!memcmp(dry,lwet,sizeof dry),"mute / inactive / performance hush / per-track zero bypass");}
+ vm("sin(w*7.0)",50,65,60,40,0,0,lwet);vm("sin(w*7.0)",50,65,60,40,0,6,other);CHECK(delta(lwet,other)<.001,"quiet but active donor retains the same timbral depth");
+ vm("sin(w*7.0)",100,65,60,40,0,5,lwet);CHECK(!memcmp(dry+NS/2+1024,lwet+NS/2+1024,(NS/2-1024)*sizeof *dry),"ending donor fades out in bounded time, no stale interaction");
+ compile(&src,"ph(2.0)");CHECK(src.p.life_fn==0,"stateful opcode excluded from fragment");
+ compile(&src,"\"123\"[t]");CHECK(src.p.life_fn<=1,"table opcode excluded from fragment");
+ for(unsigned i=0;i<3;i++){unsigned eng=i==0?ENGI_LOFI:i==1?ENGI_DRUM:ENGI_WAVE;uint32_t c0,c1;
+  engine(eng,0,i==2,0,dry,&c0);engine(eng,100,i==2,0,lwet,&c1);
+  printf("engine %u relative difference %.4f\n",eng,delta(dry,lwet));CHECK(delta(dry,lwet)>.02,"overlapping MATH / DRUM-X / same-engine notes modulate WAVE");CHECK(c0==c1,"underlying oscillator clock preserved");
+ }
+ unsigned ids[3]={ENGI_WAVE,ENGI_LOFI,ENGI_DRUM};
+ for(unsigned r=0;r<3;r++)for(unsigned d=0;d<3;d++)if(r!=d){
+  network(ids[r],ids[d],0,0,-1,0,dry);network(ids[r],ids[d],100,0,-1,0,lwet);
+  printf("directed %u -> %u delta %.4f\n",ids[d],ids[r],delta(dry,lwet));CHECK(delta(dry,lwet)>.01,"each directed engine connection changes receiving audio");
+ }
+ for(unsigned r=0;r<3;r++){
+  network(ids[r],ids[(r+1)%3],100,1,-1,1,dry);
+  for(int donor=1;donor<=2;donor++){network(ids[r],ids[(r+1)%3],100,1,donor,1,lwet);printf("fanin receiver%u donor%d delta %.4f\n",ids[r],donor,delta(dry,lwet));CHECK(delta(dry,lwet)>.01,"both simultaneous donors affect FRAG, no chosen neighbour");}
+ }
+ network(99,ENGI_WAVE,0,0,-1,0,dry);network(99,ENGI_WAVE,100,0,-1,0,lwet);CHECK(delta(dry,lwet)>.001,"classic drum receives NUM/LINK in a temporary timbre operand");
+ network(ENGI_WAVE,99,0,0,-1,0,dry);network(ENGI_WAVE,99,100,0,-1,0,lwet);CHECK(delta(dry,lwet)>.01,"classic drum donates its timbre value and envelope");
+ for(unsigned control=0;control<3;control++){
+  vm("sin(w*7.0)",100,0,0,0,0,0,dry);
+  for(unsigned value=25;value<=100;value+=25){vm("sin(w*7.0)",100,control==0?value:0,control==1?value:0,control==2?value:0,0,0,lwet);CHECK(delta(dry,lwet)>.001,"each control has distinct intermediate values throughout its travel");memcpy(dry,lwet,sizeof dry);}
+ }
+ puts(fails?"lifeb: FAILED":"lifeb: all ok");return !!fails;
+}
+
+#endif

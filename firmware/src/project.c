@@ -121,6 +121,9 @@ typedef struct {
     uint8_t dx_snd[8];                         /* (0.6.48) its sounds' SENDs (eng_drum.c): FUNC's 'D' 'S' block, 0 before */
     uint8_t dx_lay[8];                         /* (0.6.49) its sounds' LAYER, FEEDBK (drumx_voice.c): 'D' 'L', 0 before */
     uint8_t dx_form[8];                        /* (JIANT BYTE) its sounds' formulas (drumx_voice.c dx_form): 'D' 'F', 0 before */
+    uint8_t voice_limit[NTRK];                 /* VL tail: per-track voice budget */
+    char dx_text[8][DX_TEXT];                 /* DU: editable bounded formula text per instrument */
+    int8_t dx_fmod[8][DFM_N];                 /* DQ tail extension: RATE/BEND/CRUSH, absent = exact bypass */
     uint8_t mac_form[4];                       /* (JIANT BYTE) the macros' equations (mod.c macro_f): 'M' 'F', 0 before */
     uint8_t fugue[NTRK][3][2];                 /* (0.6.52) SEQ > FUGUE's heads (fugue.c): RATE | DIR << 4, INTERVAL (int8);
                                                 * FUNC's 'F' 'G' block, none before */
@@ -234,11 +237,11 @@ static __attribute__((noinline)) uint32_t proj_eq(project_t *q, const uint8_t *b
  * AMOUNT is not BAL_DEF or a NOISE is on; the last block (firmware before stops at it, the rest loads). A project
  * without it: AMOUNT BAL_DEF (BALANCE on: what the owner asked for, an older project too), every NOISE 0.
  * (V10.7.33) .. then each track's CRUSH: 'X' 'C' and a byte a track (0 .. 127), when one is on (firmware before stops
- * at 'X' 'M'); without it every CRUSH 0. Reading: 0 (the last) */
+ * at 'X' 'M'); without it every CRUSH 0. Reading: bytes consumed (the optional DQ extension follows) */
 static __attribute__((noinline)) uint32_t proj_xm(project_t *q, const uint8_t *bc, uint32_t pos, uint32_t room)
 {
     uint8_t *b = (uint8_t *)(uintptr_t)bc;
-    uint32_t k, x, n = 0;
+    uint32_t k, x, n = 0, start = pos;
     if (room) {
         q->bal = 0;
         memset(q->dnz, 0, sizeof q->dnz);
@@ -270,10 +273,12 @@ static __attribute__((noinline)) uint32_t proj_xm(project_t *q, const uint8_t *b
     /* (V10.7.34) LIFE: 'X' 'L' and its ten values (0 .. 100 a byte: HOME > LIFE's four, the tracks'), when one is not
      * its default; the last (firmware before stops at it). Without it: the defaults (LIFE on) */
     if (room) {
-        if (pos + 2u + LIFE_N + NTRK <= room && b[pos] == 'X' && b[pos + 1u] == 'L')
+        if (pos + 2u + LIFE_N + NTRK <= room && b[pos] == 'X' && b[pos + 1u] == 'L') {
             for (k = 0; k < LIFE_N + NTRK; k++)
                 q->life[k] = (int8_t)((b[pos + 2u + k] > 100u ? 100 : b[pos + 2u + k]) - life_def(k));
-        return 0;
+            pos += 2u + LIFE_N + NTRK;
+        }
+        return pos - start;
     }
     for (k = 0, x = 0; k < LIFE_N + NTRK; k++) x |= (uint32_t)(uint8_t)q->life[k];
     if (x) {
@@ -689,6 +694,9 @@ static uint32_t proj_packed_size(const project_t *q)
         if (q->fit[t]) { n += 2u + NTRK; break; }
     for (i = 0; i < sizeof q->split; i++) if (q->split[i]) { n += 2u + sizeof q->split; break; }
     for (i = 0; i < sizeof q->scpat; i++) if (q->scpat[i]) { n += 2u + sizeof q->scpat; break; }
+    n += 2u + sizeof q->dx_fmod;
+    n += 10u + 2u + NTRK;
+    for (i = 0; i < 8u; i++) n += str_len(q->dx_text[i]);
     n += proj_xm((project_t *)(uintptr_t)q, 0, 0, 0);   /* (V10.7.30) BALANCE, NOISE; (V10.7.33) CRUSH */
     return n;
 }
@@ -894,6 +902,16 @@ static int proj_pack(project_store_t *out, const project_t *q)
     if (i < sizeof q->scpat) { b[pos++] = 'S'; b[pos++] = 'P'; memcpy(b + pos, q->scpat, sizeof q->scpat); pos += sizeof q->scpat; }
     pos += proj_xm((project_t *)(uintptr_t)q, b, pos, 0);   /* (V10.7.30) BALANCE, NOISE (firmware before: the last);
                                                          * (V10.7.33) CRUSH after them */
+    b[pos++] = 'D'; b[pos++] = 'Q';
+    memcpy(b + pos, q->dx_fmod, sizeof q->dx_fmod);
+    pos += sizeof q->dx_fmod;
+    b[pos++] = 'D'; b[pos++] = 'U';
+    for (i = 0; i < 8u; i++) {
+        uint32_t n = str_len(q->dx_text[i]);
+        b[pos++] = (uint8_t)n; memcpy(b + pos, q->dx_text[i], n); pos += n;
+    }
+    b[pos++] = 'V'; b[pos++] = 'L';
+    for (i=0;i<NTRK;i++) b[pos++] = (uint8_t)clamp(q->voice_limit[i] ? q->voice_limit[i] : NVOICE,1,NVOICE);
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
     for (i = 0; i < 4u; i++)
@@ -1108,7 +1126,7 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         uint32_t k;
         memcpy(q->dx_form, b + pos + 2u, sizeof q->dx_form);
         for (k = 0; k < sizeof q->dx_form; k++)
-            if (q->dx_form[k] > DX_NFORM) q->dx_form[k] = 0;
+            if (q->dx_form[k] > DX_NFORM && q->dx_form[k] != DX_USER) q->dx_form[k] = 0;
         pos += 2u + sizeof q->dx_form;
     }
     memset(q->mac_form, 0, sizeof q->mac_form);
@@ -1234,7 +1252,36 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         memcpy(q->scpat, b + pos + 2u, sizeof q->scpat);
         pos += 2u + sizeof q->scpat;
     }
-    proj_xm(q, b, pos, room);                           /* (V10.7.30) BALANCE, NOISE (else BAL_DEF, 0); (V10.7.33) CRUSH */
+    pos += proj_xm(q, b, pos, room);
+    memset(q->dx_fmod, 0, sizeof q->dx_fmod);
+    if (pos + 2u <= room && b[pos] == 'D' && b[pos + 1u] == 'Q') {
+        if (pos + 2u + sizeof q->dx_fmod > room) return 0;
+        memcpy(q->dx_fmod, b + pos + 2u, sizeof q->dx_fmod);
+        for (i = 0; i < 8u; i++) {
+            q->dx_fmod[i][DFM_RATE] = (int8_t)clamp(q->dx_fmod[i][DFM_RATE], -24, 24);
+            q->dx_fmod[i][DFM_BEND] = (int8_t)clamp(q->dx_fmod[i][DFM_BEND], 0, 127);
+            q->dx_fmod[i][DFM_CRUSH] = (int8_t)clamp(q->dx_fmod[i][DFM_CRUSH], 0, 12);
+        }
+    }
+    if (pos + 2u <= room && b[pos] == 'D' && b[pos + 1u] == 'Q') pos += 2u + sizeof q->dx_fmod;
+    memset(q->dx_text, 0, sizeof q->dx_text);
+    if (pos + 2u <= room && b[pos] == 'D' && b[pos + 1u] == 'U') {
+        pos += 2u;
+        for (i = 0; i < 8u; i++) {
+            uint32_t n;
+            if (pos >= room) return 0;
+            n = b[pos++];
+            if (n >= DX_TEXT || pos + n > room) return 0;
+            memcpy(q->dx_text[i], b + pos, n); pos += n;
+            if (str_len(q->dx_text[i]) != n) return 0;
+        }
+    }
+    memset(q->voice_limit, NVOICE, sizeof q->voice_limit);
+    if (pos + 2u <= room && b[pos]=='V' && b[pos+1u]=='L') {
+        if (pos + 2u + NTRK > room) return 0;
+        for (i=0;i<NTRK;i++) q->voice_limit[i]=(uint8_t)clamp(b[pos+2u+i],1,NVOICE);
+    }
+    for (i = 0; i < 8u; i++) if (q->dx_form[i] == DX_USER && !q->dx_text[i][0]) q->dx_form[i] = 0;
     if (b[65] != PROJ_DT_MARK)                          /* (V10.7.33) DIST TYPE CRUSH: CRUSH */
         proj_crush_mig(q);
     proj_new_tracks(q, nt);                             /* (a FUNC of fewer tracks: the rest at power-on) */
@@ -1415,6 +1462,7 @@ static void project_capture(project_t *p)
     p->chain = chain_config;
     for (i = 0; i < NTRK; i++) {
         for (uint32_t j = 0; j < P_COUNT; j++) p->t[i].p[j] = motion_base_value(&trk[i], j);
+        p->voice_limit[i] = (uint8_t)clamp(voice_limit[i] ? voice_limit[i] : NVOICE,1,NVOICE);
         p->fit[i] = fit_valid(trk[i].seq_fit);
         p->t[i].engine = trk[i].eng_req;
         p->t[i].preset = trk[i].preset;
@@ -1438,6 +1486,8 @@ static void project_capture(project_t *p)
     p->dx_hands = (uint8_t)(dx_hands | dx_glue << 4);   /* (0.7.9; snd1: GLUE) */
     memcpy(p->dx_snd, dx_snd, sizeof p->dx_snd);        /* (0.6.48) */
     memcpy(p->dx_lay, dx_lay, sizeof p->dx_lay);        /* (0.6.49) */
+    memcpy(p->dx_text, dx_text, sizeof p->dx_text);
+    memcpy(p->dx_fmod, dx_fmod, sizeof p->dx_fmod);
     memcpy(p->dx_form, dx_form, sizeof p->dx_form);     /* (JIANT BYTE) */
     memcpy(p->mac_form, macro_f, sizeof p->mac_form);   /* (JIANT BYTE) */
     {                                                   /* (0.6.52) FUGUE */
@@ -1606,6 +1656,8 @@ static void sound_put(project_t *p, uint32_t k)
         dx_glue = p->dx_hands >> 4;
         memcpy(dx_snd, p->dx_snd, sizeof dx_snd);
         memcpy(dx_lay, p->dx_lay, sizeof dx_lay);
+        memcpy(dx_text, p->dx_text, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
+        memcpy(dx_fmod, p->dx_fmod, sizeof dx_fmod);
         memcpy(dx_form, p->dx_form, sizeof dx_form);
     }
     fm1_irq_on();
@@ -1655,6 +1707,7 @@ static int project_restore_runtime(const project_t *input)
         tape_v[0] = p->tp[0] > 100u ? 100 : p->tp[0]; tape_v[1] = p->tp[1] > 100u ? 100 : p->tp[1];
         bal_v = (int16_t)clamp(p->bal + BAL_DEF, 0, 100);   /* (V10.7.30) BALANCE, NOISE */
         memcpy(dnz_v, p->dnz, sizeof dnz_v);            /* (0 .. 100: proj_xm's, or the knob's) */
+        for (k=0;k<NTRK;k++) voice_limit[k]=(int16_t)clamp(p->voice_limit[k] ? p->voice_limit[k] : NVOICE,1,NVOICE);
         memcpy(cru_v, p->cru, sizeof cru_v);            /* (V10.7.33) CRUSH (0 .. 127: proj_xm's, or the knob's) */
         for (k = 0; k < LIFE_N + NTRK; k++)               /* (V10.7.34) LIFE */
             life_v[k] = (int16_t)clamp(p->life[k] + life_def(k), 0, 100);
@@ -1674,6 +1727,8 @@ static int project_restore_runtime(const project_t *input)
     dx_glue = p->dx_hands >> 4;                         /* (snd1: its GLUE) */
     memcpy(dx_snd, p->dx_snd, sizeof dx_snd);           /* (0.6.48: its SENDs) */
     memcpy(dx_lay, p->dx_lay, sizeof dx_lay);           /* (0.6.49: its LAYERs) */
+    memcpy(dx_text, p->dx_text, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
+    memcpy(dx_fmod, p->dx_fmod, sizeof dx_fmod);
     memcpy(dx_form, p->dx_form, sizeof dx_form);        /* (JIANT BYTE: its formula lanes) */
     memcpy(macro_f, p->mac_form, sizeof macro_f);       /* (JIANT BYTE: its macros' equations) */
     fg_load(p);                                         /* (0.6.52: its FUGUE) */
@@ -1779,7 +1834,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     bal_v = BAL_DEF;                                    /* (V10.7.30) BALANCE on, no NOISE */
     memset(dnz_v, 0, sizeof dnz_v);
     memset(cru_v, 0, sizeof cru_v);                     /* (V10.7.33) no CRUSH */
-    life_defaults();                                    /* (V10.7.34) LIFE as at power-on */
+    life_defaults(); voice_limits_default();                                    /* (V10.7.34) LIFE as at power-on */
     for (i = 0; i < 5u; i++) song.g[KEEP[i]] = kept[i];
     kept[0] = dice_secs;
     chain_defaults(&chain_config);
@@ -1804,6 +1859,8 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     dx_glue = 0;
     memset(dx_snd, 0, sizeof dx_snd);
     memcpy(dx_lay, DX_LAY_DEF, sizeof dx_lay);
+    memset(dx_text, 0, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
+    memset(dx_fmod, 0, sizeof dx_fmod);
     memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);       /* (JIANT BYTE) every lane its floatbeat */
     memset(macro_f, 0, sizeof macro_f);                 /* (JIANT BYTE) every macro its knob */
     memset(fg_set, 0, sizeof fg_set);                   /* (0.6.52) no FUGUE */

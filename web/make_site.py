@@ -22,6 +22,8 @@ The package must be one made by tools/fm1pkg_make.py (Felucca's own loader, no v
 Its identity (FM-1_9xx) is read from the package; the device must report it after
 the install.
 """
+import hashlib
+import os
 import json
 import re
 import shutil
@@ -46,7 +48,8 @@ def product_of(raw):
 
 def base_of(version):
     """v0.6.46-abc1234 -> v0.6.46: the builds of one version"""
-    return version.split("-")[0]
+    match = re.match(r"(?:BYTE-)?v?\d+(?:\.\d+)+", version)
+    return match.group(0) if match else version.split("-")[0]
 
 
 def earlier(prev, version, product):
@@ -86,9 +89,11 @@ def main(pkg, version, out, prev=None):
         strip_module((HERE / "fm1backup.js").read_text(encoding="utf-8"))
     name = f"felucca-{re.sub(r'[^A-Za-z0-9.-]', '-', version)}.fwsc"
     old = earlier(Path(prev), version, product) if prev else []
-    versions = [{"version": version, "file": name}] + [e for e, _ in old]
+    versions = [{"version": version, "file": name, "sha256": hashlib.sha256(raw).hexdigest(),
+                 "commit": os.environ.get("SOURCE_COMMIT", "")}] + [
+        {**e, "sha256": hashlib.sha256(src.read_bytes()).hexdigest()} for e, src in old]
     meta = json.dumps({"version": version, "product": product, "pkg": "../../firmware/" + name,
-                       "versions": [{"version": e["version"], "pkg": "../../firmware/" + e["file"]} for e in versions]})
+                       "versions": [{**e, "pkg": "../../firmware/" + e["file"]} for e in versions]})
     for mark in ("/*LIB*/", "/*META*/"):
         if html.count(mark) != 1:
             raise SystemExit(f"index_pkg.html must contain {mark} once; update make_site.py")
@@ -123,9 +128,9 @@ def main(pkg, version, out, prev=None):
         if (HERE / f).exists():
             shutil.copy(HERE / f, ed / f)
     (out / "index.html").write_text(
-        '<!doctype html><meta charset="utf-8"><title>Felucca</title>'
+        '<!doctype html><meta charset="utf-8"><title>JIANT /B1T3</title>'
         '<meta http-equiv="refresh" content="0; url=webapp/installer/">'
-        '<a href="webapp/installer/">Felucca installer</a>\n', encoding="utf-8")
+        '<a href="webapp/installer/">JIANT /B1T3 installer</a>\n', encoding="utf-8")
     print(f"site: {out}: webapp/installer ({len(html)} B), webapp/editor, firmware/{name} ({len(raw)} B, {product})"
           + (f", earlier: {' '.join(e['version'] for e, _ in old)}" if old else ""))
 

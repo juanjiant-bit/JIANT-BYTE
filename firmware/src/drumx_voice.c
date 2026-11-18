@@ -221,12 +221,27 @@ static const char *const N_DXFORM[] = {"SINE", "SAT", "FM", "METAL", "BITS", "XO
                                        "FKICK", "FSNR", "FCLAP", "FHAT", "FOHAT", "FTOM", "FRIM", "FCOW"};
 #define DX_NFORM (sizeof DX_FORMS / sizeof DX_FORMS[0])
 _Static_assert(DX_NFORM == sizeof N_DXFORM / sizeof N_DXFORM[0], "DRUM-X: a name a formula");
+enum { DFM_RATE, DFM_BEND, DFM_CRUSH, DFM_N };
+/* Per-lane formula modifiers. Zero is an exact bypass, including old projects. */
+static int8_t dx_fmod[8][DFM_N];
+#define DX_USER 255u
+#define DX_TEXT 64u
+static char dx_text[8][DX_TEXT] __attribute__((section(".pool")));
 static uint8_t dx_form[8];                           /* (JIANT BYTE) 0, or 1 + the formula of DX_FORMS */
 /* (JIANT BYTE) the factory: every lane its floatbeat (KICK SNARE CLAP HATC HATO TOM RIM BELL: FKICK .. FCOW) */
 static const uint8_t DX_FORM_DEF[8] = {17, 18, 19, 20, 21, 22, 23, 24};
 static fvm_prog_t dx_fprg[8];
 static fvm_ins_t dx_fins[8][24] __attribute__((section(".pool")));                     /* (a lane's formula: 24 instructions at most) */
 static uint8_t dx_fid[8];                            /* the formula compiled in dx_fprg (0: none yet) */
+static const char *dx_formula_text(uint32_t ln)
+{
+    uint32_t f = dx_form[ln & 7u];
+    return f == DX_USER ? dx_text[ln & 7u] : f && f <= DX_NFORM ? DX_FORMS[f - 1u] : "sin(w)";
+}
+static const char *dx_formula_name(uint32_t f)
+{
+    return f == DX_USER ? "USER" : f && f <= DX_NFORM ? N_DXFORM[f - 1u] : "CLASSIC";
+}
 static const fvm_prog_t *dx_fprog(uint32_t ln, lofi_work_t *w)
 {
     uint32_t f = dx_form[ln & 7u];
@@ -234,7 +249,7 @@ static const fvm_prog_t *dx_fprog(uint32_t ln, lofi_work_t *w)
     if (!p->ins)
         fvm_prog_init(p, dx_fins[ln & 7u], 24u);
     if (dx_fid[ln & 7u] != f) {
-        const char *s = f && f <= DX_NFORM ? DX_FORMS[f - 1u] : "0";
+        const char *s = f ? dx_formula_text(ln) : "0";
         uint32_t n = 0;
         while (s[n]) n++;
         if (fvm_compile(&w->c, p, s, n, 0) || p->nstate > 2u)
@@ -295,7 +310,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
                                              int32_t dofs, int32_t cofs, int32_t nofs, int32_t warp, int32_t fm, int32_t *y,
                                              uint32_t n, uint32_t feedback)
 {
-    int32_t q[DXP_N], p16, depth, ea0, ea1, en1, ep1, og, ng, ga, dga, gn, dgn, kd, inc, dinc, mt, cw, cx;
+    int32_t life_color=0,q[DXP_N], p16, depth, ea0, ea1, en1, ep1, og, ng, ga, dga, gn, dgn, kd, inc, dinc, mt, cw, cx;
     uint32_t i, k, wave = L->mode & 3u, flt = (L->mode >> 2) & 3u, ta, tn, tp, kb, inc1, sp, gr = flt == DXF_GR, slen = 0, sinc = 0;
     tsvf_t c;
     uint32_t nf = n, ln = L >= dx_kit && L < dx_kit + 8 ? (uint32_t)(L - dx_kit) : 0u;
@@ -324,6 +339,8 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         int32_t o = clamp(k ? nofs : cofs, -64, 63), *x = &q[k ? DXP_NOISE : DXP_COLOR];
         *x += o > 0 ? o * (127 - *x < 63 ? 127 - *x : 63) / 63 : o * (*x < 64 ? *x : 64) / 64;
     }
+    life_color=q[DXP_COLOR];
+    if(fl.on&&!dx_form[ln])q[DXP_COLOR]=fl_classic_color(life_color);
     if (!ln)                                             /* (V10.6z8, the owner: "the kick sounds like a snare") the
                                                           * KICK's NOISE on a cube: the kit's 40 (V10.6q) or 4..24 (before)
                                                           * as good as none, the body whole; the knob up to 127 still there
@@ -429,6 +446,12 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
         const fvm_prog_t *pg = dx_fprog(ln, wk);
         fvm_env_t en = {{T, W, S, 0, 0}, {0}, v->fst};
+        int32_t rate = clamp(dx_fmod[ln][DFM_RATE], -24, 24);
+        uint32_t rk = rate ? dx_pow2((uint32_t)(rate + 24) * 4096u / 12u) >> 2 : 65536u;
+        uint32_t bend = (uint32_t)clamp(dx_fmod[ln][DFM_BEND], 0, 127);
+        uint32_t crush = (uint32_t)clamp(dx_fmod[ln][DFM_CRUSH], 0, 12);
+        int32_t fe = dx_fm_env(fm), ix = (fe * v->ep) >> 15;
+        int32_t dix = (((fe * ep1) >> 15) - ix) / (int32_t)m;
         en.u[FU_A] = (uint32_t)q[DXP_COLOR];
         en.u[FU_AF] = (uint32_t)q[DXP_COLOR] * 516u;
         en.u[FU_VEL] = v->sv ? v->sv : 127u;
@@ -436,22 +459,39 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
                                                           * t 32 a turn, T the seconds (half-rate samples since the hit) */
             uint32_t p2 = ph + ((uint32_t)inc << 4);
             W[i] = nt << 16 | ph >> 16;
+            if (rate) W[i] = (uint32_t)(((uint64_t)W[i] * rk) >> 16);
+            if (bend) W[i] += (uint32_t)((sine_i(W[i] << 16) * (int32_t)bend) / 64);
+            /* MOD ENV: hit envelope bends the formula phase, leaving its clock intact. */
+            if (ix) W[i] += (uint32_t)((sine_i(ph << 1) * ix) >> 7);
+            ix += dix;
             T[i] = W[i] >> 11;
             S[i] = (uint32_t)(((uint64_t)(sp + i) * 194783u) >> 16);
+            if (rate) S[i] = (uint32_t)(((uint64_t)S[i] * rk) >> 16);
             nt += p2 < ph;
             ph = p2;
             inc += dinc;
         }
-        fvm_run(pg, &en, &wk->s, m, o);
+        if(fl.on)fl_envelope(ea1>>15); /* actual hit decay gates what this formula donates */
+        formula_run(pg, &en, &wk->s, m, o);
         for (i = 0; i < m; i++, ga += dga) {
             int32_t s = ((int32_t)o[i] >> 1) * 3 >> 2;      /* (x 3/4: a formula's wave fuller than the sine the lane's
                                                           * level was made for) */
-            y[i] = mulq15(s > 32767 ? 32767 : s < -32767 ? -32767 : s, ga >> 8);
+            s = clamp(s, -32767, 32767);
+            if (crush) s = (s / (int32_t)(1u << crush)) * (int32_t)(1u << crush);
+            y[i] = mulq15(s, ga >> 8);
         }
         for (; i < n; i++)
             y[i] = 0;
         v->ph = ph;
         v->fturn = nt;
+        if (warp) {
+            int32_t fold = clamp(warp, 0, 127), g = 16 + ((fold * fold * 5) >> 10), c = g * 6144 / (8 + g);
+            for (i=0;i<n;i++) {
+                int32_t z=clamp((y[i]*g)>>4,-5*16384,5*16384);
+                for (uint32_t j=0;j<3;j++) z=z>16384?32768-z:z < -16384?-32768-z:z;
+                y[i]=(z*c)>>12;
+            }
+        }
     } else if (og) {                                     /* the oscillator */
         uint32_t ph = v->ph;
         int32_t fold = clamp(warp, 0, 127);
@@ -585,6 +625,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
     }
     if (nf & 1u)                                         /* (an odd block: its last sample held) */
         y[nf - 1u] = y[nf - 2u];
+    if(fl.on&&!dx_form[ln])fl_classic_capture(life_color,(ea1>en1?ea1:en1)>>15,y,nf);
     v->hl = y[nf - 1u];
     v->ea = ea1;
     v->en = en1;

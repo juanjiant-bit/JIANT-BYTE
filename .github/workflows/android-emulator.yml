@@ -1,0 +1,103 @@
+name: Android offline emulator
+on:
+  push:
+    branches: [codex/byte-identity-generator]
+    paths: ['android/emulator/**', 'web/android/**', '.github/workflows/android-emulator.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Unit tests and APK
+        run: gradle -p android/emulator testDebugUnitTest assembleDebug assembleDebugAndroidTest --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jiant-offline-apk
+          path: android/emulator/app/build/outputs/apk/debug/app-debug.apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Published 0.1 upgrade online, saved flash, then offline engines and rotation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          script: bash android/emulator/ci/upgrade-test.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jiant-offline-test-reports
+          path: |
+            android/emulator/upgrade-reports/
+            android/emulator/screenshots/
+            android/emulator/app/build/reports/
+            android/emulator/app/build/outputs/androidTest-results/
+  publish:
+    needs: apk
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pages: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: source
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: site
+      - uses: actions/download-artifact@v4
+        with:
+          name: jiant-offline-apk
+          path: apk
+      - uses: actions/download-artifact@v4
+        with:
+          name: jiant-offline-test-reports
+          path: reports
+      - name: Publish tested app and immutable engines
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os,json,hashlib,shutil,datetime
+          from pathlib import Path
+          root=Path('site/android');root.mkdir(exist_ok=True)
+          apk=Path('apk/app-debug.apk');data=apk.read_bytes()
+          shutil.copyfile(apk,root/'jiant-offline.apk')
+          shutil.copyfile('source/web/android/index.html',root/'index.html')
+          assets=Path('source/android/emulator/app/src/main/assets')
+          # A shell build must never roll back a newer firmware catalogue.
+          if not (root/'engines.json').exists():
+              shutil.copyfile(assets/'engines.json',root/'engines.json')
+          shutil.copytree(assets/'engines',root/'engines',dirs_exist_ok=True)
+          shots=root/'screenshots';shots.mkdir(exist_ok=True)
+          for p in Path('reports').rglob('*.png'):
+              if p.name in ['byte-public-portrait.png','byte-public-landscape.png']:
+                  shutil.copyfile(p,shots/p.name.replace('byte-public','byte'))
+          (root/'app.json').write_text(json.dumps(dict(version='0.2-beta',version_code=2,commit=os.environ['GITHUB_SHA'],built_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),size=len(data),sha256=hashlib.sha256(data).hexdigest(),workflow_run=os.environ['GITHUB_RUN_ID']),indent=2)+'\n')
+          PY
+          cd site
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add android
+          git commit -m "Publish tested Android Offline ${GITHUB_SHA::7}"
+          git push origin HEAD:gh-pages
+          gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds"

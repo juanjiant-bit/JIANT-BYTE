@@ -665,7 +665,9 @@ static uint32_t trk_nvoice(const track_t *t)
         c = LITE_FM6_POLY;
     if (sys_load == LOAD_ECO && !ENGINES[t->engine]->oneshot && (!c || c > ECO_POLY))
         c = ECO_POLY;
-    return c && c < NVOICE ? c : NVOICE;
+    c = c && c < NVOICE ? c : NVOICE;
+    { uint32_t wanted = (uint32_t)clamp(voice_limit[(uint32_t)(t - trk) % NTRK] ? voice_limit[(uint32_t)(t - trk) % NTRK] : NVOICE, 1, NVOICE); if (wanted < c) c = wanted; }
+    return c;
 }
 
 /* the part's voice mode: P_VOICE, POLY for an engine of hits (engine_t.oneshot: DRUM); (V10.7.33) DRONE allocates as
@@ -939,7 +941,7 @@ static uint32_t load_cost_q8(const track_t *t)          /* a voice more of part 
         uint32_t half = mc_tk[ti] * (HALF_FRAMES / CTL) / nv;
         c = half * 25600u / (HALF_FRAMES * LOAD_FRAME_TICKS);
     } else
-        c = (e == &ENG_LOFI ? 2u : 3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
+        c = (e == &ENG_LOFI ? math_music_cost(t) : t->engine==ENGI_FORM?form_cost(t):3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
     return load_cores2 ? (c * LOAD_SHARE_Q8) >> 8 : c;
 }
 static void load_take(const track_t *t)                 /* a voice added: into the prediction */
@@ -1165,6 +1167,15 @@ static __attribute__((noinline)) int voice_room(track_t *t, int soft)   /* (V10.
     return 1;
 }
 
+/* Kept outside the RAM render routine: fade out retired slots, then skip their DSP entirely. */
+static __attribute__((noinline)) void voice_limit_apply(track_t *t)
+{
+    uint32_t i;
+    for (i=trk_nvoice(t);i<NVOICE;i++) if (t->v[i].active) {
+        t->v[i].sub=0;t->v[i].pn_flags=0;voice_kill(&t->v[i]);
+    }
+}
+
 static voice_t *voice_reuse(track_t *t, voice_t *v)
 {
     if (v->stage == 4u)
@@ -1186,7 +1197,7 @@ static voice_t *voice_alloc(track_t *t, uint32_t note)
     int32_t bd = 0x7FFFFFFF;
     if (t->engine == ENGI_DRUM) {
         voice_t *v = drum_reuse(t, note);
-        if (v)
+        if (v && (uint32_t)(v - t->v) < np)
             return voice_reuse(t, v);
     }
     for (i = 0; i < np; i++) {
@@ -1223,7 +1234,7 @@ static voice_t *voice_alloc(track_t *t, uint32_t note)
                                                          * for it (its own first, in place), the count stays */
             k = load_victim(t, &vp);
             if (k < NVOICE) {
-                if (vp == t)
+                if (vp == t && k < np)
                     return &t->v[k];
                 voice_kill(&vp->v[k]);
                 load_steals++;
@@ -1621,6 +1632,7 @@ static volatile uint8_t asleep_hit;                     /* (0.6.28) a note went 
                                                          * silenced track's voices end, it costs nothing) */
 static void trk_note_on(track_t *t, uint32_t note, uint32_t vel)
 {
+    if(func_song(t)&&!t->dr_seq)return; /* SONG has one transport-owned voice. */
     uint32_t any = 0, i, mode = trk_vmode(t);
     if ((uint32_t)(t - trk) >= trk_live && !t->p[P_MUTE]) {
         asleep_hit = 1;                                 /* (0.6.28) a note for a track asleep: the UI says so */
@@ -1680,6 +1692,7 @@ static void trk_note_on(track_t *t, uint32_t note, uint32_t vel)
 
 static void trk_note_off(track_t *t, uint32_t note)
 {
+    if(func_song(t)&&!t->dr_seq)return;
     uint32_t i, k = 0, mode = trk_vmode(t);
     for (i = 0; i < t->xp_n; i++)                       /* not sounding yet (engine switch): forget it */
         if (t->xp_note[i] != note) {
@@ -2088,10 +2101,8 @@ static uint32_t voice_block(track_t *t, const engine_t *e, voice_t *v, int32_t *
     if (v->vel > 110)                               /* accent opens the filter with the env */
         m.cutoff += (m.envq15 * 24) >> 7;
     m.shape = (64 << 8) + ((c->lfo * p[P_LD_SHP]) >> 7) + ((m.envq15 * p[P_ED_SHP]) >> 7);
-    if (MOD.on == 1u)                               /* the modulation matrix (mod.c; 2: LIFE's sends alone) */
+    if (MOD.on == 1u)                               /* the modulation matrix (mod.c) */
         mod_voice(t, v, &m, fsum);
-    if (c->lv | c->lcut | c->lfine)                     /* (V10.7.34) LIFE: the voice's own, the other tracks' (life.c) */
-        life_voice(c->ti * NVOICE + (uint32_t)(v - t->v), v, &m, &c->lv, !off);
     m.cutoff += fn_voice(t, v->pitch16, c->ti);     /* (filters2) FILTER 2 */
     vo_off_c[MC_CPU() & 1u] = (uint8_t)off;
     {
@@ -2103,11 +2114,13 @@ static uint32_t voice_block(track_t *t, const engine_t *e, voice_t *v, int32_t *
             pn = VP[vi & 7u] * c->img / 127;
             memcpy(vb, out + off, n * sizeof *out);
         }
+        if(fl.on)fl_bind(t,v,(uint32_t)c->lv);
         vi += c->ti * NVOICE;
         if (VH_ST(vh_c[vi]) && e->half && !off)         /* (codex/voices) at half the rate */
             voice_half(t, e, v, out, n, &m, vi);
         else
             e->render(t, v, out + off, n, &m);
+        if(fl.on)fl_unbind();
         if (img) {
             int32_t g = pn > 0 ? pn : -pn, *sd = (pn > 0 ? dx_sl : dx_sr) + off;
             for (j = 0; j < n; j++)
@@ -2146,7 +2159,7 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     bend16 = bend >= 0 ? bend / 16 : -((-bend + 15) / 16);
     bend_fine = (bend - bend16 * 16) * 2367 / 2560;
     uint32_t nr = 0, fade = t->xf_on && t->xf, snap = fade && xf_snap_t == ti;
-    int32_t damt, lpt = 0;
+    int32_t damt;
     int16_t pe_new[8], p_new[P_COUNT];
     for (i = 0; i < n; i++)
         out[i] = 0;
@@ -2175,15 +2188,19 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     if (damt)
         drift_clk[ti]++;
     {
+        void (*limit)(track_t *) = voice_limit_apply;
+        FM1_OPAQUE(limit); limit(t);
+    }
+    {
         vctx_t c;
         c.lfo = lfo; c.tune = tune; c.tune_fine = tune_fine; c.bend16 = bend16; c.bend_fine = bend_fine;
         c.damt = damt; c.ti = ti; c.fade = fade; c.img = syn_img[ti];
         c.lv = c.lcut = c.lfine = 0;
-        if (life_v[LIFE_AMT]) {                          /* (V10.7.34) LIFE (life.c), through a register: track_render is
+        if (fl.on) {                          /* (V10.7.34) LIFE (life.c), through a register: track_render is
                                                          * the RAM copy's too (mix_part_m0), life.c past its direct reach */
             int32_t (*f)(uint32_t, int32_t *) = life_ctx;
             FM1_OPAQUE(f);
-            lpt = f(ti, &c.lv);
+            (void)f(ti, &c.lv);
         }
         for (i = 0; i < NVOICE; i++) {
             voice_t *v = &t->v[i];
@@ -2226,12 +2243,6 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     }
     if (e == &ENG_EXT_GONE)                                /* (V10.54) INPUT, PLAY THRU: the input (eng_input.c) */
         nr += AIN_THRU(t, out, n);                     /* (through a pointer: track_render runs from RAM too) */
-    if (nr && e != &ENG_LOFI && e != &ENG_WAVE && (life.pg[ti] || (lpt && life.pa[ti]))) {   /* (V10.7.34) LIFE's cross-FM
-                                                         * (JIANT BYTE: TALK; the formulas hear it inside: life_talk) */
-        void (*f)(uint32_t, int32_t *, uint32_t, int32_t) = life_pm;
-        FM1_OPAQUE(f);
-        f(ti, out, n, lpt);
-    }
     if (nr && e == &ENG_DRUM)                           /* (0.6.16) DRUM-X: DRV and the knee on the kit's sum */
         drum_bus(t, out, n);
     if (nr && (t->p[P_FTYPE] || t->p[P_FCUT] < 127 || t->p[P_FRES] || tf_on[(uint32_t)(t - trk) % NTRK] ||

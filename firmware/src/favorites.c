@@ -6,6 +6,7 @@
 typedef struct {
     uint8_t factory[16][32]; /* engine 0..15, preset 0..255 */
     uint32_t user, filter;
+    uint8_t form[32]; /* appended after the legacy PER4 fields */
 } favorites_t;
 static favorites_t favorites;
 /* (0.9.9-snd5) the stars of GRAIN's and SLICE's numbers (retired) cleared once: they are STRING's and ADD's now (ui.c
@@ -22,19 +23,20 @@ static int favorite_has(uint32_t engine, uint32_t preset)
 {
     if (engine == NENGINES)
         return preset < UP_SLOTS && ((favorites.user >> preset) & 1u);
+    if(engine==ENGI_FORM)return preset<256u&&((favorites.form[preset/8u]>>(preset%8u))&1u);
     return engine < NENGINES && engine < 16u && preset < 256u &&
         ((favorites.factory[engine][preset / 8u] >> (preset % 8u)) & 1u);
 }
 static int favorite_set(uint32_t engine, uint32_t preset, int on)
 {
-    if (engine > NENGINES || (engine == NENGINES ? preset >= UP_SLOTS : engine >= 16u || preset >= 256u))
+    if (engine > NENGINES || (engine == NENGINES ? preset >= UP_SLOTS : engine >= NENGINES || preset >= 256u))
         return 0;
     if (favorite_has(engine, preset) == !!on) return 0;
     if (engine == NENGINES) {
         if (on) favorites.user |= 1u << preset;
         else favorites.user &= ~(1u << preset);
     } else {
-        uint8_t *b = &favorites.factory[engine][preset / 8u];
+        uint8_t *b = engine==ENGI_FORM?&favorites.form[preset/8u]:&favorites.factory[engine][preset / 8u];
         if (on) *b |= (uint8_t)(1u << (preset % 8u));
         else *b &= (uint8_t)~(1u << (preset % 8u));
     }

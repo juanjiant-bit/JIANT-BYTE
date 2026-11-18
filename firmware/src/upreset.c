@@ -461,7 +461,7 @@ static int up_load(uint32_t k)
         fm1_irq_off();                                  /* the audio ISR must not see half a sound */
         t->eng_req = r->engine;
         for (i = 0; i < P_COUNT; i++)
-            if (!param_kept(i))
+            if (!param_kept(i) || (r->engine==ENGI_FORM&&form_owned_param(i)))
                 t->p[i] = v[i];
         t->preset = 0;
         fm1_irq_on();
@@ -559,6 +559,7 @@ static void up_ui_named(uint32_t op, uint32_t k, const char *name)   /* 0 load, 
 {
     char l[4];
     int rc;
+    if(op==2u && TSEL->eng_req==ENGI_LOFI && TSEL->p[P_E1]==RW_FUNC){ui_message("FUNC: SAVE THE PROJECT");return;}
     up_slot_label(l, k);
     if ((op < 2u || op == 3u) && !up_used(k)) {
         ui_message("EMPTY SLOT");

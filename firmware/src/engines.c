@@ -5,9 +5,12 @@
  * factory patterns (SEQ > PATTERNS) and the parts' sounds at power-on. */
 #include "dsp.c"
 #include "fvm.c"             /* (JIANT BYTE) the formula machine (fvm_bank.c: the factory formulas, phase 2) */
+#include "formula_life.c"
+#include "formula_perf.c"
 #include "fvm_gen.c"         /* (JIANT BYTE) the equations' generator (MATH's USER) */
 #include "filt.c"            /* (JIANT BYTE) the filter TYPEs (ANALOG retired) */
 #include "eng_lofi.c"
+#include "eng_form.c"
 #include "eng_wave.c"            /* (JIANT BYTE) WAVE: a parametric wavetable of formulas (engine 13, ADD's) */
 #include "eng_formant.c"
 #include "eng_drum.c"           /* DRUM: the 8-lane DRUM-X kit (drumx_voice.c) */
@@ -73,11 +76,12 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_WAVE,                   /* 13: (JIANT BYTE) WAVE (eng_wave.c), in the retired ADD's number */
     &ENG_LOFI,                   /* 14: (JIANT BYTE) ANIMAL retired: plays as MATH */
     &ENG_LOFI,                   /* 15: (JIANT BYTE) INPUT (EXT, SWARM) retired: plays as MATH */
+    &ENG_FORM,                   /* 16: FORM, a distinct procedural composition engine */
 };
 
 /* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
  * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
-static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3};   /* (13: WAVE) */
+static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 16};   /* (13: WAVE) */
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
 static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 0u]; }
 
@@ -88,6 +92,7 @@ static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 
  * LOFI ANALOG FM6); 0.9.8's ANALOG FM6 PHASE LOFI VOICE WHEEL NOISE (WEST now) DRUM ANIMAL is what PROGRAM CHANGE keeps
  * (ENGINE_PC_ORDER) */
 static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
+    ENGI_FORM,                   /* FORM: primary composition engine */
     ENGI_DRUM,                   /* DRUM (DRUM-X, its formula lanes) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE */
     ENGI_LOFI,                   /* MATH (BYTE FLOAT) */
@@ -105,6 +110,7 @@ static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
 #endif
     ENGI_LOFI, ENGI_DRUM,        /* (JIANT BYTE: every engine of JIANT FM's out but DRUM-X; MATH's place kept first) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE: after the rest */
+    ENGI_FORM,
 };
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them
@@ -187,10 +193,10 @@ static const struct {
 #define TRK_PR_FM6 2u            /* FM BASS (eng_fm6.c); was 0 TINE EP */
 #define TRK_PR_VOICE 5u          /* CHANT (eng_formant.c); was 0 CHOIR AAH */
 #define TRK_PR_ANIMAL 24u        /* WHISTLE (eng_animal.c) */
-/* (JIANT BYTE) every part a formula's: T1 DRUM-X's ACOUSTIC kit, T2 WAVE's SUB BASS, T3 MATH KEYS (FLOAT), T4 WAVE's FM
- * KEYS, T5 WAVE's SAW PAD, T6 MATH's BYTEBEAT */
-static const uint8_t TRK_DEF[NPART][3] = {{ENGI_DRUM, TRK_PR_DRUM, 0}, {ENGI_WAVE, 4, 0}, {ENGI_LOFI, 3, 0},
-                                          {ENGI_WAVE, 1, 0}, {ENGI_WAVE, 2, 0}, {ENGI_LOFI, 0, 0}};
+/* Fresh projects start with FORM's composition, then DRUM-X, WAVE and MATH.
+ * Persisted projects and MIDI program numbering retain their existing IDs. */
+static const uint8_t TRK_DEF[NPART][3] = {{ENGI_FORM, 0, 0}, {ENGI_DRUM, TRK_PR_DRUM, 0}, {ENGI_WAVE, 4, 0},
+                                          {ENGI_LOFI, 3, 0}, {ENGI_WAVE, 2, 0}, {ENGI_LOFI, 0, 0}};
 /* (V10.7.11, the owner's choice) ACOUSTIC, ANALOG PLUCK, PHASE INIT SAW, FM BASS, CHANT, WHISTLE (was FAT BASS,
  * GLASS PAD, TINE EP, CHOIR AAH) */
 /* the parts at power-on through 0.9.8 (the same columns): what an old project's tracks it had no room for load as
@@ -203,45 +209,59 @@ static uint32_t trk_def_engine(uint32_t i) { return TRK_DEF[i % NPART][0]; }
 
 /* (JIANT BYTE) MATH's USER parts, in the main loop (project.c math_poll: the project scratch its work space): a part's
  * text (lyr_txt: the project keeps it) or, without one, the formula ALGO's seed and CAOS's third invent (fvm_gen.c);
- * a new one when either moves. The text, its type, then its version: the audio compiles it then (eng_lofi.c lofi_prog) */
+ * a new one when either moves. Compile and validate here; publish complete bytecode for audio (eng_lofi.c lofi_prog) */
 static int16_t math_seed[NTRK] = {-1, -1, -1, -1, -1, -1};
-static uint8_t math_band[NTRK], math_hash[NTRK], math_var[NTRK];
+static uint8_t math_band[NTRK], math_var[NTRK];
+static uint32_t math_hash[NTRK];
+#ifndef MATH_PUBLISH_LOCK
+#define MATH_PUBLISH_LOCK() ((void)0)
+#define MATH_PUBLISH_UNLOCK() ((void)0)
+#endif
 static void math_poll_ws(gq_work_t *w)
 {
-    uint32_t tr;
-    for (tr = 0; tr < NTRK; tr++) {
-        const track_t *t = &trk[tr];
-        const char *lt = lyr_txt[tr];
-        uint32_t seed, band, h = 0, k, var;
-        if (eng_idx(t->eng_req) != ENGI_LOFI || t->p[P_E1] != RW_USER)
-            continue;
-        seed = (uint32_t)clamp(t->p[P_E2], 0, 191);
-        band = (uint32_t)clamp(t->p[P_CAOS], 0, 127) / 43u;   /* (tonal, classic, wild: a new formula when it changes) */
-        for (k = 0; lt[k] && k < 63u; k++)
-            h = (h * 31u + (uint8_t)lt[k]) & 255u;
-        var = (uint32_t)clamp(t->p[P_E3], 0, 127);    /* (phase 9) VAR: the formula mutated / crossed (fvm_move) */
-        if (math_seed[tr] == (int16_t)seed && math_band[tr] == band && math_hash[tr] == (uint8_t)(h | (lt[0] != 0)) &&
-            math_var[tr] == var)
-            continue;
-        if (lt[0]) {                                     /* the part's own text */
-            uint32_t n = 0;
-            fvm_err_t e;
-            while (lt[n] && n < 63u) { math_txt[tr][n] = lt[n]; n++; }
-            math_txt[tr][n] = 0;
-            math_ty[tr] = fvm_compile(&w->cc, FVM_FULL(&w->pg), math_txt[tr], n, &e) ? FT_INT : w->pg.p.ty;
-        } else {
-            static const uint8_t BAND_C[3] = {20, 64, 106};
-            fvm_invent(w, math_txt[tr], seed, BAND_C[band]);
-            math_ty[tr] = w->pg.p.ty;
-        }
-        if (var && fvm_move(w, math_txt[tr], seed, var))
-            math_ty[tr] = w->pg.p.ty;
-        math_var[tr] = (uint8_t)var;
-        math_seed[tr] = (int16_t)seed;
-        math_band[tr] = (uint8_t)band;
-        math_hash[tr] = (uint8_t)(h | (lt[0] != 0));
-        math_ver[tr]++;                                  /* (last: the audio compiles it from here) */
+    static uint8_t cursor;
+    static uint32_t auto_ms[NTRK],budget_ms;
+    uint32_t used=0;
+    for(uint32_t offset=0;offset<NTRK;offset++){
+        uint32_t tr=(cursor+offset)%NTRK;
+        track_t*t=&trk[tr];const char*lt=lyr_txt[tr];
+        uint32_t seed,band,h=0,k,var,request=math_request[tr],func=t->p[P_E1]==RW_FUNC;char text[256];
+        if(eng_idx(t->eng_req)!=ENGI_LOFI||(t->p[P_E1]!=RW_USER&&!func))continue;
+        if(func){if(t->p[P_E0]<4){t->p[P_E0]=5;t->p[P_SUS]=127;}lt=math_func_text(t,lt);}
+        if(!func&&math_is_func(lt))lt=""; /* keep FUNC text, generate a normal USER program */
+        seed=(uint32_t)clamp(t->p[P_E2],0,191);var=(uint32_t)clamp(t->p[P_E3],0,127);
+        /* A route removal is restored on the next UI frame; pending values are
+         * coalesced, not queued. The saved parameters/text are never rewritten. */
+        uint32_t routed=0;
+        for(k=0;k<4u;k++)if(t->p[P_M1SRC+k*3u]&&t->p[P_M1AMT+k*3u]&&
+            (t->p[P_M1DST+k*3u]==PD_E1+2||t->p[P_M1DST+k*3u]==PD_E1+3))routed=1;
+        if(!routed||math_request_base[tr]!=(seed|(var<<8)))request=0;
+        if(request&0x80000000u){seed=request&255u;var=(request>>8)&127u;}
+        if(func){seed=var=request=0;}
+        band=(uint32_t)clamp(t->p[P_CAOS],0,127)/43u;
+        if(func)band=255;
+        for(k=0;lt[k]&&k<255u;k++)h=h*31u+(uint8_t)lt[k];
+        if(math_seed[tr]==(int16_t)seed&&math_band[tr]==band&&math_hash[tr]==(h|(lt[0]!=0))&&math_var[tr]==var&&(lofi_prg_id[tr]&0x400u))continue;
+        if((request&0x80000000u)&&(lofi_prg_id[tr]&0x400u)&&
+            (used||(uint32_t)(fm1_ms-auto_ms[tr])<32u||(uint32_t)(fm1_ms-budget_ms)<16u))continue;
+        if(lt[0]){for(k=0;lt[k]&&k<(func?255u:63u);k++)text[k]=lt[k];text[k]=0;}
+        else{static const uint8_t BAND_C[3]={20,64,106};fvm_invent(w,text,seed,BAND_C[band]);}
+        if(var)fvm_move(w,text,seed,var);
+        for(k=0;text[k]&&k<255u;k++);
+        if(fvm_compile(&w->cc,FVM_FULL(&w->pg),text,k,0)||w->pg.p.nstate>LOFI_NSTATE)continue;
+        /* Publish complete validated bytecode in a short critical section. No
+         * generator/compiler or dynamic allocation runs in the audio callback. */
+        MATH_PUBLISH_LOCK();
+        fvm_prog_t*destination=lofi_slot(tr);fvm_ins_t*instructions=destination->ins;
+        memcpy(instructions,w->pg.ins,w->pg.p.n*sizeof *instructions);
+        *destination=w->pg.p;destination->ins=instructions;destination->cap=FVM_MAXINS;
+        uint32_t copy=k<63u?k:63u;memcpy(math_txt[tr],text,copy);math_txt[tr][copy]=0;math_ty[tr]=destination->ty;
+        math_var[tr]=(uint8_t)var;math_seed[tr]=(int16_t)seed;math_band[tr]=(uint8_t)band;math_hash[tr]=(h|(lt[0]!=0));
+        math_ver[tr]++;lofi_prg_id[tr]=(uint16_t)(0x400u|math_ver[tr]);
+        MATH_PUBLISH_UNLOCK();
+        if(request&0x80000000u){used=1;auto_ms[tr]=budget_ms=fm1_ms;}
     }
+    cursor=(uint8_t)((cursor+1u)%NTRK); /* fair coalescing: <=31 rebuilds/s per track, <=62/s total */
 }
 
 static void math_poll(void);                            /* (JIANT BYTE: project.c, the main loop calls it: ui_input.c) */

@@ -111,8 +111,10 @@ static void graph_voice_lz(const track_t *t, const page_t *pg)
     int32_t glide = t->p[P_GLIDE], py = 0, x;
     const char *u = "";
     char b[40];
-    fmt_int(b, (int32_t)nv);
-    str_cpy(b + str_len(b), nv == 1u ? " VOICE" : " VOICES", 40 - str_len(b));
+    uint32_t active = 0;
+    for (i = 0; i < NVOICE; i++) active += t->v[i].active && t->v[i].stage != 4u;
+    fmt_int(b, (int32_t)active); str_cpy(b + str_len(b), " ACTIVE / ", 40 - str_len(b));
+    fmt_int(b + str_len(b), (int32_t)nv); str_cpy(b + str_len(b), " MAX", 40 - str_len(b));
     ed_cap(10, 6, b, T_TEXT);
     for (i = 0; i < NVOICE; i++) {
         int32_t y = 17 + (int32_t)i * 9, lv = 0;
@@ -184,11 +186,85 @@ static void graph_focus_lz(const track_t *t)
             cv_clip_text(x + 2, 121 - AF_X_CAP_Y, &AF_X, di->label, i == k ? T_INK : T_TEXT, bg, 23);
     }
 }
+/* FORM visual language: equations, event masks, arrangement and harmony, not a repeated preset list. */
+static void form_cap(int32_t x,int32_t y,const char*s,uint16_t c){cv_text_on(x,y-AF_S_CAP_Y,&AF_S,s,c,T_BG);}
+static void form_num(int32_t x,int32_t y,int32_t n,const char*s,uint16_t c){char b[24];fmt_int(b,n);str_cpy(b+str_len(b),s,sizeof b-str_len(b));form_cap(x,y,b,c);}
+static uint32_t form_view_clock(const track_t*t){
+ if(func_song(t))return func_clock_begin;
+ for(uint32_t i=0;i<NVOICE;i++)if(t->v[i].active)return (uint32_t)(((uint64_t)t->v[i].ph[0]<<16)/((uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300)));
+ return 0;
+}
+static void form_wave_trace(uint32_t state,int32_t color,int32_t x,int32_t y,int32_t w,int32_t h,uint16_t ink){
+ int32_t py=y;cv_rect(x,y+h/2,w,1,T_LINE);
+ for(int32_t i=0;i<w;i+=2){int32_t v=form_wave(state,(uint32_t)i,0x100000000ull/(uint32_t)w,0,color,0);int32_t yy=y+h/2-v*(h/2-1)/32768;if(i)cv_line_t(x+i-2,py,x+i,yy,ink,1);py=yy;}
+}
+static void form_state_card(const track_t*t,uint32_t state,int32_t y,uint16_t ink){
+ uint32_t mode=(uint32_t)clamp(t->p[P_CAOS],0,4),dom=mode?mode:FORM_STATE[state].domain;
+ cv_rect(6,y,3,32,ink);form_cap(14,y+1,FORM_NAMES[state],T_TEXT);form_cap(14,y+17,FORM_DOMAIN[dom],ink);
+ form_wave_trace(state,clamp(t->p[P_E3]+FORM_STATE[state].color-64,0,127),164,y,68,31,ink);
+}
+static __attribute__((noinline)) void form_states_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m){
+ form_state_card(t,a,3,T_ACCENT);form_state_card(t,b,42,T_THEME);
+ form_cap(8,84,"A",T_ACCENT);form_cap(224,84,"B",T_THEME);
+ for(int32_t i=0;i<26;i++)cv_rect(26+i*7,84,5,10,ux_mix(T_ACCENT,T_THEME,i*4));
+ int32_t pos=26+(int32_t)m*180/127;cv_rect(pos,80,3,18,T_TEXT);
+ form_num(8,107,(127-(int32_t)m)*100/127,"% A",T_ACCENT);form_num(179,107,(int32_t)m*100/127,"% B",T_THEME);
+ form_cap(8,127,t->p[P_LRTRG]?"PLAY: COMPOSITION":"HOLD KEY: COMPOSITION",T_DIM);
+}
+static __attribute__((noinline)) void form_rules_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m,uint32_t clock){
+ static const char*const lanes[]={"KICK","SNARE","HAT"};
+ uint32_t cyc=clock/((uint32_t)clamp(t->p[P_SLEN],1,64)<<16),seed=(uint32_t)t->p[P_E6],groove=(uint32_t)t->p[P_E4];
+ form_cap(8,4,"PERCUSSION / ONE BAR",T_TEXT);
+ for(uint32_t lane=0;lane<3;lane++){
+  uint32_t ma=lane==0?FORM_STATE[a].kick:lane==1?FORM_STATE[a].snare:FORM_STATE[a].hat;
+  uint32_t mb=lane==0?FORM_STATE[b].kick:lane==1?FORM_STATE[b].snare:FORM_STATE[b].hat;
+  ma=form_pattern(ma,groove,seed,cyc);mb=form_pattern(mb,groove,seed,cyc);form_cap(8,27+(int32_t)lane*20,lanes[lane],T_DIM);
+  for(uint32_t j=0;j<16;j++){int32_t amp=0,age=form_event(ma,mb,j,0,m,(uint32_t)t->p[P_E5],seed+lane*19u,&amp);if(age)amp=0;cv_rect(64+(int32_t)j*10,24+(int32_t)lane*20,8,12,amp?ux_mix(T_RAISE,T_THEME,20+amp*80/32767):T_RAISE);}
+ }
+ form_cap(8,90,"SECTION ENTRIES",T_TEXT);
+ for(uint32_t j=0;j<8;j++){int32_t q=form_mix(form_section(a,j<<13,2,(uint32_t)t->p[P_E7]),form_section(b,j<<13,2,(uint32_t)t->p[P_E7]),m);cv_rect(8+(int32_t)j*28,105,24,9,ux_mix(T_RAISE,T_ACCENT,q*100/32767));}
+ form_cap(8,127,"SEED SHIFTS / EVOLVE ARRANGES",T_DIM);
+}
+static __attribute__((noinline)) void form_clock_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m,uint32_t clock){
+ static const char*const layers[]={"MELODY","HARMONY","DRUMS"};uint32_t cycle=(uint32_t)clamp(t->p[P_SLEN],1,64),part=(clock%(cycle<<16))*8u/(cycle<<16);
+ form_cap(8,4,t->p[P_LRTRG]?"SONG / PLAY TRANSPORT":"NOTE / KEY TRANSPORT",T_TEXT);
+ form_num(8,22,(int32_t)cycle," BEATS",T_ACCENT);char div[24]="DIV ";const char*unit="";param_format(track_desc(t,P_SDIV),t->p[P_SDIV],div+4,&unit);str_cpy(div+str_len(div),unit,sizeof div-str_len(div));form_cap(118,22,div,T_DIM);
+ for(uint32_t layer=0;layer<3;layer++){form_cap(8,43+(int32_t)layer*17,layers[layer],T_DIM);for(uint32_t j=0;j<8;j++){int32_t q=form_mix(form_section(a,j<<13,layer,(uint32_t)t->p[P_E7]),form_section(b,j<<13,layer,(uint32_t)t->p[P_E7]),m);cv_rect(72+(int32_t)j*20,40+(int32_t)layer*17,17,10,ux_mix(T_RAISE,layer==2?T_ACCENT:T_THEME,q*100/32767));} }
+ cv_rect(72+(int32_t)part*20,36,17,2,T_TEXT);
+ form_cap(8,99,"SWING",T_TEXT);cv_rect(63,104,166,1,T_LINE);for(uint32_t j=0;j<8;j++){int32_t x=64+(int32_t)j*20+(j&1u?t->p[P_SSWING]*9/100:0);cv_rect(x,98,3,j&1u?8:14,j&1u?T_THEME:T_ACCENT);}
+ form_cap(8,127,"DIV: SPEED / CYCLE: FORM LENGTH",T_DIM);
+}
+static __attribute__((noinline)) void form_notes_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m,uint32_t clock){
+ uint32_t cycle=(uint32_t)clamp(t->p[P_SLEN],1,64),cyc=clock/(cycle<<16),section=(clock%(cycle<<16))/cycle>>13,seed=(uint32_t)clamp(t->p[P_E6],0,127),ev=(uint32_t)clamp(t->p[P_E7],0,127);
+ uint32_t mutation=((fvm_hash(seed+cyc*37u+section*7u)>>(28u-ev/43u))&7u)*ev/127u;
+ int32_t root=48+t->p[P_ROOT],rr=form_mix((int32_t)form_char(FORM_STATE[a].roots,section/2),(int32_t)form_char(FORM_STATE[b].roots,section/2),m),prev=0;
+ form_cap(8,4,"MELODY / SCALE-LOCKED MOTIF",T_TEXT);
+ cv_rect(8,61,224,1,T_LINE);
+ for(uint32_t i=0;i<16;i++){uint32_t ix=i+seed+mutation;int32_t nn=form_mix((int32_t)form_char(FORM_STATE[a].melody,ix),(int32_t)form_char(FORM_STATE[b].melody,ix),m),note=scale_snap(t,root+12+nn),y=61-clamp(note-root-12,0,36);if(i)cv_line_t(10+(int32_t)(i-1)*14,prev,10+(int32_t)i*14,y,T_DIM,1);cv_rect(8+(int32_t)i*14,y-2,6,5,T_THEME);prev=y;}
+ form_cap(8,75,"HARMONY / VOICING",T_TEXT);
+ int32_t chord=clamp(t->p[P_CHRD],0,11),third=chord==4?2:chord==5||chord==11?5:chord==6||chord==8||chord==9?4:3,top=chord==2||chord==8||chord==10?10:chord==9?11:chord==3?14:12,ints[]={0,third,7,top};uint32_t na=FORM_STATE[a].voices>1?(t->p[P_CHRD]?FORM_STATE[a].voices:1u):0u,nb=FORM_STATE[b].voices>1?(t->p[P_CHRD]?FORM_STATE[b].voices:1u):0u,count=m==0?na:m==127?nb:na>nb?na:nb;if(!count)form_cap(8,99,"NO CHORD LAYER IN THIS PAIR",T_DIM);
+ for(uint32_t k=0;k<count;k++){int32_t shift=t->p[P_CVOI]==2?(k&1u?12:0):t->p[P_CVOI]==3&&k==0?-12:t->p[P_CVOI]==1&&(section&1u)&&k==3?-12:0;uint32_t note=(uint32_t)clamp(scale_snap(t,root+rr+ints[k]+shift),24,96);char name[8];note_name(name,note);cv_rect(8+(int32_t)k*56,94,50,18,T_RAISE);form_cap(14+(int32_t)k*56,99,name,ux_mix(T_DIM,T_ACCENT,(int32_t)((k<na?127u-m:0u)+(k<nb?m:0u))*100/127));}
+ form_cap(8,127,"MELODY + HARMONY FOLLOW SCALE",T_DIM);
+}
+static __attribute__((noinline)) void form_layers_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m){
+ uint32_t mode=(uint32_t)clamp(t->p[P_CAOS],0,4),da=mode?mode:FORM_STATE[a].domain,db=mode?mode:FORM_STATE[b].domain;
+ form_cap(8,4,"MATHEMATICAL SOURCES",T_TEXT);form_cap(8,24,"A",T_ACCENT);form_cap(26,24,FORM_DOMAIN[da],T_ACCENT);form_cap(132,24,"B",T_THEME);form_cap(150,24,FORM_DOMAIN[db],T_THEME);
+ cv_line_t(25,39,105,51,T_ACCENT,1);cv_line_t(205,39,135,51,T_THEME,1);form_cap(109,49,"MIX",T_TEXT);
+ static const char*const labs[]={"PERCUSSION","DETUNE","ECHO SEND"};int32_t val[3]={t->p[P_KEY],t->p[P_DETUNE],t->p[P_DLY]};uint32_t hasdrums=(m<127&&(FORM_STATE[a].kick|FORM_STATE[a].snare|FORM_STATE[a].hat))||(m>0&&(FORM_STATE[b].kick|FORM_STATE[b].snare|FORM_STATE[b].hat));
+ for(uint32_t i=0;i<3;i++){int32_t y=72+(int32_t)i*17;form_cap(8,y,labs[i],T_DIM);cv_rect(92,y,140,9,T_RAISE);int32_t v=i==0&&!hasdrums?0:clamp(val[i],0,127);cv_rect(92,y,v*140/127,9,i==0?T_ACCENT:T_THEME);}
+ form_cap(8,127,hasdrums?"ECHO USES THE TRACK DELAY BUS":"NO DRUM PATTERN IN THIS PAIR",T_DIM);(void)m;
+}
+static __attribute__((noinline)) void graph_form_lz(const track_t*t){
+ uint32_t a=(uint32_t)clamp(t->p[P_E0],0,21),b=(uint32_t)clamp(t->p[P_E1],0,21),m=(uint32_t)clamp(t->p[P_E2],0,127),clock=form_view_clock(t),id=cur_page()->id[0];
+ if(id==P_E4)form_rules_panel(t,a,b,m,clock);else if(id==P_LRTRG)form_clock_panel(t,a,b,m,clock);else if(id==P_ROOT)form_notes_panel(t,a,b,m,clock);else if(id==P_CAOS)form_layers_panel(t,a,b,m);else form_states_panel(t,a,b,m);
+}
 /* the lens's panel for EDIT's page pg (1), else 0 (its own) */
 static int graph_edit_lz(const track_t *t, const page_t *pg)
 {
     uint32_t e = trk_eng(t);
-    if ((pg->scope == SC_ENGINE && e != ENGI_DRUM && !(FELUCCA_FM4 && e == ENGI_DIGITAL)) || pg->graph == GR_SWARM)
+    if(e==ENGI_FORM&&(pg->scope==SC_ENGINE||pg->scope==SC_FORM))
+        graph_form_lz(t);
+    else if ((pg->scope == SC_ENGINE && e != ENGI_DRUM && !(FELUCCA_FM4 && e == ENGI_DIGITAL)) || pg->graph == GR_SWARM)
         graph_sound_lz(t);
     else if (pg->id[0] == P_FTYPE)
         graph_filter_lz(t, pg);

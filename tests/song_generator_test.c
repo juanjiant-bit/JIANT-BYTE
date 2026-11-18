@@ -12,6 +12,7 @@ static void make_song(unsigned genre, unsigned seed)
     gp.genre = genre; gp.seed = seed; gp.energy = 60; gp.form = 2;
     gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
     for (unsigned k = 0; k < GP_N; ++k) gp.amt[k] = GA_AUTO;
+    life_v[LIFE_AMT] = 100;
     gen_go();
 }
 
@@ -25,6 +26,7 @@ int main(void)
         ok = live.mode && chain_config.count >= 4 && dice_secs == 15;
         for (unsigned s = 0; s < 4; ++s) {
             ok &= proj_import(&proj_scratch, &proj_slot[s], sizeof(project_store_t));
+            ok &= proj_scratch.life[LIFE_AMT] + life_def(LIFE_AMT) == 0;
             h[s] = 2166136261u;
             for (unsigned t = 0; t < NTRK; ++t)
                 h[s] = (h[s] ^ proj_hash(proj_scratch.t[t].step, sizeof proj_scratch.t[t].step) ^

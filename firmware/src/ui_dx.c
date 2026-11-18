@@ -72,6 +72,22 @@ static __attribute__((noinline)) void dx_knob(const page_t *pg, uint32_t k, int3
         dx_lane_turn(s);
         return;
     }
+    if (pn == 9u) {                                     /* FORMULA: lane, formula, A/B, variable A */
+        if (k == 1u) {
+            uint32_t ln = dx_ui_lane & 7u;
+            int32_t f = dx_form[ln] == DX_USER ? DX_NFORM + 1u : dx_form[ln];
+            f = clamp(f + (s > 0 ? 1 : -1), 0, DX_NFORM + (dx_text[ln][0] != 0));
+            dx_form[ln] = f > (int32_t)DX_NFORM ? DX_USER : (uint8_t)f;
+        }
+        else if (k == 2u) dx_ui_side = s > 0;
+        else v[DXP_COLOR] = (uint8_t)clamp(v[DXP_COLOR] + accel(EN_K1 + k, s, 127), 0, 127);
+        return;
+    }
+    if (pn == 10u) {                                    /* FORM MOD: the lane's clock, phase bend and resolution */
+        int8_t *m = &dx_fmod[dx_ui_lane & 7u][k - 1u];
+        *m = (int8_t)clamp(*m + (s > 0 ? 1 : -1), k == 1u ? -24 : 0, k == 1u ? 24 : k == 2u ? 127 : 12);
+        return;
+    }
     if (pn == 8u) {                                     /* SOUND 4: LAYER, FEEDBK, SEND */
         uint8_t *ly = &dx_lay[dx_ui_lane & 7u];
         int32_t la = (int32_t)DX_LAY_L(*ly), fb = (int32_t)DX_LAY_FB(*ly);
@@ -84,7 +100,7 @@ static __attribute__((noinline)) void dx_knob(const page_t *pg, uint32_t k, int3
     if (pn == 3u) {                                     /* SOUND 3: MODE, the pitch modulation's type, DRIVE */
         if (k == 1u) {                              /* MODE: the 32 of DRUM-X, then (JIANT BYTE) its formulas (dx_form) */
             uint32_t ln = dx_ui_lane & 7u;
-            int32_t ix = dx_form[ln] ? 31 + (int32_t)dx_form[ln] : (int32_t)dx_mode_ix(L->mode);
+            int32_t ix = dx_form[ln] == DX_USER ? 31 + DX_NFORM : dx_form[ln] ? 31 + (int32_t)dx_form[ln] : (int32_t)dx_mode_ix(L->mode);
             ix = clamp(ix + (s > 0 ? 1 : -1), 0, 31 + (int32_t)DX_NFORM);
             if (ix > 31) {
                 dx_form[ln] = (uint8_t)(ix - 31);
@@ -129,7 +145,7 @@ static __attribute__((noinline)) void dx_kit3_cards(void)
 {
     if(cur_page()->title[4]=='4') {
         empty_column(1);
-        hot_unit_column(0,"KEY MAP",drum_ext(TSEL)?"EXTENDED":"CLASSIC",!drum_ext(TSEL)?"":drum_chrom(TSEL)<0?"KIK/TOM":drum_lane_name(TSEL,(uint32_t)drum_chrom(TSEL)&7u));
+        hot_unit_column(0,"KEY MAP",drum_ext(TSEL)?"EXT":"CLASS",!drum_ext(TSEL)?"":drum_chrom(TSEL)<0?"K/T":drum_lane_abbr(TSEL,(uint32_t)drum_chrom(TSEL)&7u));
         empty_column(2);
         empty_column(3);
         return;
@@ -179,6 +195,24 @@ static void dx_cards(const page_t *pg)
         ln[4] = 0;
     }
     hot_gauge_column(0, "SOUND", ln, (int32_t)(dx_ui_lane & 7u) * 1000 / 7);
+    if (pn == 9u) {
+        uint32_t f = dx_form[dx_ui_lane & 7u];
+        hot_gauge_column(1, "FORMULA", dx_formula_name(f), (f == DX_USER ? DX_NFORM : f) * 1000 / DX_NFORM);
+        hot_gauge_column(2, "SIDE", dx_ui_side ? "B" : "A", dx_ui_side ? 1000 : 0);
+        fmt_int(val, v[DXP_COLOR]);
+        hot_gauge_column(3, "VAR A", val, v[DXP_COLOR] * 1000 / 127);
+        return;
+    }
+    if (pn == 10u) {
+        const int8_t *m = dx_fmod[dx_ui_lane & 7u];
+        fmt_int(val, m[DFM_RATE]);
+        draw_column(1, "RATE", val, "st", VAL(1u), (m[DFM_RATE] + 24) * 1000 / 48, ICON_TONE);
+        fmt_int(val, m[DFM_BEND]);
+        hot_gauge_column(2, "BEND", val, m[DFM_BEND] * 1000 / 127);
+        fmt_int(val, 16 - m[DFM_CRUSH]);
+        draw_column(3, "BITS", val, "bit", VAL(3u), (12 - m[DFM_CRUSH]) * 1000 / 12, ICON_TONE);
+        return;
+    }
     if (pn == 8u) {                                     /* SOUND 4 */
         uint32_t ly = dx_lay[dx_ui_lane & 7u], la = DX_LAY_L(ly), fb = DX_LAY_FB(ly), sn = dx_snd[dx_ui_lane & 7u];
         int32_t ix = dx_send_ix(sn);
@@ -200,11 +234,11 @@ static void dx_cards(const page_t *pg)
         if (fm) {                                       /* (JIANT BYTE) a formula lane: F and its name */
             val[0] = 'F';
             val[1] = ':';
-            str_cpy(val + 2, N_DXFORM[(fm - 1u) % DX_NFORM], sizeof val - 2u);
+            str_cpy(val + 2, dx_formula_name(fm), sizeof val - 2u);
         } else {
             dx_mode_name(val, L->mode);
         }
-        hot_gauge_column(1, "MODE", val, (fm ? 31 + (int32_t)fm : (int32_t)dx_mode_ix(L->mode)) * 1000 / (31 + (int32_t)DX_NFORM));
+        hot_gauge_column(1, "MODE", val, (fm ? 31 + (int32_t)(fm == DX_USER ? DX_NFORM : fm) : (int32_t)dx_mode_ix(L->mode)) * 1000 / (31 + (int32_t)DX_NFORM));
         hot_gauge_column(2, "PM.TYPE", PM[(L->mode >> 5) & 3u], (int32_t)((L->mode >> 5) & 3u) * 333);
         gauge_column(3, "DRIVE", L->mode & DX_DRIVE ? "ON" : "OFF", L->mode & DX_DRIVE ? VAL(3u) : T_DIM, L->mode & DX_DRIVE ? 1000 : 0);
         return;
@@ -233,6 +267,7 @@ static uint32_t dx_sig(void)
     h = (h ^ (uint32_t)TSEL->p[P_DKEYMODE] << 24 ^ dx_tone ^ (uint32_t)dx_hands << 8 ^ (uint32_t)dx_glue << 12) * 2654435761u;   /* (TONE, HANDS, GLUE) */
     for (i = 0; i < DV_NLANE; i++)                      /* (0.6.48) the SENDs, (0.6.49) the LAYERs */
         h = (h ^ dx_snd[i] ^ (uint32_t)dx_lay[i] << 8 ^ (uint32_t)dx_form[i] << 16) * 16777619u;   /* (JIANT BYTE: FORM) */
+    for (i = 0; i < sizeof dx_fmod; i++) h = (h ^ ((const uint8_t *)dx_fmod)[i]) * 16777619u;
     for (i = 0; i < DXP_N; i++)
         h = (h ^ (uint32_t)L->a[i] << 8 ^ L->b[i]) * 16777619u;
     return h;

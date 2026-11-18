@@ -171,6 +171,7 @@ static int song_stage(uint32_t s, uint32_t row)
             if (srcs[k] != sec)
                 continue;
             sec_stage_fit[k] = fit_valid(p->fit[k]);
+            sec_extra.voices[k] = p->voice_limit[k] ? p->voice_limit[k] : NVOICE;
             d->engine = (uint8_t)e;
             d->preset = (uint8_t)(ENGINES[e]->npresets ? (t->preset >= PROJ_DEF_KEEP ? 0u : t->preset) % ENGINES[e]->npresets
                                                        : 0u);
@@ -197,6 +198,10 @@ static int song_stage(uint32_t s, uint32_t row)
                 sec_stage.motion.event[n++] = p->motion.event[i];
         if (sec == dx_from) {
             memcpy(sec_stage.dx, p->dx, sizeof sec_stage.dx);
+            memcpy(sec_extra.text,p->dx_text,sizeof sec_extra.text); memcpy(sec_extra.form,p->dx_form,sizeof sec_extra.form);
+            memcpy(sec_extra.fmod,p->dx_fmod,sizeof sec_extra.fmod); memcpy(sec_extra.snd,p->dx_snd,sizeof sec_extra.snd);
+            memcpy(sec_extra.lay,p->dx_lay,sizeof sec_extra.lay); memcpy(sec_extra.mot,p->dx_mot,sizeof sec_extra.mot);
+            sec_extra.tone=p->dx_tone;sec_extra.hands=p->dx_hands;
             sec_stage.dx_mute = (uint16_t)(p->dx_mute & DXM_ALL);
         }
     }

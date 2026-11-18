@@ -379,12 +379,14 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
     mod_t *const mp = &MOD;                          /* (0.6.71) this core's */
     const int16_t *p = t->p;
     int32_t lfo, off[NMSLOT + 3u];
-    uint32_t k, j, ls = life_snd_on(t);                 /* (V10.7.34) LIFE on the sends (life.c) */
+    uint32_t k, j;
     mp->on = 0;
+    math_request[(uint32_t)(t-trk)]=0;
+    math_request_base[(uint32_t)(t-trk)]=(uint32_t)clamp(t->p[P_E2],0,191)|((uint32_t)clamp(t->p[P_E3],0,127)<<8);
     for (k = 0; k < NMSLOT; k++)
         if (p[P_M1SRC + 3u * k] && p[P_M1DST + 3u * k] && p[P_M1AMT + 3u * k])
             break;
-    if (k == NMSLOT && !ls)
+    if (k == NMSLOT)
         return 0;
     lfo = mulq15(t->lfo_val, t->lfo_fade);              /* (the LFO of the block before: track_render ticks it) */
     for (j = k; j < NMSLOT; j++)
@@ -392,7 +394,7 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
             ms_tick(t);                                 /* (once, for every slot reading it) */
             break;
         }
-    mp->on = k < NMSLOT ? 1u : 2u;                      /* (V10.7.34: 2, LIFE's sends alone: no voice's work) */
+    mp->on = 1u;
     mp->amp = 0;
     mp->nv = mp->nk = 0;
     mp->pit = mp->cut = mp->shp = 0;
@@ -437,8 +439,6 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
                                                                                                * as before its in-time values) */
         }
     }
-    if (ls)
-        life_snd(t, mp, off);                           /* (V10.7.34) the other tracks on its sends */
     for (j = 0; j < mp->nk; j++) {
         uint32_t id = mp->kid[j];
         const param_desc_t *pd = mod_track_desc(t, id);
@@ -447,6 +447,11 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
             lo = mp->keep[j] < 0 ? lo : 0, hi = mp->keep[j] < 0 ? -1 : hi;
         t->p[id] = (int16_t)clamp(mp->keep[j] + off[j], lo, hi);
     }
+    if(t->engine==ENGI_LOFI&&t->p[P_E1]==RW_USER)
+        for(j=0;j<mp->nk;j++)if(mp->kid[j]==P_E2||mp->kid[j]==P_E3){
+            math_request[(uint32_t)(t-trk)]=0x80000000u|(uint32_t)clamp(t->p[P_E2],0,191)|((uint32_t)clamp(t->p[P_E3],0,127)<<8);
+            break;
+        }
     return 1;
 }
 
@@ -630,13 +635,13 @@ BTAPP_FN static const char *mod_dst_name_bt(const track_t *t, int32_t v)
     if (v >= MD_E1 && v < MD_CLIP) return track_desc(t, P_E0 + (uint32_t)v - MD_E1)->label;
     if (v == MD_CUT) {
         static const uint8_t CUT_ID[NENGINES] = {P_E4, P_FCUT, P_E2, P_FCUT, P_FCUT, P_E0, P_FCUT, P_FCUT,
-                                                P_FCUT, P_FCUT, P_FCUT, P_E2, P_E2, P_FCUT, P_FCUT, P_FCUT};
+                                                P_FCUT, P_FCUT, P_FCUT, P_E2, P_E2, P_FCUT, P_FCUT, P_FCUT, P_FCUT};
         if (e == ENGI_DRUM) return N_MDST[MD_FCUT];
         return track_desc(t, CUT_ID[e])->label;
     }
     if (v == MD_SHP) {
         static const uint8_t SHP_ID[NENGINES] = {P_MORPH, P_MORPH, P_E2, P_MORPH, P_MORPH, P_E4, P_MORPH, P_E6,
-                                                P_E2, P_MORPH, P_MORPH, P_E1, P_MORPH, P_E5, P_MORPH, P_MORPH};
+                                                P_E2, P_MORPH, P_MORPH, P_E1, P_MORPH, P_E5, P_MORPH, P_MORPH, P_E3};
         k = e == ENGI_LOFI && t->p[P_E1] >= RW_BYTE ? P_E3 : SHP_ID[e];
         return track_desc(t, k)->label;
     }

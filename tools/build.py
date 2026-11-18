@@ -101,7 +101,8 @@ def generate():
     for old in ("felucca_font.h", "felucca_icons.h", "ui_font_x.h"):     # headers of the bitmap font and icon atlas, the 5 x 7 face
         (GEN / old).unlink(missing_ok=True)
     tools = SRC / "tools"
-    cmds = [[tools / "gen_aa_font.py", GEN / "ui_fonts.h", "--preset", "byte-pixel", "--kern-min", "4"],   # (snd7: pairs under 1/4 px dropped)   # (gen_aa_font.UI_PRESET),
+    cmds = [[tools / "gen_byte_logo.py", FW / "src" / "ui_byte_logo.h"],
+            [tools / "gen_aa_font.py", GEN / "ui_fonts.h", "--preset", "byte-readable", "--kern-min", "4"],   # (snd7: pairs under 1/4 px dropped)   # (gen_aa_font.UI_PRESET),
             [tools / "gen_about.py", GEN / "about_notices.h", FW / "src" / "ui_menu.c"],
             [tools / "gen_aa_icons.py", GEN / "ui_icons.h"],
             [tools / "gen_aa_keycaps.py", GEN / "ui_keycaps.h"],
@@ -333,7 +334,7 @@ def late_fns():
              # Only the overflowing UI gaps move: keep all audio addresses pinned without wasting large holes.
              "fm1_irq_on", "large_kind", "draw_confirm", "vx_analog", "toast_clear", "draw_text_box", "as_mix",
              "ed_bk_r32", "set_engine", "step_lanes", "song_copy_section", "palette_from_stored",
-             "proj_steps", "splash_sig", "up_name_ok", "song_idx_touch", "song_end_row"}
+             "proj_steps", "splash_sig", "up_name_ok", "song_idx_touch", "song_end_row", "draw_head", "graph_tracks", "graph_form_lz"}
     for f in LATE_SRC:
         names |= set(re.findall(r"^static [^;=()]*?\b(\w+)\((?![^)]*\)\s*;)", (FW / "src" / f).read_text(), flags=re.M))
     return names
@@ -512,7 +513,8 @@ def build_app():
                 # explicit sections (including BTAPP) were excluded above.
                 ui_string = (m[2].startswith(".str") and m[2] not in reach and ty and
                              re.fullmatch(r"\[\d+ x i8\]", ty[1]) and ir_bytes(ty[1]) >= 24)
-                ui_string |= m[2].startswith("AF_") and m[2].endswith(("_PACK", "_HC")) and m[2] not in reach
+                ui_string |= m[2] == "LOGO_BITE" and m[2] not in reach
+                ui_string |= m[2].startswith("AF_") and m[2].endswith(("_PACK", "_HC", "_KI", "_KP")) and m[2] not in reach
                 if not ui_string and (m.group(2) not in late or (ty and ir_bytes(ty[1]) in (4, 8, 16, 32))):   # (snd5: a struct's too)
                     return m.group(0)
             aligns[m.group(2)] = int(m.group(4))

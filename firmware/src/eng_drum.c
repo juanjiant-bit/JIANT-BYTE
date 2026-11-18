@@ -721,8 +721,9 @@ static const preset_t DRUM_PRESETS[] = {                /* (0.7.2) one a factory
     {"BREAKS", {62, 66, 74, 62, 71, 0, 0, 10}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(4, 0, 0, 22), PAT(12)},
     {"HIP HOP", {58, 62, 56, 64, 67, 0, 0, 18}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(6, 0, 0, 20), PAT(14)},   /* (V10.34) */
     {"LATIN PERC", {60, 64, 64, 64, 64, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 22), PAT(12)},   /* (V10.7.8) */
+    {"FLOAT KIT", DRUM_KIT_E, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 20), PAT(12)},
 };
-_Static_assert(sizeof DRUM_PRESETS / sizeof DRUM_PRESETS[0] == sizeof DX_KITS / sizeof DX_KITS[0], "a DRUM preset a kit");
+_Static_assert(sizeof DRUM_PRESETS / sizeof DRUM_PRESETS[0] == 1u + sizeof DX_KITS / sizeof DX_KITS[0], "a DRUM preset a kit");
 /* (0.7.2) a factory kit into the section's: the sounds, their LAYERs, their SENDs (the project saves them) */
 static void dx_kit_load(uint32_t k)
 {
@@ -730,6 +731,13 @@ static void dx_kit_load(uint32_t k)
     memcpy(dx_kit, K->lane, sizeof dx_kit);
     memcpy(dx_lay, K->lay, sizeof dx_lay);
     memcpy(dx_snd, K->snd, sizeof dx_snd);
+    if (k == DX_NKIT) {                                 /* explicit all-formula kit; existing presets unchanged */
+        uint32_t l;
+        memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);
+        memset(dx_fmod, 0, sizeof dx_fmod);
+    memset(dx_text, 0, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
+        for (l = 0; l < 8u; l++) dx_kit[l].a[DXP_NOISE] = dx_kit[l].b[DXP_NOISE] = 0;
+    }
 }
 
 static const engine_t ENG_DRUM = {
@@ -741,7 +749,7 @@ static const engine_t ENG_DRUM = {
         {"TONE", F_PCT, 0, 127, 64, 0},
         {"DECAY", F_PCT, 0, 127, 64, 0},
         {"NOISE", F_PCT, 0, 127, 64, 0},
-        {"FM ENV", F_PCT, 0, 127, 0, 0},             /* (JIANT: was ACC; 0.6.36: was FM, a fixed FM: the FM struck
+        {"MOD ENV", F_PCT, 0, 127, 0, 0},             /* (JIANT: was ACC; 0.6.36: was FM, a fixed FM: the FM struck
                                                          * with the hit, gone with the pitch envelope) */
         {"FOLD", F_PCT, 0, 127, 0, 0},              /* (JIANT 0.5: a wavefolder, was WARP) */
         {"DRIVE", F_PCT, 0, 127, 0, 0},

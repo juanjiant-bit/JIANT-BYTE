@@ -261,9 +261,23 @@ static void fxg_sends(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t
 static void fxg_dist(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h)
 {
     int32_t d = t->p[P_DIST], g = 4096 + d * d * 2, i, py = 0, s = h, cy = y + s / 2;
-    uint32_t type = (uint32_t)t->p[P_DTYPE] > DT_AMP ? DT_SOFT : (uint32_t)t->p[P_DTYPE];
+    uint32_t type = (uint32_t)clamp(t->p[P_DTYPE],0,NELEM(N_DTYPE)-1);
     char b[16];
-    (void)w;
+    if(type>=DT_EQ0 && type<DT_EQ0+DIST_NEQ) {
+        const char *text=DIST_EQ[type-DT_EQ0];
+        fxg_label(x,y,N_DTYPE[type],T_TEXT,0);
+        if(h>55) for(uint32_t q=0;text[q];q++) {
+            uint32_t cols=(uint32_t)(w>12?(w-8)/6:1);
+            int32_t yy=y+19+(int32_t)(q/cols)*11;
+            if(yy+9>=y+h-13)break;
+            char ch[2]={text[q],0};
+            cv_text(x+2+(int32_t)(q%cols)*6,yy-AF_F_CAP_Y,&AF_F,ch,T_THEME);
+        }
+        str_cpy(b,"TONE ",sizeof b);fmt_int(b+5,t->p[P_DTONE]);
+        fxg_label(x,y+h-11,b,T_DIM,0);
+        return;
+    }
+    if(type>DT_AMP)type=DT_SOFT;
     cv_frame(x, y, s, s, T_LINE);
     for (i = 0; i < s; i++) {
         int32_t xx = (i - s / 2) * 131072 / (s / 2), yy = cy - tk_dist_y(type, xx, d ? g : 4096, d) * (s / 2 - 1) * 9 / 10 / 32767;

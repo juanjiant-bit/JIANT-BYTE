@@ -1542,47 +1542,63 @@ static int16_t gnear(int32_t c, int32_t w) { return (int16_t)(c ? clamp(grr(c - 
 /* (0.9.9-gen1) a role's sound as its archetype has it (gen_tables.c RECIPE): the archetype's engine and preset (a bass
  * its first two options only: the archetype's engine), the engine's knobs a little their own, then the archetype's
  * targets in the engine's parameters (the wave, the filter, its envelope, the amp envelope, glide, drive, chorus) */
+static const uint8_t GEN_WAVE_PRESETS[RL_N][3] = {
+    {0, 0, 0}, {4, 4, 4}, {2, 7, 1}, {3, 1, 6}, {1, 6, 3}, {5, 7, 2}
+};
+static const uint8_t GEN_MATH_PRESETS[RL_N][3] = {
+    {0, 0, 0}, {4, 4, 4}, {5, 11, 3}, {6, 8, 3}, {7, 3, 6}, {0, 1, 2}
+};
+/* Formula families chosen by musical role. Tonal families keep an integer
+ * harmonic root; BYTE's independent high bits follow the song, not note pitch. */
+static const uint8_t GEN_FLOAT_ROLE[RL_N][3] = {
+    {0,0,0}, {19,10,27}, {11,19,28}, {10,12,27}, {10,24,27}, {6,12,28}
+};
+static const uint8_t GEN_WAVE_ROLE[RL_N][3] = {
+    {0,0,0}, {0,5,8}, {1,8,14}, {1,5,7}, {1,9,15}, {10,11,13}
+};
+static const uint8_t GEN_BYTE_ROLE[] = {16,17,18,20,22,23,24,27};
+static void gen_formula_sound(track_t *t,uint32_t role)
+{
+    uint32_t complex=gs.complex,energy=gs.energy;
+    if(t->eng_req==ENGI_LOFI) {
+        uint32_t byte=role==RL_TEX || (role==RL_ARP && gch(gs.g->human>=40?15u:55u));
+        t->p[P_E1]=byte?RW_BYTE:RW_FLOAT;t->p[P_E0]=CHIP_8BIT;
+        t->p[P_E2]=4*(byte?GEN_BYTE_ROLE[gr()%NELEM(GEN_BYTE_ROLE)]:GEN_FLOAT_ROLE[role][gr()%3u]);
+        t->p[P_E3]=byte?(int16_t)grr(8,40+(int32_t)complex/3):0;
+        t->p[P_E4]=byte?(role==RL_ARP?6:gs.complex>65?3:9):role==RL_PAD?15:role==RL_BASS?12:9;
+        t->p[P_KEY]=1; /* pitched low bits, tempo-locked evolution */
+        t->p[P_E5]=byte?(int16_t)(complex/5):0;
+        t->p[P_E6]=0;t->p[P_E7]=0;t->p[P_CAOS]=byte?(int16_t)(complex/6):0;
+        if(byte)t->p[P_LEVEL]=role==RL_TEX?82:96;
+    } else if(t->eng_req==ENGI_WAVE) {
+        t->p[P_E0]=GEN_WAVE_ROLE[role][gr()%3u];
+        t->p[P_E1]=(int16_t)grr(18,38+(int32_t)energy/2);
+        t->p[P_E2]=WW_OFF;t->p[P_E3]=0;
+        t->p[P_E4]=GEN_WAVE_ROLE[role][gr()%3u];
+        t->p[P_E5]=role==RL_PAD?28:12;t->p[P_E6]=role==RL_PAD?18:0;
+        t->p[P_E7]=role==RL_BASS?48:0;t->p[P_CAOS]=role==RL_TEX?(int16_t)(complex/3):0;
+    }
+}
 static __attribute__((noinline)) void gen_sound(track_t *t, uint32_t role, uint32_t ri)
 {
     const grecipe_t *r = &RECIPE[ri];
-    static const uint8_t EW[2][3] = {{55, 30, 15}, {70, 30, 0}};
-    uint32_t sub = role == RL_BASS && gs.ba >= BA_MT1, o = sub ? 0u : gpickw(EW[role == RL_BASS], 3), e, i, n, ft = r->ft & 7u, pre;   /* (the
-                                                         * owner's references: minimal's and EBM's sub as written) */
-    const engine_t *en;
-    if (r->o[o][0] == 255u) o = 0;
-    if (r->o[o][0] == ENGI_FM6 && gs.fm6 >= 2u) o = o == 2u ? 0u : 2u;   /* (FM6 twice at most: the third option, or the
-                                                         * first where the third is the FM6: never FM6 again; V10.6z10:
-                                                         * the two to whichever roles a throw makes first, gen_make) */
-    e = r->o[o][0]; pre = r->o[o][1];
-    if (gx.eng >= 0 && (uint32_t)gx.eng != e) { e = (uint32_t)gx.eng; pre = 255; }   /* (0.8.6) EXPLORE: any engine */
-    if (gx.on) {                                        /* (EXPLORE: ANIMAL and VOICE on one track each at most) */
-        uint32_t b = e == ENGI_ANIMAL ? GXO_AN : e == EG_VO ? GXO_VO : 0u;
-        if (gx.odd & b) { e = EG_PH; pre = 255; }
-        gx.odd |= (uint8_t)b;
-    }
-    gs.fm6 += e == ENGI_FM6;
+    /* Native BYTE recipes, indexed by musical role, not retired FM preset
+     * numbers. Every choice is a real preset of its actual engine. */
+    uint32_t e = gch(role == RL_PAD ? 65 : role == RL_TEX ? 25 : 50) ? ENGI_WAVE : ENGI_LOFI;
+    uint32_t i, ft = r->ft & 7u, pre;
+    if (gx.eng == ENGI_WAVE || gx.eng == ENGI_LOFI) e = (uint32_t)gx.eng;
+    pre = (e == ENGI_WAVE ? GEN_WAVE_PRESETS : GEN_MATH_PRESETS)[role][gr() % 3u];
     set_engine_of(t, e);
-    en = trk_engp(t);
-    n = en->npresets;
-    if (!n) return;
-    if (pre != 255u && !sub && gch(35) && !(role == RL_BASS && gs.g->lead == LD_EBM) && ri != SR_COWBELL)   /* (V10.6z10) a third of
-                                                         * the time another of the engine's presets of the same type (EBM's
-                                                         * bass: its two oscillators always, the owner's; phonk's and baile
-                                                         * funk's 808 COWBELL always) */
-        for (i = 0; i < 6u; i++) {
-            uint32_t k = gr() % n;
-            if (PR_TAG(&en->presets[k]) == PR_TAG(&en->presets[pre % n]) && !gnever(en->presets[k].name)) { pre = k; break; }
-        }
-    for (i = 0; pre == 255u && i < 8u; i++) {           /* (EXPLORE: a preset of the engine, not the odd ones) */
-        uint32_t k = gr() % n;
-        if (!gnever(en->presets[k].name) && (role == RL_BASS || PR_TAG(&en->presets[k]) != PT_BASS))
-            pre = k;                                    /* (p1, main 0.9.12: a bass's sound only on the bass, by its type) */
-    }
-    apply_preset_to(t, pre % n);
+    apply_preset_to(t, pre);
+    /* Tonal parts follow their notes; formula textures follow the transport.
+     * Keep the preset's algorithm and loop intact: these define its tuning. */
+    t->p[P_KEY] = (int16_t)(role == RL_TEX ? 1 : 0);
+    t->p[P_CAOS] = (int16_t)(role == RL_TEX ? gs.complex * 48u / 100u : 0);
     if (role == RL_BASS)                                /* (VEL) the bass 75 %: evener, as the owner wants a */
         t->p[P_TVEL] = 96;                              /* bass, its ghosts ('x' 'g') still softer, ACCENTs 127 */
     for (i = 0; i < 8u; i++) {                          /* (a sixteenth of each range: still that sound, a bit its own) */
         const param_desc_t *d = track_desc(t, P_E0 + i);
+        if (e == ENGI_LOFI && (i == 2u || i == 4u || i == 7u)) continue;
         int32_t span = (d->max - d->min) / 16;
         if (!d->label || d->label[0] == '-' || d->max <= d->min || d->fmt == F_ENUM || d->names || !span) continue;   /* (the
                                                          * GENE mix pass: a list's never: FM6's ALG and SLOT moved by it took
@@ -1593,11 +1609,6 @@ static __attribute__((noinline)) void gen_sound(track_t *t, uint32_t role, uint3
         }
         t->p[P_E0 + i] = (int16_t)clamp(t->p[P_E0 + i] + grr(-span, span), d->min, d->max);
     }
-    if (e == EG_A && !(r->wv & GNOWV)) {                /* ANALOG: the archetype's wave, one oscillator */
-        t->p[P_E0] = (int16_t)(gch(33) ? (r->wv >> 3) & 7u : r->wv & 7u);
-        if (r->wv & 0x40u) t->p[P_E2] = 0;
-        if (ri == SR_COWBELL) { t->p[P_E1] = 79; t->p[P_E7] = 6; }   /* (V10.6p) the 808's two squares, x 1.48 */
-    }
     t->p[P_ATK] = grg(r->atk, 8); t->p[P_DEC] = grg(r->dec, 8); t->p[P_SUS] = grg(r->sus, 8); t->p[P_REL] = grg(r->rel, 8);
     {   /* (gen3) the envelope by the role, whatever the archetype (gen_tables.c ENV_RULE): a lead never at full sustain, a
          * pluck or a stab short, a held pad slow in and out */
@@ -1606,17 +1617,13 @@ static __attribute__((noinline)) void gen_sound(track_t *t, uint32_t role, uint3
         for (i = 0; i < 4u; i++)
             t->p[P_ATK + i] = (int16_t)clamp(t->p[P_ATK + i], (er[i] >> 4) * 8, (er[i] & 15u) * 8 + 7);
     }
-    if (e == EG_FM) t->p[P_E2] = (int16_t)clamp(t->p[P_E2] - grr(4, 20), -64, 63);   /* (warmer) */
     if (ft != 7u) {
         int32_t cut = grg(r->cut, 8), res = grg(r->res, 8);
-        if (role == RL_BASS && e != EG_A) cut += 20;    /* (a bass: only its fizz taken) */
+        if (role == RL_BASS) cut += 20;    /* (a bass: only its fizz taken) */
         if (gs.g->human >= 40u && role != RL_BASS) cut += 10;   /* (a band: air) */
         if (gs.energy > 66u) cut += 6;
         t->p[P_FTYPE] = (int16_t)ft;
-        if (e == EG_A) { t->p[P_E4] = (int16_t)clamp(cut, 0, 127); t->p[P_E5] = (int16_t)clamp(res, 0, ri == SR_ACID ? 120 : 112); }
-        if (e == EG_A && ft == FT_LP24 && t->p[P_E6] < 70)   /* (codex/filters2) EBM's bass, the MS20's once: LP24's growl */
-            t->p[P_E6] = 70;
-        else { t->p[P_FCUT] = (int16_t)clamp(cut, 0, 127); t->p[P_FRES] = (int16_t)res; }
+        t->p[P_FCUT] = (int16_t)clamp(cut, 0, 127); t->p[P_FRES] = (int16_t)res;
         t->p[P_ED_FLT] = grg(r->envf, 4);
         if (role != RL_PAD && role != RL_TEX && t->p[P_ED_FLT] < 6)   /* (gen3: the filter's envelope on a bass, a lead, an arp) */
             t->p[P_ED_FLT] = (int16_t)(6 + (gs.complex >> 4));
@@ -1653,22 +1660,13 @@ static __attribute__((noinline)) void gen_sound(track_t *t, uint32_t role, uint3
     t->p[P_CHOR] = gnear((int32_t)(r->dc & 15u) * 4, 14);
     t->p[P_GLIDE] = gnear((int32_t)(r->ft >> 3) * 4, 6);
     t->p[P_VOICE] = (int16_t)r->voice;
-    if (ri == SR_ACID && e == EG_A) {                   /* (0.9.9-gen2) the 303: no noise, a fixed ~55 ms slide (TIME:
-                                                         * any interval as long, as the 303's RC) */
-        t->p[P_E3] = 0;
-        t->p[P_GLMODE] = 1; t->p[P_GLIDE] = (int16_t)grr(24, 26);
-    }
     t->p[P_DETUNE] = (int16_t)(ri == SR_REESE || ri == SR_WALL || ri == SR_HOOVER ? grr(30, 60) : gnear(t->p[P_DETUNE], 6));   /* (V10.6z10:
                                                          * the preset's own a little moved) */
     if (ri == SR_GTR || ri == SR_DRONE) {               /* (a tremolo: AUTO PAN on the beat) */
         t->p[P_APDEP] = (int16_t)grr(30, 60); t->p[P_APSYNC] = 1; t->p[P_APRATE] = (int16_t)grr(4, 6); t->p[P_APWAVE] = (int16_t)(ri == SR_GTR ? 3 : 0);
     }
-    /* (the GENE mix pass) the sound's own loudness evened (gen_tables.c RTRIM: an option's trim, 3 dB steps), carried
-     * to gen_mix on LEVEL (112: 0 dB); an engine EXPLORE chose instead: none. (V10.7.2) V10.6z10's other preset of the
-     * option's engine and type its option's trim too (measured: within ~2 dB of it; the chant's others 20 dB under);
-     * the options z10 made two presets (SUB BASS's and the 808's SQR BASS, the upright's FAT BASS, the chant's TALK
-     * BOX) measured anew */
-    t->p[P_LEVEL] = (int16_t)(112 + (e == r->o[o][0] && !gx.on ? 6 * ((int16_t)(RTRIM[ri] << (12u - 4u * o)) >> 12) : 0));
+    t->p[P_LEVEL] = 112;                                /* native presets: no inherited FM loudness trims */
+    gen_formula_sound(t,role);
 }
 /* (0.9.9-gen2) the owner: the drums "eat the rest of the sounds": every lane's DECAY shorter, twice a nibble a lane
  * (KICK SNARE CLAP HATC HATO TOM RIM BELL: -12 0 -8 -6 -12 -14 -4 -6; the snare shortened below), a constant (not a
@@ -1678,6 +1676,13 @@ static __attribute__((noinline)) void gen_kit(track_t *t)
 {
     const gkit_t *k = &KIT[gs.g->kit];
     uint32_t l, i;
+    memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);
+    memset(dx_fmod, 0, sizeof dx_fmod);
+    for (l=0;l<8;l++) {
+        dx_fmod[l][DFM_BEND]=(int8_t)(l==DV_KICK?gs.energy/10:gs.complex/4);
+        dx_fmod[l][DFM_CRUSH]=(int8_t)(gs.complex>70 && l>=DV_HATC?2:0);
+    }
+    memset(dx_text, 0, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
     for (l = 0; l < 8u; l++) {
         const dx_lane_t *D = &DX_KIT_DEF[l];
         dx_lane_t *L = &dx_kit[l];
@@ -2178,8 +2183,8 @@ static void gen_parts(void)
     if (form == FM_LOOP) { section_store(0); dice_secs |= 1u; return; }
     gseed(GS_FORM);
     live.cur = -1;
-    section_store(0);                                   /* A: the whole piece */
-    if (live.cur != 0) return;
+    if (!gls.on) section_store(0);                      /* MY LOOP A was captured before adding or changing anything */
+    if (!gls.on && live.cur != 0) return;
     dice_secs |= 1u;
     memcpy(pdeg, gs.pdeg, sizeof pdeg); memcpy(pq, gs.pq, sizeof pq);
     if (dr < NTRK) memcpy(gen_keep, trk[dr].step, sizeof gen_keep);
@@ -2311,6 +2316,16 @@ static void gen_parts(void)
             if (bs < NTRK && (ld < NTRK || ar < NTRK || pd < NTRK)) trk[bs].p[P_MUTE] = 1;
         }
         grich(k);                                       /* (V10.7.30) the section's automation, locks, components */
+        for (i=0;i<NTRK;i++) if(gs.role[i]<RL_N && gs.act[gs.role[i]] && trk[i].eng_req!=ENGI_DRUM) {
+            track_t *q=&trk[i];
+            uint32_t id=q->eng_req==ENGI_WAVE?P_E1:P_E6;
+            int32_t depth=q->eng_req==ENGI_WAVE?18+(int32_t)gs.complex/3:4+(int32_t)gs.complex/8;
+            /* Tonal MATH keeps BEND zero; use its filter instead. */
+            if(q->eng_req==ENGI_LOFI && q->p[P_E1]!=RW_BYTE)id=P_FCUT;
+            if(k==3u)depth=-depth/2;
+            gmot(q,0,id,q->p[id],0);
+            gmot(q,dlen(q)>1?dlen(q)-1u:0u,id,q->p[id]+depth,1);
+        }
         for (i = 0; i < NTRK; i++) secm[k] |= (uint8_t)((trk[i].p[P_MUTE] != 0) << i);
         section_store(k);
         if (live.cur == (int8_t)k) dice_secs |= (uint8_t)(1u << k);
@@ -2347,7 +2362,7 @@ static void gen_parts(void)
             for (k = 0; k < NTRK; k++) if (!((allow >> gs.role[k]) & 1u)) m |= 1u << k;
             gm = f >> 4 | (t == GT_INTROK && (g->drum == DM_EBM5 || (!j && fok >> 31)) ? DXG_KICK : 0u);   /* (the owner's EBM reference: its
                                                          * intro without the kick) */
-            s = t == GT_BREAK ? 3u : t == GT_BUILD ? 2u : gls.on && t != GT_DROP ? (i >> t) & 1u : 0u;
+            s = t == GT_BREAK ? 3u : t == GT_BUILD ? 2u : gls.on && t != GT_DROP ? 1u : 0u;
             if (gls.on && t != GT_DROP && gch(30)) bars = bars > 8u ? bars / 2u : bars * 2u;   /* (MY LOOP: a seed's lengths) */
             if (t == GT_DROP && !sg && gch(50)) bars *= 2u;    /* (a drop of 16 or 32) */
             if (gls.on && t == GT_DROP) m &= gls.add;             /* (FROM LOOP: the drop the loop as it is, its own parts all in) */
@@ -2487,11 +2502,8 @@ BTAPP_FN static void gx_prog(uint32_t fam)    /* (V10.6y: gen_pick's, in the seg
  * texture (gen_sound: ANIMAL and VOICE once a piece) */
 static int8_t gx_engine(uint32_t r)
 {
-    static const uint8_t E[7] = {ENGI_ANIMAL, EG_LO, EG_LO, EG_LO, EG_FM, EG_PH, EG_VO}   /* (JIANT BYTE: WHEEL ADD retired) */;
-    uint32_t e;
     if (((gx.odd & GXO_TIMBRE) == 0u || r != gx.orole) && !gch(r == RL_BASS ? 20 : 40)) return -1;
-    e = E[gr() % (r == RL_LEAD || r == RL_TEX ? 7u : 6u)];
-    return (int8_t)(e == EG_FM && gs.fm6 >= 2u ? EG_WH : e);
+    return (int8_t)(gch(50) ? ENGI_WAVE : ENGI_LOFI);
 }
 /* the sound past its recipe: a VOICE singing words (any language, a dice's phrase or scat), a distortion's type, a
  * wide glide, a vibrato, detune */
@@ -2863,7 +2875,14 @@ static __attribute__((noinline)) void gen_make(void)
 {
     const ggenre_t *g;
     uint32_t k, dr = NTRK, nlive = trk_live < NTRK ? trk_live : NTRK, nmel, drums, next, wet;
-    if (gls.u) { gls_prep(); goto parts; }            /* (FROM LOOP: the loop's song, gen_loop.c) */
+    life_v[LIFE_AMT] = 0;                          /* every generated form, including FROM LOOP, starts dry */
+    if (gls.u) {
+        dice_secs = 0; live.cur = -1;                  /* only newly stored sections count as this result */
+        section_store(0);                             /* exact source loop, before added parts or arrangement edits */
+        if (live.cur != 0) return;
+        dice_secs |= 1u;
+        gls_prep(); goto parts;
+    }            /* (FROM LOOP: the loop's song, gen_loop.c) */
     gen_clean();                                        /* (0.9.9-gen1) from NEW PROJECT's state, nothing of before */
     /* the choices from the seed: the genre (RANDOM), the root, the scale, the progression, the bass */
     gseed(GS_PICK);
@@ -2960,8 +2979,8 @@ static __attribute__((noinline)) void gen_make(void)
             if (np < 2u && !gs.act[RL_PAD] && gp.amt[GP_CHORDS] == GA_AUTO) {   /* (V10.8: a part set OFF stays off) */ gs.act[RL_PAD] = 1; gs.amt[GP_CHORDS] = 60; pri[np++] = RL_PAD; }
         }
         for (k = 0; k < GP_N - 1u; k++) if (!gs.act[PRI[k + 1u]]) pri[np++] = PRI[k + 1u];   /* (the silent ones after) */
-        for (k = 0; k < NTRK && dr == NTRK; k++) if (drum_track(&trk[k])) dr = k;
-        if (dr == NTRK) { dr = nlive > 3u ? 3u : nlive - 1u; set_engine_of(&trk[dr], ENGI_DRUM); }
+        for (k = 0; drums && k < nlive && dr == NTRK; k++) if (drum_track(&trk[k])) dr = k;
+        if (drums && dr == NTRK) { dr = nlive > 3u ? 3u : nlive - 1u; set_engine_of(&trk[dr], ENGI_DRUM); }
         for (k = 0; k < RL_N; k++) gs.trk_of[k] = NTRK;
         next = 0;
         for (k = 0; k < NTRK; k++) {
@@ -3148,13 +3167,19 @@ static void gen_go(void)
     }
     gls.u = gp.form == 3u;
     gen_make();
+    if (gls.u && (dice_secs != 15u || !live.mode || chain_config.count < 4u)) {
+        if (dice_secs & 1u) section_load(0);
+        chain_defaults(&chain_config); live.mode = 0;
+        ui_message("MY LOOP: PART FULL"); str_cpy(ui.msg2, "LOOP KEPT / NO SONG MADE", sizeof ui.msg2);
+        ui.force = 1; return;
+    }
     str_cpy(gp.last, gs.g->name, sizeof gp.last);
     k = str_len(gp.last);
     b[0] = ' '; b[1] = (char)('0' + gp.seed / 1000u % 10u); b[2] = (char)('0' + gp.seed / 100u % 10u);
     b[3] = (char)('0' + gp.seed / 10u % 10u); b[4] = (char)('0' + gp.seed % 10u); b[5] = 0;
     str_cpy(gp.last + k, b, sizeof gp.last - k);
     ui_say("GEN: ", gp.last);
-    str_cpy(ui.msg2, gls.u && !gls.room ? "NO EMPTY TRACK: ARRANGED" : live.mode ? "PLAY: SONG / SAVE: ALL PARTS" : "UNDO: GLO + G4", sizeof ui.msg2);
+    str_cpy(ui.msg2, gls.u && !gls.room ? "NO EMPTY TRACK: ARRANGED" : gls.u ? "A: YOUR LOOP / PLAY: SONG" : live.mode ? "PLAY: SONG / SAVE: ALL PARTS" : "UNDO: GLO + G4", sizeof ui.msg2);
     if (play) { if (live.mode) chain_play_ui(); else transport_req = 1; }
     ui.force = 1;
 }

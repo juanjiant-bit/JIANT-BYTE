@@ -469,11 +469,11 @@ EXPORT uint32_t web_gen_count(void) { return NGENRE; }
 EXPORT const char *web_gen_name(uint32_t i) { return GENRE[i % NGENRE].name; }
 
 /* for the test and the bench (web/emu/emu_test.mjs), a heavy song straight into the tracks (as hostsim's
- * renders set them): T1 FM6 PAD, T2 TRIO (its first preset; PHYS, retired in TONIC, was here), T3 VOICE CHOIR AAH (GRAIN, retired in JIANT, was here), 4-note chords on all 16
+ * renders set them): T1 WAVE SAW PAD, T2 MATH FLOAT PAD, T3 MATH BYTEBEAT, 4-note chords on all 16
  * steps, held; T4 DRUM, kick snare and hats. PLAY is the page's (or the test's) to press */
 EXPORT void web_test_heavy(void)
 {
-    static const uint8_t ENG[3][2] = {{12, 4}, {6, 0}, {5, 0}};   /* (JIANT: VOICE CHOIR where GRAIN was) */
+    static const uint8_t ENG[3][2] = {{ENGI_WAVE, 3}, {ENGI_LOFI, 5}, {ENGI_LOFI, 0}};
     static const uint8_t CH[4][4] = {{48, 55, 60, 64}, {45, 52, 57, 60}, {41, 48, 53, 57}, {43, 50, 55, 59}};
     uint32_t p, i;
     for (p = 0; p < 3u; p++) {
@@ -489,6 +489,15 @@ EXPORT void web_test_heavy(void)
         }
     }
     host_drums(&trk[3]);
+    dx_kit_load(DX_NKIT);                              /* FLOAT KIT, all three modifiers in the native/WASM check */
+    str_cpy(dx_text[0], "sin(w+sin(w*2)*A*2)", DX_TEXT); dx_form[0] = DX_USER; dx_fid[0] = 0;
+    dx_fmod[0][DFM_RATE] = 12;
+    dx_fmod[1][DFM_BEND] = 90;
+    dx_fmod[2][DFM_CRUSH] = 8;
+    trk[3].p[P_E5] = 96; trk[3].p[P_E6] = 80; /* formula MOD ENV + FOLD */
+    trk[0].p[P_DTYPE] = 11; trk[0].p[P_DIST] = 48; trk[0].p[P_DTONE] = -32; dnz_v[0] = 36;
+    perf_held |= PF_BIT(PF_ATK) | PF_BIT(PF_WOB); /* formula FOLD + phase warp */
+    life_v[LIFE_AMT] = life_v[LIFE_NUMBERS] = life_v[LIFE_FRAGMENTS] = life_v[LIFE_LINK] = 100;
     for (i = 0; i < 16u; i++) {
         uint8_t n[4];
         uint32_t k = 0;
@@ -588,3 +597,22 @@ EXPORT uint32_t web_song_play(void) { return chain_prepare(); }   /* 0 = the son
 EXPORT void web_play(uint32_t on) { transport_req = (uint8_t)(on ? 1u : 2u); }
 EXPORT uint32_t web_beat_samples(void) { return beat_samples(); }
 EXPORT uint32_t web_trk_live(void) { return trk_live; }
+
+/* FUNC text bridge: same compiler/storage as the instrument, never JS eval. */
+static char web_func_text[256];static uint32_t web_func_pos;
+EXPORT char *web_func_buffer(void){return web_func_text;}
+EXPORT uint32_t web_func_error_pos(void){return web_func_pos;}
+EXPORT const char *web_func_get(uint32_t track){track%=NTRK;return math_func_text(&trk[track],lyr_get(track));}
+EXPORT uint32_t web_func_apply(uint32_t track){
+    if(track>=NTRK)return FE_ARGS;
+    web_func_text[255]=0;gq_work_t*w=proj_ws();fvm_err_t err={0,0};
+    uint32_t rc=fvm_compile(&w->cc,FVM_FULL(&w->pg),web_func_text,str_len(web_func_text),&err);
+    if(!rc&&(!w->pg.p.func||w->pg.p.nstate>2u)){rc=FE_STATE;err.pos=0;}
+    web_func_pos=err.pos;if(rc)return rc;
+    track_t*t=&trk[track];song.sel=(uint8_t)track;
+    if(t->eng_req!=ENGI_LOFI)set_engine_of(t,ENGI_LOFI);
+    if(t->p[P_E1]!=RW_FUNC){t->p[P_E0]=4;t->p[P_E2]=80;t->p[P_E3]=0;t->p[P_E4]=64;t->p[P_E5]=64;}
+    t->p[P_E1]=RW_FUNC;t->p[P_E7]=0;lyr_set(track,web_func_text);math_hash[track]=0;math_poll();ui.force=1;return 0;
+}
+
+EXPORT uint32_t web_func_mode(uint32_t track,int32_t mode){track%=NTRK;track_t*t=&trk[track];if(mode>=0){t->p[P_E0]=mode?5:4;if(mode)t->p[P_SUS]=127;ui.force=1;}return t->p[P_E1]!=RW_FUNC||func_song(t);}

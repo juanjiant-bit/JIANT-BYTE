@@ -1768,6 +1768,8 @@ static __attribute__((noinline)) void act_do(void)
     uint32_t c = act_col(), id, k = (uint32_t)song.g[G_SLOT] - 1u;
     if (!c--)
         return;
+    if (func_formula_page()) { name_open(NK_FUNC, song.sel); return; }
+    if (dx_formula_page()) { name_open(NK_DX_FORM, dx_ui_lane); return; }
     if(cur_page()->graph==GR_TRACKGEN) {trackgen_make();return;}
     if (cur_page()->graph == GR_LYRIC) {                /* (0.8.5) WORDS: the lyric, typed (the NAME screen) */
         name_open(NK_LYRIC, song.sel);
@@ -2004,7 +2006,7 @@ static void rec_clear_auto(uint32_t b)
         for (f = FAM_HOME + 1u; f < FAM_COUNT && FAM_BTN[f] != b; f++)
             ;
         for (i = 0; i < NPAGES; i++)
-            if (PAGES[i].fam == f && (PAGES[i].scope == SC_TRACK || PAGES[i].scope == SC_ENGINE))
+            if (PAGES[i].fam == f && (PAGES[i].scope == SC_TRACK || PAGES[i].scope == SC_ENGINE || (PAGES[i].scope==SC_FORM&&trk_eng(TSEL)==ENGI_FORM)))
                 for (k = 0; k < 4u; k++)
                     if (PAGES[i].id[k] < P_COUNT && !(f == FAM_EDIT && PAGES[i].id[k] == P_DIST))   /* (EDIT > FILTER's
                                                          * DRV is the part's DIST: FX's) */
@@ -2151,14 +2153,34 @@ static void seq_entry(uint32_t pressed)
 /* PRESETS: the sounds; (0.9.9-seq2i, the owner) on SEQ's pages the step picked, a step a detent (round in LEN), the same
  * step every SEQ page edits (STEP's cursor, COMP's, the locks'): the factory PATTERNS' loader it opened is gone (the
  * generator, MUTATE and the components make patterns enough) */
-/* (V10.7.33, the owner) .. via a list: off it, its first turn opens it over the page; on it, the next / previous sound
- * (ui.c pl_*). Nothing else (the SEQ step: SEQ held + PRESETS; G.COMP's step: its keys) */
-static void presets_turn(int32_t s)
+static void presets_turn(int32_t s) /* One continuous preset list; EDIT + PRESETS jumps engines. */
 {
-    if (ui.home || cur_page()->graph != GR_BROWSE)
-        pl_open();
-    else
+    static uint32_t mark_ms;
+    uint32_t total, cur, n, k;
+    char nm[24];
+    if (!ui.home && cur_page()->graph == GR_BROWSE) {
         pl_scroll(s);
+        return;
+    }
+    cur = preset_pos(&total);
+    if (!total) {
+        ui_message(pl_src() == 1u ? "NO USER SOUNDS: SAVE > USER" : "NO FAVORITES");
+        return;
+    }
+    if (cur >= total)
+        n = s > 0 ? 0u : total - 1u;
+    else
+        n = (cur + (s > 0 ? 1u : total - 1u)) % total;
+    if ((uint32_t)(fm1_ms - mark_ms) > 3000u)           /* (a browse's first turn: UNDO brings back the sound before) */
+        undo_mark();
+    mark_ms = fm1_ms;
+    keep_req |= (uint8_t)(1u << song.sel);              /* (seq.c: the keys held sound on in it) */
+    preset_go(n);
+    if (preset_at(n, &k) == NENGINES)
+        up_name(k, nm);
+    else
+        str_cpy(nm, ENGINES[preset_at(n, &k)]->presets[k].name, sizeof nm);
+    ui_message(nm);
 }
 
 /* (JIANT 0.5) SELECT off HOME: the selected track's sound diced. DRUM-X: both patches (A, B) of every sound, each
@@ -2759,6 +2781,8 @@ static void ui_input_frame(void)
             if (f == FAM_EDIT && !mom_on)               /* (V10.7) but EDIT + PRESETS: the next / previous engine (not
                                                          * amid a MOMENTARY tweak: its values go back to this sound) */
                 preset_engine_jump(s);
+            else if (f == FAM_SAVE && (ui.home || cur_page()->graph != GR_BROWSE))
+                pl_open(); /* FM49: explicit browser; ordinary PRESETS loads directly. */
             else if (f == FAM_SEQ && !ui.home && PAGES[ui.page].fam == FAM_SEQ) {   /* (V10.7.33, the owner) SEQ held +
                                                          * PRESETS: the step every SEQ page edits, a step a detent, its
                                                          * number large (was PRESETS alone: PRESETS loads sounds only) */

@@ -1,0 +1,18 @@
+{
+  "fm-public": {
+    "version": "V10.7.48",
+    "commit": "a6d52c302d816064053f40fb642ff97eb505390e",
+    "source_repo": "juanjiant-bit/JIANT",
+    "size": 1221465,
+    "sha256": "b958154257e8815514c3e84db6f6fd565fc7424822cde6e827781f4638f836a3",
+    "url": "https://juanjiant-bit.github.io/JIANT-BYTE/android/engines/b958154257e8815514c3e84db6f6fd565fc7424822cde6e827781f4638f836a3.wasm"
+  },
+  "fm-beta": {
+    "version": "V10.7.49-24d76c0-preview",
+    "commit": "24d76c013173447935d4572db4628b8d02b25fbe",
+    "source_repo": "juanjiant-bit/JIANT",
+    "size": 1222748,
+    "sha256": "6a6992206f2291dc2820abcd1494c0c2703a145b6237cc50fab1db656bcde3e3",
+    "url": "https://juanjiant-bit.github.io/JIANT-BYTE/android/engines/6a6992206f2291dc2820abcd1494c0c2703a145b6237cc50fab1db656bcde3e3.wasm"
+  }
+}

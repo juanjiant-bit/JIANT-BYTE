@@ -68,7 +68,7 @@ static void fm1_delay_ms(uint32_t ms) { (void)ms; }
 #define inst (trk[0])                   /* the single-part renders below: part 1 */
 static void host_life(void)
 {
-    life_defaults();
+    life_defaults(); voice_limits_default();
     life_v[LIFE_AMT] = (int16_t)(getenv("LIFE") ? atoi(getenv("LIFE")) : HOST_LIFE);
     life_reset();
 }

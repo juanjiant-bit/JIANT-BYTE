@@ -86,7 +86,7 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
-                                             "DRUM", "WEST", "FM6", "ADD", "ANIMAL", "EXT"};   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired; 0.8.3 ANIMAL;
+                                             "DRUM", "WEST", "FM6", "ADD", "ANIMAL", "EXT", "FORM"};   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired; 0.8.3 ANIMAL;
                                                          * 0.9.9-snd5 STRING ADD; V10.7.36 WEST, NOISE's 11) */
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0}
@@ -96,12 +96,13 @@ static const param_desc_t TP[P_COUNT];
 /* (V10.6i) a factory preset's movement (preset_t.mod): each pair a common parameter (< P_E0) and its value, within its
  * range (ui.c apply_preset_to, tests/hostsim.c) */
 _Static_assert(P_E0 <= 127, "preset_t.mod names a parameter in an int8_t");
+static const param_desc_t *track_desc(const track_t*,uint32_t);
 static void preset_mods(track_t *t, const preset_t *pr)
 {
     const int8_t *m = pr->mod;
     for (; m && m[0] >= 0; m += 2)
         if (m[0] < P_E0)
-            t->p[m[0]] = (int16_t)clamp(m[1], TP[m[0]].min, TP[m[0]].max);
+            {const param_desc_t*d=track_desc(t,m[0]);t->p[m[0]]=(int16_t)clamp(m[1],d->min,d->max);}
 }
 static const param_desc_t TP[P_COUNT] = {
     [P_LEVEL] = PD("LEVEL", F_DB, 0, 127, 104),
@@ -325,6 +326,7 @@ static const param_desc_t FN_DESC[9] = {{"KEY TRK", F_PCTINV, 0, 127, 127, 0}, {
 static const param_desc_t *track_desc(const track_t *t, uint32_t id)
 {
     const engine_t *en = ENGINES[eng_idx(t->eng_req)];   /* (filters2: once) */
+    if(en==&ENG_FORM){const param_desc_t*d=form_common_desc(id);if(d)return d;}
     if (id == MOT_DJF)                                /* (0.9.1) a DJ FILTER record (motion.c): the global's */
         return &GP[G_DJF];
     if (id == P_SIMG && en != &ENG_DRUM)              /* (V10.49) a synth's STEREO IMAGE (codex/coherence:
@@ -380,6 +382,7 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
  * only; range and default are the same): what the editor protocol, user presets and projects use */
 static const param_desc_t *param_desc_of(uint32_t e, uint32_t id)
 {
+    if(e==ENGI_FORM){const param_desc_t*d=form_common_desc(id);if(d)return d;}
     return id >= P_E0 ? &ENGINES[e]->edit[id - P_E0] : &TP[id];
 }
 /* (V10.6z4) the default a store (projects, user presets) leaves out or fills in: GATE's 50 % as every store before
@@ -434,7 +437,7 @@ static int32_t param_fit(const param_desc_t *d, int32_t v)
 /* v is a value a knob passes over: an alias, or one of FM6's bank slots without a voice */
 static int enum_skip(const param_desc_t *d, int32_t v)
 {
-    return enum_orig(d, v) != v || (d->names == N_FM6_PATCH && !fm6_slot_ok(v));
+    return (d->names == N_DTYPE && ((0xF660u >> v) & 1u)) || enum_orig(d, v) != v || (d->names == N_FM6_PATCH && !fm6_slot_ok(v));
 }
 /* a knob moved an F_ENUM from `from` to v: past any value it skips in that direction; with none left to the end, the
  * last one it does not skip on the way from `from` (else `from`) */
@@ -678,7 +681,7 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
 /* ------------------------------------------------------------ pages --- */
 enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE, FAM_ARP, FAM_SEQ, FAM_TRK,
        FAM_COUNT };
-enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK };   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
+enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK, SC_FORM };   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
        GR_SLCR, GR_MOD, GR_PATS_, GR_SONG, GR_TOOLS, GR_CHANCE_, GR_MOTION, GR_EVENTS, GR_DXSND, GR_MSEQ, GR_SLPIT,
        GR_FMOP, GR_FMOP2, GR_FMENV,
@@ -751,22 +754,24 @@ static const param_desc_t XM_DESC[3] __attribute__((section(".rodata.tape"))) = 
 static int16_t bal_v __attribute__((section(".bss.tape")));   /* (BAL_DEF set at power-on: main.c, system_init) */
 static int16_t dnz_v[NTRK] __attribute__((section(".bss.tape")));
 static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CRUSH (0..127: DIST's DRIVE, shown 0..100 %) */
-/* (V10.7.34, the owner: "organic, self-modulating voices") LIFE (life.c): HOME > LIFE's four, LIFE FILTER PITCH FX (0..100;
+/* (V10.7.34, the owner: "organic, self-modulating voices") LIFE (life.c): HOME > LIFE's four, LIFE NUMBERS FRAGMENTS LINK (0..100;
  * LIFE 0: every voice and track as before, bit for bit), then each track's LIFE (EDIT > VOICES 3 KNOB 2, ID_LIF; 0..100,
  * times the global one). Not song or track parameters (as BALANCE: no slot left): kept with the project ('X' 'L',
- * project.c proj_xm; a project without it, every one before V10.7.34: these defaults, LIFE on) */
+ * project.c proj_xm; a project without it, every one before V10.7.34: these defaults, LIFE off) */
+#define ID_VMAX 0xF4u
+static int16_t voice_limit[NTRK] __attribute__((section(".pool")));
+static const param_desc_t VMAX_DESC = PD("VOICES", F_INT, 1, NVOICE, NVOICE);
+static void voice_limits_default(void) { uint32_t k; for (k=0;k<NTRK;k++) voice_limit[k]=NVOICE; }
 #define ID_LIF 0xEFu
-enum { LIFE_AMT, LIFE_FILT, LIFE_PIT, LIFE_FX, LIFE_N };
+enum { LIFE_AMT, LIFE_NUMBERS, LIFE_FRAGMENTS, LIFE_LINK, LIFE_N };
 #ifndef LIFE_DEF
-#define LIFE_DEF 25
+#define LIFE_DEF 0
 #endif
-static const int8_t LIFE_DEFS[LIFE_N] = {LIFE_DEF, 30, 10, 25};
+static const int8_t LIFE_DEFS[LIFE_N] = {LIFE_DEF, 65, 60, 40};
 #define LIFE_TDEF 100
 static const param_desc_t LIFE_DESC __attribute__((section(".rodata.tape"))) = PD("LIFE", F_PCT, 0, 100, LIFE_TDEF);   /* (the track's) */
-/* (JIANT BYTE) LIFE is the formulas talking to each other (life.c): TALK (LIFE_FILT's place) how much each hears the
- * others (their sound into its time or its phase: FM between the parts), BREAK (LIFE_PIT's) how much the others' sound
- * breaks it (its CAOS up while they sound), WEB (LIFE_FX's) who hears whom (0: each the one before it, 100: all) */
-static const char *const LIFE_NM[LIFE_N] = {"LIFE", "TALK", "BREAK", "WEB"};   /* (HOME > LIFE's cards) */
+/* Formula LIFE: typed numbers, executable fragments and note intermodulation. Values retain the four-slot storage layout. */
+static const char *const LIFE_NM[LIFE_N] = {"LIFE", "NUM", "FRAG", "LINK"};
 static int16_t life_v[LIFE_N + NTRK] __attribute__((section(".pool")));   /* (life_defaults at power-on: main.c) */
 static int32_t life_def(uint32_t k) { return k < LIFE_N ? LIFE_DEFS[k] : LIFE_TDEF; }   /* (value k of life_v) */
 static void life_defaults(void)
@@ -792,8 +797,8 @@ static const page_t PAGES[] = {
     {"TAPE", FAM_FX, SC_GLOBAL, GR_NONE, {ID_TAPE, ID_TWOW, 0xFF, 0xFF}},
     {"EQ", FAM_FX, SC_GLOBAL, GR_NONE, {ID_EQ0, ID_EQ0 + 1u, ID_EQ0 + 2u, ID_EQ0 + 3u}},   /* (p9) the master's EQ, last */   /* (0.9.9-snd8) the master's tape, after MASTER */
     {"BALANCE", FAM_FX, SC_GLOBAL, GR_NONE, {ID_BAL, 0xFF, 0xFF, 0xFF}},   /* (V10.7.30) the master's BALANCE, after its EQ */
-    {"DIST", FAM_FX, SC_TRACK, GR_NONE, {P_DTYPE, P_DTONE, FELUCCA_XFX ? ID_DNZ : 0xFF, 0xFF}},   /* JIANT: the drive's type and tone; V10.7.30 NOISE */
-    {"VOICES 3", FAM_EDIT, SC_TRACK, GR_NONE, {ID_CRU, ID_LIF, 0xFF, 0xFF}},   /* (V10.7.33) CRUSH, the track's bit reducer (was DIST's
+    {"DIST", FAM_FX, SC_TRACK, GR_NONE, {P_DTYPE, P_DTONE, FELUCCA_XFX ? ID_DNZ : 0xFF, P_DIST}},   /* JIANT: the drive's type and tone; V10.7.30 NOISE */
+    {"VOICES 3", FAM_EDIT, SC_TRACK, GR_NONE, {ID_CRU, ID_LIF, P_GLMODE, 0xFF}},   /* (V10.7.33) CRUSH, the track's bit reducer (was DIST's
                                                          * TYPE; PLAY and PLAY 2 have no knob free) */
     {"AUTO PAN", FAM_FX, SC_TRACK, GR_NONE, {P_APDEP, P_APRATE, P_APSYNC, P_APWAVE}},   /* (JIANT 0.6.9) the track's pan swung */
     {"BUSES", FAM_FX, SC_GLOBAL, GR_BUSES, {G_DMIX, G_RSIZE, G_CDEPTH, G_SLDEP}},   /* (0.8.5) FX's lens: the buses' main values */
@@ -818,6 +823,9 @@ static const page_t PAGES[] = {
                                                          * mode: SCENE, TRACK, ROLE, CHORD (ui_scene.c) */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
+    {"CLOCK", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_SDIV,P_SLEN,P_SSWING}},
+    {"NOTES", FAM_EDIT, SC_FORM, GR_NONE, {P_ROOT,P_SCALE,P_CHRD,P_CVOI}},
+    {"LAYERS", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_KEY,P_DETUNE,P_DLY}},
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
@@ -861,7 +869,7 @@ static const page_t PAGES[] = {
     {"OP3 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM3_ATK, P_FM3_DEC, P_FM3_SUS, P_FM3_REL}},
     {"OP4 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM4_ATK, P_FM4_DEC, P_FM4_SUS, P_FM4_REL}},
     {"OP LEVEL", FAM_EDIT, SC_TRACK, GR_NONE, {P_FM1_LEVEL, P_FM2_LEVEL, P_FM3_LEVEL, P_FM4_LEVEL}},
-    {"VOICES", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, P_GLIDE, P_GLMODE, P_PRIO}},   /* (codex/coherence: was VOICE) POLY GLIDE
+    {"VOICES", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, ID_VMAX, P_GLIDE, P_PRIO}},   /* (codex/coherence: was VOICE) POLY GLIDE
                                                          * GL MODE PRIO */
     {"GLOBAL", FAM_GLO, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, G_TUNE}},
     {"SYSTEM", FAM_GLO, SC_GLOBAL, GR_NONE, {G_TRKS, G_LOADP, G_ROUTE, G_INFO}},   /* (0.6.18) TRACKS 4 / 6; (0.6.30)
@@ -954,6 +962,8 @@ static const page_t PAGES[] = {
                                                          * WAVE INT INT 3 DETUNE, the intervals together; MIX on FOCUS */
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E7, P_E4, P_E5, P_E6}},   /* (codex/coherence) FM6's EDIT 2 (PATCH): SLOT on KNOB 1
                                                          * (rule 4: a page that picks, picks with KNOB 1), MEG VMOD SPREAD */
+    {"FORMULA", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"FORM MOD", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},
 };
 #define SPLIT_PAGE(pg) (FELUCCA_SPLIT && (uint32_t)((pg)->graph - GR_SPLIT) < 2u)   /* (V10.7.32: out, core.h) */
 #define STAGE_PAGE(pg) (FELUCCA_ENVX && (pg)->graph == GR_STAGE)   /* (V10.7.32: ENV > STAGE out, core.h) */
@@ -975,6 +985,7 @@ static uint8_t sl_ui_step;       /* (JIANT 0.6.3) the SL PITCH page: the step KN
  * master's TAPE (noinline: page_desc is recorded code) */
 static __attribute__((noinline)) const param_desc_t *page_desc_v(uint32_t id, int16_t **valp)
 {
+    if (id == ID_VMAX) { *valp = &voice_limit[song.sel % NTRK]; if (!**valp) **valp=NVOICE; return &VMAX_DESC; }
     if (id == ID_LIF) {                               /* (V10.7.34) the track's LIFE (life.c) */
         *valp = &life_v[LIFE_N + song.sel % NTRK];
         return &LIFE_DESC;
@@ -1013,7 +1024,7 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         *valp = &trks_ui;
         return &TRKS_DESC;
     }
-    if ((id >= ID_TAPE && id <= ID_LMODE) || (id >= ID_EQ0 && id < ID_EQ0 + 4u) || (id >= ID_BAL && id <= ID_LIF))   /* (0.9.18) the LFO's MODE and PHASE;
+    if (id == ID_VMAX || (id >= ID_TAPE && id <= ID_LMODE) || (id >= ID_EQ0 && id < ID_EQ0 + 4u) || (id >= ID_BAL && id <= ID_LIF))   /* (0.9.18) the LFO's MODE and PHASE;
                                                          * (snd8) the master's TAPE; (p9) its EQ */
         return page_desc_v(id, valp);
     if (id == G_LOADP) {                              /* (0.6.30) the same */
