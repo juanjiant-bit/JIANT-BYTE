@@ -19,20 +19,20 @@
       "url": "https://juanjiant-bit.github.io/JIANT-BYTE/android/engines/6a6992206f2291dc2820abcd1494c0c2703a145b6237cc50fab1db656bcde3e3.wasm"
     },
     "byte-public": {
-      "version": "BYTE v0.12.1",
-      "commit": "91871d4e03e1c9ed79943264c6d0a45ec898a9fb",
+      "version": "BYTE v0.13",
+      "commit": "430d529459a3219cbc6ae7cb6aa53a766074d089",
       "source_repo": "juanjiant-bit/JIANT-BYTE",
-      "size": 1199184,
-      "sha256": "7a8a25cfa67f1070738ddfbcb633a901247fa09308f5431c7b3754df9e6b7698",
-      "url": "https://juanjiant-bit.github.io/JIANT-BYTE/android/engines/7a8a25cfa67f1070738ddfbcb633a901247fa09308f5431c7b3754df9e6b7698.wasm"
+      "size": 1212775,
+      "sha256": "4a67cba61d42f3e48160083629e9e580d4b838e3b599fecebef3742a01708ce1",
+      "url": "https://juanjiant-bit.github.io/JIANT-BYTE/android/engines/4a67cba61d42f3e48160083629e9e580d4b838e3b599fecebef3742a01708ce1.wasm"
     },
     "byte-beta": {
-      "version": "BYTE v0.12.1",
-      "commit": "91871d4e03e1c9ed79943264c6d0a45ec898a9fb",
+      "version": "BYTE v0.13",
+      "commit": "430d529459a3219cbc6ae7cb6aa53a766074d089",
       "source_repo": "juanjiant-bit/JIANT-BYTE",
-      "size": 1199184,
-      "sha256": "7a8a25cfa67f1070738ddfbcb633a901247fa09308f5431c7b3754df9e6b7698",
-      "url": "https://juanjiant-bit.github.io/JIANT-BYTE/android/engines/7a8a25cfa67f1070738ddfbcb633a901247fa09308f5431c7b3754df9e6b7698.wasm"
+      "size": 1212775,
+      "sha256": "4a67cba61d42f3e48160083629e9e580d4b838e3b599fecebef3742a01708ce1",
+      "url": "https://juanjiant-bit.github.io/JIANT-BYTE/android/engines/4a67cba61d42f3e48160083629e9e580d4b838e3b599fecebef3742a01708ce1.wasm"
     }
   }
 }
