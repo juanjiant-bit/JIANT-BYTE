@@ -159,6 +159,24 @@ int main(void)
         }
     }
     /* (JIANT BYTE) ANIMAL, WEST and VOICE retired: their sections gone */
+    for (i = 0; i < 4u; i++) {                          /* (JIANT BYTE) FORM playing (its song: the transport's voice):
+                                                         * A alone, A to B (MORPH 64), DENSITY 127, a chord; LIFE 100 too */
+        static const char *const FN[4] = {"eng/FORM.A", "eng/FORM.AB", "eng/FORM.A.life", "eng/FORM.AB.life"};
+        uint32_t k;
+        int16_t l0 = life_v[0];
+        vg_quiet();
+        vg_part(0, ENGI_FORM, 0, 0);
+        trk[0].p[P_E0] = 2; trk[0].p[P_E1] = 7; trk[0].p[P_E2] = (int16_t)(i & 1u ? 64 : 0);
+        trk[0].p[P_E5] = 127; trk[0].p[P_CHRD] = 3; trk[0].p[P_KEY] = 127;
+        if (i >= 2u) life_v[0] = 100;
+        transport_req = 1; ui_input();
+        for (k = 0; k < 64u; k++)
+            mix_block(vo, CTL);
+        { uint32_t q, a = 0; for (q = 0; q < NVOICE; q++) a += trk[0].v[q].active; if (!a) printf("cpu_vg: %s silent\n", FN[i]); }
+        vg_section(FN[i]);
+        transport_req = 2; ui_input();
+        life_v[0] = l0;
+    }
     for (i = 0; i < 5u; i++) {
         vg_quiet();
         song.g[G_RTYPE] = (int16_t)i;

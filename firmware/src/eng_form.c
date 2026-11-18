@@ -54,7 +54,10 @@ static int32_t form_tri(uint32_t ph){int32_t x=(int32_t)(ph>>16);return x<32768?
 static __attribute__((noinline)) int32_t form_wave(uint32_t state,uint32_t tick,uint32_t inc,uint32_t age,int32_t color,uint32_t seed)
 {
  uint32_t ph=tick*inc,bt=ph>>22,c=(uint32_t)clamp(color,0,127),slow=tick>>11;
- int32_t s=sine_i(ph),q=form_tri(ph),n=(int32_t)(fvm_hash(tick+seed*977u)>>16)-32768,y=0;
+ int32_t s=0,q=0,n=0,y=0;   /* (byte-cpu-light) the sine, triangle and noise only for the states that read them */
+ if(state==11u||state==18u||state>=21u)s=sine_i(ph);
+ if(state==1u||state==9u||state==16u||state==18u||state>=21u)q=form_tri(ph);
+ if(state>=21u)n=(int32_t)(fvm_hash(tick+seed*977u)>>16)-32768;
  switch(state){
  case 0:y=sine_i(ph+(uint32_t)(form_sin(tick,inc,2,1)*(int32_t)(c+16)*160));break;
  case 1:y=(q+(int32_t)(((bt^(bt>>3))&255u)*256u)-32768)/2;break;
@@ -214,25 +217,30 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  int32_t pitchroot=m->pitch16/16+t->p[P_ROOT]-12;
  int32_t swing=clamp(t->p[P_SSWING],0,100)*160;uint32_t split=32768u+(uint32_t)swing;
  uint32_t recip1=(uint32_t)(0x80000000ull/split),recip2=(uint32_t)(0x80000000ull/(65536u-split));
+ uint32_t mcyc=~0u,msec=~0u,mutation=0;int32_t sec0=0,sec1=0,sec2=0;uint32_t cd[4]={0};
  for(uint32_t i=0;i<n;i++,tick++){
   uint32_t beat=(pos%(cycle<<16))*RATE_N[rate]/RATE_D[rate],section=(pos%(cycle<<16))/cycle;
   uint32_t cyc=pos/(cycle<<16),swingpos=beat&65535u;
   if(cached_cycle!=cyc){for(uint32_t side=0;side<2;side++){const form_state_t*st=side?B:A;uint32_t raw[4]={st->gate,st->kick,st->snare,st->hat};for(uint32_t k=0;k<4;k++)masks[side][k]=form_pattern(raw[k],groove,seed,cyc);}cached_cycle=cyc;event_step=drum_step=~0u;}
   if(swingpos<split)swingpos=(swingpos*recip1)>>16;else swingpos=32768u+(((swingpos-split)*recip2)>>16);beat=(beat&0xffff0000u)|swingpos;
   uint32_t clock=(uint32_t)((beat*rateq)/127u),step=clock>>16,frac=clock&65535u,sectionn=section>>13;
-  uint32_t mutation=(fvm_hash(seed+cyc*37u+sectionn*7u)>>(28u-evolve/43u))&7u;mutation=mutation*evolve/127u;
+  if(cyc!=mcyc||sectionn!=msec){   /* (byte-cpu-light) the mutation and the three layers' sections: once a section */
+   mutation=(fvm_hash(seed+cyc*37u+sectionn*7u)>>(28u-evolve/43u))&7u;mutation=mutation*evolve/127u;
+   sec0=form_mix(form_section(a,section,0,evolve),form_section(b,section,0,evolve),morph);sec1=form_mix(form_section(a,section,1,evolve),form_section(b,section,1,evolve),morph);
+   sec2=form_mix(form_section(a,section,2,evolve),form_section(b,section,2,evolve),morph);mcyc=cyc;msec=sectionn;
+  }
   if(step!=last){
    uint32_t ix=step+seed+mutation;int32_t nn=form_mix((int32_t)form_char(A->melody,ix),(int32_t)form_char(B->melody,ix),morph);
    int32_t root=pitchroot,rr=form_mix((int32_t)form_char(A->roots,sectionn/2u),(int32_t)form_char(B->roots,sectionn/2u),morph);
    mi=form_pitch(t,root+nn+12);bi=form_pitch(t,root+rr-12);
    int32_t chord=clamp(t->p[P_CHRD],0,11),third=chord==4?2:chord==5||chord==11?5:chord==6||chord==8||chord==9?4:3,top=chord==2||chord==8||chord==10?10:chord==9?11:chord==3?14:12;
    int32_t ints[4]={0,third,7,top};for(uint32_t k=0;k<4;k++){int32_t shift=t->p[P_CVOI]==2?(k&1u?12:0):t->p[P_CVOI]==3&&k==0?-12:t->p[P_CVOI]==1&&(sectionn&1u)&&k==3?-12:0;ci[k]=form_pitch(t,root+rr+ints[k]+shift);}
+   for(uint32_t k=0;k<4u;k++)cd[k]=ci[k]+(ci[k]>>15)*(uint32_t)(k*t->p[P_DETUNE]/8);   /* (byte-cpu-light: once a step) */
    last=step;lastinc=mi;
   }
   uint32_t dstep=beat>>14,dfrac=(beat&16383u)<<2;
   if(step!=event_step){event_age=form_event(masks[0][0],masks[1][0],step,0,morph,density,seed,&event_level);event_step=step;}
   int32_t age=(int32_t)(((uint32_t)event_age+frac)*127u/rateq),env=fvm_music_env(age,65536u);env=mulq15(env,event_level);
-  int32_t sec0=form_mix(form_section(a,section,0,evolve),form_section(b,section,0,evolve),morph),sec1=form_mix(form_section(a,section,1,evolve),form_section(b,section,1,evolve),morph);
   int32_t sources[2]={0};uint32_t ids[2]={am,bm};
   for(uint32_t side=0;side<(am==bm?1u:2u);side++){
    uint32_t id=ids[side],dom=domain?domain:FORM_STATE[id].domain,mt=tick,ii=mi;
@@ -240,7 +248,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
    uint32_t voices=FORM_STATE[id].voices;
    int32_t lead=form_wave(id,mt,ii,(uint32_t)age,localcolor,seed),bass=id>=18?form_drop_bass(id,beat,mt*(bi/2u),localcolor):form_wave(id,mt,bi,beat&65535u,localcolor/2,seed),ch=0;
    uint32_t count=t->p[P_CHRD]? (uint32_t)clamp(voices,1,4):1u;
-   if(voices>1)for(uint32_t k=0;k<count;k++)ch+=form_wave(id,mt,ci[k]+(ci[k]>>15)*(uint32_t)(k*t->p[P_DETUNE]/8),beat&0x3ffffu,localcolor,seed)/(int32_t)count;
+   if(voices>1)for(uint32_t k=0;k<count;k++)ch+=form_wave(id,mt,cd[k],beat&0x3ffffu,localcolor,seed)/(int32_t)count;
    int32_t chenv=fvm_music_env((int32_t)(beat&0x3ffffu),4u*65536u);
    int32_t x=mulq15(mulq15(lead,env),sec0)/2+mulq15(mulq15(ch,chenv),sec1)/2;
    if(voices>1 && id<18)x+=mulq15(bass,32767-(int32_t)(beat&65535u)/2)/3;
@@ -263,7 +271,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
    ds+=mulq15(hit,dl)/(lane==2?2:1);
   }
   drum_step=dstep;
-  int32_t sec2=form_mix(form_section(a,section,2,evolve),form_section(b,section,2,evolve),morph),dm=form_mix(A->drums,B->drums,morph)*clamp(t->p[P_KEY],0,127)/127;
+  int32_t dm=form_mix(A->drums,B->drums,morph)*clamp(t->p[P_KEY],0,127)/127;
   drums[i]=mulq15(ds,sec2)*dm/127;
   pos+=dpos;carry+=rem;if(carry>=n){carry-=n;pos++;}
  }
