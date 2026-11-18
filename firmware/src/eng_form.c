@@ -199,6 +199,7 @@ static __attribute__((noinline)) void form_life(track_t*t,voice_t*v,uint32_t a,u
  for(uint32_t off=0;off<n;off+=FVM_BLK){uint32_t count=n-off<FVM_BLK?n-off:FVM_BLK,W[FVM_BLK],X[FVM_BLK],O[FVM_BLK];for(uint32_t i=0;i<count;i++){W[i]=((tick+off+i)*inc)>>16;X[i]=(uint32_t)(y[off+i]*2);}fvm_env_t e={{0},{0},0};e.arr[FA_W]=W;e.arr[FA_XF]=X;fl_run(&p,&e,&lofi_work[MC_CPU()&1u].s,count,O);for(uint32_t i=0;i<count;i++)y[off+i]=fvm_sample(FT_FIX,O[i]);}
  (void)t;
 }
+static volatile uint8_t load_tight;              /* (voice.c: the overload guard tripped) */
 static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*out,uint32_t n,const vmod_t*m)
 {
  if(n>CTL)n=CTL;if(!n)return;
@@ -212,6 +213,9 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  v->s[5]+=(t->p[P_E2]*256-v->s[5])/4;v->s[6]+=(t->p[P_E3]*256-v->s[6])/4;
  uint32_t morph=(uint32_t)clamp(v->s[5]>>8,0,127);int32_t color=clamp((v->s[6]>>8)+(m->shape>>8)-64,0,127);
  uint32_t am=a,bm=b;if(morph==127)am=b;if(morph==0)bm=a;
+ /* (byte-cpu-light) The overload guard tripped (voice.c load_tight): one state, the nearer, not both. A SONG's FORM is
+  * one held voice the guard never sheds, and A to B is twice its work: a jump to the nearer state, not a reset. */
+ if(load_tight){if(morph<64u)bm=a;else am=b;}
  uint32_t masks[2][4],cached_cycle=~0u,rateq=A->rate*(127u-morph)+B->rate*morph;
  uint32_t event_step=~0u,drum_step=~0u;int32_t event_age=0,event_level=0,drum_age[3]={0},drum_level[3]={0};
  int32_t pitchroot=m->pitch16/16+t->p[P_ROOT]-12;
