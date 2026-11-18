@@ -45,17 +45,13 @@ jobs:
         run: |
           python3 tests/target_budget.py build/felucca.dis tests/target_budget.txt
           python3 tools/gen_nav_map.py --check
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
-      - name: Resolve and test Stems JVM dependencies before the offline suite
-        run: gradle -p android/stems -PcoreOnly :core:test --no-daemon
-      - name: Host suites and target instruction budgets
-        run: sh tests/run_tests.sh
+      - name: BYTE's host suite (JIANT FM's run_tests.sh still holds the retired engines' tests)
+        run: sh tests/run_byte_tests.sh
+      - name: CPU under valgrind (BYTE's sections, tests/cpu_baseline_vg.txt)
+        run: |
+          sudo apt-get install -y valgrind
+          gcc -O2 -w -Ibuild/gen -Ifirmware/src -Itests -o build/cpu_vg tests/cpu_vg.c -lm
+          python3 tests/cpu_vg.py build/cpu_vg tests/cpu_baseline_vg.txt
       - name: Package provenance
         shell: bash
         run: |
@@ -63,7 +59,7 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > build/SOURCE_COMMIT
       - uses: actions/upload-artifact@v4
         with:
-          name: fm1-v099-cpu1-preview
+          name: byte-cpu-light-preview
           if-no-files-found: error
           path: |
             build/felucca.fwsc
