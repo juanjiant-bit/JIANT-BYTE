@@ -32,7 +32,7 @@ static uint32_t host_tick_dflt;                 /* (V10.33) TIMER4's ticks (the 
  * firmware's; a test that hears something else bit for bit or by its level through the master (DJ FILTER, MICRO, STEMS,
  * CLICK, the audio path, VEL, DRUM-X's knobs) defines it 0 first */
 #ifndef HOST_BAL
-#define HOST_BAL BAL_DEF
+#define HOST_BAL 0                  /* (byte-cpu-light: BALANCE off at power-on, as main.c) */
 #endif
 /* (V10.7.34) LIFE at the tests' power-on: 0, still (LIFE=a overrides): the tests of every other feature hear it as they
  * were written, bit for bit; the firmware's power-on is LIFE_DEF, and the tests about the default sound define it so

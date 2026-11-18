@@ -53,7 +53,8 @@ static LIFE_SZ void life_master(void)
     life.fol&=(uint8_t)~track_follow_mask;track_follow_mask|=life.fol;
 }
 /* After note events and performance mutes, before either render core starts. */
-static uint32_t fl_blk;                 /* (byte-cpu-light) blocks, for the captures' turn */
+static uint32_t fl_blk;
+static uint8_t fl_idle;                 /* (byte-cpu-light) LIFE off and its state cleared */                 /* (byte-cpu-light) blocks, for the captures' turn */
 static LIFE_SZ void life_formula_block(uint32_t hush)
 {
     uint32_t i,j;
@@ -68,6 +69,16 @@ static LIFE_SZ void life_formula_block(uint32_t hush)
     fl.fragments_amt=(uint8_t)clamp((life_v[LIFE_AMT]?life_v[LIFE_FRAGMENTS]*(100-punch)/100:0)+punch_amount[1],0,100);
     fl.link_amt=(uint8_t)clamp((life_v[LIFE_AMT]?life_v[LIFE_LINK]*(100-punch)/100:0)+punch_amount[2],0,100);
     fl.count=fl.ncount=fl.weight=fl.number_weight=0;fl.numbers=0;fl.strikes=0;
+    if(!fl.on){                             /* (byte-cpu-light) LIFE 0, no punch: cleared once, then not run */
+        if(!fl_idle){
+            memset(fl.sum,0,sizeof fl.sum);memset(life.w,0,sizeof life.w);
+            memset(fl.gate,0,sizeof fl.gate);memset(fl.strike,0,sizeof fl.strike);memset(fl.depth,0,sizeof fl.depth);
+            for(i=0;i<FL_VOICES;i++)fl.node[0][i].valid=fl.node[1][i].valid=0;
+            fl_idle=1;
+        }
+        return;
+    }
+    fl_idle=0;
     memset(fl.sum,0,sizeof fl.sum);memset(life.w,0,sizeof life.w);
     for(i=0;i<NTRK;i++) {
         int32_t target=fl.on?life_pt(i,0):0;

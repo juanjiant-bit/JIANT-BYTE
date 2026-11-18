@@ -1705,7 +1705,8 @@ static int project_restore_runtime(const project_t *input)
         uint32_t k;
         for (k = 0; k < 4u; k++) eq_v[k] = clamp(p->eq[k], -12, 12);
         tape_v[0] = p->tp[0] > 100u ? 100 : p->tp[0]; tape_v[1] = p->tp[1] > 100u ? 100 : p->tp[1];
-        bal_v = (int16_t)clamp(p->bal + BAL_DEF, 0, 100);   /* (V10.7.30) BALANCE, NOISE */
+        bal_v = 0;                                      /* (byte-cpu-light: BALANCE off at a load, as at power-on) */
+        (void)p->bal;   /* (V10.7.30) BALANCE, NOISE */
         memcpy(dnz_v, p->dnz, sizeof dnz_v);            /* (0 .. 100: proj_xm's, or the knob's) */
         for (k=0;k<NTRK;k++) voice_limit[k]=(int16_t)clamp(p->voice_limit[k] ? p->voice_limit[k] : NVOICE,1,NVOICE);
         memcpy(cru_v, p->cru, sizeof cru_v);            /* (V10.7.33) CRUSH (0 .. 127: proj_xm's, or the knob's) */
@@ -1831,7 +1832,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     for (i = 0; i < G_COUNT; i++) song.g[i] = GP[i].def;
     tape_v[0] = tape_v[1] = 0;                          /* (snd8) the master's TAPE out */
     eq_v[0] = eq_v[1] = eq_v[2] = eq_v[3] = 0;          /* (p9) its EQ flat */
-    bal_v = BAL_DEF;                                    /* (V10.7.30) BALANCE on, no NOISE */
+    bal_v = 0;                                          /* (byte-cpu-light) BALANCE off, no NOISE */
     memset(dnz_v, 0, sizeof dnz_v);
     memset(cru_v, 0, sizeof cru_v);                     /* (V10.7.33) no CRUSH */
     life_defaults(); voice_limits_default();                                    /* (V10.7.34) LIFE as at power-on */
