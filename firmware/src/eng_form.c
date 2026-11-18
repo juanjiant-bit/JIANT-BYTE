@@ -81,6 +81,37 @@ static __attribute__((noinline)) int32_t form_wave(uint32_t state,uint32_t tick,
  }
  return clamp(y,-32767,32767);
 }
+/* Bass phrases for references 19..22. beat is Q16 quarter notes.
+ * Keep the fundamental below the equation layer so its gates can leave space. */
+static int32_t form_drop_bass(uint32_t id, uint32_t beat, uint32_t phase, int32_t color)
+{
+ static const char pair_div[]="11111111111144222211111122223389";
+ static const char build_div[]="11222212";
+ uint32_t step=beat>>14, bar=beat>>18;
+ uint32_t div=id==20?(uint32_t)(pair_div[(beat>>15)&31]-'0'):
+              id==19?(uint32_t)(build_div[(beat>>15)&7]-'0'):
+              id==18?1u+((bar^step)&3u):1u+((step^(step>>3|step>>6))&3u);
+ uint32_t age=(beat*div)&65535u;
+ int32_t env=32767-(int32_t)(age>>1);
+ int32_t sub=sine_i(phase), mod=sine_i(phase*(2u+((step>>2)&1u)));
+ int32_t growl=sine_i(phase+(uint32_t)mulq15(mod,env)*(uint32_t)(color+24)*768u);
+ if(id==20){
+  uint32_t t=phase>>21,shift=(step>>1)&7u;
+  uint32_t bits=(t*(t>>9|1932555120u>>shift)&128u)^((t>>2)*(t>>11|58132275u>>shift)&191u);
+  growl=(growl+(int32_t)bits*256-32768)/2;
+ }else if(id==19){
+  uint32_t t=phase>>21;
+  int32_t bits=(int32_t)((t*((t>>2)^(t>>9))&255u)*256u)-32768;
+  growl=form_mix(growl,bits,(bar&3u)*30u);
+ }else if(id==18){
+  int32_t square=mulq15(growl,growl);
+  growl=mulq15(growl,mulq15(square,square));
+ }else{
+  int32_t carrier=sine_i(phase*(1u+((step^(step>>3|step>>6))&3u)));
+  growl=softclip(growl+mulq15(carrier,sine_i(phase*8u))*3);
+ }
+ return sub/2+mulq15(growl,env)/2;
+}
 /* Four percussion equation families share a bounded event age, but not a fixed
  * recorded hit or a single common drum timbre. Morph evaluates only A/B. */
 static __attribute__((noinline)) int32_t form_drum(uint32_t state,uint32_t lane,uint32_t age,uint32_t tick,uint32_t samples,int32_t color,uint32_t seed){
@@ -208,15 +239,16 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
    if(formula_punch&1u)ii>>=1;if(formula_punch&2u)ii<<=1;if(formula_punch&4u)mt^=128u;
    int32_t localcolor=clamp((formula_punch&8u?127-color:color)+(int32_t)FORM_STATE[id].color-64,0,127);
    uint32_t voices=FORM_STATE[id].voices;
-   int32_t lead=form_wave(id,mt,ii,(uint32_t)age,localcolor,seed),bass=form_wave(id,mt,bi,beat&65535u,localcolor/2,seed),ch=0;
+   int32_t lead=form_wave(id,mt,ii,(uint32_t)age,localcolor,seed),bass=id>=18?form_drop_bass(id,beat,mt*(bi/2u),localcolor):form_wave(id,mt,bi,beat&65535u,localcolor/2,seed),ch=0;
    uint32_t count=t->p[P_CHRD]? (uint32_t)clamp(voices,1,4):1u;
    if(voices>1)for(uint32_t k=0;k<count;k++)ch+=form_wave(id,mt,ci[k]+(ci[k]>>15)*(uint32_t)(k*t->p[P_DETUNE]/8),beat&0x3ffffu,localcolor,seed)/(int32_t)count;
    int32_t chenv=fvm_music_env((int32_t)(beat&0x3ffffu),4u*65536u);
    int32_t x=mulq15(mulq15(lead,env),sec0)/2+mulq15(mulq15(ch,chenv),sec1)/2;
-   if(voices>1)x+=mulq15(bass,32767-(int32_t)(beat&65535u)/2)/3;
+   if(voices>1 && id<18)x+=mulq15(bass,32767-(int32_t)(beat&65535u)/2)/3;
    if(dom==1){uint32_t mask=255u-(uint32_t)localcolor;int32_t bits=((x+32768)>>8)&255;x=((bits^(int32_t)((step+seed)&mask))*256-32768);}
    else if(dom==2)x=(x+sine_i(tick*mi)/3)*3/4;
    else if(dom==4){int32_t bits=(int32_t)(((tick*(mi>>16))^(tick>>5))&255u)*256-32768;x=(x*3+mulq15(bits,lead))/4;}
+   if(id>=18)x=x/2+bass;
    x=soft_knee(x,26000);uint32_t slot=side;
    if(dom==3||id==4||id==12||id==17){int32_t fb=v->s[2+slot]/4;int32_t u=soft_knee(x+fb,26000),coef=2500+localcolor*120;v->s[slot]+=mulq15(u-v->s[slot],coef);v->s[2+slot]=v->s[slot];x=id==12?(x-v->s[slot])/2:v->s[slot];}
    sources[side]=x;
