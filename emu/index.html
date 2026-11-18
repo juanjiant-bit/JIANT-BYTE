@@ -97,6 +97,13 @@ footer small { font-size: 11px; opacity: .8; }
   <span><kbd>Shift</kbd>-click holds a button</span>
 </p>
 
+<details class="stems" id="func-editor">
+  <summary>FUNC · compose a function inside BYTE</summary>
+  <div class="row"><label>Track <select id="func-track"><option value="0">1</option><option value="1">2</option><option value="2">3</option><option value="3">4</option><option value="4">5</option><option value="5">6</option></select></label><button type="button" id="func-read">Read track</button><button type="button" id="func-apply">Apply to MATH FUNC</button></div>
+  <textarea id="func-code" rows="6" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="FUNC program" style="box-sizing:border-box;width:100%;background:#121116;color:#efedf6;border:1px solid #73658d;padding:10px;font:14px monospace"></textarea>
+  <p id="func-status" role="status">Start the emulator, then read a track. Up to 255 characters. Save with the project.</p>
+  <p>func { state q; let z = ...; fn tone(z) = ...; q = ...; return ...; }<br>State starts at zero on each note. A/B/C/D: controls · w: note phase · T: seconds · p: song beats · freq: note Hz · sr: sample rate. <a href="https://github.com/juanjiant-bit/JIANT-BYTE/blob/codex/byte-identity-generator/docs/funcbeat.md" target="_blank" rel="noopener">Language and examples</a></p>
+</details>
 <details class="stems" id="stems">
   <summary>Stems: a backup's song or section as separate WAV tracks (ZIP)</summary>
   <p>Back up the FM-1 from the editor or the installer ("Back up": a <code>JIANT-backup-….json</code> file), then load it here.
@@ -115,7 +122,7 @@ footer small { font-size: 11px; opacity: .8; }
 
 <p class="kofi" style="border-left:3px solid #ec6e50;padding:4px 0 4px 12px">If you resonate with my work, consider supporting me on <a href="https://ko-fi.com/juanjiant" target="_blank" rel="noopener" style="color:inherit;font-weight:600">Ko-fi</a> (in Argentina: <a href="https://cafecito.app/juanjiant" target="_blank" rel="noopener" style="color:inherit;font-weight:600">Cafecito</a>). Thanks for all the good energy, hope you enjoy this little beast 🫶✨🎹</p>
 <footer>
-  <small class="version">BYTE v0.9 · <a href="build.json">60f36af</a></small><br>
+  <small class="version">BYTE v0.10 · <a href="build.json">996f89e</a></small><br>
   JIANT /B1T3 by Juan Jiant (a fork of JIANT FM) · <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0</a> · browser build after charlesvestal's <a href="https://github.com/charlesvestal/fm1-x0x">X0X</a> · DotGothic16 font, <a href="fonts/OFL.txt">SIL OFL 1.1</a><br>
   <nav><a href="../">JIANT /B1T3 home</a> · <a href="https://github.com/juanjiant-bit/JIANT-BYTE">Source</a> · <a href="../webapp/installer/">Install this version</a> ·
     <a href="../webapp/editor/">Editor</a></nav>
@@ -179,6 +186,10 @@ angle.MASTER = -135 + 270 * masterValue / 1023;
 const knobs = [], buttons = [], keys = [];
 const btnBy = new Map(), keyBy = new Map();                   // pointer / key code -> label bit or key
 const send = (m) => { if (node) node.port.postMessage(m); };
+for(const [id,type] of [["func-read","func-get"],["func-apply","func-apply"]])document.getElementById(id).addEventListener("click",()=>{
+ if(!node){document.querySelector("#func-status").textContent="Start the emulator first.";return;}
+ send({type,track:+document.querySelector("#func-track").value,text:document.querySelector("#func-code").value});
+});
 
 function build(name) {
   const L = LAYOUTS[name];
@@ -363,7 +374,7 @@ const KEYMAP = {};
 Object.assign(KEYMAP, { BracketLeft: { btn: B["OCT-"] }, BracketRight: { btn: B["OCT+"] } });
 const ARROWS = { ArrowUp: [EN.SELECT, 1], ArrowDown: [EN.SELECT, -1], ArrowRight: [EN.ALGORITHM, 1], ArrowLeft: [EN.ALGORITHM, -1] };
 addEventListener("keydown", (e) => {
-  if (!node || e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.(".hit.knob")) return;
+  if (!node || e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.(".hit.knob, textarea, input, select")) return;
   if (ARROWS[e.code]) { const [r, n] = ARROWS[e.code]; turn(knobs.find((k) => k.role === r), n); e.preventDefault(); return; }
   const m = KEYMAP[e.code];
   if (!m) return;
@@ -546,6 +557,10 @@ async function switchOn() {
         const m = e.data;
         if (m.type === "ready") res();
         else if (m.type === "error") rej(new Error(m.message));
+        else if(m.type==="func-result") {
+          document.querySelector("#func-status").textContent=m.error|| (m.applied?"Applied. Play this track; save the project to keep its code.":"Track loaded into the editor.");
+          if(!m.error)document.querySelector("#func-code").value=m.text;
+        }
         else if (m.type === "frame") {
           if (m.fb) drawScreen(m.fb);
           if (m.leds) drawLights(lastLeds = m.leds, m.anim);

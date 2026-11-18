@@ -1,0 +1,72 @@
+{
+  "levels": [
+    {
+      "life": 0,
+      "equal_rms_change": 0.0,
+      "rms_ratio": 1.0,
+      "high_band": 2.4064481012440347e-08
+    },
+    {
+      "life": 25,
+      "equal_rms_change": 0.03915939526647815,
+      "rms_ratio": 0.9823707910608291,
+      "high_band": 1.3829989015262508e-06
+    },
+    {
+      "life": 50,
+      "equal_rms_change": 0.17769198549125895,
+      "rms_ratio": 0.9305215120251351,
+      "high_band": 1.5486035089201788e-05
+    },
+    {
+      "life": 75,
+      "equal_rms_change": 0.3703715775004729,
+      "rms_ratio": 0.807733646809317,
+      "high_band": 4.3897191484724494e-08
+    },
+    {
+      "life": 100,
+      "equal_rms_change": 0.8620415995643759,
+      "rms_ratio": 0.7021238940280341,
+      "high_band": 7.905512207175679e-05
+    }
+  ],
+  "attacks": [
+    {
+      "classic": false,
+      "hit": "kick",
+      "min_attack_change": 0.42084991531583266,
+      "high_band": 7.905512207175679e-05
+    },
+    {
+      "classic": false,
+      "hit": "snare",
+      "min_attack_change": 0.20906238074579006,
+      "high_band": 0.00010274059264770516
+    },
+    {
+      "classic": false,
+      "hit": "clap",
+      "min_attack_change": 0.22933893901249222,
+      "high_band": 0.00011306913756991089
+    },
+    {
+      "classic": true,
+      "hit": "kick",
+      "min_attack_change": 0.23868762574409547,
+      "high_band": 0.00012828601938348196
+    },
+    {
+      "classic": true,
+      "hit": "snare",
+      "min_attack_change": 0.20267163036315786,
+      "high_band": 0.00012640972952423655
+    },
+    {
+      "classic": true,
+      "hit": "clap",
+      "min_attack_change": 0.18294513106465868,
+      "high_band": 0.00012691848477461363
+    }
+  ]
+}

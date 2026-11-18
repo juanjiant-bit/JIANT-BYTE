@@ -69,6 +69,19 @@ if (typeof registerProcessor === "function") {
       }
       const ex = this.ex;
       if (!ex) return;
+      if (m.type === "func-get" || m.type === "func-apply") {
+        if (!ex.web_func_get) { this.port.postMessage({type:"func-result",error:"This engine does not support FUNC."}); return; }
+        const track=Math.max(0,Math.min(5,m.track|0));let rc=0;
+        if(m.type==="func-apply") {
+          const text=String(m.text||"").replace(/[\r\n\t]/g," ");
+          if(text.length>255 || /[^\x20-\x7e]/.test(text)){this.port.postMessage({type:"func-result",error:"Use up to 255 ASCII characters."});return;}
+          const b=new Uint8Array(ex.memory.buffer,ex.web_func_buffer(),256);b.fill(0);for(let i=0;i<text.length;i++)b[i]=text.charCodeAt(i);
+          rc=ex.web_func_apply(track);
+        }
+        const b=new Uint8Array(ex.memory.buffer,ex.web_func_get(track),256);let text="";for(let i=0;i<255&&b[i];i++)text+=String.fromCharCode(b[i]);
+        const names=["","Syntax","Unknown/reserved name","Arguments","Too complex","Too deep","Too complex","Table full","State budget (2), or nonzero initialization","Empty"];
+        this.port.postMessage({type:"func-result",track,text,applied:m.type==="func-apply"&&!rc,error:rc?(names[rc]||"Compile error")+" at "+(ex.web_func_error_pos()+1):""});return;
+      }
       if (m.type === "buttons" || m.type === "keys") this.queue.push(m);
       else if (m.type === "enc") ex.web_enc(m.role, m.n | 0);
       else if (m.type === "master") ex.web_master(m.value | 0);
