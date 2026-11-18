@@ -381,6 +381,8 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
     int32_t lfo, off[NMSLOT + 3u];
     uint32_t k, j;
     mp->on = 0;
+    math_request[(uint32_t)(t-trk)]=0;
+    math_request_base[(uint32_t)(t-trk)]=(uint32_t)clamp(t->p[P_E2],0,191)|((uint32_t)clamp(t->p[P_E3],0,127)<<8);
     for (k = 0; k < NMSLOT; k++)
         if (p[P_M1SRC + 3u * k] && p[P_M1DST + 3u * k] && p[P_M1AMT + 3u * k])
             break;
@@ -445,6 +447,11 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
             lo = mp->keep[j] < 0 ? lo : 0, hi = mp->keep[j] < 0 ? -1 : hi;
         t->p[id] = (int16_t)clamp(mp->keep[j] + off[j], lo, hi);
     }
+    if(t->engine==ENGI_LOFI&&t->p[P_E1]==RW_USER)
+        for(j=0;j<mp->nk;j++)if(mp->kid[j]==P_E2||mp->kid[j]==P_E3){
+            math_request[(uint32_t)(t-trk)]=0x80000000u|(uint32_t)clamp(t->p[P_E2],0,191)|((uint32_t)clamp(t->p[P_E3],0,127)<<8);
+            break;
+        }
     return 1;
 }
 

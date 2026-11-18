@@ -205,45 +205,54 @@ static uint32_t trk_def_engine(uint32_t i) { return TRK_DEF[i % NPART][0]; }
 
 /* (JIANT BYTE) MATH's USER parts, in the main loop (project.c math_poll: the project scratch its work space): a part's
  * text (lyr_txt: the project keeps it) or, without one, the formula ALGO's seed and CAOS's third invent (fvm_gen.c);
- * a new one when either moves. The text, its type, then its version: the audio compiles it then (eng_lofi.c lofi_prog) */
+ * a new one when either moves. Compile and validate here; publish complete bytecode for audio (eng_lofi.c lofi_prog) */
 static int16_t math_seed[NTRK] = {-1, -1, -1, -1, -1, -1};
 static uint8_t math_band[NTRK], math_hash[NTRK], math_var[NTRK];
+#ifndef MATH_PUBLISH_LOCK
+#define MATH_PUBLISH_LOCK() ((void)0)
+#define MATH_PUBLISH_UNLOCK() ((void)0)
+#endif
 static void math_poll_ws(gq_work_t *w)
 {
-    uint32_t tr;
-    for (tr = 0; tr < NTRK; tr++) {
-        const track_t *t = &trk[tr];
-        const char *lt = lyr_txt[tr];
-        uint32_t seed, band, h = 0, k, var;
-        if (eng_idx(t->eng_req) != ENGI_LOFI || t->p[P_E1] != RW_USER)
-            continue;
-        seed = (uint32_t)clamp(t->p[P_E2], 0, 191);
-        band = (uint32_t)clamp(t->p[P_CAOS], 0, 127) / 43u;   /* (tonal, classic, wild: a new formula when it changes) */
-        for (k = 0; lt[k] && k < 63u; k++)
-            h = (h * 31u + (uint8_t)lt[k]) & 255u;
-        var = (uint32_t)clamp(t->p[P_E3], 0, 127);    /* (phase 9) VAR: the formula mutated / crossed (fvm_move) */
-        if (math_seed[tr] == (int16_t)seed && math_band[tr] == band && math_hash[tr] == (uint8_t)(h | (lt[0] != 0)) &&
-            math_var[tr] == var)
-            continue;
-        if (lt[0]) {                                     /* the part's own text */
-            uint32_t n = 0;
-            fvm_err_t e;
-            while (lt[n] && n < 63u) { math_txt[tr][n] = lt[n]; n++; }
-            math_txt[tr][n] = 0;
-            math_ty[tr] = fvm_compile(&w->cc, FVM_FULL(&w->pg), math_txt[tr], n, &e) ? FT_INT : w->pg.p.ty;
-        } else {
-            static const uint8_t BAND_C[3] = {20, 64, 106};
-            fvm_invent(w, math_txt[tr], seed, BAND_C[band]);
-            math_ty[tr] = w->pg.p.ty;
-        }
-        if (var && fvm_move(w, math_txt[tr], seed, var))
-            math_ty[tr] = w->pg.p.ty;
-        math_var[tr] = (uint8_t)var;
-        math_seed[tr] = (int16_t)seed;
-        math_band[tr] = (uint8_t)band;
-        math_hash[tr] = (uint8_t)(h | (lt[0] != 0));
-        math_ver[tr]++;                                  /* (last: the audio compiles it from here) */
+    static uint8_t cursor;
+    static uint32_t auto_ms[NTRK],budget_ms;
+    uint32_t used=0;
+    for(uint32_t offset=0;offset<NTRK;offset++){
+        uint32_t tr=(cursor+offset)%NTRK;
+        const track_t*t=&trk[tr];const char*lt=lyr_txt[tr];
+        uint32_t seed,band,h=0,k,var,request=math_request[tr];char text[64];
+        if(eng_idx(t->eng_req)!=ENGI_LOFI||t->p[P_E1]!=RW_USER)continue;
+        seed=(uint32_t)clamp(t->p[P_E2],0,191);var=(uint32_t)clamp(t->p[P_E3],0,127);
+        /* A route removal is restored on the next UI frame; pending values are
+         * coalesced, not queued. The saved parameters/text are never rewritten. */
+        uint32_t routed=0;
+        for(k=0;k<4u;k++)if(t->p[P_M1SRC+k*3u]&&t->p[P_M1AMT+k*3u]&&
+            (t->p[P_M1DST+k*3u]==PD_E1+2||t->p[P_M1DST+k*3u]==PD_E1+3))routed=1;
+        if(!routed||math_request_base[tr]!=(seed|(var<<8)))request=0;
+        if(request&0x80000000u){seed=request&255u;var=(request>>8)&127u;}
+        band=(uint32_t)clamp(t->p[P_CAOS],0,127)/43u;
+        for(k=0;lt[k]&&k<63u;k++)h=(h*31u+(uint8_t)lt[k])&255u;
+        if(math_seed[tr]==(int16_t)seed&&math_band[tr]==band&&math_hash[tr]==(uint8_t)(h|(lt[0]!=0))&&math_var[tr]==var&&(lofi_prg_id[tr]&0x400u))continue;
+        if((request&0x80000000u)&&(lofi_prg_id[tr]&0x400u)&&
+            (used||(uint32_t)(fm1_ms-auto_ms[tr])<32u||(uint32_t)(fm1_ms-budget_ms)<16u))continue;
+        if(lt[0]){for(k=0;lt[k]&&k<63u;k++)text[k]=lt[k];text[k]=0;}
+        else{static const uint8_t BAND_C[3]={20,64,106};fvm_invent(w,text,seed,BAND_C[band]);}
+        if(var)fvm_move(w,text,seed,var);
+        for(k=0;text[k]&&k<63u;k++);
+        if(fvm_compile(&w->cc,FVM_FULL(&w->pg),text,k,0)||w->pg.p.nstate>LOFI_NSTATE)continue;
+        /* Publish complete validated bytecode in a short critical section. No
+         * generator/compiler or dynamic allocation runs in the audio callback. */
+        MATH_PUBLISH_LOCK();
+        fvm_prog_t*destination=lofi_slot(tr);fvm_ins_t*instructions=destination->ins;
+        memcpy(instructions,w->pg.ins,w->pg.p.n*sizeof *instructions);
+        *destination=w->pg.p;destination->ins=instructions;destination->cap=FVM_MAXINS;
+        memcpy(math_txt[tr],text,k+1u);math_ty[tr]=destination->ty;
+        math_var[tr]=(uint8_t)var;math_seed[tr]=(int16_t)seed;math_band[tr]=(uint8_t)band;math_hash[tr]=(uint8_t)(h|(lt[0]!=0));
+        math_ver[tr]++;lofi_prg_id[tr]=(uint16_t)(0x400u|math_ver[tr]);
+        MATH_PUBLISH_UNLOCK();
+        if(request&0x80000000u){used=1;auto_ms[tr]=budget_ms=fm1_ms;}
     }
+    cursor=(uint8_t)((cursor+1u)%NTRK); /* fair coalescing: <=31 rebuilds/s per track, <=62/s total */
 }
 
 static void math_poll(void);                            /* (JIANT BYTE: project.c, the main loop calls it: ui_input.c) */

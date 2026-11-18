@@ -363,10 +363,17 @@ static inline uint32_t lofi_caos(uint32_t t, uint32_t c, int32_t fb)
 static char math_txt[NTRK][64] __attribute__((section(".pool")));
 static uint8_t math_ty[NTRK];
 static volatile uint8_t math_ver[NTRK];
+/* Audio publishes effective USER controls; the main loop compiles them. */
+static volatile uint32_t math_request_base[NTRK];
+static volatile uint32_t math_request[NTRK]; /* bit31 active, seed bits0..7, mutation bits8..14 */
+static int32_t math_last[NTRK*NVOICE];
+static uint8_t math_seen[NTRK*NVOICE],math_fade[NTRK*NVOICE];
+static int32_t math_transition[2][CTL] __attribute__((section(".pool")));
 static const fvm_prog_t *lofi_prog(const track_t *t, lofi_work_t *w, uint32_t flt, uint32_t f)
 {
     uint32_t tr = (uint32_t)(t - trk) % NTRK, user = t->p[P_E1] == RW_USER;
     uint32_t id = user ? 0x400u | math_ver[tr] : 1u + (flt ? 64u : 0u) + f;
+    if(user)return lofi_slot(tr); /* USER programs are validated/published by math_poll, never compiled here. */
     if (lofi_prg_id[tr] != id) {
         const char *s = user ? math_txt[tr] : flt ? FVM_FLOAT_BANK[f % FVM_NFLOAT] : FVM_BYTE_BANK[f % FVM_NBYTE];
         uint32_t n = 0;
@@ -607,6 +614,8 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 
 static void lofi_note_on(track_t *t, voice_t *v)
 {
+    uint32_t id=(uint32_t)(t-trk)*NVOICE+(uint32_t)(v-t->v);
+    math_seen[id]=math_ver[(uint32_t)(t-trk)];math_fade[id]=0;math_last[id]=0;
     v->s[0] = 0;                 /* held sample */
     v->s[1] = 0;                 /* hold counter */
     v->s[2] = 0;                 /* the time t, from 0 */
@@ -624,6 +633,11 @@ static void lofi_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
 {
     const int16_t *p = t->p;
     uint32_t chip = (uint32_t)p[P_E0], inc;
+    uint32_t tr=(uint32_t)(t-trk),vi=tr*NVOICE+(uint32_t)(v-t->v),user=p[P_E1]==RW_USER;
+    int32_t *destination=out,before_last=n?out[n-1]:0;
+    if(user&&(!(lofi_prg_id[tr]&0x400u)||!lofi_prg[tr].n))return;
+    if(user&&math_seen[vi]!=math_ver[tr]){math_seen[vi]=math_ver[tr];math_fade[vi]=128;v->s[6]=v->s[7]=0;}
+    if(user&&math_fade[vi]){destination=math_transition[MC_CPU()&1u];memset(destination,0,n*sizeof *destination);}
     int32_t rs = p[P_FRES] > 50 ? p[P_FRES] : 50;       /* (JIANT 0.5) its RES the FILTER page's, 50 at least */
     tsvf_t flt;
     vmod_t mg = *m;                                     /* (0.9.11) the engine's level: on the block's amplitude ramp */
@@ -633,10 +647,21 @@ static void lofi_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     tsvf_coef(&flt, (p[P_FCUT] << 8) + mg.cutoff, rs);   /* (JIANT 0.5: the FILTER page's CUT) */
     if (p[P_E1] == RW_FLOAT || (p[P_E1] == RW_USER && math_ty[(uint32_t)(t - trk) % NTRK] == FT_FIX))   /* (JIANT 0.5.1)
                                                          * floatbeat (JIANT BYTE: a USER one in FIX too) */
-        lofi_float_render(t, v, out, n, &mg, inc, &flt);
+        lofi_float_render(t, v, destination, n, &mg, inc, &flt);
     else                                                /* (JIANT 0.4) bytebeat */
-        lofi_byte_render(t, v, out, n, &mg, inc, 1 + (chip == CHIP_4B2 ? 1 : 0),
+        lofi_byte_render(t, v, destination, n, &mg, inc, 1 + (chip == CHIP_4B2 ? 1 : 0),
                          chip == CHIP_FULL ? 16 : chip == CHIP_8BIT ? 8 : chip == CHIP_1BIT ? 1 : 4, &flt);
+    if(destination!=out){
+        uint32_t remaining=math_fade[vi];int32_t held=math_last[vi],last=held;
+        for(uint32_t i=0;i<n;i++){
+            last=remaining?(held*(int32_t)remaining+destination[i]*(int32_t)(128u-remaining))/128:destination[i];
+            out[i]+=last;if(remaining)remaining--;
+        }
+        math_fade[vi]=(uint8_t)remaining;
+        /* Keep the same held endpoint during the entire 128-sample crossfade. */
+        if(!remaining)math_last[vi]=last;
+    }else if(n)math_last[vi]=out[n-1]-before_last;
+
 }
 
 /* (V10.6d) every sound starts still (MOTION 0: the formula's slow bits at 1/16, no evolution to startle) and with RTRG on

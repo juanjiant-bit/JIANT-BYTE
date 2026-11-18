@@ -54,6 +54,7 @@ static volatile uint8_t kb_asleep;       /* MENU > SCREEN OFF (ui.c): the screen
                                           * wakes it (silent, no layer, its release nothing) */
 static uint8_t last_note = 60;
 static volatile uint8_t transport_req;   /* 1 start, 2 stop, 3 restart (from the UI) */
+static volatile uint8_t keep_req; /* FM49: carry held notes while directly auditioning presets. */
 static volatile uint8_t panic_req;       /* bit per track: release every sounding note (preset / engine change) */
 static volatile uint8_t midi_hint;       /* MIDI IN played track n - 1, which is not the selected one (the UI says so) */
 
@@ -3412,7 +3413,7 @@ static __attribute__((noinline)) void panic_block(void)   /* (mo_block, before e
 }
 static void events_block(uint32_t n)
 {
-    uint32_t i, pr, fo, seq_n = n;
+    uint32_t i, pr, fo, kp, seq_n = n;
     uint32_t clock_mode = (uint32_t)song.g[G_CLOCK];
     blk_n = n ? n : 1u;                                /* (ctl64: ev_at) */
     ev_off = 0;
@@ -3456,6 +3457,7 @@ static void events_block(uint32_t n)
     if (pr)
         mo_flush_of(pr);                               /* (0.6.72) their MIDI OUT notes too */
     fo = pr;                                           /* (0.6.13) sound loads: what sounds fades on the old sound */
+    kp=keep_req&pr;keep_req^=(uint8_t)kp;
     pr |= ovf_pr;                                      /* (a lost MIDI note-off: every track, panic_block) */
     ovf_pr = 0;
     for (i = 0; i < NTRK; i++) {
@@ -3474,7 +3476,7 @@ static void events_block(uint32_t n)
                 arp_silence(t);
             {   /* (0.6.41) another engine: what is held sounds on in it (kept past the release, which forgets) */
                 uint8_t hn[4], hv[4];
-                uint32_t hc = t->eng_req != t->engine ? xf_held(t, hn, hv) : 0u, h;
+                uint32_t hc = t->eng_req != t->engine || ((kp>>i)&1u) ? xf_held(t, hn, hv) : 0u, h;
                 if (!hc)                            /* (stuck notes) carried: the MIDI notes keep their owners, their
                                                      * note-offs end them on the new engine (they hung) */
                     midi_forget_track(i);
