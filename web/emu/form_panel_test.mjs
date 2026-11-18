@@ -2,6 +2,12 @@
 import fs from 'node:fs';import assert from 'node:assert/strict';
 const{instance}=await WebAssembly.instantiate(fs.readFileSync(process.argv[2]),{}),ex=instance.exports;ex._initialize();ex.web_nor_erase();ex.web_seed(123);ex.web_boot();
 function render(n,save=false){const out=new Float32Array(save?n*2:0);let at=0;while(n){const m=Math.min(128,n);ex.web_render(m);if(save){const l=new Float32Array(ex.memory.buffer,ex.web_out_l(),m),r=new Float32Array(ex.memory.buffer,ex.web_out_r(),m);for(let i=0;i<m;i++){out[at++]=l[i];out[at++]=r[i];}}n-=m;}return out;}
-render(110250);for(let k=0;k<3;k++){ex.web_buttons(1<<4);render(2205);ex.web_enc(2,1);render(2205);ex.web_buttons(0);render(2205);}
+render(110250);
+// A reverse step from the first factory sound wraps to the end of the catalog.
+// EDIT plus a forward step returns to the first FORM preset.
+ex.web_enc(2,-1); render(2205);
+ex.web_buttons(1<<4); render(2205);
+ex.web_enc(2,1); render(2205);
+ex.web_buttons(0); render(2205);
 const chunks=[];for(let state=0;state<22;state++){if(state){ex.web_enc(2,1);render(2205);}ex.web_buttons(1<<10);render(2205);ex.web_buttons(0);const out=render(88200,true);chunks.push(Buffer.from(out.buffer));let e=0,p=0;for(const x of out){e+=x*x;p=Math.max(p,Math.abs(x));}assert(Math.sqrt(e/out.length)>.008&&p<.8,`state ${state+1}: level`);ex.web_buttons(1<<10);render(2205);ex.web_buttons(0);render(ex.web_sample_rate());assert.equal(ex.web_playing(),0);}
 assert.equal(Buffer.compare(Buffer.concat(chunks),fs.readFileSync(process.argv[3])),0,'FORM native/WASM mismatch');console.log('FORM 22 presets: visible-panel input, useful raw audio levels, PLAY/STOP and 1940400 frames native/WASM bit-exact PASS');
