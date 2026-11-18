@@ -83,7 +83,7 @@ static __attribute__((noinline)) int32_t form_wave(uint32_t state,uint32_t tick,
 }
 /* Bass phrases for references 19..22. beat is Q16 quarter notes.
  * Keep the fundamental below the equation layer so its gates can leave space. */
-static int32_t form_drop_bass(uint32_t id, uint32_t beat, uint32_t phase, int32_t color)
+static __attribute__((noinline)) int32_t form_drop_bass(uint32_t id, uint32_t beat, uint32_t phase, int32_t color)
 {
  static const char pair_div[]="11111111111144222211111122223389";
  static const char build_div[]="11222212";
