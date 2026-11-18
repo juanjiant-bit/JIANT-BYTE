@@ -6,7 +6,10 @@ static int32_t fvm_music_env(int32_t age,uint32_t duration)
 {
     if(age<0||(uint32_t)age>=duration)return 0;
     uint32_t a=(uint32_t)age,up=a<1024u?a*32u:32767u;
-    uint32_t down=(duration-a)*32767u/duration;
+    /* Four-beat durations need two guard bits before the 32-bit product.
+     * At most one Q15 unit of error; no 64-bit division in the envelope. */
+    uint32_t shift=duration>65536u?2u:0u;
+    uint32_t down=(((duration-a)>>shift)*32767u)/(duration>>shift);
     return (int32_t)(up*down/32768u);
 }
 static int32_t fvm_music_tone(int32_t note,uint32_t tick,int32_t color)
@@ -14,7 +17,7 @@ static int32_t fvm_music_tone(int32_t note,uint32_t tick,int32_t color)
     uint32_t inc=pitch_inc((uint32_t)clamp(note,0,127)*16u),phase=inc*tick;
     int32_t a=sine_i(phase),b=inc<0x20000000u?sine_i(phase*2u):0,c=inc<0x15555555u?sine_i(phase*3u):0;
     color=clamp(color,0,65536);
-    return (a*3+((b+c/2)*color>>16))/5;
+    return (a*3+mulq15(b+c/2,color>>1))/5;
 }
 static uint32_t fvm_music(uint32_t kind,uint32_t x,uint32_t y,uint32_t z,const fvm_env_t*e,uint32_t i)
 {
