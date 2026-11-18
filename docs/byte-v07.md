@@ -1,3 +1,5 @@
+> Versión histórica: [v0.8 corrige la profundidad demasiado sutil en canciones](byte-v08.md).
+
 # BYTE v0.7 — LIFE como intercambio de timbre
 
 El chirrido tenía dos causas: valores negativos que se promovían a enteros sin signo al combinar donantes, y fragmentos de tiempo/constantes tratados como señal de audio y aplicados al reloj con demasiada profundidad. Esta versión corrige la aritmética y sustituye esa ruta por intercambio de formas de onda de banda limitada.

@@ -25,7 +25,7 @@ static void vm(const char*donor,int amt,int number,int frag,int link,int reverse
  uint32_t T[FVM_BLK],W[FVM_BLK],values[FVM_BLK];int32_t state[8]={0};
  fvm_env_t e={{T,W,0},{0},state};e.u[FU_AF]=32768;
  for(unsigned o=0;o<NS;o+=FVM_BLK){
-  if(quiet==1)trk[1].p[P_MUTE]=1;if(quiet==2||(quiet==5&&o>=NS/2))trk[1].v[0].active=0;if(quiet==4)life_v[LIFE_N]=0;
+  if(quiet==6){trk[1].p[P_LEVEL]=32;trk[1].v[0].env_out=6000;}if(quiet==1)trk[1].p[P_MUTE]=1;if(quiet==2||(quiet==5&&o>=NS/2))trk[1].v[0].active=0;if(quiet==4)life_v[LIFE_N]=0;
   life_formula_block(quiet==3?2:0);
   for(unsigned a=0;a<2;a++){
    unsigned k=reverse?1-a:a;for(unsigned j=0;j<FVM_BLK;j++){T[j]=(o+j)*3;W[j]=((o+j)*(k?725:389))&65535;}
@@ -75,7 +75,8 @@ int main(void){
  target_text="sin(w*2.0)";vm("sin(w*7.0)",0,0,0,0,0,0,dry);
  vm("sin(w*7.0)",100,65,60,40,0,0,lwet);vm("sin(w*7.0)",100,65,60,40,1,0,other);CHECK(!memcmp(lwet,other,sizeof lwet),"render order independence");
  for(int k=1;k<=4;k++){vm("sin(w*7.0)",100,100,100,100,0,k,lwet);CHECK(!memcmp(dry,lwet,sizeof dry),"mute / inactive / performance hush / per-track zero bypass");}
- vm("sin(w*7.0)",100,65,60,40,0,5,lwet);CHECK(!memcmp(dry+NS/2,lwet+NS/2,sizeof dry/2),"ending a previously active donor leaves no stale interaction");
+ vm("sin(w*7.0)",50,65,60,40,0,0,lwet);vm("sin(w*7.0)",50,65,60,40,0,6,other);CHECK(delta(lwet,other)<.001,"quiet but active donor retains the same timbral depth");
+ vm("sin(w*7.0)",100,65,60,40,0,5,lwet);CHECK(!memcmp(dry+NS/2+1024,lwet+NS/2+1024,(NS/2-1024)*sizeof *dry),"ending donor fades out in bounded time, no stale interaction");
  compile(&src,"ph(2.0)");CHECK(src.p.life_fn==0,"stateful opcode excluded from fragment");
  compile(&src,"\"123\"[t]");CHECK(src.p.life_fn<=1,"table opcode excluded from fragment");
  for(unsigned i=0;i<3;i++){unsigned eng=i==0?ENGI_LOFI:i==1?ENGI_DRUM:ENGI_WAVE;uint32_t c0,c1;

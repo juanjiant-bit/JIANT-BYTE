@@ -18,6 +18,8 @@ JIANT BYTE is a new synthesizer on the FM-1, built on [JIANT FM](https://github.
 [SLOOP](https://github.com/isod89/sloop-fm1)). It keeps JIANT FM's foundation (six tracks, the sequencer, songs, MIDI,
 USB, the effects, the updater) and replaces the rest with formulas, from the most tonal and playable to the wildest.
 
+LIFE v0.8: recorrido audible en canciones generadas, NUM armónico y profundidad independiente del volumen del donante. [Guía y comparaciones](docs/byte-v08.md).
+
 ## The idea
 
 A formula reads the time `t` and returns a sample. **Bytebeat** works on whole numbers, 8 bits at a time: rhythm,

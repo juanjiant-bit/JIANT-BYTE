@@ -56,7 +56,9 @@ static LIFE_SZ void life_master(void)
 static LIFE_SZ void life_formula_block(uint32_t hush)
 {
     uint32_t i,j;
-    fl.rd^=1u;fl.on=(uint8_t)(life_v[LIFE_AMT]>0);
+    fl.rd^=1u;
+    if(fl.on&&!life_v[LIFE_AMT])memset(fl.shape,0,sizeof fl.shape);
+    fl.on=(uint8_t)(life_v[LIFE_AMT]>0);
     fl.numbers_amt=(uint8_t)clamp(life_v[LIFE_NUMBERS],0,100);
     fl.fragments_amt=(uint8_t)clamp(life_v[LIFE_FRAGMENTS],0,100);
     fl.link_amt=(uint8_t)clamp(life_v[LIFE_LINK],0,100);
