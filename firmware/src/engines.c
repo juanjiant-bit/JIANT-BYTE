@@ -207,7 +207,8 @@ static uint32_t trk_def_engine(uint32_t i) { return TRK_DEF[i % NPART][0]; }
  * text (lyr_txt: the project keeps it) or, without one, the formula ALGO's seed and CAOS's third invent (fvm_gen.c);
  * a new one when either moves. Compile and validate here; publish complete bytecode for audio (eng_lofi.c lofi_prog) */
 static int16_t math_seed[NTRK] = {-1, -1, -1, -1, -1, -1};
-static uint8_t math_band[NTRK], math_hash[NTRK], math_var[NTRK];
+static uint8_t math_band[NTRK], math_var[NTRK];
+static uint32_t math_hash[NTRK];
 #ifndef MATH_PUBLISH_LOCK
 #define MATH_PUBLISH_LOCK() ((void)0)
 #define MATH_PUBLISH_UNLOCK() ((void)0)
@@ -220,8 +221,10 @@ static void math_poll_ws(gq_work_t *w)
     for(uint32_t offset=0;offset<NTRK;offset++){
         uint32_t tr=(cursor+offset)%NTRK;
         const track_t*t=&trk[tr];const char*lt=lyr_txt[tr];
-        uint32_t seed,band,h=0,k,var,request=math_request[tr];char text[64];
-        if(eng_idx(t->eng_req)!=ENGI_LOFI||t->p[P_E1]!=RW_USER)continue;
+        uint32_t seed,band,h=0,k,var,request=math_request[tr],func=t->p[P_E1]==RW_FUNC;char text[256];
+        if(eng_idx(t->eng_req)!=ENGI_LOFI||(t->p[P_E1]!=RW_USER&&!func))continue;
+        if(func&&!math_is_func(lt))lt=MATH_FUNC_DEFAULT;
+        if(!func&&math_is_func(lt))lt=""; /* keep FUNC text, generate a normal USER program */
         seed=(uint32_t)clamp(t->p[P_E2],0,191);var=(uint32_t)clamp(t->p[P_E3],0,127);
         /* A route removal is restored on the next UI frame; pending values are
          * coalesced, not queued. The saved parameters/text are never rewritten. */
@@ -230,15 +233,17 @@ static void math_poll_ws(gq_work_t *w)
             (t->p[P_M1DST+k*3u]==PD_E1+2||t->p[P_M1DST+k*3u]==PD_E1+3))routed=1;
         if(!routed||math_request_base[tr]!=(seed|(var<<8)))request=0;
         if(request&0x80000000u){seed=request&255u;var=(request>>8)&127u;}
+        if(func){seed=var=request=0;}
         band=(uint32_t)clamp(t->p[P_CAOS],0,127)/43u;
-        for(k=0;lt[k]&&k<63u;k++)h=(h*31u+(uint8_t)lt[k])&255u;
-        if(math_seed[tr]==(int16_t)seed&&math_band[tr]==band&&math_hash[tr]==(uint8_t)(h|(lt[0]!=0))&&math_var[tr]==var&&(lofi_prg_id[tr]&0x400u))continue;
+        if(func)band=255;
+        for(k=0;lt[k]&&k<255u;k++)h=h*31u+(uint8_t)lt[k];
+        if(math_seed[tr]==(int16_t)seed&&math_band[tr]==band&&math_hash[tr]==(h|(lt[0]!=0))&&math_var[tr]==var&&(lofi_prg_id[tr]&0x400u))continue;
         if((request&0x80000000u)&&(lofi_prg_id[tr]&0x400u)&&
             (used||(uint32_t)(fm1_ms-auto_ms[tr])<32u||(uint32_t)(fm1_ms-budget_ms)<16u))continue;
-        if(lt[0]){for(k=0;lt[k]&&k<63u;k++)text[k]=lt[k];text[k]=0;}
+        if(lt[0]){for(k=0;lt[k]&&k<(func?255u:63u);k++)text[k]=lt[k];text[k]=0;}
         else{static const uint8_t BAND_C[3]={20,64,106};fvm_invent(w,text,seed,BAND_C[band]);}
         if(var)fvm_move(w,text,seed,var);
-        for(k=0;text[k]&&k<63u;k++);
+        for(k=0;text[k]&&k<255u;k++);
         if(fvm_compile(&w->cc,FVM_FULL(&w->pg),text,k,0)||w->pg.p.nstate>LOFI_NSTATE)continue;
         /* Publish complete validated bytecode in a short critical section. No
          * generator/compiler or dynamic allocation runs in the audio callback. */
@@ -246,8 +251,8 @@ static void math_poll_ws(gq_work_t *w)
         fvm_prog_t*destination=lofi_slot(tr);fvm_ins_t*instructions=destination->ins;
         memcpy(instructions,w->pg.ins,w->pg.p.n*sizeof *instructions);
         *destination=w->pg.p;destination->ins=instructions;destination->cap=FVM_MAXINS;
-        memcpy(math_txt[tr],text,k+1u);math_ty[tr]=destination->ty;
-        math_var[tr]=(uint8_t)var;math_seed[tr]=(int16_t)seed;math_band[tr]=(uint8_t)band;math_hash[tr]=(uint8_t)(h|(lt[0]!=0));
+        uint32_t copy=k<63u?k:63u;memcpy(math_txt[tr],text,copy);math_txt[tr][copy]=0;math_ty[tr]=destination->ty;
+        math_var[tr]=(uint8_t)var;math_seed[tr]=(int16_t)seed;math_band[tr]=(uint8_t)band;math_hash[tr]=(h|(lt[0]!=0));
         math_ver[tr]++;lofi_prg_id[tr]=(uint16_t)(0x400u|math_ver[tr]);
         MATH_PUBLISH_UNLOCK();
         if(request&0x80000000u){used=1;auto_ms[tr]=budget_ms=fm1_ms;}

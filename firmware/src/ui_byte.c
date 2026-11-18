@@ -30,7 +30,8 @@ static const char *ub_text(const track_t *t, uint32_t *fix)
     }
     if (trk_engp(t) != &ENG_LOFI)
         return 0;
-    if (p[P_E1] == RW_USER) {
+    if(p[P_E1]==RW_FUNC){*fix=1;return math_is_func(lyr_txt[tr])?lyr_txt[tr]:MATH_FUNC_DEFAULT;}
+    if (p[P_E1] >= RW_USER) {
         *fix = math_ty[tr] == FT_FIX;
         return math_txt[tr][0] ? math_txt[tr] : 0;
     }

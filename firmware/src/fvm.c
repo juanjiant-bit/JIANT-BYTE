@@ -39,14 +39,14 @@
 enum { FT_INT, FT_FIX };
 /* the per-sample variables (fvm_env_t arr[]) and the block's (u[]) */
 enum { FA_T, FA_W, FA_TS, FA_X, FA_XF, FA_O1, FA_O6 = FA_O1 + 5, FA_IN, FA_N };   /* (FA_IN: an effect's input) */   /* (FA_O1..: the parts' outputs, cross-mod) */
-enum { FU_A, FU_B, FU_C, FU_D, FU_AF, FU_BF, FU_CF, FU_DF, FU_NOTE, FU_VEL, FU_STEP, FU_BEAT, FU_N };
+enum { FU_A, FU_B, FU_C, FU_D, FU_AF, FU_BF, FU_CF, FU_DF, FU_NOTE, FU_VEL, FU_STEP, FU_BEAT, FU_HZ, FU_N };
 
 typedef struct {
     uint8_t op, md;              /* md: the right operand (or a push's value): FM_STK FM_IMM FM_UNI FM_ARR */
     uint16_t sl;                 /* (a call's state slot) */
     uint32_t k;                  /* the number, the block variable's or the per-sample variable's index, a table */
 } fvm_ins_t;
-enum { FM_STK, FM_IMM, FM_UNI, FM_ARR };
+enum { FM_STK, FM_IMM, FM_UNI, FM_ARR, FM_LOCAL, FM_STATE };
 
 /* a program: its instructions in the caller's storage (ins, cap of them: a part's MATH formula 64, a drum lane's 24),
  * so a short formula costs only its own room */
@@ -54,7 +54,7 @@ typedef struct {
     fvm_ins_t *ins;
     uint8_t cap, n, depth, nstate, ty;   /* ty: the result's type */
     uint16_t uses;               /* the per-sample variables it reads (1 << FA_..): the host makes only those */
-    uint8_t npool;
+    uint8_t npool, func;
     uint8_t life_in, life_num, life_fn, life_ft; /* typed input/literal indices (+1), safe prefix fragment */
     uint8_t pool[FVM_POOL];
 } fvm_prog_t;
@@ -116,7 +116,7 @@ static inline uint32_t fvm_hash(uint32_t h)
 #define FVM_ENUM(n, e) FO_##n,
 enum { FVM_OPS2(FVM_ENUM) FO_NBIN,
        FVM_OPS1(FVM_ENUM) FO_NUN,
-       FO_PUSH, FO_SEL, FO_TAB, FO_PH, FO_LP, FO_HP };
+       FO_PUSH, FO_SEL, FO_TAB, FO_PH, FO_LP, FO_HP, FO_SAVE };
 #undef FVM_ENUM
 #define FO_ISBIN(o) ((o) < FO_NBIN)
 #define FO_ISUN(o) ((o) > FO_NBIN && (o) < FO_NUN)
@@ -142,9 +142,11 @@ static uint32_t fvm_op1(uint32_t op, uint32_t a)
 
 /* ---- the machine */
 typedef struct { uint8_t input, number; uint32_t value; const int32_t *offset; } fvm_patch_t;
+#include "fvm_func_run.c"
 static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_env_t *e, fvm_scratch_t *sc,
                                               uint32_t n, uint32_t *out, const fvm_patch_t *patch)
 {
+    if(p->func){fvm_func_run(p,e,n,out);return;}
     uint32_t pc, sp = 0u, i, injected[FVM_BLK];
     if (n > FVM_BLK)
         n = FVM_BLK;
@@ -261,7 +263,7 @@ static inline int32_t fvm_sample(uint32_t ty, uint32_t v)
 }
 
 /* ---- the compiler: the text to a tree (types and folding as it is built), the tree to the program */
-enum { NK_NUM, NK_ARR, NK_UNI, NK_OP1, NK_OP2, NK_SEL, NK_TAB, NK_ST };
+enum { NK_NUM, NK_ARR, NK_UNI, NK_OP1, NK_OP2, NK_SEL, NK_TAB, NK_ST, NK_LOCAL, NK_STATE, NK_ARG, NK_CALL };
 typedef struct {
     uint8_t kind, op, ty, a, b, c;   /* a b c: children (node indices) */
     uint32_t v;                  /* NK_NUM its value; NK_ARR / NK_UNI the index; NK_TAB the table (offset << 8 | length) */
@@ -275,6 +277,9 @@ typedef struct {
     fvm_prog_t *p;
     fvm_err_t err;
     uint32_t sp, maxsp;
+    struct {char name[8];uint8_t kind,slot,ty;} binding[8];
+    struct {char name[8],arg[8];uint8_t root;} fn[2];
+    uint8_t nb,nlocal,nfn,in_fn,gen_depth,call_depth,parse_depth;
 } fvm_cc_t;                      /* ~2 KB: compiled outside the audio (the UI, the editor), one at a time */
 
 static void fvm_fail(fvm_cc_t *c, uint32_t code)
@@ -435,13 +440,13 @@ static uint32_t fvm_number(fvm_cc_t *c)
     return fvm_num(c, FT_INT, v);
 }
 
-static const struct { char nm[3]; uint8_t kind, ty, ix; } FVM_VARS[] = {
+static const struct { char nm[5]; uint8_t kind, ty, ix; } FVM_VARS[] = {
     {"t", NK_ARR, FT_INT, FA_T}, {"w", NK_ARR, FT_FIX, FA_W}, {"T", NK_ARR, FT_FIX, FA_TS},
     {"x", NK_ARR, FT_INT, FA_X}, {"X", NK_ARR, FT_FIX, FA_XF},
     {"a", NK_UNI, FT_INT, FU_A}, {"b", NK_UNI, FT_INT, FU_B}, {"c", NK_UNI, FT_INT, FU_C}, {"d", NK_UNI, FT_INT, FU_D},
     {"A", NK_UNI, FT_FIX, FU_AF}, {"B", NK_UNI, FT_FIX, FU_BF}, {"C", NK_UNI, FT_FIX, FU_CF}, {"D", NK_UNI, FT_FIX, FU_DF},
     {"n", NK_UNI, FT_INT, FU_NOTE}, {"v", NK_UNI, FT_INT, FU_VEL}, {"s", NK_UNI, FT_INT, FU_STEP},
-    {"p", NK_UNI, FT_FIX, FU_BEAT},
+    {"p", NK_UNI, FT_FIX, FU_BEAT}, {"freq", NK_UNI, FT_FIX, FU_HZ},
     {"O1", NK_ARR, FT_FIX, FA_O1}, {"O2", NK_ARR, FT_FIX, FA_O1 + 1}, {"O3", NK_ARR, FT_FIX, FA_O1 + 2},   /* (JIANT BYTE) */
     {"O4", NK_ARR, FT_FIX, FA_O1 + 3}, {"O5", NK_ARR, FT_FIX, FA_O1 + 4}, {"O6", NK_ARR, FT_FIX, FA_O1 + 5},   /* cross-mod */
     {"I", NK_ARR, FT_FIX, FA_IN},                    /* (JIANT BYTE) an effect's input (fx.c dist_eq) */                  /* (JIANT BYTE) the song's position in beats (a modifier's clock) */
@@ -555,9 +560,11 @@ static uint32_t fvm_primary(fvm_cc_t *c)
                 if (!fvm_cmp(FVM_CALLS[k].nm, nm))
                     break;
             if (k == NELEM(FVM_CALLS)) {
-                c->i = s0;
-                fvm_fail(c, FE_NAME);
-                return 0u;
+                uint32_t fn;for(fn=0;fn<c->nfn;fn++)if(!fvm_cmp(c->fn[fn].name,nm))break;
+                if(fn==c->nfn){c->i=s0;fvm_fail(c,FE_NAME);return 0;}
+                uint32_t arg=fvm_tofix(c,fvm_cond(c));
+                if(!fvm_eat(c,")")){fvm_fail(c,FE_ARGS);return 0;}
+                return fvm_new(c,NK_CALL,0,ND(c->fn[fn].root).ty,arg,c->fn[fn].root,0,0);
             }
             if (!fvm_eat(c, ")")) {
                 do {
@@ -576,6 +583,10 @@ static uint32_t fvm_primary(fvm_cc_t *c)
             }
             return fvm_call(c, FVM_CALLS[k].id, ar);
         }
+        if(c->in_fn&&!fvm_cmp(nm,c->fn[c->nfn].arg))return fvm_new(c,NK_ARG,0,FT_FIX,0,0,0,0);
+        for(k=0;k<c->nb;k++)if(!fvm_cmp(c->binding[k].name,nm))
+            return fvm_new(c,c->binding[k].kind,0,c->binding[k].ty,0,0,0,c->binding[k].slot);
+        if(!fvm_cmp(nm,"sr"))return fvm_num(c,FT_INT,FS);
         if (!fvm_cmp(nm, "PI"))
             return fvm_num(c, FT_FIX, 205887u);      /* (3.14159 in Q16) */
         for (k = 0; k < NELEM(FVM_VARS); k++)
@@ -591,7 +602,8 @@ static uint32_t fvm_primary(fvm_cc_t *c)
     fvm_fail(c, FE_SYNTAX);
     return 0u;
 }
-static uint32_t fvm_unary(fvm_cc_t *c)
+static uint32_t fvm_unary(fvm_cc_t*);
+static uint32_t fvm_unary_inner(fvm_cc_t *c)
 {
     uint32_t a;
     if (c->err.code)
@@ -607,6 +619,11 @@ static uint32_t fvm_unary(fvm_cc_t *c)
     if (fvm_eat(c, "!"))
         return fvm_un(c, FO_LNOT, fvm_unary(c), FT_INT);
     return fvm_primary(c);
+}
+static uint32_t fvm_unary(fvm_cc_t*c)
+{
+    if(c->parse_depth>=16u){fvm_fail(c,FE_DEEP);return 0;}
+    c->parse_depth++;uint32_t r=fvm_unary_inner(c);c->parse_depth--;return r;
 }
 /* the binary levels, C's precedence, loosest last */
 static const struct { char t[3]; uint8_t lv, tk; } FVM_BINS[] = {
@@ -686,7 +703,7 @@ static void fvm_push_sp(fvm_cc_t *c, int32_t d)
 static uint32_t fvm_leaf(const fvm_node_t *n, uint32_t *k)
 {
     *k = n->v;
-    return n->kind == NK_NUM ? FM_IMM : n->kind == NK_UNI ? FM_UNI : n->kind == NK_ARR ? FM_ARR : FM_STK;
+    return n->kind == NK_NUM ? FM_IMM : n->kind == NK_UNI ? FM_UNI : n->kind == NK_ARR ? FM_ARR : n->kind == NK_LOCAL ? FM_LOCAL : n->kind == NK_STATE ? FM_STATE : FM_STK;
 }
 static int fvm_commut(uint32_t op)
 {
@@ -708,15 +725,25 @@ static uint32_t fvm_mirror(uint32_t op)              /* a < b == b > a */
     }
     return fvm_commut(op) ? op : FO_NBIN;
 }
-static void fvm_gen(fvm_cc_t *c, uint32_t x)
+static void fvm_gen(fvm_cc_t*,uint32_t);
+static void fvm_gen_inner(fvm_cc_t *c, uint32_t x)
 {
     const fvm_node_t *n = &ND(x);
     uint32_t md, k;
     if (c->err.code)
         return;
     switch (n->kind) {
+    case NK_ARG:
+        if(!c->call_depth){fvm_fail(c,FE_NAME);return;}
+        fvm_emit(c,FO_PUSH,FM_LOCAL,5u+c->call_depth,0,FT_FIX,FT_FIX);fvm_push_sp(c,1);return;
+    case NK_CALL:
+        if(c->call_depth>=4u){fvm_fail(c,FE_DEEP);return;}
+        fvm_gen(c,n->a);fvm_emit(c,FO_SAVE,FM_LOCAL,6u+c->call_depth,0,0,0);fvm_push_sp(c,-1);
+        c->call_depth++;fvm_gen(c,n->b);c->call_depth--;return;
     case NK_NUM:
     case NK_UNI:
+    case NK_LOCAL:
+    case NK_STATE:
     case NK_ARR:
         md = fvm_leaf(n, &k);
         fvm_emit(c, FO_PUSH, md, k, 0, n->ty, n->ty);
@@ -774,6 +801,13 @@ static void fvm_gen(fvm_cc_t *c, uint32_t x)
     }
 }
 
+static void fvm_gen(fvm_cc_t*c,uint32_t x)
+{
+    if(c->gen_depth>=24u){fvm_fail(c,FE_DEEP);return;}
+    c->gen_depth++;fvm_gen_inner(c,x);c->gen_depth--;
+}
+#include "fvm_func_compile.c"
+
 /* compile src (len bytes) into p; FE_OK (0) or the error, its place in e */
 static uint32_t fvm_compile(fvm_cc_t *c, fvm_prog_t *p, const char *src, uint32_t len, fvm_err_t *e)
 {
@@ -789,12 +823,23 @@ static uint32_t fvm_compile(fvm_cc_t *c, fvm_prog_t *p, const char *src, uint32_
     c->p = p;
     c->err.code = FE_OK;
     c->err.pos = 0;
-    c->sp = c->maxsp = 0;
+    c->sp = c->maxsp = 0; c->nb=c->nlocal=c->nfn=c->in_fn=c->gen_depth=c->call_depth=c->parse_depth=0;
     fvm_ws(c);
     if (c->i >= len) {
         c->err.code = FE_EMPTY;
     } else {
-        root = fvm_expr(c);
+        if(fvm_eat(c,"func")){
+            p->func=1;
+            uint32_t nesting=0,unary=0,ternary=0;
+            if(len>255u)fvm_fail(c,FE_LONG);
+            for(uint32_t j=c->i;j<len&&!c->err.code;j++){
+                char z=src[j];if(z=='('){if(++nesting>12u)fvm_fail(c,FE_DEEP);}else if(z==')'&&nesting)nesting--;
+                unary=(z=='!'||z=='~'||z=='-'||z=='+')?unary+1u:0u;
+                if(unary>12u||(z=='?'&&++ternary>8u))fvm_fail(c,FE_DEEP);
+            }
+            root=c->err.code?0:fvm_func_parse(c);
+        }
+        else root = fvm_expr(c);
         fvm_ws(c);
         if (!c->err.code && c->i < len)
             fvm_fail(c, FE_SYNTAX);
@@ -814,6 +859,7 @@ static uint32_t fvm_compile(fvm_cc_t *c, fvm_prog_t *p, const char *src, uint32_
         return c->err.code;
     }
     p->depth = (uint8_t)c->maxsp;
+    if(p->func){p->life_fn=p->n;p->life_ft=FT_FIX;return FE_OK;}
     { /* Compiler-derived, stack-complete prefixes only. No state, tables or cross-track reads. */
         uint32_t i, sp=0, safe=1, waveform=0;
         for(i=0;i<p->n;i++) {

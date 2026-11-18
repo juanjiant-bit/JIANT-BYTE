@@ -6,10 +6,10 @@
  * project, a user preset -- plays as ANALOG's nearest (core.h analog_from_chip). The engine's number (3) and its stored
  * values stay: WAVE 5 BYTE, 6 FLOAT; CHIP 0..3 the bits (STEP, 4, read as 4BIT: the same sound on BYTE and FLOAT) */
 static const char *const N_CHIP[] = {"4BIT", "4B/2", "8BIT", "1BIT", "FULL"};   /* (JIANT BYTE: FULL, USER's) */
-static const char *const N_RWAVE[] = {"-", "-", "-", "-", "-", "BYTE", "FLOAT", "USER"};   /* (WAVE 5, 6: the stored numbers;
+static const char *const N_RWAVE[] = {"-", "-", "-", "-", "-", "BYTE", "FLOAT", "USER", "FUNC"};   /* (WAVE 5, 6: the stored numbers;
                                                          * JIANT BYTE: 7 the part's own formula, fvm_gen.c) */
 enum { CHIP_4BIT, CHIP_4B2, CHIP_8BIT, CHIP_1BIT, CHIP_FULL };
-enum { RW_BYTE = 5, RW_FLOAT = 6, RW_USER = 7 };
+enum { RW_BYTE = 5, RW_FLOAT = 6, RW_USER = 7, RW_FUNC = 8 };
 
 /* (JIANT 0.4) WAVE = BYTE: bytebeat, an 8-bit formula of the time t played as the wave (after viznut's 2011
  * one-liners: the music is in the formula). DUTY picks one of 32 (ALGO, DUTY / 4), CRSH is the formulas' variable
@@ -371,7 +371,7 @@ static uint8_t math_seen[NTRK*NVOICE],math_fade[NTRK*NVOICE];
 static int32_t math_transition[2][CTL] __attribute__((section(".pool")));
 static const fvm_prog_t *lofi_prog(const track_t *t, lofi_work_t *w, uint32_t flt, uint32_t f)
 {
-    uint32_t tr = (uint32_t)(t - trk) % NTRK, user = t->p[P_E1] == RW_USER;
+    uint32_t tr = (uint32_t)(t - trk) % NTRK, user = t->p[P_E1] >= RW_USER;
     uint32_t id = user ? 0x400u | math_ver[tr] : 1u + (flt ? 64u : 0u) + f;
     if(user)return lofi_slot(tr); /* USER programs are validated/published by math_poll, never compiled here. */
     if (lofi_prg_id[tr] != id) {
@@ -601,8 +601,30 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     v->ph[1] = ts;
 }
 
+static const char MATH_FUNC_DEFAULT[] = "func{state q;fn tone(z)=sin(z)+q*.4*sin(z*2);q=q+(A-q)*.002;let l=sin(ph(.2+C*4));return tone(w+B*.1*l)*(.6-D*.3);}";
+static int math_is_func(const char*s){return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
+static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32_t*out,uint32_t n,const vmod_t*m,uint32_t inc,const tsvf_t*flt)
+{
+    uint32_t T[LOFI_N],W[LOFI_N],S[LOFI_N],Y[LOFI_N],q=(uint32_t)v->s[2],ph=v->ph[0],rate;
+    const fvm_prog_t*p=lofi_slot((uint32_t)(t-trk));
+    fvm_env_t en={{T,W,S,0,0},{0},&v->s[6]};xm_env(&en,p);
+    for(uint32_t k=0;k<4;k++){uint32_t a=(uint32_t)clamp(t->p[P_E2+k],0,127);en.u[FU_A+k]=a*2u;en.u[FU_AF+k]=a*65536u/127u;}
+    en.u[FU_NOTE]=v->note;en.u[FU_VEL]=v->vel;en.u[FU_HZ]=(uint32_t)(((uint64_t)inc*FS)>>16);
+    en.u[FU_BEAT]=lofi_sync(&rate)*8u;en.u[FU_STEP]=t->seq_idx;
+    if(n>LOFI_N)n=LOFI_N;
+    for(uint32_t i=0;i<n;i++){T[i]=q+i;W[i]=ph>>16;S[i]=(uint32_t)(((uint64_t)(q+i)*65536u)/FS);ph+=inc;}
+    lofi_run(p,&en,&lofi_work[MC_CPU()&1u],n,Y);
+    int32_t y1=v->s[4],y2=v->s[5],kd=8192-(t->p[P_FRES]>50?t->p[P_FRES]:50)*7600/127;
+    for(uint32_t i=0;i<n;i++){int32_t sample=fvm_sample(FT_FIX,Y[i]);out[i]+=voice_amp(soft_knee(svf_mode(flt,sample>>1,&y1,&y2,ft_voice(t->p),kd),16000)<<1,m,i);}
+    v->s[2]=(int32_t)(q+n);v->ph[0]=ph;v->s[4]=y1;v->s[5]=y2;
+}
+
 static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
+    if(t->p[P_E1]==RW_FUNC){
+        static const param_desc_t control[4]={{"A",F_PCT,0,127,64,0},{"B",F_PCT,0,127,32,0},{"C",F_PCT,0,127,16,0},{"D",F_PCT,0,127,0,0}};
+        return k>=2u&&k<=5u?&control[k-2u]:k==1u?0:&LOFI_NONE;
+    }
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */
         return &LOFI_MOTN;
     if (t->p[P_E1] == RW_USER)                          /* (JIANT BYTE) the part's own formula: ALGO its seed */
@@ -624,7 +646,7 @@ static void lofi_note_on(track_t *t, voice_t *v)
     v->ph[2] = 0;                /* (.. its second; FLOAT: its patch's own state) */
     v->s[4] = v->s[5] = 0;       /* (JIANT 0.4) the filter's two states */
     v->s[6] = v->s[7] = 0;       /* (JIANT BYTE) the formula's own states (fvm.c ph lp hp) */
-    if (t->p[P_E1] == RW_FLOAT)                         /* (0.5.6: its t from 0, its fraction too) */
+    if (t->p[P_E1] == RW_FLOAT || t->p[P_E1] == RW_FUNC)                         /* (0.5.6: its t from 0, its fraction too) */
         v->ph[0] = 0;
 }
 
@@ -633,10 +655,10 @@ static void lofi_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
 {
     const int16_t *p = t->p;
     uint32_t chip = (uint32_t)p[P_E0], inc;
-    uint32_t tr=(uint32_t)(t-trk),vi=tr*NVOICE+(uint32_t)(v-t->v),user=p[P_E1]==RW_USER;
+    uint32_t tr=(uint32_t)(t-trk),vi=tr*NVOICE+(uint32_t)(v-t->v),user=p[P_E1]>=RW_USER;
     int32_t *destination=out,before_last=n?out[n-1]:0;
     if(user&&(!(lofi_prg_id[tr]&0x400u)||!lofi_prg[tr].n))return;
-    if(user&&math_seen[vi]!=math_ver[tr]){math_seen[vi]=math_ver[tr];math_fade[vi]=128;v->s[6]=v->s[7]=0;}
+    if(user&&math_seen[vi]!=math_ver[tr]){math_seen[vi]=math_ver[tr];math_fade[vi]=128;v->s[6]=v->s[7]=0;if(p[P_E1]==RW_FUNC){v->ph[0]=0;v->s[2]=0;}}
     if(user&&math_fade[vi]){destination=math_transition[MC_CPU()&1u];memset(destination,0,n*sizeof *destination);}
     int32_t rs = p[P_FRES] > 50 ? p[P_FRES] : 50;       /* (JIANT 0.5) its RES the FILTER page's, 50 at least */
     tsvf_t flt;
@@ -645,7 +667,8 @@ static void lofi_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     mg.amp1 = mulq15(m->amp1, LOFI_GAIN);
     inc = pitch_inc(clamp(mg.pitch16, 0, 2047));       /* (the track's LFO in m->pitch16 already) */
     tsvf_coef(&flt, (p[P_FCUT] << 8) + mg.cutoff, rs);   /* (JIANT 0.5: the FILTER page's CUT) */
-    if (p[P_E1] == RW_FLOAT || (p[P_E1] == RW_USER && math_ty[(uint32_t)(t - trk) % NTRK] == FT_FIX))   /* (JIANT 0.5.1)
+    if(p[P_E1]==RW_FUNC)lofi_func_render(t,v,destination,n,&mg,inc,&flt);
+    else if (p[P_E1] == RW_FLOAT || (p[P_E1] == RW_USER && math_ty[(uint32_t)(t - trk) % NTRK] == FT_FIX))   /* (JIANT 0.5.1)
                                                          * floatbeat (JIANT BYTE: a USER one in FIX too) */
         lofi_float_render(t, v, destination, n, &mg, inc, &flt);
     else                                                /* (JIANT 0.4) bytebeat */
@@ -704,11 +727,12 @@ static const preset_t LOFI_PRESETS[] = {
      MODS(P_FCUT, 100, P_LWAVE, LW_SH, P_LRATE, -10, P_LD_FLT, 16, MMOD(1, PS_RAND, PD_PAN, 40))},
     {"FLOAT PAD", {2, 6, 112, 0, 0, 0, 0, 0}, {80, 90, 69, 100}, 0, 1 | TAG(PAD), FX(30, 10, 50, 40), PAT(3), BREATHE(14, 0, 0),
      MODS(P_FCUT, 90)},
+    {"FUNC INIT", {4,8,64,32,16,0,0,0}, {0,70,100,45}, 0, TAG(KEYS), FX(0,0,0,20)},
 };
 /* (V10.6i) browsed: the voices to play, the experiments, INIT (ui.c: in LOFI_ORDER's place; LOFI_PC stays) */
 static const uint8_t MATH_ORDER[] = {3, 4, 5, 6, 7, 11,   /* to play */
                                      0, 1, 2, 8, 10,      /* experiments */
-                                     9};                  /* INIT */
+                                     9,12};                  /* INIT / FUNC */
 _Static_assert(sizeof MATH_ORDER == NELEM(LOFI_PRESETS), "MATH's browsing order: every preset once");
 
 static const engine_t ENG_LOFI = {
@@ -716,7 +740,7 @@ static const engine_t ENG_LOFI = {
     .page_title = {"MATH", "TIME"},
     .edit = {
         {"CHIP", F_ENUM, 0, 3, 2, N_CHIP},           /* (FLOAT: 8BIT reads FULL, lofi_desc) */
-        {"WAVE", F_ENUM, RW_BYTE, RW_USER, RW_BYTE, N_RWAVE},   /* (JIANT BYTE: USER, the part's own) */
+        {"WAVE", F_ENUM, RW_BYTE, RW_FUNC, RW_BYTE, N_RWAVE},   /* (JIANT BYTE: USER, the part's own) */
         {"ALGO", F_INT, 0, 127, 64, 0},              /* (the knob 0..191 and the names: lofi_desc) */
         {"VAR", F_PCT, 0, 127, 0, 0},
         {"MOTION", F_INT, 0, 127, 0, 0},             /* (V10.6d: 0 the default; the knob to 255 SYNC: lofi_desc) */

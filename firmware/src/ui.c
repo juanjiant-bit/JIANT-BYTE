@@ -2173,6 +2173,7 @@ static uint32_t dx_pagen(const page_t *pg)            /* SOUND 1..3; (0.5.1) X-M
         return 4u;
     return pg->title[5] == ' ' ? (pg->title[6] == '4' ? 8u : (uint32_t)(pg->title[6] - '0')) : 1u;
 }
+static int func_formula_page(void) { return !ui.home && cur_page()->scope==SC_ENGINE && trk_engp(TSEL)==&ENG_LOFI && TSEL->p[P_E1]==RW_FUNC; }
 static int dx_formula_page(void) { return !ui.home && cur_page()->graph == GR_DXSND && dx_pagen(cur_page()) == 9u; }
 static void dx_knob(const page_t *pg, uint32_t k, int32_t s);
 static void dx_cards(const page_t *pg);
@@ -2200,7 +2201,7 @@ static uint32_t act_cols(void)                   /* the columns that are actions
     uint32_t c, m = 0;
     if (ui.home)
         return 0;
-    if (dx_formula_page()) return 16u;
+    if (dx_formula_page() || func_formula_page()) return 16u;
     if (pg->graph == GR_PUNCH) return 8u;               /* (0.6.99) PUNCH: KNOB 4 CLEAR */
     if (pg->graph == GR_EVENTS || pg->graph==GR_TRACKGEN) return 16u;
     if (pg->graph == GR_TOOLS) return 15u;
@@ -2229,7 +2230,7 @@ static uint32_t shp_rep(void) { return shp_r == 0u ? 1u : shp_r < 8u ? shp_r + 1
 
 static uint32_t act_col(void)
 {
-    if (dx_formula_page()) return 5u;
+    if (dx_formula_page() || func_formula_page()) return 5u;
     if (!ui.home && cur_page()->graph == GR_SONG) return 1u;
     if (!ui.home && (cur_page()->graph == GR_EVENTS || cur_page()->graph==GR_TRACKGEN)) return 5u;
     if (!ui.home && (cur_page()->graph == GR_LYRIC || cur_page()->graph==GR_LYRSTEP)) return 4u;
@@ -2240,7 +2241,7 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
 {
     static const char *const UP_GO[3] = {"LOAD", "ERASE", "SAVE"};
     uint32_t id = cur_page()->id[c & 3u];
-    if (dx_formula_page()) return "EDIT FORMULA";
+    if (dx_formula_page() || func_formula_page()) return "EDIT FORMULA";
     if (cur_page()->graph == GR_PUNCH) return "CLR AUTO";   /* (snd2) the punch-in lane only */
     if (cur_page()->graph == GR_EVENTS) return ev_act_name();
     if (cur_page()->graph == GR_LYRIC) return "TYPE";
@@ -2266,7 +2267,7 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
  * a flash write, steps to clear */
 static int act_ready(void)
 {
-    if (dx_formula_page()) return 1;
+    if (dx_formula_page() || func_formula_page()) return 1;
     uint32_t c = act_col(), s = song.sel, id;
     if (!c--)
         return 0;

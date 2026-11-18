@@ -137,7 +137,9 @@ static void upf_boot(void)                       /* up_boot, after the user pres
 
 /* VOICE uses the same per-slot auxiliary payload as FM6 (the engine and record tag distinguish them).
  * No extra sectors, RAM bank or record-size change. Old VOICE slots have no text and load an empty lyric. */
-_Static_assert(4u + LYR_LEN <= UPF_PK, "VOICE lyric fits the existing auxiliary payload");
+/* Retired VOICE auxiliary records retain their original 63-character format. */
+#define UPF_LYR_LEN 64u
+_Static_assert(4u + UPF_LYR_LEN <= UPF_PK, "VOICE lyric fits the existing auxiliary payload");
 static const char *upf_lyric(uint32_t k)
 {
     const uint8_t *text;
@@ -146,7 +148,7 @@ static const char *upf_lyric(uint32_t k)
         up_rec(k)->engine != ENGI_VOICE || upf.e[k].tag != upf_tag(up_rec(k)) ||
         memcmp(upf.e[k].pk, "LYR1", 4u)) return "";
     text = upf.e[k].pk + 4u;
-    for (i = 0; i < LYR_LEN; i++) {
+    for (i = 0; i < UPF_LYR_LEN; i++) {
         if (!text[i]) return (const char *)text;
         if (text[i] < 32u || text[i] > 126u) return "";
     }
@@ -162,7 +164,7 @@ static int upf_lyric_store(uint32_t k, uint32_t tr)
     old = upf.e[k]; used = upf.used;
     memset(upf.e[k].pk, 0, UPF_PK);
     memcpy(upf.e[k].pk, "LYR1", 4u);
-    memcpy(upf.e[k].pk + 4u, lyr_get(tr), LYR_LEN);
+    memcpy(upf.e[k].pk + 4u, lyr_get(tr), UPF_LYR_LEN);
     upf.e[k].tag = upf_tag(up_rec(k));
     upf.used |= 1u << k;
     rc = upf_save();

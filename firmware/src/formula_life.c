@@ -16,6 +16,8 @@ static struct {
     fl_node_t node[2][FL_VOICES];
     fl_shape_t shape[FL_VOICES];
     int32_t sum[FL_POINTS],numbers;
+    uint32_t strikes;
+    uint16_t strike[FL_VOICES];
     uint16_t gate[FL_VOICES],depth[NTRK],count,ncount,weight,number_weight;
     uint8_t rd,on,numbers_amt,fragments_amt,link_amt;
 } fl;
@@ -57,7 +59,9 @@ static void fl_capture(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,fl_
     a->n=0;memset(a->wave,0,sizeof a->wave);
     if(!p->life_fn)return;
     fvm_prog_t piece=*p;piece.n=p->life_fn;piece.ty=p->life_ft;
+    int32_t state[FVM_MAXSTATE];
     fvm_env_t en=*e;
+    if(p->func){memcpy(state,e->state,p->nstate*sizeof *state);en.state=state;en.u[FU_HZ]=(FS/32u)*65536u;}
     for(uint32_t i=0;i<FVM_BLK;i++){T[i]=i*8u;W[i]=i*2048u;S[i]=i*8u;}
     en.arr[FA_T]=T;en.arr[FA_W]=W;en.arr[FA_TS]=S;
     fvm_run(&piece,&en,sc,FVM_BLK,v);
@@ -111,11 +115,34 @@ static __attribute__((noinline)) void fl_run(const fvm_prog_t*p,const fvm_env_t*
     /* Envelope/LEVEL choose and weight donors, not a second wet-depth control.
      * The receiver already applies its own amplitude envelope after the VM. */
     int32_t target[FL_POINTS];
+    uint32_t edge=depth>126u?(depth-126u)*256u/130u:0u;
+    uint32_t impact=weight?(fl.strikes-fl.strike[id]*g)/weight:0;
     uint32_t travel=fd*3u/2u+ld/2u;
     uint32_t mix=travel*256u/(160u+travel); /* default: 50 ~24%, 100 ~64% */
     for(uint32_t k=0;k<FL_POINTS;k++){
         int32_t donor=connected?fl_other_h(id,k,weight):0;
         target[k]=(fd+ld)?(donor*(int32_t)fd+(int32_t)write->wave[k]*(int32_t)ld)/(int32_t)(fd+ld):0;
+    }
+    /* Upper quarter: exchange the donor's spectral pieces at harmonic multiples.
+     * This changes the formula's shape, not its gain or oscillator clock. Every
+     * donor contributes; LINK adds a 45 ms response to fresh attacks. Keep the
+     * established low/mid range exactly unchanged. All new partials still pass
+     * the receiver's pitch-dependent harmonic budget below. */
+    if(edge&&(fd||ld)){
+        int32_t expanded[FL_POINTS]={0};
+        uint32_t shape=(uint32_t)clamp(number,0,8192)*192u/8192u;
+        uint32_t collision=clamp((int32_t)other-1,0,3)*16u;
+        uint32_t motion=(impact*3u/4u+collision)*ld/256u;
+        uint32_t third=clamp((int32_t)(shape+motion),0,256);
+        uint32_t amount=edge*(fd+ld)/512u;
+        for(uint32_t k=0;k<FL_POINTS;k++){
+            uint32_t h=k/2u+1u,part=k&1u;
+            expanded[k]+=target[k]/4;
+            if(h*2u<=FL_HARM)expanded[(h*2u-1u)*2u+part]+=target[k]*(int32_t)(256u-third)*3/1024;
+            if(h*3u<=FL_HARM)expanded[(h*3u-1u)*2u+part]+=target[k]*(int32_t)third*3/1024;
+        }
+        for(uint32_t k=0;k<FL_POINTS;k++)target[k]+=(expanded[k]-target[k])*(int32_t)amount/256;
+        mix+=(256u-mix)*amount/256u;
     }
     int32_t target_mass=0;
     for(uint32_t k=0;k<FL_POINTS;k++)target_mass+=target[k]<0?-target[k]:target[k];

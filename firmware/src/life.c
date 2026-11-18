@@ -62,7 +62,7 @@ static LIFE_SZ void life_formula_block(uint32_t hush)
     fl.numbers_amt=(uint8_t)clamp(life_v[LIFE_NUMBERS],0,100);
     fl.fragments_amt=(uint8_t)clamp(life_v[LIFE_FRAGMENTS],0,100);
     fl.link_amt=(uint8_t)clamp(life_v[LIFE_LINK],0,100);
-    fl.count=fl.ncount=fl.weight=fl.number_weight=0;fl.numbers=0;
+    fl.count=fl.ncount=fl.weight=fl.number_weight=0;fl.numbers=0;fl.strikes=0;
     memset(fl.sum,0,sizeof fl.sum);memset(life.w,0,sizeof life.w);
     for(i=0;i<NTRK;i++) {
         int32_t target=fl.on?life_pt(i,0):0;
@@ -79,6 +79,11 @@ static LIFE_SZ void life_formula_block(uint32_t hush)
             g=g*(uint32_t)clamp(trk[tr].p[P_LEVEL],0,127)/127u;
             g=g*p->envelope/32767u;
         }
+        uint32_t rise=g>fl.gate[i]?g-fl.gate[i]:0;
+        uint32_t pulse=fl.strike[i]*31u/32u;
+        if(rise*4u>pulse)pulse=rise*4u;
+        fl.strike[i]=(uint16_t)(g?clamp((int32_t)pulse,0,255):0);
+        fl.strikes+=fl.strike[i]*g;
         fl.gate[i]=(uint16_t)g;
         if(!g)continue;
         fl.count++;fl.weight+=(uint16_t)g;

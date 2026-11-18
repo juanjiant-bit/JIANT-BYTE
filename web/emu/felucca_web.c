@@ -597,3 +597,20 @@ EXPORT uint32_t web_song_play(void) { return chain_prepare(); }   /* 0 = the son
 EXPORT void web_play(uint32_t on) { transport_req = (uint8_t)(on ? 1u : 2u); }
 EXPORT uint32_t web_beat_samples(void) { return beat_samples(); }
 EXPORT uint32_t web_trk_live(void) { return trk_live; }
+
+/* FUNC text bridge: same compiler/storage as the instrument, never JS eval. */
+static char web_func_text[256];static uint32_t web_func_pos;
+EXPORT char *web_func_buffer(void){return web_func_text;}
+EXPORT uint32_t web_func_error_pos(void){return web_func_pos;}
+EXPORT const char *web_func_get(uint32_t track){const char*s=lyr_get(track%NTRK);return math_is_func(s)?s:MATH_FUNC_DEFAULT;}
+EXPORT uint32_t web_func_apply(uint32_t track){
+    if(track>=NTRK)return FE_ARGS;
+    web_func_text[255]=0;gq_work_t*w=proj_ws();fvm_err_t err={0,0};
+    uint32_t rc=fvm_compile(&w->cc,FVM_FULL(&w->pg),web_func_text,str_len(web_func_text),&err);
+    if(!rc&&(!w->pg.p.func||w->pg.p.nstate>2u)){rc=FE_STATE;err.pos=0;}
+    web_func_pos=err.pos;if(rc)return rc;
+    track_t*t=&trk[track];song.sel=(uint8_t)track;
+    if(t->eng_req!=ENGI_LOFI)set_engine_of(t,ENGI_LOFI);
+    if(t->p[P_E1]!=RW_FUNC){t->p[P_E2]=64;t->p[P_E3]=32;t->p[P_E4]=16;t->p[P_E5]=0;}
+    t->p[P_E1]=RW_FUNC;lyr_set(track,web_func_text);math_hash[track]=0;math_poll();ui.force=1;return 0;
+}
