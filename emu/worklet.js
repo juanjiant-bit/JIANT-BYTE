@@ -77,10 +77,11 @@ if (typeof registerProcessor === "function") {
           if(text.length>255 || /[^\x20-\x7e]/.test(text)){this.port.postMessage({type:"func-result",error:"Use up to 255 ASCII characters."});return;}
           const b=new Uint8Array(ex.memory.buffer,ex.web_func_buffer(),256);b.fill(0);for(let i=0;i<text.length;i++)b[i]=text.charCodeAt(i);
           rc=ex.web_func_apply(track);
+          if(!rc&&ex.web_func_mode)ex.web_func_mode(track,m.run?1:0);
         }
         const b=new Uint8Array(ex.memory.buffer,ex.web_func_get(track),256);let text="";for(let i=0;i<255&&b[i];i++)text+=String.fromCharCode(b[i]);
         const names=["","Syntax","Unknown/reserved name","Arguments","Too complex","Too deep","Too complex","Table full","State budget (2), or nonzero initialization","Empty"];
-        this.port.postMessage({type:"func-result",track,text,applied:m.type==="func-apply"&&!rc,error:rc?(names[rc]||"Compile error")+" at "+(ex.web_func_error_pos()+1):""});return;
+        this.port.postMessage({type:"func-result",track,text,run:ex.web_func_mode?ex.web_func_mode(track,-1):0,applied:m.type==="func-apply"&&!rc,error:rc?(names[rc]||"Compile error")+" at "+(ex.web_func_error_pos()+1):""});return;
       }
       if (m.type === "buttons" || m.type === "keys") this.queue.push(m);
       else if (m.type === "enc") ex.web_enc(m.role, m.n | 0);

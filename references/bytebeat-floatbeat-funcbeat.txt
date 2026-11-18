@@ -1,0 +1,362 @@
+JIANT BYTE — BANCO DE REFERENCIAS BYTEBEAT / FLOATBEAT / FUNCBEAT
+Fecha: 2026-11-18
+Origen: 22 fórmulas compartidas por el usuario en esta conversación.
+Propósito: referencia de diseño para el motor y el generador de canciones.
+
+Cada entrada conserva la expresión enviada. Se normalizaron algunos espacios,
+saltos de línea y comentarios de presentación; no se tradujo el código a FUNC.
+Los títulos y etiquetas son descriptivos y fueron añadidos para este archivo.
+Se mantienen los créditos presentes dentro de las referencias aportadas.
+Las expresiones son independientes: este TXT no es un único programa ejecutable.
+Los ejemplos JavaScript no implican compatibilidad directa del firmware FUNC.
+
+CRITERIOS PARA NUTRIR GEN
+1. Ritmo: generar compuertas, máscaras y polirritmos a partir de relojes, restos
+   y comparaciones; derivar fill y variaciones de la misma regla.
+2. Motivos: generar tablas cortas, intervalos y arpegios relacionados, con una
+   semilla reproducible y transformación de registro/armonía.
+3. Estructura: introducir, retirar y transformar capas mediante el tiempo de
+   canción, con motivos reconocibles que evolucionan entre secciones.
+4. Sonido: vincular la síntesis y la articulación a las reglas musicales;
+   conservar fórmulas editables, en lugar de emitir sólo presets y notas.
+5. Estado/efectos: explorar memoria, feedback, filtros, reducción de muestreo
+   y retardos dentro del presupuesto real de cada plataforma.
+6. Evaluación: contrastar familias musicales y recorridos A/B/C/D a igual
+   volumen, además de determinismo, CPU, memoria y guardado.
+
+Estas son orientaciones para el generador, no una afirmación de que las 22
+expresiones ya estén incorporadas o sean importables sin adaptación.
+
+ÍNDICE
+01. Composición con partituras, acordes y percusión
+    partitura, secciones, polifonía, síntesis por evento
+02. Ritmo y secciones derivados del tiempo
+    restos, comparaciones, envolventes, cambios de densidad
+03. Melodías codificadas y voces desplazadas
+    tablas de notas, contrapunto, entradas, estéreo
+04. Textura por cinco llamadas a una función
+    funciones auxiliares, parciales, modulación, envolventes de bits
+05. Filtros, eco, reverb, reducción de muestreo y afinación
+    estado, feedback, afinación JI/EDO, patrones base 36
+06. Alternancia entre ecuaciones rítmicas
+    divisores, compuertas, barridos, envolventes matemáticas
+07. Bajo por capas y eco recursivo
+    desafinación, melodía por tablas, memoria, percusión
+08. Capas desafinadas estéreo con feedback
+    relaciones de frecuencia, arpegios, eco compartido
+09. Secuencias de relaciones de frecuencia
+    bancos armónicos, relojes múltiples, índices palindrómicos
+10. Funcbeat con modulación anidada
+    función por muestra, sample rate, ondas, LFO, modulación de fase
+11. Melodía y morph mediante operaciones de bits
+    semitonos, AND/XOR, bancos de parámetros
+12. Acordes, degradación rítmica y realimentación
+    patrón codificado, bombo, sample hold, feedback
+13. Acordes filtrados, bajo y batería estéreo
+    filtros con estado, delay, ducking, percusión
+14. Tonos barridos y percusión derivada del tiempo
+    barridos, saturación, envolventes de ruido, compuertas
+15. Groove con divisiones, bits y secciones
+    relojes de bits, ruido rítmico, duración de secciones
+16. Arreglo progresivo por máscaras y cadenas
+    cambios de sección, cadenas de ritmos, variaciones de percusión
+17. Acordes no lineales y melodía Unicode
+    bancos de acordes, máscaras rítmicas, formas, estéreo
+18. Arreglo generativo con filtro y múltiples retardos
+    afinación por ratios, acumulador, secciones largas, feedback
+19. Arpegios y modelado no lineal estéreo
+    arpegios, silencios, octavas, percusión, saturación
+20. Arreglo progresivo por máscaras de bits
+    introducción gradual, percusión, capas, progresiones
+21. Síntesis de bits y percusión estéreo
+    patrones de desplazamiento, desafinación, barridos, ruido
+22. Composición por ecuaciones anidadas
+    funciones anidadas, ritmos, percusión, saturación y decaimiento
+
+==============================================================================
+REFERENCIA 01 — Composición con partituras, acordes y percusión
+Etiquetas: partitura, secciones, polifonía, síntesis por evento
+SHA-256 del bloque: 0ec8be4aae2b679c70887bb564c3cd311972fe5d33607f979abd544b3881fc3d
+==============================================================================
+
+return(m=["K0,0.25|N0.25,0.25|P0.5,0.125|Q0.625,0.125|R0.75,0.5|K1.25,0.125|R1.5,0.125|Q1.75,0.125|K2,0.25|N2.25,0.25|P2.5,0.125|Q2.625,0.125|R2.75,0.5|K3.25,0.125|R3.5,0.125|P3.75,0.125|I4,0.25|N4.25,0.25|P4.5,0.125|Q4.625,0.125|P4.75,0.5|I5.25,0.25|K5.5,0.25|I5.75,0.25|I6,0.25|N6.25,0.25|P6.5,0.125|Q6.625,0.125|P6.75,0.5|I7.25,0.25|P7.5,0.125|N7.75,0.125|K8,0.25|N8.25,0.25|P8.5,0.125|Q8.625,0.125|R8.75,0.5|K9.25,0.125|R9.5,0.125|Q9.75,0.125|K10,0.25|N10.25,0.25|P10.5,0.125|Q10.625,0.125|R10.75,0.5|K11.25,0.125|R11.5,0.125|P11.75,0.125|I12,0.25|N12.25,0.25|P12.5,0.125|Q12.625,0.125|P12.75,0.5|I13.25,0.25|K13.5,0.25|I13.75,0.25|I14,0.25|N14.25,0.25|P14.5,0.125|Q14.625,0.125|P14.75,0.5|I15.25,0.25|P15.5,0.125|N15.75,0.125|K16,0.25|N16.25,0.25|P16.5,0.125|Q16.625,0.125|R16.75,0.5|K17.25,0.125|R17.5,0.125|Q17.75,0.125|K18,0.25|N18.25,0.25|P18.5,0.125|Q18.625,0.125|R18.75,0.5|K19.25,0.125|R19.5,0.125|P19.75,0.125|I20,0.25|N20.25,0.25|P20.5,0.125|Q20.625,0.125|P20.75,0.5|I21.25,0.25|K21.5,0.25|I21.75,0.25|I22,0.25|N22.25,0.25|P22.5,0.125|Q22.625,0.125|P22.75,0.5|I23.25,0.25|P23.5,0.125|N23.75,0.125|K24,0.25|N24.25,0.25|P24.5,0.125|Q24.625,0.125|R24.75,0.5|K25.25,0.125|R25.5,0.125|Q25.75,0.125|K26,0.25|N26.25,0.25|P26.5,0.125|Q26.625,0.125|R26.75,0.5|K27.25,0.125|R27.5,0.125|P27.75,0.125|I28,0.25|N28.25,0.25|P28.5,0.125|Q28.625,0.125|P28.75,0.5|I29.25,0.25|K29.5,0.25|I29.75,0.25|I30,0.25|N30.25,0.25|P30.5,0.125|Q30.625,0.125|P30.75,0.5|I31.25,0.25|P31.5,0.125|N31.75,0.125|K32,0.25|N32.25,0.25|P32.5,0.125|Q32.625,0.125|R32.75,0.5|K33.25,0.125|R33.5,0.125|Q33.75,0.125|K34,0.25|N34.25,0.25|P34.5,0.125|Q34.625,0.125|R34.75,0.5|K35.25,0.125|R35.5,0.125|P35.75,0.125|I36,0.25|N36.25,0.25|P36.5,0.125|Q36.625,0.125|P36.75,0.5|I37.25,0.25|K37.5,0.25|I37.75,0.25|I38,0.25|N38.25,0.25|P38.5,0.125|Q38.625,0.125|P38.75,0.5|I39.25,0.25|P39.5,0.125|N39.75,0.125|K40,0.25|N40.25,0.25|P40.5,0.125|Q40.625,0.125|R40.75,0.5|K41.25,0.125|R41.5,0.125|Q41.75,0.125|K42,0.25|N42.25,0.25|P42.5,0.125|Q42.625,0.125|R42.75,0.5|K43.25,0.125|R43.5,0.125|P43.75,0.125|I44,0.25|N44.25,0.25|P44.5,0.125|Q44.625,0.125|P44.75,0.5|I45.25,0.25|K45.5,0.25|I45.75,0.25|I46,0.25|N46.25,0.25|P46.5,0.125|Q46.625,0.125|P46.75,0.5|I47.25,0.25|P47.5,0.125|N47.75,0.125|K48,0.25|N48.25,0.25|P48.5,0.125|Q48.625,0.125|R48.75,0.5|K49.25,0.125|R49.5,0.125|Q49.75,0.125|K50,0.25|N50.25,0.25|P50.5,0.125|Q50.625,0.125|R50.75,0.5|K51.25,0.125|R51.5,0.125|P51.75,0.125|I52,0.25|N52.25,0.25|P52.5,0.125|Q52.625,0.125|P52.75,0.5|I53.25,0.25|K53.5,0.25|I53.75,0.25|I54,0.25|N54.25,0.25|P54.5,0.125|Q54.625,0.125|P54.75,0.5|I55.25,0.25|P55.5,0.125|N55.75,0.125|K56,0.25|N56.25,0.25|P56.5,0.125|Q56.625,0.125|R56.75,0.5|K57.25,0.125|R57.5,0.125|Q57.75,0.125|K58,0.25|N58.25,0.25|P58.5,0.125|Q58.625,0.125|R58.75,0.5|K59.25,0.125|R59.5,0.125|P59.75,0.125|I60,0.25|N60.25,0.25|P60.5,0.125|Q60.625,0.125|P60.75,0.5|I61.25,0.25|K61.5,0.25|I61.75,0.25|I62,0.25|N62.25,0.25|P62.5,0.125|Q62.625,0.125|P62.75,0.5|I63.25,0.25|P63.5,0.125|N63.75,0.125|K64,0.25","K0.25,0.25|R0.25,0.25|N0.25,0.25|N0.75,0.25|K0.75,0.25|R0.75,0.25|R1.25,0.25|K1.25,0.25|N1.25,0.25|R1.75,0.25|N1.75,0.25|K1.75,0.25|N2.25,0.25|K2.25,0.25|R2.25,0.25|N2.75,0.25|K2.75,0.25|R2.75,0.25|R3.25,0.25|N3.25,0.25|K3.25,0.25|R3.75,0.25|N3.75,0.25|K3.75,0.25|I4.25,0.25|N4.25,0.25|Q4.25,0.25|I4.75,0.25|N4.75,0.25|Q4.75,0.25|I5.25,0.25|N5.25,0.25|Q5.25,0.25|I5.75,0.25|N5.75,0.25|Q5.75,0.25|I6.25,0.25|N6.25,0.25|Q6.25,0.25|I6.75,0.25|N6.75,0.25|Q6.75,0.25|I7.25,0.25|N7.25,0.25|Q7.25,0.25|Q7.75,0.25|N7.75,0.25|I7.75,0.25|K8.25,0.25|R8.25,0.25|N8.25,0.25|N8.75,0.25|K8.75,0.25|R8.75,0.25|R9.25,0.25|K9.25,0.25|N9.25,0.25|R9.75,0.25|N9.75,0.25|K9.75,0.25|N10.25,0.25|K10.25,0.25|R10.25,0.25|N10.75,0.25|K10.75,0.25|R10.75,0.25|R11.25,0.25|N11.25,0.25|K11.25,0.25|R11.75,0.25|N11.75,0.25|K11.75,0.25|I12.25,0.25|N12.25,0.25|Q12.25,0.25|I12.75,0.25|N12.75,0.25|Q12.75,0.25|I13.25,0.25|N13.25,0.25|Q13.25,0.25|I13.75,0.25|N13.75,0.25|Q13.75,0.25|I14.25,0.25|N14.25,0.25|Q14.25,0.25|I14.75,0.25|N14.75,0.25|Q14.75,0.25|I15.25,0.25|N15.25,0.25|Q15.25,0.25|Q15.75,0.25|N15.75,0.25|I15.75,0.25|K16.25,0.25|R16.25,0.25|N16.25,0.25|N16.75,0.25|K16.75,0.25|R16.75,0.25|R17.25,0.25|K17.25,0.25|N17.25,0.25|R17.75,0.25|N17.75,0.25|K17.75,0.25|N18.25,0.25|K18.25,0.25|R18.25,0.25|N18.75,0.25|K18.75,0.25|R18.75,0.25|R19.25,0.25|N19.25,0.25|K19.25,0.25|R19.75,0.25|N19.75,0.25|K19.75,0.25|I20.25,0.25|N20.25,0.25|Q20.25,0.25|I20.75,0.25|N20.75,0.25|Q20.75,0.25|I21.25,0.25|N21.25,0.25|Q21.25,0.25|I21.75,0.25|N21.75,0.25|Q21.75,0.25|I22.25,0.25|N22.25,0.25|Q22.25,0.25|I22.75,0.25|N22.75,0.25|Q22.75,0.25|I23.25,0.25|N23.25,0.25|Q23.25,0.25|Q23.75,0.25|N23.75,0.25|I23.75,0.25|K24.25,0.25|R24.25,0.25|N24.25,0.25|N24.75,0.25|K24.75,0.25|R24.75,0.25|R25.25,0.25|K25.25,0.25|N25.25,0.25|R25.75,0.25|N25.75,0.25|K25.75,0.25|N26.25,0.25|K26.25,0.25|R26.25,0.25|N26.75,0.25|K26.75,0.25|R26.75,0.25|R27.25,0.25|N27.25,0.25|K27.25,0.25|R27.75,0.25|N27.75,0.25|K27.75,0.25|I28.25,0.25|N28.25,0.25|Q28.25,0.25|I28.75,0.25|N28.75,0.25|Q28.75,0.25|I29.25,0.25|N29.25,0.25|Q29.25,0.25|I29.75,0.25|N29.75,0.25|Q29.75,0.25|I30.25,0.25|N30.25,0.25|Q30.25,0.25|I30.75,0.25|N30.75,0.25|Q30.75,0.25|I31.25,0.25|N31.25,0.25|Q31.25,0.25|Q31.75,0.25|N31.75,0.25|I31.75,0.25|R34.25,0.25|K34.25,0.25|N34.25,0.25|R34.75,0.25|K34.75,0.25|N34.75,0.25|K35.25,0.25|N35.25,0.25|R35.25,0.25|K35.75,0.25|N35.75,0.25|R35.75,0.25|Q36.25,0.25|N36.25,0.25|I36.25,0.25|Q36.75,0.25|N36.75,0.25|I36.75,0.25|Q37.25,0.25|N37.25,0.25|I37.25,0.25|Q37.75,0.25|N37.75,0.25|I37.75,0.25|Q38.25,0.25|N38.25,0.25|I38.25,0.25|Q38.75,0.25|N38.75,0.25|I38.75,0.25|Q39.25,0.25|N39.25,0.25|I39.25,0.25|Q39.75,0.25|N39.75,0.25|I39.75,0.25|N40.25,0.25|R40.25,0.25|K40.25,0.25|R40.75,0.25|K40.75,0.25|N40.75,0.25|N41.25,0.25|K41.25,0.25|R41.25,0.25|K41.75,0.25|N41.75,0.25|R41.75,0.25|R42.25,0.25|K42.25,0.25|N42.25,0.25|R42.75,0.25|K42.75,0.25|N42.75,0.25|K43.25,0.25|N43.25,0.25|R43.25,0.25|K43.75,0.25|N43.75,0.25|R43.75,0.25|Q44.25,0.25|N44.25,0.25|I44.25,0.25|Q44.75,0.25|N44.75,0.25|I44.75,0.25|Q45.25,0.25|N45.25,0.25|I45.25,0.25|Q45.75,0.25|N45.75,0.25|I45.75,0.25|Q46.25,0.25|N46.25,0.25|I46.25,0.25|Q46.75,0.25|N46.75,0.25|I46.75,0.25|Q47.25,0.25|N47.25,0.25|I47.25,0.25|Q47.75,0.25|N47.75,0.25|I47.75,0.25|N48.25,0.25|R48.25,0.25|K48.25,0.25|R48.75,0.25|K48.75,0.25|N48.75,0.25|N49.25,0.25|K49.25,0.25|R49.25,0.25|K49.75,0.25|N49.75,0.25|R49.75,0.25|R50.25,0.25|K50.25,0.25|N50.25,0.25|R50.75,0.25|K50.75,0.25|N50.75,0.25|K51.25,0.25|N51.25,0.25|R51.25,0.25|K51.75,0.25|N51.75,0.25|R51.75,0.25|Q52.25,0.25|N52.25,0.25|I52.25,0.25|Q52.75,0.25|N52.75,0.25|I52.75,0.25|Q53.25,0.25|N53.25,0.25|I53.25,0.25|Q53.75,0.25|N53.75,0.25|I53.75,0.25|Q54.25,0.25|N54.25,0.25|I54.25,0.25|Q54.75,0.25|N54.75,0.25|I54.75,0.25|Q55.25,0.25|N55.25,0.25|I55.25,0.25|Q55.75,0.25|N55.75,0.25|I55.75,0.25|N56.25,0.25|R56.25,0.25|K56.25,0.25|R56.75,0.25|K56.75,0.25|N56.75,0.25|N57.25,0.25|K57.25,0.25|R57.25,0.25|K57.75,0.25|N57.75,0.25|R57.75,0.25|R58.25,0.25|K58.25,0.25|N58.25,0.25|R58.75,0.25|K58.75,0.25|N58.75,0.25|K59.25,0.25|N59.25,0.25|R59.25,0.25|K59.75,0.25|N59.75,0.25|R59.75,0.25|Q60.25,0.25|N60.25,0.25|I60.25,0.25|Q60.75,0.25|N60.75,0.25|I60.75,0.25|Q61.25,0.25|N61.25,0.25|I61.25,0.25|Q61.75,0.25|N61.75,0.25|I61.75,0.25|Q62.25,0.25|N62.25,0.25|I62.25,0.25|Q62.75,0.25|N62.75,0.25|I62.75,0.25|Q63.25,0.25|N63.25,0.25|I63.25,0.25|Q63.75,0.25|N63.75,0.25|I63.75,0.25","K16,0.75|N16.75,0.75|I17.5,0.5|P18,0.75|N18.75,0.75|K19.5,0.5|I20,0.75|N20.75,0.75|I21.5,0.5|N22,0.5|K22.5,0.5|N23,0.5|I23.5,0.5|K24,0.75|N24.75,0.75|I25.5,0.5|P26,0.75|N26.75,0.75|K27.5,0.5|I28,0.75|N28.75,0.75|I29.5,0.5|N30,0.5|K30.5,0.5|N31,0.5|I31.5,0.5|K40,0.75|N40.75,0.75|I41.5,0.5|P42,0.75|N42.75,0.75|K43.5,0.5|I44,0.75|N44.75,0.75|I45.5,0.5|N46,0.5|K46.5,0.5|N47,0.5|I47.5,0.5"].map(e=>e.split("|").map(e=>(_=e.substr(1).split(','),[e[0].charCodeAt(0),parseFloat(_[0]),parseFloat(_[1])]))),d=["$8|*8.25|&8.5|$8.75|*8.75|*9|$9.25|*9.25|&9.5|*9.75|$10|*10.25|&10.5|$10.75|*10.75|*11|$11.25|*11.25|&11.5|*11.75|$12|*12.25|&12.5|$12.75|*12.75|*13|$13.25|*13.25|&13.5|*13.75|$14|*14.25|&14.5|$14.75|*14.75|*15|$15.25|*15.25|&15.5|*15.75|$16|*16.25|&16.5|$16.75|*16.75|*17|$17.25|*17.25|&17.5|*17.75|$18|*18.25|&18.5|$18.75|*18.75|*19|$19.25|*19.25|&19.5|*19.75|$20|*20.25|&20.5|$20.75|*20.75|*21|$21.25|*21.25|&21.5|*21.75|$22|*22.25|&22.5|$22.75|*22.75|*23|$23.25|*23.25|&23.5|*23.75|$24|*24.25|&24.5|$24.75|*24.75|*25|$25.25|*25.25|&25.5|*25.75|$26|*26.25|&26.5|$26.75|*26.75|*27|$27.25|*27.25|&27.5|*27.75|$28|*28.25|&28.5|$28.75|*28.75|*29|$29.25|*29.25|&29.5|*29.75|$30|*30.25|&30.5|$30.75|*30.75|*31|$31.25|*31.25|&31.5|*31.75|$34|*34.25|&34.5|$34.75|*34.75|*35|$35.25|*35.25|&35.5|*35.75|$36|*36.25|&36.5|$36.75|*36.75|*37|$37.25|*37.25|&37.5|*37.75|$38|*38.25|&38.5|$38.75|*38.75|*39|$39.25|*39.25|&39.5|*39.75|$40|*40.25|&40.5|$40.75|*40.75|*41|$41.25|*41.25|&41.5|*41.75|$42|*42.25|&42.5|$42.75|*42.75|*43|$43.25|*43.25|&43.5|*43.75|$44|*44.25|&44.5|$44.75|*44.75|*45|$45.25|*45.25|&45.5|*45.75|$46|*46.25|&46.5|$46.75|*46.75|*47|$47.25|*47.25|&47.5|*47.75"].map(e=>e.split("|").map(e=>([e.charCodeAt(0),parseFloat(e.substr(1))]))),w=[t=>sin(sin(sin(PI*t/8)/4+PI*t/128)*1.3*max(1-t/4E4,0)+PI*t/128)*max(1-t/4E4,0),t=>sin(sin(sin(PI*t/8)/4+PI*t/128)*1.3*max(1-t/4E4,0)+PI*t/128)*max(1-t/4E4,0)/2,t=>((sin(t/40)>0.5)?t:256-t%256)%256/256-0.5],u={36:t=>sin(sqrt(t*6E4))*max(1-t*4,0),42:t=>(random()-0.5)*max(1-t*8,0),38:t=>(t*=24000,n=(t,d)=>cos(t*cos(t))/d,(tan(sin(6*sqrt(t*2)**.8))/1.5+n(t>>3,3)+n(t>>2,3)+n(t,4))*(1-min(t/4096,1)))},f='forEach',t=>(o=0,m[f]((r,i)=>{r.filter(n=>t>=n[1]&&t<n[1]+n[2])[f](e=>o+=w[i]((t-e[1])*7040*2**(e[0]/12)/8));}),d[f](r=>{r.filter(n=>t>=n[1]&&t<n[1]+1)[f](e=>o+=u[e[0]](t-e[1]));}),o/2))
+
+==============================================================================
+REFERENCIA 02 — Ritmo y secciones derivados del tiempo
+Etiquetas: restos, comparaciones, envolventes, cambios de densidad
+SHA-256 del bloque: febcfdaa0df05a8b29e88d89b2fcd0f23946b6a3c45087c9aec0852def2c9329
+==============================================================================
+
+wv=t=>(y=t%256,127>y?y:2*(256-y)),ms=int(t/1E4),p=t/1E4%16,b=p%4,qn=p%1,rh=t=>{for(i=m=0;i<t.length;i++)b>t[i]&&(m=b-t[i]);return m},sc=32>ms%256?1:min(1,max(0,3*qn-.3))*(0<ms%32),c=t*(12>p?2:2.4),max(0,min(255,sc*((wv(t/4)-wv(t/2+qn*wv(t*(ms>>2&15))+wv(2*t*(1+(ms>>5&3)))))*(1-rh([0,1,1.5,2,2.75,3.5]))*(63<ms%256)-wv(t/2+.5*wv(3*(7-qn*(2+(ms>>2&3))%1)**5))*(47<ms%64)+(t<<2+(t>>9)%3)%256*qn*qn*(64<ms%128)*.8-wv(6E3*(2-rh([.25,1,1.5,2.25,3]))**4*(191<ms%256?2:1))*(128<ms%256)+(wv(c)-wv(1.2*c)+wv(1.5*c)-wv(2.24*c)+wv(1.8*c))*(.7-rh([0,.75,1.5,2.5,3.25]))+random()*(16-p)**2/4)*.3-qn*(1-qn*(80>ms%128?2:4)%1)**4*80*random()*(63<ms%256)+wv(2*t+60*sin(25*b))*(31<ms%256)*(1>ms%32)*qn+wv(2E3*(1-qn)**9*(1+p%2))*max(0,1-5*qn)*(31<ms%256)+128))
+
+==============================================================================
+REFERENCIA 03 — Melodías codificadas y voces desplazadas
+Etiquetas: tablas de notas, contrapunto, entradas, estéreo
+SHA-256 del bloque: 35bfd44df04bcdede6f64ad6bd3a5cca71401e231637a1292cbc40a2cb5389e6
+==============================================================================
+
+q=t/22500,s=q*4,r=random(),n=p=>(t*1.4*pow(2,(p+2*(q>188))/12))%256,R=(x,ar)=>{for(i=9;i>=0;i--){if(ar[i]<=x){return x-ar[i]}}},m=x=>max(0,x),f="<.<..:.8.7.8....<.<..?.",u=(q>>5&3)==1&q%4>2,X=(y,q)=>{b=q>>2;s=q*4;v=s%16;l=b%4>2;a=1+l*2;e=b%32>27;o=n(y+(l?-2:(b&1|u)^e))-n(3+y)+n(8+y-(l&v>6));A=n(y+7+([l,a,8,a])[s+1>>1&3])*m(1-.6*R(v,[0,1,3,5,7,9,12]));B=(q>64)*90*(n(12+([8,7,3,-4,-5,3,7,3])[s&7])<32)*(1-s%1);return q<0?0:.2*(2*(B+A)+o*m(1-.3*R(v,[0,4,7,10,14])))},L=(q)=>{p=([f+":.:8:...58.8.8:<::858...u878??38:",f+"??DC?...z==.==<=<.8.3...z=<=:::8:"])[q>>5&1].charCodeAt((q*2)&63)-48;return 9*(p>0&n(p%32+(q%1>.75)*(p>>5))>128&q>>6&1)},a=(q/32)%1,d=q>32?1-q%1:(q>31)*(1-q%.25),B=.4*n(max("005.083:787:785:083:083:0837835.".charCodeAt(q>>2&31)-48,u?8:-2)-19-12*(s&1))*(s%4>1),K=sin(99*pow(d,12)),N=r*30*(pow(1-s%1,2)*sin(3*q%3)+(1+d)*pow(max(1-a,a-.04),8)),M=80+50*(K+(2*r+sin(K*13))*pow((m(4*d-3)),6)*(q&1))+(q>16)*(N-B)+4*L(q),C=a=>min(255,m(a)),[C(M+X(0,q)+.5*X(.05,q-.5)+L(q-3)),C(M+X(.05,q)+.3*X(0,q-1)+2*L(q-1.5))]
+
+==============================================================================
+REFERENCIA 04 — Textura por cinco llamadas a una función
+Etiquetas: funciones auxiliares, parciales, modulación, envolventes de bits
+SHA-256 del bloque: f098ea4c0977dfdd8237bf844940b6eebc714d22fcdae80740f88abfab67f41f
+==============================================================================
+
+a=n=>sin(t*PI*n/256)%256*(-t/n/4&2047)/16E3*(tan(t*PI/n/16384)*sin(t*PI/8192)),a(9)+a(7)+a(5)+a(3)+a(1)
+
+==============================================================================
+REFERENCIA 05 — Filtros, eco, reverb, reducción de muestreo y afinación
+Etiquetas: estado, feedback, afinación JI/EDO, patrones base 36
+SHA-256 del bloque: d36a9e4e65a7ea74a372233aca5170408f3ca2707e7847d443c1ddf88f73a23c
+==============================================================================
+
+typeof B == "undefined" ? B = new Float32Array(4e6) : null,
+typeof B2 == "undefined" ? B2 = [] : null,
+t || (dwnfx = []), dwnfxi = 0,
+C = 0, C2 = 0,
+lpf = (i, f) => (
+ c = ++C,
+ B[c] ??= 0,
+ B[c] += (i - B[c]) * f
+),
+hpf = (i, f) => (i - lpf(i, f)),
+bpf = (i, lf, hf) => (hpf(lpf(i, lf), hf)),
+nf = (i, lf, hf) => ((hpf(i, hf) + lpf(i, lf)) / 1.75),
+lbf = (i, f, v) => (i + lpf(i, f) * v),
+hbf = (i, f, v) => (i + hpf(i, f) * v),
+bbf = (i, lf, hf, v) => (i + bpf(i, f) * v),
+// feeshbread - 6th Wave (Filters)
+lpf2 = (i, f) => (lpf(lpf(i, f), f)),
+hpf2 = (i, f) => (hpf(hpf(i, f), f)),
+lpr = (i, f, r) => (
+ c = ++C,
+ t ? 0 : (B[c + 'lp6'] = 0, B[c + 'lp12'] = 0),
+ ct = Math.min(f, .999),
+ R = r + r / (1 - ct),
+ B[c + 'lp6'] += ct * (i - B[c + 'lp6'] + R * (B[c + 'lp6'] - B[c + 'lp12'])),
+ B[c + 'lp12'] += ct * (B[c + 'lp6'] - B[c + 'lp12'])
+),
+hpr = (i, f, r) => (i - lpr(i, f, r)),
+(echo = (delay = 12288, code, fdbk = .5, amt = .5)=>( (
+ C2++,
+ (B2[C2] ??= Array(delay).fill(0)),(ES = (code % 256) + (ot = B2[C2][t % delay])),(B2[C2][t % delay] = ES * fdbk),
+ (code * (1 - amt) / 2) + ot / 2 * amt)
+)),
+(rv = delayReverb = (delay, code, fdbk, amt, lr) => {
+ let out = [0, 0];
+ for(let $i = 0; $i <= (iter = 10); $i++)
+ {((out[0] += echo(delay + $i * ($i * 2 ** 6 + 1),
+ lpf2(code,1 - $i / iter), fdbk, amt)),
+ (out[1] += echo(delay + $i * ($i * 2 ** 3 + 1),lpf2(code, 1 - $i / iter), fdbk, amt)))}
+ return tanh(atan(bpf(((out[lr] / iter + out[lr] / iter) * 2) / iter, .8, .01))) * 4
+}),
+noteConverter = (note) => {
+ const notes = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+ if (note[1] === '#') return notes[note[0]] + 12 * note[2] + 1;
+ if (note[1] === '-') return notes[note[0]] + 12 * note[2] - 1;
+ return (notes[note[0]] + 12 * note[1]);
+},
+Throw = (i) => {throw i},
+Rev = (i) => i.reverse(),
+SR = 48e3, BPM = 160,
+tt = t * 2 ** (-18 / 12) * 440 * 256 / SR,
+ts = t / 2 * BPM / (60 * SR / 32768),
+dwnPresets = {
+ subtlelofi: { hertz: 11025, mix: .35 },
+ samplercrunch: { hertz: 8000, mix: .7 },
+ aggressivealias: { hertz: 4000, mix: 1 },
+ custom: { hertz: 8e3, mix: 1 }
+},
+dwn = downSample = (signal, preset = "subtlelofi") => (
+ dwn_fxii = dwnfxi++,
+ dwnfx[dwn_fxii] ??= { val: 0, frame: -1 },
+ { hertz: hertz, mix: mix } = dwnPresets[preset]
+ ?? (() => { throw new ReferenceError(`dwn() function error: Preset not found (reading preset: ${preset})`); })(),
+ m = min(1, max(0, mix)),
+ frame = (t * min(SR, max(0, hertz)) / SR) | 0,
+ ((((frame != dwnfx[dwn_fxii].frame)
+ ? (dwnfx[dwn_fxii].frame = frame, dwnfx[dwn_fxii].val = signal)
+ : dwnfx[dwn_fxii].val) || 0) * m) + signal * (1 - m)
+),
+note = (P) => 2 ** (P / 12),
+noteAdv = (P, O, T) => 2 ** (P / 12) * 2 ** (T / 12) * 2 ** O,
+/* Base 64 Function (extended parseInt() - inspo from Two2Fall) */
+b64 = base64 = (string, radix = 10) => {
+ if (radix < 2 || radix > 64) {
+ throw new ReferenceError(`\nbase64() function error: Radix must be between 2 and 64 (reading: ${radix})`)
+ };
+ if (string == null || string == "") return NaN;
+ _chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/+".slice(0, radix);
+ let _value = 0;
+ for (ch of string) {
+ idx = _chars.indexOf(ch);
+ if (idx == -1) return NaN;
+ _value = _value * radix + idx;
+ };
+ return _value
+},
+/* Just Intonation and Equal Temperament Tuning Scale */
+/* Just Intonation - Takes the note from 12EDO into ratios */
+ji = justIntonation = (note, transpose = 0) => (
+ _ratios = [1, 16 / 15, 9 / 8, 6 / 5, 5 / 4, 4 / 3, 45 / 32, 3 / 2, 8 / 5, 5 / 3, 16 / 9, 15 / 8],
+ _note = ((floor(note) % 12) + 12) % 12,
+ _transpose = ((floor(transpose) % 12) + 12) % 12,
+ _octave = floor(note / 12) + floor(transpose / 12),
+ _ratios[_note] * 2 ** _octave * _ratios[_transpose]
+),
+/* Equal Temperament - The main frequency scale */
+/* Mode: [0] JI-Snapped EDO | [1] Raw EDO Ladder */
+tet = equalTemperament = (note, transpose = 0, edo = 12, mode = 0) => mode ? 2 ** ((note + transpose) / edo) : 2 ** (round(log2(ji(note, transpose)) * edo) / edo),
+M = (s, S) => b64(s[(ts >> S) % s["length"]], 36),
+code1=lr=>rv(1536,(tt*(lr?.995:1.005)*noteAdv(M('14BGFB6B34BGIKNR', 13),0,1))%256*(1-ts/8192%1)**.7/127-1,.7,.5,lr)+sin(256*sqrt(ts%16384)**.1)*(1-ts/16384%1)**4,
+Mas=lr=>code1(lr),code=[Mas(0),Mas(1)]
+
+==============================================================================
+REFERENCIA 06 — Alternancia entre ecuaciones rítmicas
+Etiquetas: divisores, compuertas, barridos, envolventes matemáticas
+SHA-256 del bloque: 07fd83c54d7664de12a8109c6f9f0fe08be822ada868b44eb79ecd8addc2e158
+==============================================================================
+
+(abs(500*sin(t/400))/(t%(50+950*(t/1E3%17<14)))*sin(t/6E3)*30%2*.6*(t%8E3%5E3<3E3)+sin(t*(t%int(t/8E3%3+3)))*pow(1-t*int(t/4500%2+1)%1E3/1E3,4*abs(sin(t/1E4)))*6.6*!(t%8E3%5E3<3E3))*(0!=int(t/4E3%3))+t%2*sin(t*int(t/1E3%8))*pow(1-3*t/int(t/8E3%6+1)%1E3/1E3,6)*.6*(0==int(t/4E3%3))+.6*sin(500/(t*(1+20*(t%9E3<1E3))%4E3)*40)
+
+==============================================================================
+REFERENCIA 07 — Bajo por capas y eco recursivo
+Etiquetas: desafinación, melodía por tablas, memoria, percusión
+SHA-256 del bloque: 89bc2284e0e1da865bdfb333c48dbab961784e35e950cf1dc4e07f4de46ae131
+==============================================================================
+
+t?0:a=Array(nn=12288).fill(0),SAMP_RATE=44100,ts=t/SAMP_RATE,d=261.63,rb=277.18,r=293.66,mb=311.13,m=329.63,f=349.23,sb=369.99,s=392.00,lb=415.30,l=440.00,sib=466.16,si=493.88,n=x=>(ts*x*128),bass=x=>n([l/2,l,l/2,[l,s,m,f][t/1.7>>12&3],s/2,s,s/2,[s,l,d*2,si][t/1.7>>12&3],sb/2,sb,sb/2,[sb,m,rb,mb][t/1.7>>12&3],s/2,s,[m,r][t/1.7>>13&1],[si/2,d][t/1.7>>13&1]][t/1.7>>14&15]*x/2),wavb=(bass(1)%256+bass(1.01)%256+bass(0.99)%256)/6,vib=t=>((t+30+sin(t/16384)&t+30*sin(t/8198)%255&64)+(t-5+30*sin(t/8198)+64&64)<64)*64,wavv=vib(n([l,l,l,l,s,s,si,l,l,l,l,l,s,s,s,s,l,l,l,l,s,s,f,f,m,r,si/2,d,f,m,f,s][t/1.7>>13&31]))/2,dr=(sin(20*log(t/1.7&16383))*(~t/1.7/2&4095)/16383*128),ran=(random()*(~t/1.7/2&4095)/16383*128),bass1=x=>n([l,s,sb,m][t/1.7>>16&3]/2*x)%256/6,rbass=(bass1(1)+bass1(1.01)+bass1(0.99)+bass1(0.98)+bass1(1.02))/2+wavb,ev=((dr+wavv+rbass/1.5+ran)/1.5-64)+a[t%nn],a[t%nn]=ev/2,ev
+
+==============================================================================
+REFERENCIA 08 — Capas desafinadas estéreo con feedback
+Etiquetas: relaciones de frecuencia, arpegios, eco compartido
+SHA-256 del bloque: 8e00a54894529e38a8ae24437b486be7757e7196c8b6ca675836d2d77f62f4d1
+==============================================================================
+
+(t/=2)?0:r=Array(n=12288).fill(0),ev=h=>(T=t*1.02,c=1.047,cs=1.107,d=1.174,ds=1.243,e=1.318,f=1.389,fs=1.476,g=1.568,gs=1.655,a=1.754,as=1.857,b=1.977,A=t*h*"23423423"[T>>12&7],B=t*[2,3.185,4,2,3.185,4,2,3.185][T>>12&7],A*16*[b,b,b,d*2,g,g,fs,as][T>>15&7]>>6),[(evv=(ev(1)%256+ev(1.01)%256+ev(1.02)%256+ev(.99)%253)/8+r[t*2%n],r[t*2%n]=evv/2,evv/1.5),(evv=(ev(1)%256+ev(.99)%256+ev(.98)%256+ev(1.01)%253)/8+r[t*2%n],r[t*2%n]=evv/2,evv/1.5)]
+
+==============================================================================
+REFERENCIA 09 — Secuencias de relaciones de frecuencia
+Etiquetas: bancos armónicos, relojes múltiples, índices palindrómicos
+SHA-256 del bloque: 2c5403183d583cff83746d35674ba97b682eb8f01e637092a1d623fd24ddd84a
+==============================================================================
+
+c=1.51873344*t,n1=[1875,3750,7500],p1=[1,.8,.75,.5,.25],p2=[.89,.75,2/3,.6,.3],p3=[.8,.75,2/3,.5,.25],p4=[.75,2/3,.6,.375,.1875],o1=[p1[int(t/15E3)%4],p2[int(t/15E3)%4],p3[int(t/15E3)%4],p4[int(t/15E3)%4]],o2=[.5,.445,.4,.375],o3=[p1[abs(int(t/n1[int(t/24E4)%3]%4)%8-4)],p2[abs(int(t/n1[int(t/24E4)%3])%8-4)],p3[abs(int(t/n1[int(t/24E4)%3])%8-4)],p4[abs(int(t/n1[int(t/24E4)%3])%8-4)]],c*o1[int(t/24E4)%4]%256/4+c/1.01*o2[int(t/24E4)%4]%256/4+4.02*c*o3[int(t/24E4)%4]%256/6+20*random()+sqrt(5E12*random())/(t%24E4)%256/3
+
+==============================================================================
+REFERENCIA 10 — Funcbeat con modulación anidada
+Etiquetas: función por muestra, sample rate, ondas, LFO, modulación de fase
+SHA-256 del bloque: c1d248081afb8280ebf19627ccd50e550b83a449ffee251ef327940f86b305e4
+==============================================================================
+
+return(t,s)=>.3*sin((.24*(abs(1-2*t*(n=s/500)%2)*2-1)+.052*(S=(x,t)=>sin((T=2*PI)*t*x))(n*32,t))*(1+S(1.1337,t))*(2+(1+S(.42,t))*15)+T*t)
+
+==============================================================================
+REFERENCIA 11 — Melodía y morph mediante operaciones de bits
+Etiquetas: semitonos, AND/XOR, bancos de parámetros
+SHA-256 del bloque: 573b403a38710569e507fdc7f585bc5fd9ae77d280f168b9649ffc217343a4b4
+==============================================================================
+
+t/=6,morph=[7,6,9,10,6,4,12,16],freqs=[0,0,3,3,0,0,3,5,0,0,3,3,5,5,3,-2,0,0,3,3,0,0,3,5,7,7,5,3,5,5,3,-2],freq=t*2**(freqs[t>>11&31]/12),6E4/(freq&512/morph[(t>>10)%8]-(t>>13)%8+8)&255^9E4/(t*[2,1,sin(t>>1),2,1,2,sin(t>>1),1][t>>11&7]&2047)&255
+
+==============================================================================
+REFERENCIA 12 — Acordes, degradación rítmica y realimentación
+Etiquetas: patrón codificado, bombo, sample hold, feedback
+SHA-256 del bloque: 53ce65a3bb537cf0ba573a2df4da81f8b555cab2196b88af559f03cf2c10590d
+==============================================================================
+
+t||(d="037a05ac",readD=(i,ch)=>parseInt(d[i*4+ch],36),w=0,ech=Array(r=12288).fill(0)),M=t/48e3,T=t,t*=1.3,(t>>6)%(2**"4233"[t>>15&3]*32)||(a=0),a++,k=tanh(sin(a**.2*16+T*PI/512)/(a/256+1)*4),c=Array(4).fill().map((_,i)=>tanh(sin(t*2**(readD(t>>17&1,i)/12)/128*PI)*(1+t/8192%4))/3*((3-(t-i*700)/8192%8%3)/3)**3*min((t-i*700)/8192%8%3*50,1)).reduce((a,b)=>a+b),t%2**((t>>15&-t>>12&7)-1)?ma=ma:ma=k+c*min(a/4096,1)**2,ot=ech[T%r]=ma+ech[T%r]/4,w=w*(q=t/262144%1)+ot*(1-q)
+
+==============================================================================
+REFERENCIA 13 — Acordes filtrados, bajo y batería estéreo
+Etiquetas: filtros con estado, delay, ducking, percusión
+SHA-256 del bloque: f39eb5a40b895ae4a9723b85968f74c0bc168e66a700acda6ea6408b8ebe4095
+==============================================================================
+
+t||(hp=lp=[0,0],ech1=ech2=Array(ez=12288).fill(0),DELAY_DECAY=1.5),
+s=17,p=[1.042*t,1.043*t],w=t>>9&31,v=_=>p[_]*[.502,.4,.3,.448][3&t>>s],v2=_=>p[_]*[.75,.6,.452,.67][3&t>>s],v3=_=>p[_]*[.896,.796,.75,.896][3&t>>s],v4=_=>p[_]*[1.126,.896,.896,1.126][3&t>>s],
+ch=_=>Array(2).fill(0).map((__,i)=>((v(i)/2&w)+(v2(i)/2&w)+(v3(i)/2&w)+(v4(i)/2&w))*min(32-t/512%32,1))[_],
+b=sin((y=v(0)*PI/256*(1+(t>>13&1)))+sin(y)*2*(1-t/8192%1)),
+lp=lp.map((_,i)=>ch(i)*.01+lp[i]*.99),hp=hp.map((_,i)=>(lp[i]-ch(i))/64),
+chout1=ech1[t%ez]=hp[0]+ech1[t%ez]/DELAY_DECAY,chout2=ech2[t%ez]=hp[1]+ech2[t%ez]/DELAY_DECAY,
+k=_=>tanh(sin(cbrt(t%16384)**.1*512+(random()-.5)*(kenv=(1-t/16384%1))**50)*2)*kenv**7,
+h=(random()*2-1)/4*(1-t/8192%1)**5,s=_=>tanh(((t*sin(t/2.5|0)+(_*40)&255)/128-1)*(1-t/16384%1)**5*(t>>14&1)*2)/2,
+mast=_=>k()+((_?chout1:chout2)+b/2+h+s(_))*min(4-kenv*4,1),[mast(0),mast(1)]
+
+==============================================================================
+REFERENCIA 14 — Tonos barridos y percusión derivada del tiempo
+Etiquetas: barridos, saturación, envolventes de ruido, compuertas
+SHA-256 del bloque: c63dbe957af2d09c7af7d7f080892de59d5d0047a9a1b308a81d9c3ea878b349
+==============================================================================
+
+T=t,t/=4,max(min(sin(sqrt(T/6*[1,1,1.2,1.5,1,1,1.2,1.1][t>>14&7]&63)*4)/((t>>(t&8192?t&16384?2:3:4)&255)*.1)+atan(sin([1,1,1.2,1.5,1,1,1.2,1.1][t>>14&7]*T/6*PI/128+4E3/(t%8192))*8)/2,1),-1)/2+(random()*(-t>>3&255)/512+random()*(-t>>6&255)/256*(t>>13&1))/2-.25
+
+==============================================================================
+REFERENCIA 15 — Groove con divisiones, bits y secciones
+Etiquetas: relojes de bits, ruido rítmico, duración de secciones
+SHA-256 del bloque: 93fa2d44e43e17f03cf8ec68f5b45d51fa614ade188216877a2f2b2127ad6b3d
+==============================================================================
+
+t/=5.5125,a=t*((t&4096?59392>t%65536?7:t&7:16)+(1&t>>14))>>(3&-t>>(t&2048?2:10))|t>>(t&16384?t&4096?10:3:2),b=a/3%(85+1/3)+(61440>t%65536?44583.5284:0)/(t&4095)/2%128,c=(256>t%1024?4:0)*t*random()|t>>0,d=(256>t%512?4:0)*t*random()|t>>0,e=14336>t%16384?c:d,f=e/8%32+b%190,126976>t%131072?f:f+44583/(-t&4095)/2%128
+
+==============================================================================
+REFERENCIA 16 — Arreglo progresivo por máscaras y cadenas
+Etiquetas: cambios de sección, cadenas de ritmos, variaciones de percusión
+SHA-256 del bloque: 849d163bd73baddd2bdc1d7a71682fc2f9020aca4b6071fd80c0e403403abcb4
+==============================================================================
+
+t/=4,a=t&2**19?t*(t&2**14?7:5)*(3-(3&t>>11)+(3&t<<8)):t*(t&2**14?7:5)*(1+(3&t>>10)+(3&t<<7)),b=t*(t&2**14?7:5)*(3-(3&t>>(t&2**19?10:9))+(3&t>>(t&2**18?4:8)))>>(3&-t>>(59392>t%2**16?t&4096?2:16:2)),c=a/32%32+b/4%32,t&2**19?random()*((-t>>'6554555455545544555455545554554365545554555455445554555455545543'[(t>>11)%64])%64+64)%102+(51200/(t%4096)&64)%180+c:t&2**18?random()*((-t>>'65555554555555545555555455555544655555545555555545555555455554536555555455555554555555545555554465555554555555545555555455554321'[(t>>11)%128])%64+64)%102+(30200/(t%(t&8192?4096:6144))&64)%180+c:random()*((-t>>'65555554555555545555555455555544'[(t>>11)%32])%64+64)%1+(30200/(t%(t&8192?3072:4096))&64)%180+c
+
+==============================================================================
+REFERENCIA 17 — Acordes no lineales y melodía Unicode
+Etiquetas: bancos de acordes, máscaras rítmicas, formas, estéreo
+SHA-256 del bloque: 4c413c2cf9f9c5110b09b3152b5b8fc65c6d25ad8b0967c3503554e8c7e9185b
+==============================================================================
+
+(t/=6)||(C=[[1.5873,4,4,4.7568,3.1748],[1.4983,5.3392,4.4896,3.5632,2.9964],[1.4983,5.3392,4.4896,3.7752,2.9964],[1,3.5632,4.7568,4,2.9964],[1.5873,4,4,4.7568,3.1478],[1.4983,5.3392,4.4896,3.5632,2.9964],[1,5.3392,4.4896,3.5632,2.9964],[1,5.0396,4,2.9964,2.9964]],m='ÿ@@ŀ@@Ĥ@@ÿ@@ê@Øê@ÿê@ØÀÀ@@@Ø@@êÿ@@ċ@ÿÿ@@@@Ĥ@@ċ@@ÿÿ@ċÿÿÿê@Ø@@êê@êÿÿÿê@@ØØ@ê@Ĥ@@ÿ@@ê@@ÿÿ@@@@@@@@õõõ'),y=2*t,z=c=>(M=(m.charCodeAt(w=t/800%96)-64)*t/(2048+c*2),(C[s=int(t/9600%8)].map(e=>(32>w&&1<<w&0xC007307||(32<=w&&64>w)&&1<<w&1929842288||64<w&&1<<w&0xE70C400)&&sin((y*e/(128+c/4)%2-1)**9*PI)/2).reduce((a,b)=>a+b)+sin((M%2-1)**9*PI+sin(M*PI*2)/2))*(k=t/4800%1)**.5+sin(k**.2*200+c/4)*(1-k)**6+(R=()=>random()-.5)()*sin(t*6)*max(1-t/800%3%2,0)**5+(t/4800&1&&sin(k**.4*300+R()*k**2*400-c/3)*(1-k)**7)+R()*(t/2400&1&&1-k)**2*1.2),[z(-1),z(1)]
+
+==============================================================================
+REFERENCIA 18 — Arreglo generativo con filtro y múltiples retardos
+Etiquetas: afinación por ratios, acumulador, secciones largas, feedback
+SHA-256 del bloque: 4d3e26a9c439d8235e4d28ed08d69317591e39fc0243a1254d7beca66511c74a
+==============================================================================
+
+C=0,r=(d=12e3)*3,b=t/d%768,B=(b%640+(b/4&64))%192-64,P=s=>(1+(s+1)/8|0)*2**(((8-s%7*3)%11+11)%11)/3**(((5-s%7*2)%7+7)%7)/122*12e3/d,(T=t)||(M=[],A=s=>Array(s).fill(0),L=(s,t,i)=>(f=t+t/(1+i),y=C++,z=C++,M[y]??=0,M[z]??=0,M[y]+=i*(s-M[y]+f*(M[y]-M[z]))||0,M[z]+=i*(M[y]-M[z])||0),R=(s,t,i,n,b)=>(M[c=C++]??=A(r),j=T%r|0,f=s,o=0,t.forEach(s=>(f+=M[c][Q=(r+T*s[2]+s[3])%r|0]*s[1],o+=M[c][Q]*s[0])),M[c][j]=b(f)*i,s*(1-n)+o*n)),t?x+=P(b<256||b>512?(b^b/8+3)%12:(b^b/4+(b/6|1))%16%12)/4:x=0,S=L((abs(2*x%1-.5)-.25)*min(b/64,2),.6,.25)*1.4+[3,5,7,9].map((s,i)=>(U=1-(max(0,B+64)%128/123|0))*(abs(t*P(D=s-((b<0?64-abs(b)%64:b)/8|0)%4)/2%1-.5)-.25)*2+(0==i&&U&&abs(t*P(D)/8%1-.25))/1.2*(b%128<64&&b>64?1+(1&b):1)).reduce((s,t)=>s+t/2)||0,[[[2,2,1.02,1e4],[1.3,1.8,.98,7e3],[1,1.5,.98,6e3]],[[2,2,.98,1e4],[1.3,1.8,1.02,7e3],[1,1.5,.98,6e3]]].map((s,i)=>R(L(2*S,.5,.01+min(b/128,1)**2*.8),s,1.6,.4,s=>atan2(-L(s*5,.01,.3),PI*2)/3.5)).map(s=>s/1.5+(B>=0&&sin(sin(t/40)/4+140/(10+1e2*(e=(t+d*(B/3&1))/(2048*(1+(((B+3)/64)+1&1)))%((d/512)*(1+(((B+3)/64)+1&1))))**1.2))/e/4+1.9*sin(t/16<<t/7)/(((d/64)/(32*(1+((B+2)/64&1)))+t/8192)%((d/64)/(16*(1+((B+2)/64&1)))))**.8/24+(B/64&1)*sin(t/32<<t/6)/(b/64%1)**.7*(1-b/64%1)**5/250)).map(s=>s/1.5);
+
+==============================================================================
+REFERENCIA 19 — Arpegios y modelado no lineal estéreo
+Etiquetas: arpegios, silencios, octavas, percusión, saturación
+SHA-256 del bloque: 18f3df09cecbfafd7302c05c4ba1340c870364f4af8b69698213dc0a08fd01cb
+==============================================================================
+
+p=v=>2**(v/12),z=12*(t>>18&1),
+w=t/32768%1,w2=t/16384%1,
+r=s=>(t>>13&1&&p(0xA7305730>>(t>>14&28)&15)*t*s/11&32),
+e=(sin((t>>13&1&&p(0xA7305730>>(t>>14&28)&15)*t/22&32))*200),
+a=(b,c)=>atan(tanh((((96*abs(sin(t*b/50*p([0,3,7,12,,19,,7][t>>11+(t>>13&3^t>>14&1)&7]+z)))**(5*sin(t*PI*2/158292)+10)+(164*(1-t%8192/8192)*(1&-t>>13)*(sin(600*cbrt(t&16383)**.2)))+64*(t>>13&1)*(1-w2)*sin((t*b/40%[10,10,10,10,10,10,10,10.5][7&t>>14]|0)**3)+(p([0,3,7,12][t>>11&3]+z)*t/11%16)+(r(c/2)-r(1.01*c))*2)+e)-128)/128)),
+[a(.995,1),a(1.005,1.5)]
+
+==============================================================================
+REFERENCIA 20 — Arreglo progresivo por máscaras de bits
+Etiquetas: introducción gradual, percusión, capas, progresiones
+SHA-256 del bloque: 0ab4e9dfa3e2c610d03e46609143e60cdcb317363af7401e682a16e8cb8b47df
+==============================================================================
+
+A=4096,D=2**19,F=255,G=256,H=512,J=A*2,B=t%A,a=tanh(atan(sin(6*cbrt(B))*5*(1-B/A))/2+(random()*(300/B))-(random()*(300/B)))*(0x84450441>>(31&t>>12)&1),C=[0,0,-4,5],S=(a,s)=>t*2**(a[t>>s&3]/12),I=t*[1,1,.8,1.5][3&t>>16],atan(tanh(a/(1-t%D/D)/250*(t<D)+a*(t>D)+(t*sin(t>>1)&F)*(1/(t%(J/'11222212'[7&t>>13])))-(t*sin(t/1.0001>>1)&F)*(1/(t%(J/'11222212'[7&t>>13])))+(1&t>>18)*(random()-.5+((t*2.25&F)/G)-((t*2&F)/G))/(1-t%D/D)/196+((((t*sin(t/1.75>>2)&F)-((t*sin(t/1.751>>2)&F))*(1-t%J/J))/H)*(1&-t>>13)*(1&t>>14))*(t>D*2)+((I*(t>>2^t>>13)&F)/H-.25)*(t>D*2)+((I*(t>>2&t>>13)&F)/H-.25)*(t>D*4)+(sin(A*'1213121412131278'[15&t>>13]/(t%A))*(0x75d7>>(t>>12&15)&1))*(1-t%A/A)/2*(t>D*4)+((acos(cos(S(C,16)*PI/H))/5+acos(cos(S(C,16)*PI/510))/5)-.5)*(t>D*6))*2)*90-128
+
+==============================================================================
+REFERENCIA 21 — Síntesis de bits y percusión estéreo
+Etiquetas: patrones de desplazamiento, desafinación, barridos, ruido
+SHA-256 del bloque: 6089f1bc0bed53c757892ee5e86b0b86709ddf724ff56126e6b54b0451819635
+==============================================================================
+
+[(M=x=>(t*(y=x?1.01:1)*(t>>9|1932555120>>(a=t>>13&7))&128^(t*y>>2)*(t>>11|58132275>>a)&191)/255-.75+(X=sin)(8*cbrt(b=t%(16384/'11111111111144222211111122223389'[31&t>>13])))*1200/b+(tan(t*y*PI/1024)*(1&-t>>11)*((3&t>>12)>0)/1.5*400/(c=t%4096)&1)+(t*X(t>>4)&255&-t>>6)*(1&t>>(x?11:14))*(d=1&t>>19)/191+(e=random)()*400/c*d+(e()+X(t<<3)/3)*4E3/(t%524288))(0),M(1)]
+
+==============================================================================
+REFERENCIA 22 — Composición por ecuaciones anidadas
+Etiquetas: funciones anidadas, ritmos, percusión, saturación y decaimiento
+SHA-256 del bloque: 72a6872109a6cec424259d2cff78b0c0a80808baa0f10d19a27776fb2af5419f
+==============================================================================
+
+v=5E4/(1E4+t%4E4)*(B=sin)((t%4E4)**.2*50),(c=_=>v=A(v))((_=>v+=2*B(random())/1.0002**((t+4E4)%8E4))((_=>v+=A(B(t**3)/1.0002**(t%2E4))/2)(c(X=t/1250,v+=(A=tanh)(B(t/4E4*PI*2**((C=int)(X<<X^(X>>3|X>>6))%4)-6)**5*B(t*PI/200*(1+C(2*(X>>5|X>>7)/(1+C(X>>X)))%8))*B(t*PI/25)**3*100+B(t*PI/800)*25),v/=2))))
