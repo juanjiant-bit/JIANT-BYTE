@@ -92,10 +92,10 @@ static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 
  * LOFI ANALOG FM6); 0.9.8's ANALOG FM6 PHASE LOFI VOICE WHEEL NOISE (WEST now) DRUM ANIMAL is what PROGRAM CHANGE keeps
  * (ENGINE_PC_ORDER) */
 static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
+    ENGI_FORM,                   /* FORM: primary composition engine */
     ENGI_DRUM,                   /* DRUM (DRUM-X, its formula lanes) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE */
     ENGI_LOFI,                   /* MATH (BYTE FLOAT) */
-    ENGI_FORM,
     /* (JIANT BYTE) retired, their numbers MATH's or WAVE's (ENG_LIVE): WHEEL ADD FM6 PHASE STRING WEST ANIMAL */
 #if FELUCCA_FM4
     ENGI_DIGITAL,                /* DIGITAL (retired, FELUCCA_FM4 builds only): after the rest */
@@ -193,10 +193,10 @@ static const struct {
 #define TRK_PR_FM6 2u            /* FM BASS (eng_fm6.c); was 0 TINE EP */
 #define TRK_PR_VOICE 5u          /* CHANT (eng_formant.c); was 0 CHOIR AAH */
 #define TRK_PR_ANIMAL 24u        /* WHISTLE (eng_animal.c) */
-/* (JIANT BYTE) every part a formula's: T1 DRUM-X's ACOUSTIC kit, T2 WAVE's SUB BASS, T3 MATH KEYS (FLOAT), T4 WAVE's FM
- * KEYS, T5 WAVE's SAW PAD, T6 MATH's BYTEBEAT */
-static const uint8_t TRK_DEF[NPART][3] = {{ENGI_DRUM, TRK_PR_DRUM, 0}, {ENGI_WAVE, 4, 0}, {ENGI_LOFI, 3, 0},
-                                          {ENGI_WAVE, 1, 0}, {ENGI_WAVE, 2, 0}, {ENGI_LOFI, 0, 0}};
+/* Fresh projects start with FORM's composition, then DRUM-X, WAVE and MATH.
+ * Persisted projects and MIDI program numbering retain their existing IDs. */
+static const uint8_t TRK_DEF[NPART][3] = {{ENGI_FORM, 0, 0}, {ENGI_DRUM, TRK_PR_DRUM, 0}, {ENGI_WAVE, 4, 0},
+                                          {ENGI_LOFI, 3, 0}, {ENGI_WAVE, 2, 0}, {ENGI_LOFI, 0, 0}};
 /* (V10.7.11, the owner's choice) ACOUSTIC, ANALOG PLUCK, PHASE INIT SAW, FM BASS, CHANT, WHISTLE (was FAT BASS,
  * GLASS PAD, TINE EP, CHOIR AAH) */
 /* the parts at power-on through 0.9.8 (the same columns): what an old project's tracks it had no room for load as

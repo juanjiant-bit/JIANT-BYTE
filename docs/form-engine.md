@@ -4,6 +4,34 @@ FORM es un motor independiente de WAVE, MATH y DRUM-X. Sus 22 estados son **adap
 
 Las referencias mezclan JavaScript, arreglos extensos, afinaciones particulares, estéreo y grandes memorias de eco. FORM conserva rasgos de esas composiciones mediante rutinas acotadas y patrones compactos. No ejecuta los originales ni promete equivalencia exacta. La voz interna es mono; utiliza los buses estéreo existentes de JIANT para espacio y memoria. No reserva buffers nuevos de varios megabytes.
 
+## Entrada y navegación (v0.13)
+
+FORM es el primer motor del catálogo y el sonido de la pista 1 al iniciar un proyecto nuevo. Las otras pistas arrancan con DRUM-X, WAVE y MATH. Los proyectos guardados conservan sus sonidos.
+
+PRESETS recorre una lista continua: **FORM → DRUM-X → WAVE → MATH → FORM**. Girarlo hacia atrás cruza los mismos límites en sentido inverso. Mantener **EDIT** mientras se gira PRESETS salta al primer sonido del motor siguiente/anterior; soltarlo conserva la pantalla actual. Los filtros de biblioteca siguen disponibles y la numeración MIDI no cambia.
+
+FORM arranca en RUN SONG: **PLAY** pone en marcha la composición y **STOP** la detiene. En RUN NOTE se sostiene una tecla. Pulsar EDIT abre las páginas; SELECT las recorre.
+
+Cada página explica una parte del motor:
+
+- **STATES:** nombres completos, dominios matemáticos, trazas de las ecuaciones y proporción A/B de MORPH. Las trazas muestran la forma de la voz, no una grabación de toda la mezcla.
+- **RULES:** eventos de kick/snare/hat calculados con GROOVE, DENSITY y SEED; las entradas de percusión por sección responden a EVOLVE.
+- **CLOCK:** transporte, ciclo de ocho secciones, entradas de melodía/armonía/batería, cursor y separación de swing.
+- **NOTES:** contorno del motivo ajustado a la escala y notas del voicing de armonía.
+- **LAYERS:** dominios A/B que llegan a la mezcla, cantidad de percusión, detune y envío al bus de eco. Los pares sin patrón de batería lo indican.
+
+## Pantallas
+
+![FORM STATES](images/form/states.png)
+
+![FORM RULES](images/form/rules.png)
+
+![FORM CLOCK](images/form/clock.png)
+
+![FORM NOTES](images/form/notes.png)
+
+![FORM LAYERS](images/form/layers.png)
+
 ## Controles
 
 | Página | Controles | Resultado |
@@ -74,3 +102,9 @@ build/form-cpu
 ```
 
 La suite `tests/run_byte_tests.sh` genera las muestras y métricas de FORM. Para obtener la galería OGG: ejecutar `build/byte-check/form 16`, `python3 tests/form_audio_test.py` y `python3 tools/form_gallery.py` (requiere ffmpeg).
+
+## Validación de v0.13
+
+La navegación se comprueba desde el arranque real de FORM, pasando por todos los sonidos visibles, los límites entre motores y los saltos con EDIT. Los veinte controles cambian su panel y los nombres de los 22 estados se comprueban dentro del área visible. Se mantiene la paridad de audio nativo/WASM de los 22 estados y el guardado previo. La build de dispositivo conserva las guardas de memoria; la carga y escucha en hardware físico siguen pendientes.
+
+Los [punch-in entre fórmulas](punch-formulas.md) de esta versión se prueban por separado, incluyendo su liberación y ausencia de modificaciones persistentes.

@@ -2153,13 +2153,10 @@ static void seq_entry(uint32_t pressed)
 /* PRESETS: the sounds; (0.9.9-seq2i, the owner) on SEQ's pages the step picked, a step a detent (round in LEN), the same
  * step every SEQ page edits (STEP's cursor, COMP's, the locks'): the factory PATTERNS' loader it opened is gone (the
  * generator, MUTATE and the components make patterns enough) */
-static void presets_turn(int32_t s)                     /* (V10.7.43, the owner: "as before") PRESETS: the next / previous
-                                                         * sound of the track's engine loaded at once (round within the
-                                                         * engine; EDIT + PRESETS the next engine), its name said, the page
-                                                         * as it is; SAVE > PRESETS keeps its list (pl_scroll there) */
+static void presets_turn(int32_t s) /* One continuous preset list; EDIT + PRESETS jumps engines. */
 {
     static uint32_t mark_ms;
-    uint32_t total, cur, n, k, e0, m;
+    uint32_t total, cur, n, k;
     char nm[24];
     if (!ui.home && cur_page()->graph == GR_BROWSE) {
         pl_scroll(s);
@@ -2172,12 +2169,8 @@ static void presets_turn(int32_t s)                     /* (V10.7.43, the owner:
     }
     if (cur >= total)
         n = s > 0 ? 0u : total - 1u;
-    else {
-        e0 = preset_at(cur, &k);
+    else
         n = (cur + (s > 0 ? 1u : total - 1u)) % total;
-        if (preset_at(n, &k) != e0)                     /* (past the engine's last / first: round to its other end) */
-            for (n = cur; (m = (n + (s > 0 ? total - 1u : 1u)) % total) != cur && preset_at(m, &k) == e0; n = m) {}
-    }
     if ((uint32_t)(fm1_ms - mark_ms) > 3000u)           /* (a browse's first turn: UNDO brings back the sound before) */
         undo_mark();
     mark_ms = fm1_ms;

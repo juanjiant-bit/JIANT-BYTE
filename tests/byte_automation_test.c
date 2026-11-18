@@ -46,8 +46,8 @@ int main(void){
  clock_t started=clock();for(unsigned j=0;j<64;j++){TSEL->mw=j*2;mod_begin(TSEL);mod_end(TSEL);fm1_ms+=40;math_poll();}
  printf("USER main-loop rebuild mean %.3f ms (host only)\n",1000.0*(clock()-started)/CLOCKS_PER_SEC/64);
  /* FM49 gestures: first turn loads immediately without replacing the page. */
- ui_power_on();song.sel=0;select_engine(ENGI_WAVE);frame();ui.home=1;unsigned e=TSEL->eng_req,p=TSEL->preset;
- turn(EN_PRESET,1);REQUIRE(ui.home&&TSEL->eng_req==e&&TSEL->preset!=p,"PRESET first detent loads sound directly, no modal list");
+ ui_power_on();song.sel=0;select_engine(ENGI_WAVE);frame();ui.home=1;unsigned e=TSEL->eng_req,p=TSEL->preset,nt,cur=preset_pos(&nt),expected_p,expected_e=preset_at((cur+1)%nt,&expected_p);
+ turn(EN_PRESET,1);REQUIRE(ui.home&&TSEL->eng_req==expected_e&&TSEL->preset==expected_p,"PRESET first detent loads next visible sound directly, no modal list");
  int32_t mixed[2*CTL];for(unsigned j=0;j<40;j++)events_block(CTL),mix_block(mixed,CTL);
  trk_note_on(TSEL,60,100);for(unsigned j=0;j<20;j++)mix_block(mixed,CTL);
  turn(EN_PRESET,1);for(unsigned j=0;j<40;j++)events_block(CTL),mix_block(mixed,CTL);
@@ -55,8 +55,9 @@ int main(void){
  REQUIRE(held,"held note survives direct preset audition");trk_note_off(TSEL,60);
  held=0;for(unsigned j=0;j<NVOICE;j++)held|=TSEL->v[j].active&&TSEL->v[j].gate&&TSEL->v[j].note==60;
  REQUIRE(!held,"carried note releases normally");
- unsigned total=ENGINES[e]->npresets;for(unsigned n=0;n<total+1;n++)turn(EN_PRESET,1);
- REQUIRE(TSEL->eng_req==e,"PRESET wraps within the current engine");
+ select_engine(e);frame();apply_preset(preset_nth(ENGINES[e],preset_shown(e)-1));turn(EN_PRESET,1);
+ REQUIRE(TSEL->eng_req==eng_step(e,1)&&TSEL->preset==preset_nth(trk_engp(TSEL),0),"PRESET crosses to the next engine after its last sound");
+ turn(EN_PRESET,-1);REQUIRE(TSEL->eng_req==e&&TSEL->preset==preset_nth(ENGINES[e],preset_shown(e)-1),"PRESET reverses across the engine boundary");
  fm1_in.buttons|=1u<<panel.btn[B_EDIT];host_pressed|=1u<<panel.btn[B_EDIT];frame();turn(EN_PRESET,1);fm1_in.buttons=0;frame();
  REQUIRE(TSEL->eng_req!=e&&ui.home,"EDIT plus PRESET jumps engine and keeps the page");
  fm1_in.buttons|=1u<<panel.btn[B_SAVE];host_pressed|=1u<<panel.btn[B_SAVE];frame();turn(EN_PRESET,1);fm1_in.buttons=0;frame();
