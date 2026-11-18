@@ -167,38 +167,71 @@ static __attribute__((noinline)) void fl_run(const fvm_prog_t*p,const fvm_env_t*
     int32_t peak=0;for(uint32_t i=0;i<n;i++){int32_t s=fvm_sample(p->ty,out[i]);int32_t a=s<0?-s:s;if(a>peak)peak=a;}
     z->level+=(peak*256-z->level)/8;
     int32_t input_energy=0,output_energy=0,output_peak=0;
+    /* (byte-cpu-light) The slews run once a call, not once a sample: each moves by the share n samples of its
+     * one-pole would (n*256/(D+n/2) of the way, within 1/256 of (1-1/D)^n up to 32), the harmonics' levels and the
+     * two mixes stepped linearly across the call. The partials from one sine and one cosine (a recurrence), not one
+     * table read each. The sound as before within the slews' rounding; a fraction of the instructions. */
+    int32_t num_target=number>0?number*32767/(number+512):0;
+    int32_t f128=(int32_t)(n*256u/(128u+n/2u)),f64=(int32_t)(n*256u/(64u+n/2u)),f256=(int32_t)(n*256u/(256u+n/2u));
+    int32_t num_mix0=z->num_mix,mix0=z->mix,link0=z->link,num0=z->num,color0=z->color;
+    z->num+=(int32_t)(((int64_t)(num_target*256-z->num)*f128)>>8);
+    z->link+=(int32_t)(((int64_t)(link_target*256-z->link)*f128)>>8);
+    z->num_mix+=(int32_t)(((int64_t)((harmonics>=3u?(int32_t)(nd*3u/4u)*256:0)-z->num_mix)*f64)>>8);
+    z->mix+=(int32_t)(((int64_t)((int32_t)mix*256-z->mix)*f64)>>8);
+    z->color+=(int32_t)(((int64_t)(signature*256-z->color)*f256)>>8);
+    int32_t hq[FL_POINTS];
+    for(uint32_t k=0;k<FL_POINTS;k++){
+        int32_t htarget=k/2u<harmonics?target[k]*256:0;
+        z->h[k]+=(int32_t)(((int64_t)(htarget-z->h[k])*f128)>>8);
+        hq[k]=z->h[k]>>8;                            /* (a call's levels held: their slew's step is a call's) */
+    }
+    int32_t lev=z->level>>8;
+    int32_t nm=num_mix0,dnm=(z->num_mix-num_mix0)/(int32_t)n,mx=mix0,dmx=(z->mix-mix0)/(int32_t)n;
+    int32_t index=((num0+z->num)/2)>>8,lnk=((link0+z->link)/2)>>8;
+    uint32_t col=(uint32_t)(((color0+z->color)/2)>>8)<<16;
+    int32_t nscale=lev*32768/32767,hscale=lev*65536/24576;   /* (Q15 / Q16 for the two divisions a sample) */
+    uint32_t nh=harmonics;
+    /* The partials at half the rate, the odd samples between two even ones: they stay under fs / 8 (harmonics
+     * from the phase's step, above), so a 22 kHz grid holds them (linear: -1.8 dB at fs / 8 at most). */
+    int32_t H[FVM_BLK/2u+1u];
+    uint32_t nhalf=(n+1u)/2u;
+    if(mix0>=256||z->mix>=256){
+        for(uint32_t j=0;j<nhalf;j++){
+            uint32_t i=2u*j;
+            uint32_t w=e->arr[FA_W]?e->arr[FA_W][i]:e->arr[FA_T]?e->arr[FA_T][i]<<8:0;
+            int32_t warp=lnk?mulq15(sine_i((w<<17)+col),lnk):0;
+            w+=(uint32_t)warp; /* <=1/8 turn / active harmonic, slewed, no raw-audio PM */
+            uint32_t ph=w<<16;
+            int32_t s1=sine_i(ph),c1=sine_i(ph+0x40000000u),c2=c1*2;   /* sin, cos (Q15) */
+            int32_t sp=0,cp=32767,sk=s1,ck=c1,harmonic=0;
+            for(uint32_t k=0;k<nh;k++){
+                harmonic+=(hq[2u*k]*sk+hq[2u*k+1u]*ck)>>15;
+                int32_t sn=((c2*sk)>>15)-sp,cn=((c2*ck)>>15)-cp;   /* sin/cos((k+2)w) */
+                sp=sk;cp=ck;sk=sn;ck=cn;
+            }
+            H[j]=(int32_t)(((int64_t)harmonic*hscale)>>16);
+        }
+        H[nhalf]=H[nhalf-1u];
+    }
     for(uint32_t i=0;i<n;i++){
         int32_t base=fvm_sample(p->ty,out[i]);
         input_energy+=(base*base)>>6;
         /* NUM turns the exchanged literal/VAR into a bounded coefficient of
          * a phase-locked 2nd/3rd-harmonic expression. Unlike a cubic applied to
          * a quiet signal, this remains a timbre change at any patch level. */
-        int32_t num_target=number>0?number*32767/(number+512):0;
-        z->num+=(num_target*256-z->num)/128;
-        z->link+=(link_target*256-z->link)/128;
-        z->num_mix+=((harmonics>=3u?(int32_t)(nd*3u/4u)*256:0)-z->num_mix)/64;
-        z->mix+=((int32_t)mix*256-z->mix)/64;
         int32_t shaped=base;
-        int32_t harmonic=0;
-        uint32_t w=e->arr[FA_W]?e->arr[FA_W][i]:e->arr[FA_T]?e->arr[FA_T][i]<<8:0;
-        if(z->num_mix>=256&&harmonics>=3u){
-            int32_t index=z->num>>8;
+        if(nm>=256&&harmonics>=3u){
+            uint32_t w=e->arr[FA_W]?e->arr[FA_W][i]:e->arr[FA_T]?e->arr[FA_T][i]<<8:0;
             int32_t numeric=mulq15(sine_i(w*2u<<16),32767-index)+mulq15(sine_i(w*3u<<16),index);
-            numeric=numeric*(z->level>>8)/32767;
-            shaped=base+(numeric-base)*(z->num_mix>>8)/256;
+            numeric=(numeric*nscale)>>15;
+            shaped=base+(((numeric-base)*(nm>>8))>>8);
         }
-        z->color+=(signature*256-z->color)/256;
-        int32_t warp=mulq15(sine_i((w<<17)+(uint32_t)((z->color>>8)<<16)),z->link>>8);
-        w+=(uint32_t)warp; /* <=1/8 turn / active harmonic, slewed, no raw-audio PM */
-        for(uint32_t k=0;k<FL_POINTS;k++){
-            int32_t htarget=k/2u<harmonics?target[k]*256:0;
-            z->h[k]+=(htarget-z->h[k])/128;
-            if(k/2u>=harmonics)continue;
-            uint32_t ph=w*(k/2u+1u)<<16;if(k&1u)ph+=0x40000000u;
-            harmonic+=mulq15(z->h[k]>>8,sine_i(ph));
+        int32_t sample=shaped;
+        if(mx>=256){
+            int32_t harmonic=i&1u?(H[i/2u]+H[i/2u+1u])/2:H[i/2u];
+            sample=shaped+(((harmonic-shaped)*(mx>>8))>>8);
         }
-        harmonic=harmonic*(z->level>>8)/24576;
-        int32_t sample=shaped+(harmonic-shaped)*(z->mix>>8)/256;
+        nm+=dnm;mx+=dmx;
         sample=clamp(sample,-32767,32767);
         output_energy+=(sample*sample)>>6;
         int32_t abs_sample=sample<0?-sample:sample;if(abs_sample>output_peak)output_peak=abs_sample;

@@ -53,10 +53,12 @@ static LIFE_SZ void life_master(void)
     life.fol&=(uint8_t)~track_follow_mask;track_follow_mask|=life.fol;
 }
 /* After note events and performance mutes, before either render core starts. */
+static uint32_t fl_blk;                 /* (byte-cpu-light) blocks, for the captures' turn */
 static LIFE_SZ void life_formula_block(uint32_t hush)
 {
     uint32_t i,j;
     fl.rd^=1u;
+    fl_blk++;
     punch_exchange_tick();
     int punch=0;
     for(unsigned k=0;k<3;k++)if(punch_amount[k]>punch)punch=punch_amount[k];
@@ -75,7 +77,12 @@ static LIFE_SZ void life_formula_block(uint32_t hush)
     for(i=0;i<FL_VOICES;i++) {
         uint32_t tr=i/NVOICE, vi=i%NVOICE,g=0;
         const voice_t *v=&trk[tr].v[vi];const fl_node_t *p=&fl.node[fl.rd][i];
-        fl.node[fl.rd^1u][i].valid=0;
+        {   /* (byte-cpu-light) a donor's spectrum captured one block in four (2.9 ms): the other three keep the
+             * last one while the same note sounds (formula_life.c fl_capture: a VM run and a 16 x 32 projection) */
+            fl_node_t *w=&fl.node[fl.rd^1u][i];
+            if((fl_blk&3u)&&p->valid&&v->active&&v->note==p->note)*w=*p;
+            else w->valid=0;
+        }
         if(fl.on&&p->valid&&tr<trk_live&&!trk[tr].p[P_MUTE]&&!((hush>>tr)&1u)&&
            (punch||life_v[LIFE_N+tr])&&v->active&&v->stage!=4u&&v->note==p->note&&
            (trk[tr].engine!=ENGI_DRUM||!dx_lane_muted((uint32_t)v->s[0]))) {
