@@ -18,6 +18,7 @@ int main(void){
  name_open(NK_FUNC,0);str_cpy(nm.s,MATH_FUNC_DEFAULT,sizeof nm.s);nm.len=str_len(nm.s);name_ok();assert(!name_on()&&!strcmp(lyr_get(0),MATH_FUNC_DEFAULT));
  TSEL->p[P_E1]=RW_USER;math_poll();assert(!lofi_prg[0].func);
  TSEL->p[P_E1]=RW_FUNC;math_poll();assert(lofi_prg[0].func&&!strcmp(lyr_get(0),MATH_FUNC_DEFAULT));
+ lyr_set(0,"  func{return sin(w)*A;}");math_poll();assert(lofi_prg[0].func&&lofi_prg[0].nstate==0);
  char longcode[256];memset(longcode,' ',255);memcpy(longcode,program,strlen(program));longcode[255]=0;
  for(unsigned j=0;j<NTRK;j++){lyr_set(j,longcode);trk[j].p[P_E1]=RW_FUNC;trk[j].eng_req=ENGI_LOFI;}
  project_capture(&a);assert(proj_pack(&stored,&a));assert(proj_import(&b,stored.raw,sizeof stored.raw));assert(!memcmp(a.lyr,b.lyr,sizeof a.lyr));

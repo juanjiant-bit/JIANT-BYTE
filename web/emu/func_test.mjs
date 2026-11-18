@@ -10,5 +10,6 @@ render(97020);const source=text(ex.web_func_get(0));assert(source.startsWith('fu
 const out=render(88200,true);assert(out.every(Number.isFinite));const rms=Math.sqrt(out.reduce((a,b)=>a+b*b,0)/out.length);assert(rms>.01&&rms<.5);
 if(process.argv[3])assert.equal(Buffer.compare(Buffer.from(out.buffer),fs.readFileSync(process.argv[3])),0,'native/WASM FUNC sample mismatch');
 assert.notEqual(apply('func{return nope;}'),0);assert.equal(text(ex.web_func_get(0)),source);
+assert.equal(apply('  func{return sin(w)*A;}'),0);assert.equal(text(ex.web_func_get(0)),'  func{return sin(w)*A;}');
 fs.writeFileSync('build/func-demo.f32',Buffer.from(out.buffer));
 console.log('FUNC WASM: real note audio, finite level, native88200-frame parity and invalid-program transaction PASS; RMS',rms.toFixed(5));

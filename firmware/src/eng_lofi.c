@@ -602,7 +602,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
 }
 
 static const char MATH_FUNC_DEFAULT[] = "func{state q;fn tone(z)=sin(z)+q*.4*sin(z*2);q=q+(A-q)*.002;let l=sin(ph(.2+C*4));return tone(w+B*.1*l)*(.6-D*.3);}";
-static int math_is_func(const char*s){return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
+static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
 static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32_t*out,uint32_t n,const vmod_t*m,uint32_t inc,const tsvf_t*flt)
 {
     uint32_t T[LOFI_N],W[LOFI_N],S[LOFI_N],Y[LOFI_N],q=(uint32_t)v->s[2],ph=v->ph[0],rate;
