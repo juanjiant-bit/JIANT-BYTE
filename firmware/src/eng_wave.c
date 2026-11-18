@@ -83,7 +83,7 @@ static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
  * table is shared); a single line runs the formula as written. */
 static uint32_t trk_nvoice(const track_t *t);   /* (voice.c) */
 #define WT_N 128u
-static int16_t wt_tab[NTRK][2][WT_N + 1u];
+static int16_t wt_tab[NTRK][2][WT_N + 1u] __attribute__((section(".pool")));   /* (the pool: RAM's .bss is full) */
 static uint16_t wt_key[NTRK][2];                    /* 1 + formula x 128 + POS (0: none) */
 static int wt_smooth(uint32_t f) { return f != 10u && f != 11u && f != 13u; }   /* (SAWSQ PULSE too: their edge a 1/128 turn ramp) */
 static const int16_t *wt_get(uint32_t tr, uint32_t o, const fvm_prog_t *pg, uint32_t f, uint32_t pos, uint32_t many,
