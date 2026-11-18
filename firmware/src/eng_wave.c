@@ -83,8 +83,8 @@ static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
  * table is shared); a single line runs the formula as written. */
 static uint32_t trk_nvoice(const track_t *t);   /* (voice.c) */
 #define WT_N 128u
-static int16_t wt_tab[NTRK][2][WT_N + 1u] __attribute__((section(".pool")));   /* (the pool: RAM's .bss is full) */
-static uint16_t wt_key[NTRK][2];                    /* 1 + formula x 128 + POS (0: none) */
+static int16_t wt_tab[NTRK][1][WT_N + 1u];          /* (A's only: 1.5 KB of RAM; the pool keeps its 8 KB of headroom) */
+static uint16_t wt_key[NTRK][1];                    /* 1 + formula x 128 + POS (0: none) */
 static int wt_smooth(uint32_t f) { return f != 10u && f != 11u && f != 13u; }   /* (SAWSQ PULSE too: their edge a 1/128 turn ramp) */
 static const int16_t *wt_get(uint32_t tr, uint32_t o, const fvm_prog_t *pg, uint32_t f, uint32_t pos, uint32_t many,
                              const fvm_env_t *e0, lofi_work_t *wk)
@@ -167,7 +167,7 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     {   /* (byte-cpu-light) the parts' tables, CAOS off (POS still in the block) */
         uint32_t many = nu > 1u || trk_nvoice(t) > 1u, exact = caos || warp == WW_QUANT;   /* (QUANT's steps land on the edges) */
         ta = exact ? 0 : wt_get(tr, 0, pa, fa, (uint32_t)pos, many, &ea, wk);
-        tb = exact || !pb ? 0 : wt_get(tr, 1, pb, fb, (uint32_t)pos, many, &eb, wk);
+        tb = 0;                                      /* (B exact: its table would need the pool's headroom) */
     }
     {
         uint32_t posa[LOFI_N];                       /* POS per sample (CAOS moves it): the formula reads A a block,
