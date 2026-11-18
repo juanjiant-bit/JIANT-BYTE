@@ -716,8 +716,58 @@ static uint8_t voice_headroom;
 static struct { volatile uint32_t peak, late, shed; } load_diag;
 /* (JIANT 0.6.70) the budget shared by all parts: NVOICE, LOAD ECO ECO_VOICES (4 parts with reverb and delay still
  * crackled on ECO: the peaks are the voices, a tail ringing on each part as the next hits come) */
+/* (V10.7.56, the owner) No voice taken from another part: each part keeps to its own voices. The part whose sequence
+ * plays chords (steps of three notes or more: the most of them; not a kit) and the selected one (the keys) keep their
+ * engine's voices; every other melodic part is a single line (two voices: the note and the last one's tail). Over the
+ * load, the voices go to half the rate (voice_soft) before anything is cut; the overload's last resort stays
+ * (audio.c shed_voice). VPOL 0: the shared budget as before (tests) */
+#ifndef VPOL
+#define VPOL 0u                                        /* (JIANT BYTE, byte-cpu-light: off until MATH, FORM and DRUM-X
+                                                         * have a half-rate path: with VPOL the half rate is the relief) */
+#endif
+static uint8_t vpol_on = VPOL;                          /* (a test may run the shared budget of before) */
+#define VPOL_ON() (vpol_on && sys_load != LOAD_ECO)         /* (LOAD ECO, the owner's own choice to spend less: its shared
+                                                         * budget of ECO_VOICES as before) */
+#define VPOL_VOICES 16u                                 /* the voices the parts may sound together (the hurry's measure) */
+#define VPOL_LINE 2u
+static uint8_t vpol_chord = 0xFF;                       /* the chord part (0xFF: none) */
+static __attribute__((noinline)) void vpol_scan(void)   /* (voice_soft, ~1.5 s) the chord part from the sequences */
+{
+    uint32_t p, i, n, best = 0, bp = 0xFF;
+    for (p = 0; p < NPART && p < trk_live; p++) {
+        const track_t *t = &trk[p];
+        uint32_t len = (uint32_t)t->p[P_SLEN];
+        if (ENGINES[t->engine]->oneshot) continue;
+        if (len > NSTEP || !len) len = NSTEP;
+        for (i = n = 0; i < len; i++)
+            n += t->step[i].time == ST_NOTE && t->step[i].n > 2u;
+        if (n > best) { best = n; bp = p; }
+    }
+    if (bp != 0xFF)                                     /* (none in the sequences: the part found playing one stays) */
+        vpol_chord = (uint8_t)bp;
+}
+static int voice_held(const track_t *t, const voice_t *v);
+static uint32_t vpol_quota(const track_t *t, uint32_t np)   /* a part's voices under VPOL */
+{
+    uint32_t ti = (uint32_t)(t - trk);
+    uint32_t i, held = 0;
+    if (!VPOL_ON() || ENGINES[t->engine]->oneshot || ti == vpol_chord || ti == song.sel || np <= VPOL_LINE)
+        return np;
+    if (vpol_chord == 0xFF || vpol_chord >= trk_live) { /* no chord part yet: the first holding a third note (SCENE's
+                                                         * triad, a chord played in) is it */
+        for (i = 0; i < NVOICE; i++)
+            held += t->v[i].active && t->v[i].stage != 4u && voice_held(t, &t->v[i]);
+        if (held >= VPOL_LINE) {
+            vpol_chord = (uint8_t)ti;
+            return np;
+        }
+    }
+    return VPOL_LINE;
+}
 static uint32_t voice_cap0(void)                        /* the budget as set (LOAD, the extra voices) */
 {
+    if (VPOL_ON())
+        return VPOL_VOICES;
     return sys_load == LOAD_ECO ? ECO_VOICES :
            sys_load == LOAD_FULL && voice_headroom ? FULL_VOICES : NVOICE;
 }
@@ -767,6 +817,8 @@ enum { VH_OFF, VH_IN, VH_RE, VH_ON, VH_OUT };           /* a voice's rate: full;
                                                          * state a sample on first, RE: as it is); half; back to full */
 static uint8_t rel_hurry[NTRK];                         /* (eng_fm6.c reads it) */
 static uint8_t vh_wait, vh_held;                        /* blocks tripped; bit p: part p's held voices at half */
+static uint8_t vh_quart;                                /* (V10.7.56) bit p: part p's FM6 voices at a quarter of the rate
+                                                         * (every part's held voices already at half and still over) */
 static int32_t vh_c[NTRK * NVOICE] __attribute__((section(".pool")));   /* a voice: VH_* (bits 0..2), its last sample at
                                                          * half the rate << 3 (the pool: zero at boot; 224 B of it were
                                                          * left over its 8 KiB of headroom, the RAM has none) */
@@ -1028,8 +1080,11 @@ static __attribute__((noinline)) void voice_soft(void)
     static uint8_t div, near;
     uint32_t p, i, busy = 0, cap, h, dear = NPART, dc = 0, again = 0;
     uint8_t own[NPART];
+    static uint8_t scan;
     if (++div & 3u)
         return;
+    if (VPOL && !scan++)
+        vpol_scan();
     cap = voice_cap();
     for (p = 0; p < NPART; p++) {
         track_t *t = &trk[p];
@@ -1092,13 +1147,23 @@ static __attribute__((noinline)) void voice_soft(void)
     }
     if (!near || load_avg_q8 <= (GUARD_OFF << 8))
         vh_wait = 0;
-    else if (load_tight && ++vh_wait >= HALF_WAIT && dear < NPART) {   /* still tripped with the tails at half: the dearest
+    else if (VPOL_ON() && load_tight && dear == NPART && ++vh_wait >= HALF_WAIT / 8u) {   /* (V10.7.56) every held voice that
+                                                         * can at half, still over: FM6 down to a quarter, part by part */
+        for (p = 0; p < NPART; p++)
+            if (ENGINES[trk[p].engine] == &ENG_FM6 && !((vh_quart >> p) & 1u)) {
+                vh_quart |= (uint8_t)(1u << p);
+                break;
+            }
+        vh_wait = 0;
+    } else if ((load_tight || VPOL_ON()) && ++vh_wait >= (VPOL_ON() ? HALF_WAIT / 8u : HALF_WAIT) && dear < NPART) {   /* still tripped with the tails at half: the dearest
                                                          * part's held voices too */
         vh_held |= (uint8_t)(1u << dear);
         vh_wait = 0;
     }
-    if (!load_tight && load_avg_q8 < (HALF_BACK << 8))
-        vh_held = 0;
+    if (!load_tight && load_avg_q8 < ((VPOL_ON() ? HALF_BACK - 10u : HALF_BACK) << 8))
+        vh_held = vh_quart = 0;
+    else if (!load_tight)
+        vh_quart = 0;                                   /* (the guard let go: FM6 back to half first) */
 }
 
 /* (codex/voices) a voice's block at half the rate: CTL / 2 samples of the engine, each twice as far on (its phase
@@ -1111,7 +1176,7 @@ static __attribute__((noinline)) void voice_soft(void)
 static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, voice_t *v, int32_t *out, uint32_t n,
                                                  const vmod_t *m, uint32_t vi)
 {
-    uint32_t st = VH_ST(vh_c[vi]), i, gen = e->half == 1u;
+    uint32_t st = VH_ST(vh_c[vi]), i, gen = e->half == 1u || e->half == 3u;
     int32_t hb[CTL / 2], x = 0, pv = vh_c[vi] >> 3;
     vmod_t h = *m;
     if (n != CTL || st == VH_OUT) {
@@ -1124,13 +1189,33 @@ static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, 
         vh_c[vi] = (int32_t)(st == VH_ON ? VH_RE : st == VH_OUT ? VH_OFF : st);
         return;
     }
+    if (e->half == 2u && ((vh_quart >> (vi / NVOICE)) & 1u)) {   /* (V10.7.56) FM6 at a quarter: 11 kHz, CTL / 4
+                                                         * samples, each the last of its four, the others on the line */
+        int32_t hq[CTL / 4];
+        h.amp1 = 4 * m->amp1 - 3 * m->amp0;
+        for (i = 0; i < CTL / 4u; i++)
+            hq[i] = 0;
+        e->render(t, v, hq, CTL / 4u, &h);
+        if (st != VH_ON)
+            pv = 2 * hq[0] - hq[1];
+        for (i = 0; i < CTL / 4u; i++) {
+            int32_t d = hq[i] - pv;
+            out[4u * i] += pv + (d >> 2);
+            out[4u * i + 1u] += pv + (d >> 1);
+            out[4u * i + 2u] += pv + d - (d >> 2);
+            out[4u * i + 3u] += pv = hq[i];
+        }
+        vh_c[vi] = pv * 8 + VH_ON;
+        return;
+    }
     h.amp1 = 2 * m->amp1 - m->amp0;                     /* (the engine's ramp is CTL long: its half gets to amp1) */
     if (gen) {
         if (st == VH_IN)
             e->render(t, v, &x, 1, m);
         h.inc <<= 1;
         h.pitch16 = clamp(h.pitch16 + 192, 0, 2047);
-        h.cutoff += HALF_CUT;
+        if (e->half == 1u)                              /* (half 3: cutoff is not a filter's there, PHASE's DCW) */
+            h.cutoff += HALF_CUT;
     }
     for (i = 0; i < CTL / 2u; i++)
         hb[i] = 0;
@@ -1149,6 +1234,12 @@ static __attribute__((noinline)) int voice_room(track_t *t, int soft)   /* (V10.
 {
     track_t *vp = 0;
     uint32_t k;
+    if (VPOL_ON()) {                                    /* (V10.7.56) the load is the half rate's (voice_soft), no steal */
+        if (soft)
+            return load_admit(t);
+        load_take(t);
+        return 1;
+    }
     if (voices_load() < voice_cap()) {
         if (load_tight && (k = quiet_tail(&vp)) < NVOICE) {
             voice_kill(&vp->v[k]);                      /* (the load budget: a dying tail makes the room) */
@@ -1193,7 +1284,7 @@ static voice_t *voice_reuse(track_t *t, voice_t *v)
  * in place instead. */
 static voice_t *voice_alloc(track_t *t, uint32_t note)
 {
-    uint32_t i, np = trk_nvoice(t), best = np, low = np, nfree = 0;
+    uint32_t i, np = vpol_quota(t, trk_nvoice(t)), best = np, low = np, nfree = 0;
     int32_t bd = 0x7FFFFFFF;
     if (t->engine == ENGI_DRUM) {
         voice_t *v = drum_reuse(t, note);
@@ -1205,7 +1296,16 @@ static voice_t *voice_alloc(track_t *t, uint32_t note)
             return voice_reuse(t, &t->v[i]);
         nfree += !t->v[i].active;
     }
-    if (nfree) {
+    if (nfree && VPOL_ON()) {
+        track_t *vp = 0;
+        uint32_t k;
+        if (load_tight && (k = quiet_tail(&vp)) < NVOICE) {   /* (a tail under -50 dB, not heard: its CPU back) */
+            voice_kill(&vp->v[k]);
+            voice_trims++;
+        }
+        load_take(t);
+    }                                   /* (V10.7.56: counted; the load is the half rate's) */
+    else if (nfree) {
         track_t *vp = 0;
         uint32_t full = voices_load() >= voice_cap(), k, own = np;
         if (full || load_tight) {                       /* (0.6.16: the load budget too; 0.6.18: a dying tail) */

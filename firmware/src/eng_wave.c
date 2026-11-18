@@ -201,5 +201,6 @@ static const engine_t ENG_WAVE = {
     .npresets = NELEM(WAVE_PRESETS),
     .note_on = wave_note_on,
     .render = wave_render,
+    .half = 1,                                       /* (byte-cpu-light) voice_half's generic path: f(w, A) at the doubled increment */
     .knob = {P_E0, P_E1, P_E2, P_E3},
 };
