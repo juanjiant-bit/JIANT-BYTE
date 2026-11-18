@@ -40,6 +40,8 @@ jobs:
             retry git -C "$AC79_SDK" checkout d179b4484759423312073f5fbb232501aa491047
           fi
       - name: Build the FM1 package and enforce target layout checks
+        env:
+          FELUCCA_REPIN: "1"                 # (byte-cpu-light: the audio layout re-pinned for the new code; tools/audio_layout.txt in the artifact)
         run: python3 tools/build.py
       - name: Target budgets and committed navigation maps
         run: |
@@ -67,6 +69,7 @@ jobs:
             build/loader/ota.bin
             build/SHA256SUMS
             build/SOURCE_COMMIT
+            tools/audio_layout.txt
             LICENSE
             LICENSING.md
             LICENSES/
