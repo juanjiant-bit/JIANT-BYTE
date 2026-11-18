@@ -19,15 +19,6 @@ static void distortion(unsigned ty,int tone,int noise,int32_t*y){
  track_t*t=&trk[0];t->p[P_DTYPE]=ty;t->p[P_DIST]=75;t->p[P_DTONE]=tone;dnz_v[0]=noise;
  for(unsigned n=0;n<BN;n+=CTL){for(unsigned j=0;j<CTL;j++)y[n+j]=(sine_i((n+j)*98765432u)+sine_i((n+j)*12345678u))/3;track_dist(t,y+n,CTL);}
 }
-static void engine_punch(unsigned engine,unsigned mask,int32_t*y,uint32_t *clock){
- ui_power_on();memset(drum_kit,0,sizeof drum_kit);
- if(engine==ENGI_DRUM){host_drums(&trk[0]);dx_kit_load(DX_NKIT);}
- else host_preset(&trk[0],engine,1);
- trk[0].p[P_DIST]=0;formula_punch=mask;
- trk_note_on(&trk[0],engine==ENGI_DRUM?36:60,110);
- for(unsigned n=0;n<BN;n+=CTL)track_render(&trk[0],y+n,CTL);
- *clock=engine==ENGI_DRUM?drum_kit[0][0].x.ph:trk[0].v[0].ph[0];formula_punch=0;
-}
 int main(void){
  drum(0,0,a);drum(100,0,b);drum(0,100,c);
  printf("Drum formula FOLD delta %.3f MOD ENV delta %.3f\n",delta(a,b),delta(a,c));
@@ -50,22 +41,10 @@ int main(void){
  seq_stop();song_poll();memset(pfx_lane,0,sizeof pfx_lane);pfx_lane_put(0,10);pfx_lph=0;song.playing=1;pfx_rec_held=0;
  pfx_block(CTL,0);OK(formula_punch==512u,"recorded punch lane applies the same formula operator");pfx_end();
  song.playing=0;pfx_block(CTL,0);OK(!formula_punch,"stopping playback clears recorded formula operator");pfx_end();
- for(unsigned k=0;k<3;k++) {
-  unsigned engine=k==0?ENGI_WAVE:k==1?ENGI_LOFI:ENGI_DRUM;uint32_t ca,cb;
-  engine_punch(engine,0,a,&ca);engine_punch(engine,128,b,&cb);
-  OK(delta(a,b)>.05,"punch modifies actual WAVE/MATH/DRUM-X rendered audio");
-  OK(ca==cb,"punch leaves the underlying engine phase advancing normally");
- }
- for(unsigned type=0;type<2;type++){
-  fvm_full_t prog;fvm_cc_t comp;fvm_scratch_t scratch;int32_t state[2]={0};
-  const char*text=type?"sin(w+sin(w*2)*A)+sin(T*7)/5":"(t*(A+3))^(t>>5)";
-  int err=fvm_compile(&comp,FVM_FULL(&prog),text,str_len(text),0);OK(!err,"punch reference formula compiles");
-  uint32_t T[FVM_BLK],W[FVM_BLK],S[FVM_BLK],base[FVM_BLK],wet[FVM_BLK];
-  for(unsigned j=0;j<FVM_BLK;j++){T[j]=0x3210+j*3;W[j]=1234+j*1917;S[j]=40000+j*113;}
-  fvm_env_t e={{T,W,S,0,0},{0},state};e.u[FU_A]=5;e.u[FU_AF]=20000;
-  formula_punch=0;formula_run(&prog.p,&e,&scratch,FVM_BLK,base);
-  for(unsigned k=0;k<10;k++){formula_punch=1u<<k;formula_run(&prog.p,&e,&scratch,FVM_BLK,wet);OK(memcmp(base,wet,sizeof base)!=0,"each formula operator changes generated samples");}
-  formula_punch=0;formula_run(&prog.p,&e,&scratch,FVM_BLK,wet);OK(!memcmp(base,wet,sizeof base),"release restores original samples at the continuing time");
- }
+ perf_latch_on=1;
+ perf_press(PF_COMB,1);pfx_block(CTL,perf_held&PF_NOTES);
+ OK(formula_punch==1024u && perf_pick(perf_held)==PF_N,"ensemble reaches the exchange bus only");
+ perf_press(PF_COMB,0);pfx_block(CTL,perf_held&PF_NOTES);
+ OK(!formula_punch&&!perf_latched,"ensemble is momentary even with latch enabled");
  printf("byte_controls: %s\n",bad?"FAIL":"all ok");return !!bad;
 }

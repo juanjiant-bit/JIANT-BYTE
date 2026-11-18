@@ -1,17 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
-/* BYTE v0.5: D4..F5 is a ten-operator momentary formula bank (formula_perf.c).
- * The existing PF_OCTD..PF_RND numbers remain the lane/scene wire format, but
- * now mean TIME /2, TIME x2, T FLIP, PH WARP, A+, T STEPS, T LOOP, FOLD, XOR,
- * RING. pfx_block quantizes presses and merges lane playback, then removes
- * these bits before the old note/transport machinery. No patch writes.
- * pfx_end clears the audio-only mask. perf_press makes this bank momentary
- * even in LATCH mode. Legacy lane recordings adopt the new operator meanings.
- * Other keys retain their buffer/ambience, LOOP 3/5/7, CAOS and LIFE actions.
- * The lane is 64 steps, one operator per nibble; REC+FX clears it. Recording
- * and playback still use their existing section persistence and quantization.
- * The legacy note helpers below remain available for the remaining runtime
- * state and shared voice paths; formula operators do not set their flags. */
+/* The contiguous ten white keys retain their recorded lane codes.
+ * G5 adds a live ensemble profile. The audio block resolves held and recorded
+ * keys before LIFE snapshots the active formulas for both render cores. */
 static uint8_t pfx_in;                /* a repeat's own note-on (pfx_note lets it through) */
 static uint8_t pfx_any;               /* a track has something running (or to put back) */
 static uint32_t pfx_blk;              /* blocks: the notes of one block were struck together */
@@ -133,7 +124,7 @@ static uint32_t pfx_rec_held;                           /* (0.6.28) the effects 
                                                          * lane (a latched one wrote itself on every step it passed) */
 static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
 {
-    uint32_t k, b = beat_samples(), lane = 0, raw = held & pfx_rec_held, nw;
+    uint32_t k, b = beat_samples(), lane = 0, raw = held & pfx_rec_held & PF_FORMULA, nw;
     pfx_blk++;
     if (held & PF_BIT(PF_RING)) {                       /* (JIANT BYTE) CAOS MAX: every formula part at CAOS 127 for this
                                                          * block (pfx_end: back) */
@@ -192,7 +183,8 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
     }
     pfx_lnow = lane;
     formula_punch = ((held | lane) & PF_FORMULA) >> PF_OCTD;
-    held &= ~PF_FORMULA; lane &= ~PF_FORMULA;
+    if(held & PF_BIT(PF_COMB))formula_punch |= 1u<<10;
+    held &= ~(PF_FORMULA|PF_BIT(PF_COMB)); lane &= ~PF_FORMULA;
 
     if (!held && !pfx_any && !lane && !nw)
         return;

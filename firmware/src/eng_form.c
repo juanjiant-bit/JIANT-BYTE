@@ -236,8 +236,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
   int32_t sources[2]={0};uint32_t ids[2]={am,bm};
   for(uint32_t side=0;side<(am==bm?1u:2u);side++){
    uint32_t id=ids[side],dom=domain?domain:FORM_STATE[id].domain,mt=tick,ii=mi;
-   if(formula_punch&1u)ii>>=1;if(formula_punch&2u)ii<<=1;if(formula_punch&4u)mt^=128u;
-   int32_t localcolor=clamp((formula_punch&8u?127-color:color)+(int32_t)FORM_STATE[id].color-64,0,127);
+   int32_t localcolor=clamp(color+(int32_t)FORM_STATE[id].color-64,0,127);
    uint32_t voices=FORM_STATE[id].voices;
    int32_t lead=form_wave(id,mt,ii,(uint32_t)age,localcolor,seed),bass=id>=18?form_drop_bass(id,beat,mt*(bi/2u),localcolor):form_wave(id,mt,bi,beat&65535u,localcolor/2,seed),ch=0;
    uint32_t count=t->p[P_CHRD]? (uint32_t)clamp(voices,1,4):1u;

@@ -2196,7 +2196,7 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
         c.lfo = lfo; c.tune = tune; c.tune_fine = tune_fine; c.bend16 = bend16; c.bend_fine = bend_fine;
         c.damt = damt; c.ti = ti; c.fade = fade; c.img = syn_img[ti];
         c.lv = c.lcut = c.lfine = 0;
-        if (life_v[LIFE_AMT]) {                          /* (V10.7.34) LIFE (life.c), through a register: track_render is
+        if (fl.on) {                          /* (V10.7.34) LIFE (life.c), through a register: track_render is
                                                          * the RAM copy's too (mix_part_m0), life.c past its direct reach */
             int32_t (*f)(uint32_t, int32_t *) = life_ctx;
             FM1_OPAQUE(f);
