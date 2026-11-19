@@ -22,24 +22,6 @@ static void dx_follow(void)
     }
 }
 
-/* the mode as one value 0..31: wave x 6 + filter x 2 + SNAP, and back; (V10.7.8) the filter GR's eight after them */
-static uint32_t dx_mode_ix(uint32_t m)
-{
-    return ((m >> 2) & 3u) == DXF_GR ? 24u + (m & 3u) * 2u + ((m >> 4) & 1u) : (m & 3u) * 6u + ((m >> 2) & 3u) * 2u + ((m >> 4) & 1u);
-}
-static uint8_t dx_mode_of(uint32_t ix)
-{
-    return ix >= 24u ? (uint8_t)((ix - 24u) / 2u | DXF_GR << 2 | (ix & 1u) << 4) : (uint8_t)(ix / 6u | (ix % 6u / 2u) << 2 | (ix & 1u) << 4);
-}
-static void dx_mode_name(char *b, uint32_t m)        /* "FM BP+" (b: 8 bytes) */
-{
-    static const char *const W[4] = {"SIN", "FM", "MTL", "BEL"}, *const F[4] = {"LP", "BP", "HP", "GR"};
-    str_cpy(b, W[m & 3u], 8);
-    str_cpy(b + str_len(b), " ", 8 - str_len(b));
-    str_cpy(b + str_len(b), F[(m >> 2) & 3u], 8 - str_len(b));
-    if ((m >> 4) & 1u)
-        str_cpy(b + str_len(b), "+", 8 - str_len(b));
-}
 
 /* (JIANT 0.6.54) the pages, the whole kit first, then a sound: KIT (EDIT 1), KIT 2 (EDIT 2), KIT 3 (TONE's BP and FEEDBK,
  * IMAGE: dx_kit3_*), X-MOD, FILTER, LEVELS; then SOUND 1..4, KNOB 1 the sound on each:
@@ -48,129 +30,16 @@ static void dx_mode_name(char *b, uint32_t m)        /* "FM BP+" (b: 8 bytes) */
 static void dw_knob(uint32_t pn, uint32_t k, int32_t s);
 static void dw_cards(uint32_t pn);
 static void dx_lane_turn(int32_t s) { dx_ui_lane = (uint8_t)clamp((int32_t)dx_ui_lane + (s > 0 ? 1 : -1), 0, 7); }
-/* SOUND 4's SEND as one value: 0 OFF, then CHORUS, DELAY, REVERB 16 amounts each (1..48) */
-static int32_t dx_send_ix(uint32_t sn)
-{
-    int32_t a = (DXS_AMT(sn) + 1) / 4;
-    return DXS_BUS(sn) ? (int32_t)(DXS_BUS(sn) - 1u) * 16 + (a < 1 ? 1 : a > 16 ? 16 : a) : 0;
-}
-static uint8_t dx_send_of(int32_t ix)
-{
-    return ix <= 0 ? 0u : (uint8_t)((uint32_t)((ix - 1) / 16 + 1) << 6 | (uint32_t)(((ix - 1) % 16 + 1) * 4 - 1));
-}
 /* KNOB k (0..3) turned s on a SOUND page or X-MOD */
 static __attribute__((noinline)) void dx_knob(const page_t *pg, uint32_t k, int32_t s)
 {
-    dx_lane_t *L = &dx_kit[dx_ui_lane & 7u];
-    uint8_t *v = dx_ui_side ? L->b : L->a;
     uint32_t pn = dx_pagen(pg);
     if (pn >= 20u) { dw_knob(pn, k, s); return; }      /* (DRUM-W's own pages) */
-    if (pn == 4u) {                                     /* (JIANT 0.5.1) X-MOD: the kit's, not a sound's */
+    if (pn == 4u) {                                     /* (JIANT 0.5.1) KIT LFO: the kit's, not a sound's */
         static const uint8_t MX[4] = {8, 127, 4, 127};
         int32_t v0 = dx_mot[k & 3u];
         dx_mot[k & 3u] = (uint8_t)clamp(v0 + (MX[k & 3u] > 8 ? accel(EN_K1 + k, s, 127) : (s > 0 ? 1 : -1)), 0, MX[k & 3u]);
-        return;
     }
-    if (k == 0u) {                                      /* every SOUND page: KNOB 1 the sound */
-        dx_lane_turn(s);
-        return;
-    }
-    if (pn >= 13u) {                                    /* (DRUM-W) WAVE A, WAVE B, LAYER, MOD ENV, MOD LFO, NOISE, MOD DEST */
-        dw_lane_t *D = &dw_kit[dx_ui_lane & 7u];
-        int32_t st = s > 0 ? 1 : -1, ac = accel(EN_K1 + k, s, 127);
-        uint8_t *u = 0, *e = 0;
-        int32_t emax = 0;
-        switch (pn * 4u + k) {
-        case 13u * 4u + 1u: e = &D->ta; emax = 15; break;
-        case 13u * 4u + 2u: u = &D->pos; break;
-        case 13u * 4u + 3u: L->mode = (uint8_t)(s > 0 ? L->mode | DX_DRIVE : L->mode & ~DX_DRIVE); return;
-        case 14u * 4u + 1u: e = &D->tb; emax = 15; break;
-        case 14u * 4u + 2u: e = &D->str; emax = DWS_N - 1; break;
-        case 14u * 4u + 3u: u = &D->bamt; break;
-        case 15u * 4u + 1u: e = &D->ratio; emax = (int32_t)DW_NRAT - 1; break;
-        case 15u * 4u + 2u: u = &D->bpos; break;
-        case 15u * 4u + 3u: u = &D->vel; break;
-        case 16u * 4u + 1u: u = &D->eatk; break;
-        case 16u * 4u + 2u: u = &D->edec; break;
-        case 16u * 4u + 3u: u = &D->eamt; break;
-        case 17u * 4u + 1u: u = &D->lrate; break;
-        case 17u * 4u + 2u: e = &D->lshp; emax = DWL_N - 1; break;
-        case 17u * 4u + 3u: u = &D->ldep; break;
-        case 19u * 4u + 1u: e = &D->edst; emax = DWD_N - 1; break;
-        case 19u * 4u + 2u: e = &D->ldst; emax = DWD_N - 1; break;
-        case 19u * 4u + 3u:                             /* PITCH MOD: the pitch envelope's kind */
-            L->mode = (uint8_t)((L->mode & ~0x60u) | (uint32_t)clamp((int32_t)((L->mode >> 5) & 3u) + st, 0, 3) << 5);
-            return;
-        case 18u * 4u + 1u: e = &D->noise; emax = DWN_RESON; break;
-        case 18u * 4u + 2u: {                           /* FILTER: LP BP HP, each with SNAP */
-            int32_t f = (int32_t)((L->mode >> 2) & 3u), ix = clamp((f > 2 ? 1 : f) * 2 + (int32_t)((L->mode >> 4) & 1u) + st, 0, 5);
-            L->mode = (uint8_t)((L->mode & ~0x1Cu) | (uint32_t)(ix / 2) << 2 | (uint32_t)(ix & 1) << 4);
-            return;
-        }
-        case 18u * 4u + 3u: {                           /* TICK: OFF, then six types of eight levels */
-            int32_t ix = D->tick ? ((int32_t)D->tick - 1) * 8 + (int32_t)D->tlev / 16 + 1 : 0;
-            ix = clamp(ix + st, 0, 48);
-            D->tick = (uint8_t)(ix ? (ix - 1) / 8 + 1 : 0);
-            D->tlev = (uint8_t)(ix ? ((ix - 1) % 8) * 16 + 15 : 0);
-            return;
-        }
-        }
-        if (u) *u = (uint8_t)clamp((int32_t)*u + ac, 0, 127);
-        if (e) *e = (uint8_t)clamp((int32_t)*e + st, 0, emax);
-        return;
-    }
-    if (pn == 9u) {                                     /* FORMULA: lane, formula, A/B, variable A */
-        if (k == 1u) {
-            uint32_t ln = dx_ui_lane & 7u;
-            int32_t f = dx_form[ln] == DX_USER ? DX_NFORM + 1u : dx_form[ln];
-            f = clamp(f + (s > 0 ? 1 : -1), 0, DX_NFORM + (dx_text[ln][0] != 0));
-            dx_form[ln] = f > (int32_t)DX_NFORM ? DX_USER : (uint8_t)f;
-        }
-        else if (k == 2u) dx_ui_side = s > 0;
-        else v[DXP_COLOR] = (uint8_t)clamp(v[DXP_COLOR] + accel(EN_K1 + k, s, 127), 0, 127);
-        return;
-    }
-    if (pn == 10u) {                                    /* FORM MOD: the lane's clock, phase bend and resolution */
-        int8_t *m = &dx_fmod[dx_ui_lane & 7u][k - 1u];
-        *m = (int8_t)clamp(*m + (s > 0 ? 1 : -1), k == 1u ? -24 : 0, k == 1u ? 24 : k == 2u ? 127 : 12);
-        return;
-    }
-    if (pn == 8u) {                                     /* SOUND 4: LAYER, FEEDBK, SEND */
-        uint8_t *ly = &dx_lay[dx_ui_lane & 7u];
-        int32_t la = (int32_t)DX_LAY_L(*ly), fb = (int32_t)DX_LAY_FB(*ly);
-        if (k == 1u) la = clamp(la + (s > 0 ? 1 : -1), 0, 15);
-        else if (k == 2u) fb = clamp(fb + (s > 0 ? 1 : -1), 0, 15);
-        else dx_snd[dx_ui_lane & 7u] = dx_send_of(clamp(dx_send_ix(dx_snd[dx_ui_lane & 7u]) + (s > 0 ? 1 : -1), 0, 48));
-        *ly = (uint8_t)(la | fb << 4);
-        return;
-    }
-    if (pn == 3u) {                                     /* SOUND 3: MODE, the pitch modulation's type, DRIVE */
-        if (k == 1u) {                              /* MODE: the 32 of DRUM-X, then (JIANT BYTE) its formulas (dx_form) */
-            uint32_t ln = dx_ui_lane & 7u;
-            int32_t ix = dx_form[ln] == DX_USER ? 31 + DX_NFORM : dx_form[ln] ? 31 + (int32_t)dx_form[ln] : (int32_t)dx_mode_ix(L->mode);
-            ix = clamp(ix + (s > 0 ? 1 : -1), 0, 31 + (int32_t)DX_NFORM);
-            if (ix > 31) {
-                dx_form[ln] = (uint8_t)(ix - 31);
-            } else {
-                dx_form[ln] = 0;
-                L->mode = (uint8_t)((L->mode & 0xE0u) | (dx_mode_of((uint32_t)ix) & 0x1Fu));
-            }
-        }
-        else if (k == 2u)
-            L->mode = (uint8_t)((L->mode & ~0x60u) | (uint32_t)clamp((int32_t)((L->mode >> 5) & 3u) + (s > 0 ? 1 : -1), 0, 3) << 5);
-        else
-            L->mode = (uint8_t)(s > 0 ? L->mode | DX_DRIVE : L->mode & ~DX_DRIVE);
-        return;
-    }
-    if (pn == 2u) {                                     /* SOUND 2: DECAY NOISE COLOR (the side's) */
-        uint32_t i = k == 1u ? DXP_DECAY : k == 2u ? DXP_NOISE : DXP_COLOR;
-        v[i] = (uint8_t)clamp(v[i] + accel(EN_K1 + k, s, 127), 0, 127);
-        return;
-    }
-    if (k == 1u)                                        /* SOUND: SIDE, PITCH, PMOD */
-        dx_ui_side = s > 0;
-    else
-        v[k == 2u ? DXP_PITCH : DXP_PMOD] = (uint8_t)clamp(v[k == 2u ? DXP_PITCH : DXP_PMOD] + accel(EN_K1 + k, s, 127), 0, 127);
 }
 /* KIT 3 (the whole kit): KNOB 1 BP, 2 FEEDBK (TONE's, dx_tone), (0.7.9) 3 HANDS (the CLAP's, dx_hands), (0.9.9-snd1)
  * 4 GLUE (the bus's, eng_drum.c dx_glue: KIT 3's free knob) */
@@ -217,14 +86,11 @@ static __attribute__((noinline)) void dx_kit3_cards(void)
 /* the four cards of a SOUND page or X-MOD */
 static void dx_cards(const page_t *pg)
 {
-    static const char *const BUS[4] = {"OFF", "CHO", "DLY", "REV"};
-    const dx_lane_t *L = &dx_kit[dx_ui_lane & 7u];
-    const uint8_t *v = dx_ui_side ? L->b : L->a;
     uint32_t pn = dx_pagen(pg);
-    char val[12], ln[8];
+    char val[12];
     dx_follow();
     if (pn >= 20u) { dw_cards(pn); return; }            /* (DRUM-W's own pages) */
-    if (pn == 4u) {                                     /* (JIANT 0.5.1) X-MOD */
+    {                                                   /* (JIANT 0.5.1) KIT LFO */
         static const char *const RT[9] = {"OFF", "4BAR", "2BAR", "1BAR", "1/2", "1/4", "1/8", "1/16", "1/32"};
         static const char *const SH[5] = {"SINE", "TRI", "SAW", "RAMP", "S&H"};
         gauge_column(0, "RATE", RT[dx_mot[XM_RATE] % 9u], dx_mot[XM_RATE] ? VAL(0u) : T_DIM, dx_mot[XM_RATE] * 125);
@@ -233,129 +99,7 @@ static void dx_cards(const page_t *pg)
         hot_gauge_column(2, "SHAPE", SH[dx_mot[XM_SHPE] % 5u], dx_mot[XM_SHPE] * 250);
         fmt_int(val, dx_mot[XM_RAND]);
         gauge_column(3, "RAND", val, dx_mot[XM_RAND] ? VAL(3u) : T_DIM, dx_mot[XM_RAND] * 1000 / 127);
-        return;
     }
-    str_cpy(ln, DX_LANE_ABBR[dx_ui_lane & 7u], sizeof ln);   /* KNOB 1: the sound (SOUND 2 its side too: the values') */
-    if (pn == 2u) {
-        ln[2] = ' ';
-        ln[3] = dx_ui_side ? 'B' : 'A';
-        ln[4] = 0;
-    }
-    hot_gauge_column(0, "PAD", ln, (int32_t)(dx_ui_lane & 7u) * 1000 / 7);
-    if (pn >= 13u) {                                    /* (DRUM-W) */
-        const dw_lane_t *D = &dw_kit[dx_ui_lane & 7u];
-        static const char *const PM[4] = {"DECAY", "LONG", "NOISE", "SINE"}, *const FL[3] = {"LP", "BP", "HP"};
-        uint32_t f;
-        switch (pn) {
-        case 13u:
-            hot_gauge_column(1, "TABLE A", N_WAVEF[D->ta & 15u], (int32_t)(D->ta & 15u) * 1000 / 15);
-            fmt_int(val, D->pos); hot_gauge_column(2, "POS", val, D->pos * 1000 / 127);
-            gauge_column(3, "DRIVE", L->mode & DX_DRIVE ? "ON" : "OFF", L->mode & DX_DRIVE ? VAL(3u) : T_DIM, L->mode & DX_DRIVE ? 1000 : 0);
-            break;
-        case 14u:
-            hot_gauge_column(1, "TABLE B", N_WAVEF[D->tb & 15u], (int32_t)(D->tb & 15u) * 1000 / 15);
-            hot_gauge_column(2, "STRUCT", N_DWS[D->str % DWS_N], (int32_t)(D->str % DWS_N) * 250);
-            fmt_int(val, D->bamt); gauge_column(3, "AMOUNT", D->bamt ? val : "OFF", D->bamt ? VAL(3u) : T_DIM, D->bamt * 1000 / 127);
-            break;
-        case 15u:
-            hot_gauge_column(1, "RATIO", N_DWR[D->ratio % DW_NRAT], (int32_t)(D->ratio % DW_NRAT) * 1000 / (int32_t)(DW_NRAT - 1u));
-            fmt_int(val, D->bpos); hot_gauge_column(2, "B POS", val, D->bpos * 1000 / 127);
-            fmt_int(val, (int32_t)D->vel - 64); hot_gauge_column(3, "VEL>POS", val, D->vel * 1000 / 127);
-            break;
-        case 16u:
-            fmt_int(val, D->eatk); hot_gauge_column(1, "ATTACK", val, D->eatk * 1000 / 127);
-            fmt_int(val, D->edec); hot_gauge_column(2, "DECAY", val, D->edec * 1000 / 127);
-            fmt_int(val, (int32_t)D->eamt - 64); hot_gauge_column(3, "AMOUNT", val, D->eamt * 1000 / 127);
-            break;
-        case 17u:
-            fmt_int(val, D->lrate); gauge_column(1, "RATE", D->lrate ? val : "OFF", D->lrate ? VAL(1u) : T_DIM, D->lrate * 1000 / 127);
-            hot_gauge_column(2, "SHAPE", N_DWL[D->lshp % DWL_N], (int32_t)(D->lshp % DWL_N) * 250);
-            fmt_int(val, (int32_t)D->ldep - 64); hot_gauge_column(3, "DEPTH", val, D->ldep * 1000 / 127);
-            break;
-        case 19u:
-            hot_gauge_column(1, "ENV TO", N_DWD[D->edst % DWD_N], (int32_t)(D->edst % DWD_N) * 200);
-            hot_gauge_column(2, "LFO TO", N_DWD[D->ldst % DWD_N], (int32_t)(D->ldst % DWD_N) * 200);
-            hot_gauge_column(3, "SWEEP", PM[(L->mode >> 5) & 3u], (int32_t)((L->mode >> 5) & 3u) * 333);
-            break;
-        default:
-            hot_gauge_column(1, "TYPE", N_DWN[D->noise % 5u], (int32_t)(D->noise % 5u) * 250);
-            f = (L->mode >> 2) & 3u;
-            str_cpy(val, FL[f > 2u ? 1u : f], sizeof val);
-            if ((L->mode >> 4) & 1u) str_cpy(val + str_len(val), " SNAP", 6);
-            hot_gauge_column(2, "FILTER", val, (int32_t)((f > 2u ? 1u : f) * 2u + ((L->mode >> 4) & 1u)) * 200);
-            if (D->tick) {                              /* "CLICK 5": the type, the level 1 .. 8 */
-                uint32_t l;
-                str_cpy(val, N_DWT[D->tick % 7u], sizeof val);
-                l = str_len(val);
-                val[l] = ' '; val[l + 1u] = (char)('1' + D->tlev / 16); val[l + 2u] = 0;
-            }
-            hot_gauge_column(3, "TICK", D->tick ? val : "OFF", D->tick ? (((int32_t)D->tick - 1) * 8 + D->tlev / 16 + 1) * 1000 / 48 : 0);
-            break;
-        }
-        return;
-    }
-    if (pn == 9u) {
-        uint32_t f = dx_form[dx_ui_lane & 7u];
-        hot_gauge_column(1, "FORMULA", dx_formula_name(f), (f == DX_USER ? DX_NFORM : f) * 1000 / DX_NFORM);
-        hot_gauge_column(2, "SIDE", dx_ui_side ? "B" : "A", dx_ui_side ? 1000 : 0);
-        fmt_int(val, v[DXP_COLOR]);
-        hot_gauge_column(3, "VAR A", val, v[DXP_COLOR] * 1000 / 127);
-        return;
-    }
-    if (pn == 10u) {
-        const int8_t *m = dx_fmod[dx_ui_lane & 7u];
-        fmt_int(val, m[DFM_RATE]);
-        draw_column(1, "RATE", val, "st", VAL(1u), (m[DFM_RATE] + 24) * 1000 / 48, ICON_TONE);
-        fmt_int(val, m[DFM_BEND]);
-        hot_gauge_column(2, "BEND", val, m[DFM_BEND] * 1000 / 127);
-        fmt_int(val, 16 - m[DFM_CRUSH]);
-        draw_column(3, "BITS", val, "bit", VAL(3u), (12 - m[DFM_CRUSH]) * 1000 / 12, ICON_TONE);
-        return;
-    }
-    if (pn == 8u) {                                     /* SOUND 4 */
-        uint32_t ly = dx_lay[dx_ui_lane & 7u], la = DX_LAY_L(ly), fb = DX_LAY_FB(ly), sn = dx_snd[dx_ui_lane & 7u];
-        int32_t ix = dx_send_ix(sn);
-        fmt_int(val, (int32_t)la);
-        gauge_column(1, "LAYER", la ? val : "OFF", la ? VAL(1u) : T_DIM, (int32_t)la * 1000 / 15);
-        fmt_int(val, (int32_t)fb);
-        gauge_column(2, "FEEDBK", fb ? val : "OFF", fb ? VAL(2u) : T_DIM, (int32_t)fb * 1000 / 15);
-        {
-            char un[8];
-            fmt_int(un, ix ? ((ix - 1) % 16 + 1) * 100 / 16 : 0);
-            str_cpy(un + str_len(un), "%", 2);
-            draw_column(3, "SEND", BUS[DXS_BUS(sn)], ix ? un : "", ix ? VAL(3u) : T_DIM, ix * 1000 / 48, ICON_MIX);
-        }
-        return;
-    }
-    if (pn == 3u) {                                     /* SOUND 3 */
-        static const char *const PM[4] = {"DECAY", "LONG", "NOISE", "SINE"};
-        uint32_t fm = dx_form[dx_ui_lane & 7u];
-        if (fm) {                                       /* (JIANT BYTE) a formula lane: F and its name */
-            val[0] = 'F';
-            val[1] = ':';
-            str_cpy(val + 2, dx_formula_name(fm), sizeof val - 2u);
-        } else {
-            dx_mode_name(val, L->mode);
-        }
-        hot_gauge_column(1, "MODE", val, (fm ? 31 + (int32_t)(fm == DX_USER ? DX_NFORM : fm) : (int32_t)dx_mode_ix(L->mode)) * 1000 / (31 + (int32_t)DX_NFORM));
-        hot_gauge_column(2, "PM.TYPE", PM[(L->mode >> 5) & 3u], (int32_t)((L->mode >> 5) & 3u) * 333);
-        gauge_column(3, "DRIVE", L->mode & DX_DRIVE ? "ON" : "OFF", L->mode & DX_DRIVE ? VAL(3u) : T_DIM, L->mode & DX_DRIVE ? 1000 : 0);
-        return;
-    }
-    if (pn == 2u) {                                     /* SOUND 2 */
-        fmt_int(val, v[DXP_DECAY]);
-        hot_gauge_column(1, "DECAY", val, v[DXP_DECAY] * 1000 / 127);
-        fmt_int(val, v[DXP_NOISE]);
-        hot_gauge_column(2, "NOISE", val, v[DXP_NOISE] * 1000 / 127);
-        fmt_int(val, v[DXP_COLOR]);
-        hot_gauge_column(3, "CUTOFF", val, v[DXP_COLOR] * 1000 / 127);
-        return;
-    }
-    hot_gauge_column(1, "PATCH", dx_ui_side ? "B" : "A", dx_ui_side ? 1000 : 0);   /* PITCH (was SOUND) */
-    fmt_int(val, v[DXP_PITCH]);
-    hot_gauge_column(2, "PITCH", val, v[DXP_PITCH] * 1000 / 127);
-    fmt_int(val, v[DXP_PMOD]);
-    hot_gauge_column(3, "SWEEP", val, v[DXP_PMOD] * 1000 / 127);   /* (V10.7.8: GR's) */
 }
 /* what the cards and the panel show changed */
 static uint32_t dx_sig(void)
@@ -473,18 +217,11 @@ static void dw_panel(void)
         dw_wave_line(m, xs, ys, w, a + 2, heat_col(on ? 235 : 170), 2);
         cv_rect(xs + w + 4, ys - 2, 5, 5, heat_col(on ? 245 : 170));
     }
-    if (pn == 16u || pn == 17u || pn == 19u || pn == 23u) {   /* MOD ENV, MOD LFO, MOD DEST, MOVE: the modulators */
-        int lfo = pn == 17u;
-        if (pn == 19u || pn == 23u) {
-            cv_text(160, 4 - AF_S_CAP_Y, &AF_S, N_DWD[D->edst % DWD_N], T_ACCENT);
-            dw_mod_box(D, 0, 160, 16, on);
-            cv_text(160, 54 - AF_S_CAP_Y, &AF_S, N_DWD[D->ldst % DWD_N], T_ACCENT);
-            dw_mod_box(D, 1, 160, 66, on);
-        } else {
-            cv_text(160, 22 - AF_S_CAP_Y, &AF_S, lfo ? "LFO" : "ENV", T_TEXT);
-            cv_text(160, 36 - AF_S_CAP_Y, &AF_S, N_DWD[(lfo ? D->ldst : D->edst) % DWD_N], T_ACCENT);
-            dw_mod_box(D, lfo, 160, 48, on);
-        }
+    if (pn == 23u) {                                    /* MOVE: the modulators */
+        cv_text(160, 4 - AF_S_CAP_Y, &AF_S, N_DWD[D->edst % DWD_N], T_ACCENT);
+        dw_mod_box(D, 0, 160, 16, on);
+        cv_text(160, 54 - AF_S_CAP_Y, &AF_S, N_DWD[D->ldst % DWD_N], T_ACCENT);
+        dw_mod_box(D, 1, 160, 66, on);
     } else if (D->bamt) {                                /* B, at its place, by the STRUCT */
         int32_t bp = clamp(D->bpos * top / 127 + (on ? sp - p0 : 0), 0, top);
         cv_text(160, 22 - AF_S_CAP_Y, &AF_S, N_DWS[D->str % DWS_N], T_ACCENT);

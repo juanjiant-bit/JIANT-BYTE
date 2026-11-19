@@ -1769,7 +1769,6 @@ static __attribute__((noinline)) void act_do(void)
     if (!c--)
         return;
     if (func_formula_page()) { name_open(NK_FUNC, song.sel); return; }
-    if (dx_formula_page()) { name_open(NK_DX_FORM, dx_ui_lane); return; }
     if(cur_page()->graph==GR_TRACKGEN) {trackgen_make();return;}
     if (cur_page()->graph == GR_LYRIC) {                /* (0.8.5) WORDS: the lyric, typed (the NAME screen) */
         name_open(NK_LYRIC, song.sel);

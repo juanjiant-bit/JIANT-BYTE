@@ -616,6 +616,7 @@ static uint32_t layer_btn(void);
 
 /* FM operator pages belong to DIGITAL; they never appear on other instruments (without FELUCCA_FM4: never). LANES /
  * LANES 2 a DRUM track's (its lane levels); SOUND / SOUND 2 a DRUM track's (DRUM-X: ui_dx.c) */
+static uint32_t dx_pagen(const page_t *pg);
 static int page_visible(uint32_t i)
 {
     uint32_t te = trk_eng(TSEL);                        /* (filters2: once) */
@@ -647,7 +648,9 @@ static int page_visible(uint32_t i)
     if (PAGES[i].graph == GR_PATS_ || PAGES[i].graph == GR_CHANCE_)   /* (0.6.37) PHRASES, a step's CHANCE: out of the */
         return FELUCCA_PHRASES && !ui.home && ui.page == i;   /* SEQ pages' cycle (only where code put the screen;
                                                          * V10.7.33: out, core.h) */
-    if (PAGES[i].graph == GR_DXSND || PAGES[i].graph == GR_DXIMG)   /* (0.6.48: IMAGE; V10.49: STEREO a synth's too) */
+    if (PAGES[i].graph == GR_DXSND)                     /* (DRUM-W) its own pages and KIT LFO; DRUM-X's SOUND 2..4, FORMULA gone */
+        return te == ENGI_DRUM && (PAGES[i].title[0] == 'K' || dx_pagen(&PAGES[i]) >= 20u);
+    if (PAGES[i].graph == GR_DXIMG)                     /* (0.6.48: IMAGE; V10.49: STEREO a synth's too) */
         return te == ENGI_DRUM;              /* (codex/coherence: a synth's IMAGE on PLAY 2) */
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] >= P_LN0 && PAGES[i].id[0] <= P_LN7)   /* (filters2: FILTER 2, a
                                                          * synth's; filter2-mod: FILTER 3 KEY, VOICE's FILTER 2 no DEST) */
@@ -2181,7 +2184,7 @@ static uint32_t dx_pagen(const page_t *pg)            /* SOUND 1..3; (0.5.1) X-M
     return pg->title[5] == ' ' ? (pg->title[6] == '4' ? 8u : (uint32_t)(pg->title[6] - '0')) : 1u;
 }
 static int func_formula_page(void) { return !ui.home && cur_page()->scope==SC_ENGINE && trk_engp(TSEL)==&ENG_LOFI && TSEL->p[P_E1]==RW_FUNC; }
-static int dx_formula_page(void) { return !ui.home && cur_page()->graph == GR_DXSND && dx_pagen(cur_page()) == 9u; }
+#define dx_formula_page() 0                             /* (DRUM-W: DRUM-X's FORMULA page gone) */
 static void dx_knob(const page_t *pg, uint32_t k, int32_t s);
 static void dx_cards(const page_t *pg);
 static void dw_panel(void);

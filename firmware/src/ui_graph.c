@@ -2126,17 +2126,8 @@ static void draw_graph(void)
             break;
         case GR_DXSND:                               /* EDIT > SOUND: the kit's lanes, the sound edited singled out */
             cv_oy = 0;
-            if (pg->title[0] == 'F') {
-                uint32_t f = dx_form[dx_ui_lane & 7u];
-                cv_text(8, 6 - AF_X_CAP_Y, &AF_X, f == DX_USER ? "USER FLOATBEAT / DRUM-X" : f ? "FLOATBEAT / DRUM-X" : "CLASSIC / DRUM-X", T_ACCENT);
-                cv_rect(5, 21, 230, 77, T_SURF);
-                ub_formula_large(f ? dx_formula_text(dx_ui_lane) : "CLASSIC OSCILLATOR");
-                cv_text(8, 105 - AF_S_CAP_Y, &AF_S, dx_pagen(pg) == 9u ? "OCT+ EDIT FORMULA" : "TEXT: FORMULA PAGE", T_THEME);
-                cv_text(8, 126 - AF_X_CAP_Y, &AF_X, "w: PHASE  T: SECONDS  A: COLOR", T_DIM);
-            } else if (dx_pagen(pg) >= 20u)                 /* (DRUM-W) its own pages */
+            if (dx_pagen(pg) >= 20u)                        /* (DRUM-W) its own pages */
                 dw_panel2(dx_pagen(pg));
-            else if (dx_pagen(pg) >= 13u)
-                dw_panel();
             else if (pg->title[0] == 'S' || pg->title[0] == 'P' || pg->title[0] == 'A')   /* (0.9.4) PITCH AMP (SOUND 1..4): the drum kit, the sound edited lit (ui_engvis.c) */
                 vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));
             else

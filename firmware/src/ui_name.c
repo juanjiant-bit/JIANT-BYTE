@@ -113,12 +113,6 @@ static void name_open(uint32_t kind, uint32_t slot)
         const char *text=math_func_text(&trk[slot%NTRK],lyr_get(slot));
         str_cpy(nm.s,text,sizeof nm.s);nm.len=(uint8_t)str_len(nm.s);nm.cur=0;return;
     }
-    if (kind == NK_DX_FORM) {
-        str_cpy(nm.ph, "FORMULA", sizeof nm.ph);
-        str_cpy(nm.s, dx_formula_text(slot), sizeof nm.s);
-        nm.len = (uint8_t)str_len(nm.s); nm.cur = 0;
-        ui.force = 1; return;
-    }
     if (kind == NK_LYRIC) {                            /* (0.8.5) the track's lyric */
         str_cpy(nm.ph, "TYPE A LYRIC", sizeof nm.ph);
         str_cpy(nm.s, lyr_get(slot), sizeof nm.s);
@@ -292,21 +286,6 @@ static void name_ok(void)
         if(rc){nm.ferr=(uint8_t)rc;nm.fpos=(uint8_t)err.pos;nm.cur=err.pos<nm.len?(uint8_t)err.pos:nm.len;ui.force=1;return;}
         trk[nm.slot].p[P_E7]=0;lyr_set(nm.slot,b);math_hash[nm.slot]=0;math_poll();name_close();ui_message("FUNC APPLIED");return;
     }
-    if (nm.kind == NK_DX_FORM) {
-        gq_work_t *w = proj_ws(); fvm_err_t e = {0,0};
-        uint32_t err = fvm_compile(&w->cc, FVM_FULL(&w->pg), b, str_len(b), &e);
-        if (!err && (w->pg.p.n > 24u || w->pg.p.nstate > 2u)) { err = FE_LONG; e.pos = 0; }
-        if (err) { nm.ferr = (uint8_t)err; nm.fpos = (uint8_t)e.pos; nm.cur = e.pos < nm.len ? (uint8_t)e.pos : nm.len; ui.force = 1; return; }
-        {   /* Only publish validated text; the audio ISR cannot see a partial edit. */
-            uint32_t ln = nm.slot & 7u; fm1_irq_off();
-#if FELUCCA_DUAL_CORE
-            fm1_mc_park();
-#endif
-            str_cpy(dx_text[ln], b, DX_TEXT); dx_form[ln] = DX_USER; dx_fid[ln] = 0;
-            fm1_irq_on();
-        }
-        name_close(); ui_message("FORMULA APPLIED"); return;
-    }
     if (nm.kind == NK_LYRIC) {                         /* (0.8.5) RAM only: playing too */
         lyr_set(nm.slot, b);
         ui_message(b[0] ? "LYRIC SET" : "LYRIC CLEARED");
@@ -401,7 +380,6 @@ static uint32_t name_leds(void)
 static void nm_title(char *b)
 {
     if(nm.kind==NK_FUNC){str_cpy(b,"FUNC T",24);fmt_int(b+6,nm.slot+1);return;}
-    if (nm.kind == NK_DX_FORM) { str_cpy(b, "FORMULA ", 24); str_cpy(b + 8, drum_lane_abbr(TSEL, nm.slot & 7u), 16); return; }
     if (nm.kind == NK_SONG_SAVE) {
         str_cpy(b, song_save_loop ? "SAVE LOOP TO PROJECT " : "SAVE SONG TO PROJECT ", 24);
         fmt_int(b + str_len(b), (int32_t)nm.slot + 1);
