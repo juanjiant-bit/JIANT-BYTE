@@ -2195,6 +2195,11 @@ static int32_t dice_by(int32_t v, int32_t lo, int32_t hi, int32_t span)
 static void sound_dice_of(track_t *t, int quiet)
 {
     uint32_t e = trk_eng(t), i, l;
+    if (e == ENGI_FORM) {                                /* (FORM 2) its own dice: eng_form.c form_dice */
+        form_dice(t, 0);
+        if (!quiet) ui_message("FORM DICED");
+        return;
+    }
     if (e == ENGI_DRUM && drum_elsewhere(t)) {          /* (0.8.3, reported again) the section's one kit is another
                                                          * track's: its drums stay as they are */
         static char m[16] = "KIT OF T? KEPT";
@@ -2338,6 +2343,7 @@ static void dk_keep(uint32_t kind)
     if (kind == CF_DICE_SEQ) {
         for (i = 0; i < NSTEP; i++) dk.step[i] = t->step[i];
         dk.slen = t->p[P_SLEN];
+        for (i = 0; i < 8u; i++) dk.v[i] = t->p[FORM_DICE_COMP[i]];   /* (FORM 2: its composition, the dice's) */
     } else if (kind == CF_DICE_LFO) {
         for (i = 0; i < 8u; i++) dk.v[i] = t->p[DK_LFO[i]];
     } else if (kind == CF_DICE_FX) {
@@ -2355,6 +2361,8 @@ static int dk_back(uint32_t kind, uint32_t k)           /* CANCEL: 0 done */
         load_begin(t, LOAD_PAT);
         for (i = 0; i < NSTEP; i++) t->step[i] = dk.step[i];
         t->p[P_SLEN] = dk.slen;
+        if (trk_eng(t) == ENGI_FORM)
+            for (i = 0; i < 8u; i++) t->p[FORM_DICE_COMP[i]] = dk.v[i];
         load_end(t);
         latch_drop_req |= (uint8_t)(1u << (k % NTRK));
     } else if (kind == CF_DICE_LFO) {

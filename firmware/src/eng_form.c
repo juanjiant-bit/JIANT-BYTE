@@ -12,6 +12,8 @@ static const char *const FORM_DOMAIN[]={"AUTO","BYTE","FLOAT","FUNC","HYBRID","W
  * ARP slots (no arpeggio on FORM: its song plays itself). Their defaults (0, 0, 2, 127) are the classic sound */
 static const char *const FORM_HARM[]={"AUTO","CLASSIC","DEGREES","FAMILY","PEDAL","BITS"};
 static const char *const FORM_WOB[]={"1/2","1/4","1/8","1/8T","1/16","STEPS","JUMPS","BAR"};
+static const char *const FORM_PROG[]={"AUTO","AXIS","II-V-I","VAMP","DESCEND","FOURTHS","EPIC","POP","CIRCLE"};   /* FORM_FAM, P_AGATE */
+static const char *const FORM_OCT[]={"-1","0","+1","+2"};                     /* the melody's octave, P_AOCT */
 static const char *const FORM_VOICE[]={"CLOSE","LEAD","OPEN","+BASS","DROP","QUARTAL","NEAR","WIDE"};
 enum{FD_WOBBLE=5,FD_REESE,FD_GROWL,FD_RING,FD_SCREECH,FD_ACID};   /* DOMAIN 5..10: the character bass (form_cbass) */
 static const char *const FORM_RUN[]={"NOTE","SONG"};
@@ -83,18 +85,18 @@ static const form_gene_t FORM_GENE[FORM_N]={
  [34]={FH_PEDAL,0,FM_PACK,FF_SECT,FX_SIDE,0x0F7F0F00u},
  [35]={FH_FAMILY,2,FM_PACK,FF_SECT,FX_RATCH,0x7F2F04F0u},
 };
-static int form_owned_param(uint32_t id){return id==P_SDIV||id==P_SLEN||id==P_SSWING||id==P_ROOT||id==P_SCALE||id==P_CHRD||id==P_CVOI||id==P_AORDER||id==P_ASWING||id==P_ARATE||id==P_APROB;}   /* (FORM 2: its GENES) */
+static int form_owned_param(uint32_t id){return id==P_SDIV||id==P_SLEN||id==P_SSWING||id==P_ROOT||id==P_SCALE||id==P_CHRD||id==P_CVOI||id==P_AORDER||id==P_ASWING||id==P_ARATE||id==P_APROB||id==P_AGATE||id==P_AOCT;}   /* (FORM 2: its GENES) */
 static const param_desc_t *form_common_desc(uint32_t id){
  static const param_desc_t detune={"DETUNE",F_PCT,0,127,24,0};
  static const param_desc_t run={"RUN",F_ENUM,0,1,1,FORM_RUN},domain={"STYLE",F_ENUM,0,10,0,FORM_DOMAIN},drums={"DRUMS",F_PCT,0,127,100,0},cycle={"CYCLE",F_INT,1,64,32,0};
- static const param_desc_t harm={"HARMONY",F_ENUM,0,5,0,FORM_HARM},drive={"DRIVE",F_PCT,0,100,0,0},wob={"WOBBLE",F_ENUM,0,7,2,FORM_WOB},tone={"TONE",F_PCT,0,127,64,0},voice={"VOICING",F_ENUM,0,7,0,FORM_VOICE};
+ static const param_desc_t harm={"HARMONY",F_ENUM,0,5,0,FORM_HARM},drive={"DRIVE",F_PCT,0,100,0,0},wob={"WOBBLE",F_ENUM,0,7,2,FORM_WOB},tone={"TONE",F_PCT,0,127,64,0},voice={"VOICING",F_ENUM,0,7,0,FORM_VOICE},prog={"PROGRESS",F_ENUM,0,8,0,FORM_PROG},oct={"OCTAVE",F_ENUM,0,3,1,FORM_OCT};
  return id==P_DETUNE?&detune:id==P_LRTRG?&run:id==P_CAOS?&domain:id==P_KEY?&drums:id==P_SLEN?&cycle:id==P_AORDER?&harm:id==P_ASWING?&drive:
-        id==P_ARATE?&wob:id==P_APROB?&tone:id==P_CVOI?&voice:0;
+        id==P_ARATE?&wob:id==P_APROB?&tone:id==P_CVOI?&voice:id==P_AGATE?&prog:id==P_AOCT?&oct:0;
 }
-#define FP(k,label,echo,space) {label,{k,(k+1)%FORM_N1,0,64,0,100,0,64},{0,0,127,24},0,TAG(FX),FX(0,24,echo,space),0,MODS(P_LRTRG,1,P_CAOS,0,P_KEY,100,P_SLEN,32,P_ROOT,0,P_SCALE,2,P_CHRD,1,P_CVOI,0,P_DETUNE,24,P_AMODE,0,P_AORDER,0,P_ASWING,0,P_ARATE,2,P_APROB,127)}
+#define FP(k,label,echo,space) {label,{k,(k+1)%FORM_N1,0,64,0,100,0,64},{0,0,127,24},0,TAG(FX),FX(0,24,echo,space),0,MODS(P_LRTRG,1,P_CAOS,0,P_KEY,100,P_SLEN,32,P_ROOT,0,P_SCALE,2,P_CHRD,1,P_CVOI,0,P_DETUNE,24,P_AMODE,0,P_AORDER,0,P_ASWING,0,P_ARATE,2,P_APROB,127,P_AGATE,0,P_AOCT,1)}
 /* (FORM 2) k, B, label, sends; the scale, the chord (degree modes: 1-2 triad, 3-5 7th, 6-8 9th, 9-11 sus), the voicing,
  * DRIVE, WOBBLE, TONE */
-#define FP2(k,b,label,echo,space,scale,chrd,cvoi,drive,wob,tone) {label,{k,b,0,64,0,100,0,64},{0,0,127,24},0,TAG(FX),FX(0,24,echo,space),0,MODS(P_LRTRG,1,P_CAOS,0,P_KEY,100,P_SLEN,32,P_ROOT,0,P_SCALE,scale,P_CHRD,chrd,P_CVOI,cvoi,P_DETUNE,24,P_AMODE,0,P_AORDER,0,P_ASWING,drive,P_ARATE,wob,P_APROB,tone)}
+#define FP2(k,b,label,echo,space,scale,chrd,cvoi,drive,wob,tone) {label,{k,b,0,64,0,100,0,64},{0,0,127,24},0,TAG(FX),FX(0,24,echo,space),0,MODS(P_LRTRG,1,P_CAOS,0,P_KEY,100,P_SLEN,32,P_ROOT,0,P_SCALE,scale,P_CHRD,chrd,P_CVOI,cvoi,P_DETUNE,24,P_AMODE,0,P_AORDER,0,P_ASWING,drive,P_ARATE,wob,P_APROB,tone,P_AGATE,0,P_AOCT,1)}
 static const preset_t FORM_PRESETS[]={
  FP(0,"01 SCORE",10,20),FP(1,"02 TIME RULE",0,5),FP(2,"03 COUNTER",72,45),FP(3,"04 FIVE PART",40,25),FP(4,"05 TUNED MEM",100,60),FP(5,"06 SWITCH",0,8),FP(6,"07 BASS ECHO",96,20),FP(7,"08 DETUNE",112,60),FP(8,"09 RATIOS",18,15),FP(9,"10 NESTED FM",32,40),FP(10,"11 BIT MORPH",14,5),FP(11,"12 CRUSH CHD",110,25),FP(12,"13 FILTER CHD",100,55),FP(13,"14 SWEEPS",5,5),FP(14,"15 BIT GROOVE",0,8),FP(15,"16 MASK SONG",24,12),FP(16,"17 NONLIN CHD",58,48),FP(17,"18 GENERATIVE",127,90),FP(18,"19 SHAPED ARP",50,35),FP(19,"20 BUILD UP",30,22),FP(20,"21 BIT PAIRS",52,30),FP(21,"22 NESTED EQ",28,28),
  FP2(22,23,"23 STRUM 332",60,40,2,4,6,20,2,64),FP2(23,30,"24 HOUSE M9",40,30,2,7,4,0,2,64),FP2(24,31,"25 CHIRP",30,40,2,1,0,0,2,64),
@@ -304,7 +306,7 @@ static __attribute__((noinline)) void form_step(const track_t*t,uint32_t sid,uin
   mel=root+12+(G->mel==FM_STR?md:form_deg(&sc,md));bass=root+rr-12;
   for(uint32_t k=0;k<4u;k++)sk[k]=root+rr+ints[k];
  }else{
-  int32_t rd,bd;uint32_t f=(H->fam+seed/16u)&7u;
+  int32_t rd,bd;uint32_t f=t->p[P_AGATE]>0?(uint32_t)clamp(t->p[P_AGATE]-1,0,7):(H->fam+seed/16u)&7u;   /* PROGRESS, else the state's and SEED's */
   if(hm==FH_DEGREES)rd=form_degof(&sc,(int32_t)form_char(R->roots,pp));
   else if(hm==FH_BITS){uint32_t b=cyc*4u+pp;rd=(int32_t)(((b^(b>>3))+3u+seed)%(uint32_t)sc.n);}   /* ref 10 */
   else rd=FORM_FAM[f][pp&3u];
@@ -317,6 +319,7 @@ static __attribute__((noinline)) void form_step(const track_t*t,uint32_t sid,uin
   mel=root+12+form_deg(&sc,rd+md);bass=root+form_deg(&sc,bd)-12;
   for(uint32_t k=0;k<4u;k++)sk[k]=root+form_deg(&sc,rd+q[k]);
  }
+ mel+=(clamp(t->p[P_AOCT],0,3)-1)*12;                    /* OCTAVE: the melody's */
  for(uint32_t k=0;k<4u;k++){                              /* the voicing: 0..3 as ever; DROP; NEAR: every tone to the
                                                            * octave above the root (the next chord's common tones stay) */
   int32_t sh=cv==2u?(k&1u?12:0):cv==3u&&k==0?-12:cv==1u&&(sectionn&1u)&&k==3?-12:cv==4u?(k==0?-12:k==2?12:0):0;
@@ -355,6 +358,26 @@ static __attribute__((noinline)) int32_t form_cbass(voice_t*v,uint32_t dom,uint3
  }
  v->s[7]=(int32_t)((uint32_t)(uint16_t)f1|((uint32_t)(uint16_t)f2<<16));
  return clamp(y,-32767,32767);
+}
+/* (FORM 2) the dice (ui_input.c: SELECT the whole of it; SEQ + SELECT the composition alone): coherent by construction,
+ * no extreme a sound breaks on. The composition: HARMONY (AUTO one time in two), PROGRESS, CHORD, VOICING, the rules */
+static const uint8_t FORM_DICE_COMP[8]={P_AORDER,P_AGATE,P_CHRD,P_CVOI,P_E4,P_E5,P_E6,P_E7};
+static int16_t form_rnd(uint32_t n){return (int16_t)(n?rng()%n:0u);}
+static void form_dice(track_t*t,uint32_t comp_only)
+{
+ int16_t*p=t->p;
+ if(!comp_only){
+  int16_t a=form_rnd(FORM_N),b=form_rnd(3u)?form_rnd(FORM_N):a;
+  p[P_E0]=a;p[P_E1]=b;p[P_E2]=a==b?0:form_rnd(3u)?form_rnd(128u):(int16_t)(form_rnd(2u)?0:127);p[P_E3]=(int16_t)(24+form_rnd(80u));
+  p[P_CAOS]=form_rnd(4u)?0:(int16_t)(FD_WOBBLE+form_rnd(6u));          /* STYLE: the states' own, one time in four a character */
+  p[P_ASWING]=form_rnd(3u)?form_rnd(25u):(int16_t)(25+form_rnd(45u));  /* DRIVE: a little, now and then a lot */
+  p[P_APROB]=(int16_t)(20+form_rnd(100u));p[P_ARATE]=form_rnd(8u);
+  p[P_KEY]=(int16_t)(60+form_rnd(68u));p[P_DETUNE]=form_rnd(60u);p[P_AOCT]=form_rnd(4u)?1:(int16_t)(form_rnd(2u)?0:2);
+  static const int16_t CY[3]={8,16,32};p[P_SLEN]=CY[form_rnd(3u)];p[P_SSWING]=form_rnd(3u)?0:form_rnd(40u);
+ }
+ p[P_AORDER]=form_rnd(2u)?0:(int16_t)(1+form_rnd(5u));p[P_AGATE]=form_rnd(2u)?0:(int16_t)(1+form_rnd(8u));
+ p[P_CHRD]=form_rnd(5u)?(int16_t)(1+form_rnd(11u)):0;p[P_CVOI]=form_rnd(8u);
+ p[P_E4]=form_rnd(8u);p[P_E5]=(int16_t)(60+form_rnd(68u));p[P_E6]=form_rnd(128u);p[P_E7]=(int16_t)(20+form_rnd(100u));
 }
 static uint32_t form_cost(const track_t*t){return t->p[P_E2]>0&&t->p[P_E2]<127&&t->p[P_E0]!=t->p[P_E1]?12u:7u;}
 static void form_note_on(track_t*t,voice_t*v){memset(v->s,0,sizeof v->s);memset(v->ph,0,sizeof v->ph);v->s[5]=t->p[P_E2]*256;v->s[6]=t->p[P_E3]*256;}

@@ -19,10 +19,10 @@ int main(void){
  for(unsigned i=0;i<total;i++){uint32_t k,e=preset_at(i,&k);assert(TSEL->eng_req==e&&TSEL->preset==k);turn(EN_PRESET,1);assert(ui.home&&!memcmp(notes,TSEL->step,sizeof notes));}
  assert(trk_eng(TSEL)==ENGI_FORM&&TSEL->preset==0);turn(EN_PRESET,-1);assert(trk_eng(TSEL)==ENGI_LOFI);turn(EN_PRESET,1);assert(trk_eng(TSEL)==ENGI_FORM);
  for(unsigned i=0;i<NENG_SHOWN;i++){preset_engine_jump(1);assert(trk_eng(TSEL)==eng_vis((i+1)%NENG_SHOWN));assert(TSEL->preset==preset_nth(trk_engp(TSEL),0));}
- static const unsigned pages[]={P_E0,P_E4,P_CAOS,P_AORDER,P_CVOI,P_LRTRG};
- static const unsigned ids[6][4]={{P_E0,P_E1,P_E2,P_E3},{P_E4,P_E5,P_E6,P_E7},{P_CAOS,P_ASWING,P_APROB,P_ARATE},{P_AORDER,P_SCALE,P_ROOT,P_CHRD},{P_CVOI,P_KEY,P_DETUNE,P_LEVEL},{P_LRTRG,P_SDIV,P_SLEN,P_SSWING}};
+ static const unsigned pages[]={P_E0,P_E4,P_CAOS,P_AORDER,P_KEY,P_LRTRG};
+ static const unsigned ids[6][4]={{P_E0,P_E1,P_E2,P_E3},{P_E4,P_E5,P_E6,P_E7},{P_CAOS,P_ASWING,P_APROB,P_ARATE},{P_AORDER,P_AGATE,P_CHRD,P_CVOI},{P_KEY,P_DETUNE,P_AOCT,P_LEVEL},{P_LRTRG,P_SDIV,P_SLEN,P_SSWING}};
  static const int lo[6][4]={{0,1,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,4,0}};
- static const int hi[6][4]={{FORM_N-1,FORM_N-1,127,127},{2,127,11,127},{10,100,127,7},{5,8,11,9},{7,127,127,127},{1,3,64,100}};
+ static const int hi[6][4]={{FORM_N-1,FORM_N-1,127,127},{2,127,11,127},{10,100,127,7},{5,8,9,7},{127,127,3,127},{1,3,64,100}};
  for(unsigned page=0;page<6;page++){
   ui.home=0;for(unsigned p=0;p<NPAGES;p++)if(PAGES[p].fam==FAM_EDIT&&PAGES[p].id[0]==pages[page]){ui.page=p;break;}
   for(unsigned knob=0;knob<4;knob++){apply_preset_to(TSEL,0);TSEL->p[ids[page][knob]]=lo[page][knob];capture(0);TSEL->p[ids[page][knob]]=hi[page][knob];capture(1);assert(memcmp(view[0],view[1],sizeof view[0]));}

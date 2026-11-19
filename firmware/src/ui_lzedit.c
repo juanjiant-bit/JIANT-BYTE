@@ -244,7 +244,7 @@ static __attribute__((noinline)) void form_notes_panel(const track_t*t,uint32_t 
  cv_rect(8,61,224,1,T_LINE);
  for(uint32_t i=0;i<16;i++){form_step(t,id,id,i,section,cyc,seed,mutation,root,&fs);if(fs.rest){prev=0;continue;}
   int32_t y=61-clamp(fs.mn-root,0,36);if(i&&prev)cv_line_t(10+(int32_t)(i-1)*14,prev,10+(int32_t)i*14,y,T_DIM,1);cv_rect(8+(int32_t)i*14,y-2,6,5,T_THEME);prev=y;}
- form_cap(8,75,"CHORD",T_TEXT);form_cap(90,75,"VOICING",T_DIM);form_cap(160,75,FORM_VOICE[clamp(t->p[P_CVOI],0,7)],T_ACCENT);
+ form_cap(8,62,"PROGRESS",T_DIM);form_cap(90,62,FORM_PROG[clamp(t->p[P_AGATE],0,8)],T_TEXT);form_cap(8,75,"CHORD",T_TEXT);form_cap(90,75,"VOICING",T_DIM);form_cap(160,75,FORM_VOICE[clamp(t->p[P_CVOI],0,7)],T_ACCENT);
  form_step(t,id,id,0,section,cyc,seed,mutation,root,&fs);
  uint32_t count=FORM_STATE[id].voices>1?(t->p[P_CHRD]?(uint32_t)clamp(FORM_STATE[id].voices,1,4):1u):0u;
  if(!count)form_cap(8,99,"NO CHORD LAYER IN THIS STATE",T_DIM);
@@ -257,7 +257,7 @@ static __attribute__((noinline)) void form_layers_panel(const track_t*t,uint32_t
  uint32_t hasdrums=(m<127&&(FORM_STATE[a].kick|FORM_STATE[a].snare|FORM_STATE[a].hat))||(m>0&&(FORM_STATE[b].kick|FORM_STATE[b].snare|FORM_STATE[b].hat));
  const char*labs[3];int32_t val[3];
  if(layers){
-  form_cap(8,4,"LAYERS",T_TEXT);form_cap(8,24,"VOICING",T_DIM);form_cap(90,24,FORM_VOICE[clamp(t->p[P_CVOI],0,7)],T_ACCENT);
+  form_cap(8,4,"LAYERS",T_TEXT);form_cap(8,24,"OCTAVE",T_DIM);form_cap(90,24,FORM_OCT[clamp(t->p[P_AOCT],0,3)],T_ACCENT);
   labs[0]="PERCUSSION";labs[1]="DETUNE";labs[2]="LEVEL";val[0]=hasdrums?t->p[P_KEY]:0;val[1]=t->p[P_DETUNE];val[2]=t->p[P_LEVEL];
  }else{
   form_cap(8,4,"TIMBRE",T_TEXT);form_cap(8,24,"A",T_ACCENT);form_cap(26,24,FORM_DOMAIN[da],T_ACCENT);form_cap(132,24,"B",T_THEME);form_cap(150,24,FORM_DOMAIN[db],T_THEME);
@@ -270,7 +270,7 @@ static __attribute__((noinline)) void form_layers_panel(const track_t*t,uint32_t
 }
 static __attribute__((noinline)) void graph_form_lz(const track_t*t){
  uint32_t a=(uint32_t)clamp(t->p[P_E0],0,FORM_N-1),b=(uint32_t)clamp(t->p[P_E1],0,FORM_N-1),m=(uint32_t)clamp(t->p[P_E2],0,127),clock=form_view_clock(t),id=cur_page()->id[0];
- if(id==P_E4)form_rules_panel(t,a,b,m,clock);else if(id==P_LRTRG)form_clock_panel(t,a,b,m,clock);else if(id==P_AORDER)form_notes_panel(t,a,b,m,clock);else if(id==P_CAOS||id==P_CVOI)form_layers_panel(t,a,b,m,id==P_CVOI);else form_states_panel(t,a,b,m);
+ if(id==P_E4)form_rules_panel(t,a,b,m,clock);else if(id==P_LRTRG)form_clock_panel(t,a,b,m,clock);else if(id==P_AORDER)form_notes_panel(t,a,b,m,clock);else if(id==P_CAOS||id==P_KEY)form_layers_panel(t,a,b,m,id==P_KEY);else form_states_panel(t,a,b,m);
 }
 /* the lens's panel for EDIT's page pg (1), else 0 (its own) */
 static int graph_edit_lz(const track_t *t, const page_t *pg)

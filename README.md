@@ -18,6 +18,11 @@ JIANT BYTE is a new synthesizer on the FM-1, built on [JIANT FM](https://github.
 [SLOOP](https://github.com/isod89/sloop-fm1)). It keeps JIANT FM's foundation (six tracks, the sequencer, songs, MIDI,
 USB, the effects, the updater) and replaces the rest with formulas, from the most tonal and playable to the wildest.
 
+**v0.12: light CPU and FORM 2.** The CPU TEST down from 3254 to 2817 instructions a sample (FORM alone -33 %, the half rate,
+the reverb at 22 kHz, LIFE shed by the guard); FORM composes by layers, from a chord progression to a whole electronic
+beat: 36 states, harmony by the scale's degrees, character basses, a MORPH that composes, a coherent dice.
+[What changed](docs/byte-v012.md) · [FORM's references](docs/FORM-REFERENCIAS.md).
+
 LIFE v0.8: recorrido audible en canciones generadas, NUM armónico y profundidad independiente del volumen del donante. [Guía y comparaciones](docs/byte-v08.md).
 
 ## The idea
@@ -37,6 +42,7 @@ in fixed point, a block at a time, on both of the FM-1's cores).
 | **MATH** | Formulas as voices. BYTE (48 bytebeats), FLOAT (48 floatbeats) or USER (your own text, or one the generator invents) |
 | **WAVE** | A parametric wavetable of formulas: two formulas A and B, POS sweeps them, WARP bends the phase (sync, mirror, quantise, FM), three detuned voices and a sub |
 | **DRUM** | DRUM-X: eight lanes, each a drum voice or a formula |
+| **FORM** | A self-playing part: melody, bass, chords and drums from formulas. Two states A and B (36), MORPH composes between them; HARMONY by the scale's degrees (families, pedal, bits), VOICING, STYLE (WOBBLE, REESE, GROWL, RING, SCREECH, ACID), DRIVE, TONE, the dice |
 | FM-F, GLITCH, PLUCK, NOISE | Coming: one formula modulating another; granular jumps through `t`; a string excited by a formula; textures from hashes of `t` |
 
 **CAOS** takes any formula from as written (0) to broken (127): stretches of time folded, jumped, fed back.

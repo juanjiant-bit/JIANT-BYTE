@@ -11,9 +11,9 @@ static void form_setup(unsigned state){
  int32_t b[CTL*2];for(unsigned j=0;j<100;j++)mix_block(b,CTL);
  assert(TSEL->engine==ENGI_FORM&&func_song(TSEL));
 }
-static const unsigned form_ids[]={P_E0,P_E1,P_E2,P_E3,P_E4,P_E5,P_E6,P_E7,P_LRTRG,P_SDIV,P_SLEN,P_SSWING,P_ROOT,P_SCALE,P_CHRD,P_CVOI,P_CAOS,P_KEY,P_DETUNE,P_AORDER,P_ASWING,P_ARATE,P_APROB};
+static const unsigned form_ids[]={P_E0,P_E1,P_E2,P_E3,P_E4,P_E5,P_E6,P_E7,P_LRTRG,P_SDIV,P_SLEN,P_SSWING,P_ROOT,P_SCALE,P_CHRD,P_CVOI,P_CAOS,P_KEY,P_DETUNE,P_AORDER,P_ASWING,P_ARATE,P_APROB,P_AGATE,P_AOCT};
 static int form_checks(void){
- form_setup(0);ui.home=1;press(B_EDIT);assert(cur_page()->id[0]==P_E0);turn(EN_SELECT,1);assert(cur_page()->id[0]==P_E4);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_CAOS);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_AORDER);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_CVOI);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_LRTRG);static uint16_t screen_before[240*240];frames(800);memcpy(screen_before,host_screen,sizeof host_screen);ui.force=1;frame();unsigned mismatch=0;for(unsigned y=90;y<220;y++)for(unsigned x=0;x<240;x++)mismatch+=screen_before[y*240+x]!=host_screen[y*240+x];printf("FORM graph forced redraw mismatch %u\n",mismatch);assert(!mismatch);assert(NENGINES==17&&NENG_SHOWN>=4&&eng_vis(0)==ENGI_FORM);
+ form_setup(0);ui.home=1;press(B_EDIT);assert(cur_page()->id[0]==P_E0);turn(EN_SELECT,1);assert(cur_page()->id[0]==P_E4);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_CAOS);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_AORDER);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_KEY);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_LRTRG);static uint16_t screen_before[240*240];frames(800);memcpy(screen_before,host_screen,sizeof host_screen);ui.force=1;frame();unsigned mismatch=0;for(unsigned y=90;y<220;y++)for(unsigned x=0;x<240;x++)mismatch+=screen_before[y*240+x]!=host_screen[y*240+x];printf("FORM graph forced redraw mismatch %u\n",mismatch);assert(!mismatch);assert(NENGINES==17&&NENG_SHOWN>=4&&eng_vis(0)==ENGI_FORM);
  for(unsigned i=0;i<8;i++){assert(mod_dst_ok(TSEL,MD_E1+i));assert(!strcmp(mod_dst_name_bt(TSEL,MD_E1+i),ENG_FORM.edit[i].label));}
  assert(!strcmp(mod_dst_name_bt(TSEL,MD_SHP),"COLOR"));
  for(unsigned j=0;j<sizeof PAGES/sizeof PAGES[0];j++)if(PAGES[j].scope==SC_FORM){
@@ -25,6 +25,12 @@ static int form_checks(void){
  int16_t saved[P_COUNT];memcpy(saved,TSEL->p,sizeof saved);assert(up_store(0,"FORM TEST"));for(unsigned k=0;k<sizeof form_ids/sizeof form_ids[0];k++)TSEL->p[form_ids[k]]=0;assert(up_load(0)==0);for(unsigned k=0;k<sizeof form_ids/sizeof form_ids[0];k++)assert(TSEL->p[form_ids[k]]==saved[form_ids[k]]);
  persist_t old;memset(&old,0,sizeof old);old.magic=0x50455234u;old.favorites.user=1u<<3;old.favorites.factory[ENGI_LOFI][0]=2;assert(settings_import(&old,sizeof old-32)==2);assert(favorite_has(NENGINES,3)&&favorite_has(ENGI_LOFI,1)&&!favorite_has(ENGI_FORM,3));assert(favorite_set(ENGI_FORM,3,1));assert(favorite_has(ENGI_FORM,3)&&favorite_has(NENGINES,3));settings_export(&old);memset(&favorites,0,sizeof favorites);assert(settings_import(&old,sizeof old)==1&&favorite_has(ENGI_FORM,3)&&favorite_has(NENGINES,3));
  form_setup(0);TSEL->p[P_LRTRG]=0;uint8_t ns[KB_CH+1];assert(chord_build(TSEL,60,ns)==1&&ns[0]==60);trk_note_on(TSEL,60,110);int32_t out[2*CTL];double energy=0;for(unsigned j=0;j<FS/CTL;j++){mix_block(out,CTL);for(unsigned i=0;i<CTL*2;i++)energy+=(double)out[i]*out[i];}assert(energy>1e8);trk_note_off(TSEL,60);for(unsigned j=0;j<FS/CTL;j++)mix_block(out,CTL);for(unsigned k=0;k<NVOICE;k++)assert(!TSEL->v[k].active);
+ /* (FORM 2) the dice: 40 throws, each in range, each sounding, none clipping */
+ {unsigned quiet=0;for(unsigned d=0;d<40;d++){form_setup(0);form_dice(TSEL,d&1u);
+  for(unsigned k=0;k<sizeof form_ids/sizeof form_ids[0];k++){const param_desc_t*pd=track_desc(TSEL,form_ids[k]);assert(TSEL->p[form_ids[k]]>=pd->min&&TSEL->p[form_ids[k]]<=pd->max);}
+  int32_t o[CTL*2];double en=0;transport_req=1;for(unsigned j=0;j<FS*3/CTL;j++){mix_block(o,CTL);for(unsigned i=0;i<CTL*2;i++){assert(o[i]>-32768&&o[i]<32768);en+=(double)o[i]*o[i];}}
+  quiet+=sqrt(en/(FS*3*2))<100;transport_req=2;for(unsigned j=0;j<200;j++)mix_block(o,CTL);}
+  printf("FORM dice: 40 throws in range, %u quiet\n",quiet);assert(quiet<=4);}
  puts("FORM pages, project/USER roundtrip, PER4 migration, separate USER/FORM favorites, NOTE chords: PASS");return 0;
 }
 

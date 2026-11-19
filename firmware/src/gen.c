@@ -3282,6 +3282,10 @@ static const char *dice_seq(track_t *t)
     uint16_t s0 = gp.seed;
     int16_t was[NSTEP], now[NSTEP];
     uint8_t lead0, arp0, arp1, pads0, drum0;
+    if (t->eng_req == ENGI_FORM) {                      /* (FORM 2) its composition: eng_form.c form_dice */
+        form_dice(t, 1);
+        return "SEQ DICED: FORM";
+    }
     if (!bt_hw_seg()) return SEG_MISS;                  /* (V10.6y: gen_pick in the segment) */
     rng_state ^= fm1_ticks() * 2654435761u;
     if (!rng_state) rng_state = 0x1234567u;
