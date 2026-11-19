@@ -300,21 +300,32 @@ static fvm_prog_t *lofi_slot(uint32_t tr)            /* a part's program, its st
  * formula reads as O1 .. O6; written as the parts render (fx.c xm_put), turned over at each block's start (xm_turn) */
 static int32_t xm_buf[2][NTRK][CTL] __attribute__((section(".pool")));
 static uint8_t xm_cur;
+static uint8_t xm_want, xm_live;                     /* (byte-cpu-light) bit k: a formula read Ok this block; the
+                                                      * parts written (the reads of the block before): no copy, no
+                                                      * clearing of a part no formula reads (a new read: 0 a block) */
 static void xm_turn(void)
 {
+    uint32_t k, c = (uint32_t)(xm_live | xm_want);
     xm_cur ^= 1u;
-    memset(xm_buf[xm_cur ^ 1u], 0, sizeof xm_buf[0]);  /* (the one written now: a silent part stays 0) */
+    for (k = 0; k < NTRK; k++)                         /* (the one written now: a silent part stays 0) */
+        if ((c >> k) & 1u)
+            memset(xm_buf[xm_cur ^ 1u][k], 0, sizeof xm_buf[0][0]);
+    xm_live = xm_want;
+    xm_want = 0;
 }
 static void xm_put(uint32_t tr, const int32_t *b, uint32_t n)
 {
     uint32_t i;
     int32_t *d = xm_buf[xm_cur ^ 1u][tr % NTRK];
+    if (!((xm_live >> (tr % NTRK)) & 1u))
+        return;
     for (i = 0; i < n && i < CTL; i++)
         d[i] = b[i] < -65536 ? -131072 : b[i] > 65536 ? 131072 : b[i] * 2;   /* (VOICE_FS-ish full scale -> FIX 1) */
 }
 static void xm_env(fvm_env_t *e, const fvm_prog_t *p)   /* O1 .. O6, when the formula reads them */
 {
     uint32_t k;
+    xm_want |= (uint8_t)((p->uses >> FA_O1) & ((1u << NTRK) - 1u));
     for (k = 0; k < NTRK; k++)
         e->arr[FA_O1 + k] = (p->uses >> (FA_O1 + k)) & 1u ? (const uint32_t *)xm_buf[xm_cur][k] : 0;
 }
