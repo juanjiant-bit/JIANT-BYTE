@@ -199,7 +199,7 @@ static void form_wave_trace(uint32_t state,int32_t color,int32_t x,int32_t y,int
  for(int32_t i=0;i<w;i+=2){int32_t v=form_wave(state,(uint32_t)i,0x100000000ull/(uint32_t)w,0,color,0);int32_t yy=y+h/2-v*(h/2-1)/32768;if(i)cv_line_t(x+i-2,py,x+i,yy,ink,1);py=yy;}
 }
 static void form_state_card(const track_t*t,uint32_t state,int32_t y,uint16_t ink){
- uint32_t mode=(uint32_t)clamp(t->p[P_CAOS],0,4),dom=mode?mode:FORM_STATE[state].domain;
+ uint32_t mode=(uint32_t)clamp(t->p[P_CAOS],0,10),dom=mode?mode:FORM_STATE[state].domain;
  cv_rect(6,y,3,32,ink);form_cap(14,y+1,FORM_NAMES[state],T_TEXT);form_cap(14,y+17,FORM_DOMAIN[dom],ink);
  form_wave_trace(state,clamp(t->p[P_E3]+FORM_STATE[state].color-64,0,127),164,y,68,31,ink);
 }
@@ -235,28 +235,42 @@ static __attribute__((noinline)) void form_clock_panel(const track_t*t,uint32_t 
  form_cap(8,127,"DIV: SPEED / CYCLE: FORM LENGTH",T_DIM);
 }
 static __attribute__((noinline)) void form_notes_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m,uint32_t clock){
+ /* (FORM 2) the notes as they sound: eng_form.c form_step (the harmony, the melody's gene, the voicing), the nearer
+  * state's; HARMONY's mode at the top, the chord of this section with its VOICING */
  uint32_t cycle=(uint32_t)clamp(t->p[P_SLEN],1,64),cyc=clock/(cycle<<16),section=(clock%(cycle<<16))/cycle>>13,seed=(uint32_t)clamp(t->p[P_E6],0,127),ev=(uint32_t)clamp(t->p[P_E7],0,127);
- uint32_t mutation=((fvm_hash(seed+cyc*37u+section*7u)>>(28u-ev/43u))&7u)*ev/127u;
- int32_t root=48+t->p[P_ROOT],rr=form_mix((int32_t)form_char(FORM_STATE[a].roots,section/2),(int32_t)form_char(FORM_STATE[b].roots,section/2),m),prev=0;
- form_cap(8,4,"MELODY / SCALE-LOCKED MOTIF",T_TEXT);
+ uint32_t mutation=((fvm_hash(seed+cyc*37u+section*7u)>>(28u-ev/43u))&7u)*ev/127u,id=m<64u?a:b,hm=t->p[P_AORDER]?(uint32_t)clamp(t->p[P_AORDER],0,5):0u;
+ int32_t root=48+t->p[P_ROOT],prev=0;form_step_t fs;
+ form_cap(8,4,"MELODY",T_TEXT);form_cap(90,4,"HARMONY",T_DIM);form_cap(160,4,hm?FORM_HARM[hm]:FORM_HARM[1u+FORM_GENE[id].harm],T_ACCENT);
  cv_rect(8,61,224,1,T_LINE);
- for(uint32_t i=0;i<16;i++){uint32_t ix=i+seed+mutation;int32_t nn=form_mix((int32_t)form_char(FORM_STATE[a].melody,ix),(int32_t)form_char(FORM_STATE[b].melody,ix),m),note=scale_snap(t,root+12+nn),y=61-clamp(note-root-12,0,36);if(i)cv_line_t(10+(int32_t)(i-1)*14,prev,10+(int32_t)i*14,y,T_DIM,1);cv_rect(8+(int32_t)i*14,y-2,6,5,T_THEME);prev=y;}
- form_cap(8,75,"HARMONY / VOICING",T_TEXT);
- int32_t chord=clamp(t->p[P_CHRD],0,11),third=chord==4?2:chord==5||chord==11?5:chord==6||chord==8||chord==9?4:3,top=chord==2||chord==8||chord==10?10:chord==9?11:chord==3?14:12,ints[]={0,third,7,top};uint32_t na=FORM_STATE[a].voices>1?(t->p[P_CHRD]?FORM_STATE[a].voices:1u):0u,nb=FORM_STATE[b].voices>1?(t->p[P_CHRD]?FORM_STATE[b].voices:1u):0u,count=m==0?na:m==127?nb:na>nb?na:nb;if(!count)form_cap(8,99,"NO CHORD LAYER IN THIS PAIR",T_DIM);
- for(uint32_t k=0;k<count;k++){int32_t shift=t->p[P_CVOI]==2?(k&1u?12:0):t->p[P_CVOI]==3&&k==0?-12:t->p[P_CVOI]==1&&(section&1u)&&k==3?-12:0;uint32_t note=(uint32_t)clamp(scale_snap(t,root+rr+ints[k]+shift),24,96);char name[8];note_name(name,note);cv_rect(8+(int32_t)k*56,94,50,18,T_RAISE);form_cap(14+(int32_t)k*56,99,name,ux_mix(T_DIM,T_ACCENT,(int32_t)((k<na?127u-m:0u)+(k<nb?m:0u))*100/127));}
- form_cap(8,127,"MELODY + HARMONY FOLLOW SCALE",T_DIM);
+ for(uint32_t i=0;i<16;i++){form_step(t,id,id,i,section,cyc,seed,mutation,root,&fs);if(fs.rest){prev=0;continue;}
+  int32_t y=61-clamp(fs.mn-root,0,36);if(i&&prev)cv_line_t(10+(int32_t)(i-1)*14,prev,10+(int32_t)i*14,y,T_DIM,1);cv_rect(8+(int32_t)i*14,y-2,6,5,T_THEME);prev=y;}
+ form_cap(8,75,"CHORD",T_TEXT);form_cap(90,75,"VOICING",T_DIM);form_cap(160,75,FORM_VOICE[clamp(t->p[P_CVOI],0,7)],T_ACCENT);
+ form_step(t,id,id,0,section,cyc,seed,mutation,root,&fs);
+ uint32_t count=FORM_STATE[id].voices>1?(t->p[P_CHRD]?(uint32_t)clamp(FORM_STATE[id].voices,1,4):1u):0u;
+ if(!count)form_cap(8,99,"NO CHORD LAYER IN THIS STATE",T_DIM);
+ for(uint32_t k=0;k<count;k++){char name[8];note_name(name,(uint32_t)fs.cn[k]);cv_rect(8+(int32_t)k*56,94,50,18,T_RAISE);form_cap(16+(int32_t)k*56,99,name,T_TEXT);}
+ form_cap(8,127,"MELODY + HARMONY FOLLOW SCALE",T_DIM);(void)b;
 }
-static __attribute__((noinline)) void form_layers_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m){
- uint32_t mode=(uint32_t)clamp(t->p[P_CAOS],0,4),da=mode?mode:FORM_STATE[a].domain,db=mode?mode:FORM_STATE[b].domain;
- form_cap(8,4,"MATHEMATICAL SOURCES",T_TEXT);form_cap(8,24,"A",T_ACCENT);form_cap(26,24,FORM_DOMAIN[da],T_ACCENT);form_cap(132,24,"B",T_THEME);form_cap(150,24,FORM_DOMAIN[db],T_THEME);
- cv_line_t(25,39,105,51,T_ACCENT,1);cv_line_t(205,39,135,51,T_THEME,1);form_cap(109,49,"MIX",T_TEXT);
- static const char*const labs[]={"PERCUSSION","DETUNE","ECHO SEND"};int32_t val[3]={t->p[P_KEY],t->p[P_DETUNE],t->p[P_DLY]};uint32_t hasdrums=(m<127&&(FORM_STATE[a].kick|FORM_STATE[a].snare|FORM_STATE[a].hat))||(m>0&&(FORM_STATE[b].kick|FORM_STATE[b].snare|FORM_STATE[b].hat));
- for(uint32_t i=0;i<3;i++){int32_t y=72+(int32_t)i*17;form_cap(8,y,labs[i],T_DIM);cv_rect(92,y,140,9,T_RAISE);int32_t v=i==0&&!hasdrums?0:clamp(val[i],0,127);cv_rect(92,y,v*140/127,9,i==0?T_ACCENT:T_THEME);}
- form_cap(8,127,hasdrums?"ECHO USES THE TRACK DELAY BUS":"NO DRUM PATTERN IN THIS PAIR",T_DIM);(void)m;
+static __attribute__((noinline)) void form_layers_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m,uint32_t layers){
+ /* (FORM 2) TIMBRE: the styles of A and B, DRIVE TONE WOBBLE; LAYERS: the VOICING, the drums, DETUNE, the LEVEL */
+ uint32_t mode=(uint32_t)clamp(t->p[P_CAOS],0,10),da=mode?mode:FORM_STATE[a].domain,db=mode?mode:FORM_STATE[b].domain;
+ uint32_t hasdrums=(m<127&&(FORM_STATE[a].kick|FORM_STATE[a].snare|FORM_STATE[a].hat))||(m>0&&(FORM_STATE[b].kick|FORM_STATE[b].snare|FORM_STATE[b].hat));
+ const char*labs[3];int32_t val[3];
+ if(layers){
+  form_cap(8,4,"LAYERS",T_TEXT);form_cap(8,24,"VOICING",T_DIM);form_cap(90,24,FORM_VOICE[clamp(t->p[P_CVOI],0,7)],T_ACCENT);
+  labs[0]="PERCUSSION";labs[1]="DETUNE";labs[2]="LEVEL";val[0]=hasdrums?t->p[P_KEY]:0;val[1]=t->p[P_DETUNE];val[2]=t->p[P_LEVEL];
+ }else{
+  form_cap(8,4,"TIMBRE",T_TEXT);form_cap(8,24,"A",T_ACCENT);form_cap(26,24,FORM_DOMAIN[da],T_ACCENT);form_cap(132,24,"B",T_THEME);form_cap(150,24,FORM_DOMAIN[db],T_THEME);
+  cv_line_t(25,39,105,51,T_ACCENT,1);cv_line_t(205,39,135,51,T_THEME,1);form_cap(109,49,"MIX",T_TEXT);
+  labs[0]="DRIVE";labs[1]="TONE";labs[2]="WOBBLE";val[0]=t->p[P_ASWING]*127/100;val[1]=t->p[P_APROB];val[2]=clamp(t->p[P_ARATE],0,7)*127/7;
+ }
+ for(uint32_t i=0;i<3;i++){int32_t y=72+(int32_t)i*17;form_cap(8,y,labs[i],T_DIM);cv_rect(92,y,140,9,T_RAISE);cv_rect(92,y,clamp(val[i],0,127)*140/127,9,i==0?T_ACCENT:T_THEME);}
+ if(layers)form_cap(8,127,hasdrums?"":"NO DRUM PATTERN IN THIS PAIR",T_DIM);
+ else{form_cap(8,127,"WOBBLE",T_DIM);form_cap(70,127,FORM_WOB[clamp(t->p[P_ARATE],0,7)],T_TEXT);}
 }
 static __attribute__((noinline)) void graph_form_lz(const track_t*t){
- uint32_t a=(uint32_t)clamp(t->p[P_E0],0,21),b=(uint32_t)clamp(t->p[P_E1],0,21),m=(uint32_t)clamp(t->p[P_E2],0,127),clock=form_view_clock(t),id=cur_page()->id[0];
- if(id==P_E4)form_rules_panel(t,a,b,m,clock);else if(id==P_LRTRG)form_clock_panel(t,a,b,m,clock);else if(id==P_ROOT)form_notes_panel(t,a,b,m,clock);else if(id==P_CAOS)form_layers_panel(t,a,b,m);else form_states_panel(t,a,b,m);
+ uint32_t a=(uint32_t)clamp(t->p[P_E0],0,FORM_N-1),b=(uint32_t)clamp(t->p[P_E1],0,FORM_N-1),m=(uint32_t)clamp(t->p[P_E2],0,127),clock=form_view_clock(t),id=cur_page()->id[0];
+ if(id==P_E4)form_rules_panel(t,a,b,m,clock);else if(id==P_LRTRG)form_clock_panel(t,a,b,m,clock);else if(id==P_AORDER)form_notes_panel(t,a,b,m,clock);else if(id==P_CAOS||id==P_CVOI)form_layers_panel(t,a,b,m,id==P_CVOI);else form_states_panel(t,a,b,m);
 }
 /* the lens's panel for EDIT's page pg (1), else 0 (its own) */
 static int graph_edit_lz(const track_t *t, const page_t *pg)

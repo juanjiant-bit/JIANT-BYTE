@@ -11,9 +11,9 @@ static void form_setup(unsigned state){
  int32_t b[CTL*2];for(unsigned j=0;j<100;j++)mix_block(b,CTL);
  assert(TSEL->engine==ENGI_FORM&&func_song(TSEL));
 }
-static const unsigned form_ids[]={P_E0,P_E1,P_E2,P_E3,P_E4,P_E5,P_E6,P_E7,P_LRTRG,P_SDIV,P_SLEN,P_SSWING,P_ROOT,P_SCALE,P_CHRD,P_CVOI,P_CAOS,P_KEY,P_DETUNE,P_DLY};
+static const unsigned form_ids[]={P_E0,P_E1,P_E2,P_E3,P_E4,P_E5,P_E6,P_E7,P_LRTRG,P_SDIV,P_SLEN,P_SSWING,P_ROOT,P_SCALE,P_CHRD,P_CVOI,P_CAOS,P_KEY,P_DETUNE,P_AORDER,P_ASWING,P_ARATE,P_APROB};
 static int form_checks(void){
- form_setup(0);ui.home=1;press(B_EDIT);assert(cur_page()->id[0]==P_E0);turn(EN_SELECT,1);assert(cur_page()->id[0]==P_E4);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_LRTRG);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_ROOT);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_CAOS);static uint16_t screen_before[240*240];frames(800);memcpy(screen_before,host_screen,sizeof host_screen);ui.force=1;frame();unsigned mismatch=0;for(unsigned y=90;y<220;y++)for(unsigned x=0;x<240;x++)mismatch+=screen_before[y*240+x]!=host_screen[y*240+x];printf("FORM graph forced redraw mismatch %u\n",mismatch);assert(!mismatch);assert(NENGINES==17&&NENG_SHOWN>=4&&eng_vis(0)==ENGI_FORM);
+ form_setup(0);ui.home=1;press(B_EDIT);assert(cur_page()->id[0]==P_E0);turn(EN_SELECT,1);assert(cur_page()->id[0]==P_E4);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_CAOS);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_AORDER);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_CVOI);turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_LRTRG);static uint16_t screen_before[240*240];frames(800);memcpy(screen_before,host_screen,sizeof host_screen);ui.force=1;frame();unsigned mismatch=0;for(unsigned y=90;y<220;y++)for(unsigned x=0;x<240;x++)mismatch+=screen_before[y*240+x]!=host_screen[y*240+x];printf("FORM graph forced redraw mismatch %u\n",mismatch);assert(!mismatch);assert(NENGINES==17&&NENG_SHOWN>=4&&eng_vis(0)==ENGI_FORM);
  for(unsigned i=0;i<8;i++){assert(mod_dst_ok(TSEL,MD_E1+i));assert(!strcmp(mod_dst_name_bt(TSEL,MD_E1+i),ENG_FORM.edit[i].label));}
  assert(!strcmp(mod_dst_name_bt(TSEL,MD_SHP),"COLOR"));
  for(unsigned j=0;j<sizeof PAGES/sizeof PAGES[0];j++)if(PAGES[j].scope==SC_FORM){
@@ -35,14 +35,14 @@ static void form_record(const char*name,unsigned a,unsigned b,unsigned morph,int
  for(unsigned j=0;j<FS*secs/CTL;j++){mix_block(out,CTL);fwrite(out,sizeof out,1,f);}fclose(f);
 }
 static int form_probes(void){
- static const int params[]={P_E0,P_E1,P_E2,P_E3,P_E4,P_E5,P_E6,P_E7,P_SDIV,P_SLEN,P_SSWING,P_ROOT,P_SCALE,P_CHRD,P_CVOI,P_CAOS,P_KEY,P_DETUNE,P_DLY};
- static const int lo[]={0,0,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0};
- static const int hi[]={21,21,127,127,7,127,127,127,3,32,100,11,8,9,3,4,127,127,127};
+ static const int params[]={P_E0,P_E1,P_E2,P_E3,P_E4,P_E5,P_E6,P_E7,P_SDIV,P_SLEN,P_SSWING,P_ROOT,P_SCALE,P_CHRD,P_CVOI,P_CAOS,P_KEY,P_DETUNE,P_AORDER,P_ASWING};
+ static const int lo[]={0,0,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0};
+ static const int hi[]={FORM_N-1,FORM_N-1,127,127,7,127,127,127,3,32,100,11,8,9,7,10,127,127,5,100};
  mkdir("build/form",0777);
  for(unsigned k=0;k<sizeof params/sizeof params[0];k++)for(unsigned edge=0;edge<2;edge++){char nm[80];snprintf(nm,sizeof nm,"control-%02u-%u",k,edge);form_record(nm,0,20,64,params[k],edge?hi[k]:lo[k],18,0);}
  for(unsigned k=0;k<5;k++){char nm[80];snprintf(nm,sizeof nm,"morph-byte-float-%u",k);form_record(nm,14,9,k==4?127:k*32,-1,0,12,0);snprintf(nm,sizeof nm,"morph-byte-func-%u",k);form_record(nm,14,17,k==4?127:k*32,-1,0,12,0);}
  form_record("life-off",0,20,64,-1,0,4,0);form_record("life-on",0,20,64,-1,0,4,1);
- puts("FORM 19 continuous/discrete controls, two morph paths and LIFE renders ready");return 0;
+ puts("FORM 20 continuous/discrete controls, two morph paths and LIFE renders ready");return 0;
 }
 
 int main(int argc,char**argv){
@@ -50,21 +50,21 @@ int main(int argc,char**argv){
  if(argc>1&&!strcmp(argv[1],"checks"))return form_checks();
  if(argc>1&&!strcmp(argv[1],"kernel")){
   volatile int32_t sum=0;
-  for(unsigned s=0;s<22;s++)for(unsigned c=0;c<128;c+=127)for(unsigned i=0;i<20000;i++){
+  for(unsigned s=0;s<FORM_N;s++)for(unsigned c=0;c<128;c+=127)for(unsigned i=0;i<20000;i++){
    int32_t y=form_wave(s,i,pitch_inc((24+i%73)*16),i*17,c,i%128);assert(y>=-32767&&y<=32767);sum^=y;
   }
   ui_power_on();select_engine(ENGI_FORM);TSEL->engine=ENGI_FORM;fl.on=0;
   vmod_t m={.amp0=32767,.amp1=32767,.shape=64*256,.pitch16=60*16};
   int32_t out[CTL];voice_t v={.note=60};TSEL->p[P_LRTRG]=0;
-  for(unsigned s=0;s<22;s++)for(unsigned dom=0;dom<5;dom++)for(unsigned c=0;c<128;c+=127)for(unsigned morph=0;morph<128;morph+=63){
-   TSEL->p[P_E0]=s;TSEL->p[P_E1]=(s+7)%22;TSEL->p[P_E2]=morph;TSEL->p[P_E3]=c;TSEL->p[P_CAOS]=dom;form_note_on(TSEL,&v);
+  for(unsigned s=0;s<FORM_N;s++)for(unsigned dom=0;dom<11;dom++)for(unsigned c=0;c<128;c+=127)for(unsigned morph=0;morph<128;morph+=63){
+   TSEL->p[P_E0]=s;TSEL->p[P_E1]=(s+7)%FORM_N;TSEL->p[P_E2]=morph;TSEL->p[P_E3]=c;TSEL->p[P_CAOS]=dom;form_note_on(TSEL,&v);
    for(unsigned j=0;j<64;j++){memset(out,0,sizeof out);form_render(TSEL,&v,out,CTL,&m);for(unsigned i=0;i<CTL;i++)assert(out[i]>=-32768&&out[i]<=32767);}
   }
-  printf("FORM 22 kernels + render domains/colors/morph extremes: %d PASS\n",sum);return 0;
+  printf("FORM %u kernels + render domains/colors/morph extremes: %d PASS\n",FORM_N,sum);return 0;
  }
  mkdir("build/form",0777);unsigned seconds=argc>1?atoi(argv[1]):2;
  FILE*csv=fopen("build/form/states.csv","w");assert(csv);fprintf(csv,"state,rms,peak,dc,host_realtime_ratio\n");
- for(unsigned s=0;s<22;s++){
+ for(unsigned s=0;s<FORM_N;s++){
   form_setup(s);int32_t out[CTL*2];char name[100];snprintf(name,sizeof name,"build/form/state-%02u.i32",s+1);FILE*f=fopen(name,"wb");assert(f);
   double energy=0,dc=0;int32_t peak=0;unsigned count=0;clock_t start=clock();transport_req=1;
   for(unsigned j=0;j<FS*seconds/CTL;j++){mix_block(out,CTL);fwrite(out,sizeof out,1,f);for(unsigned i=0;i<CTL*2;i++){int32_t x=out[i];energy+=(double)x*x;dc+=x;if(abs(x)>peak)peak=abs(x);count++;}}
@@ -73,5 +73,5 @@ int main(int argc,char**argv){
   assert(rms>100&&peak<32768);unsigned active=0;for(unsigned k=0;k<NVOICE;k++)active+=TSEL->v[k].active;assert(active==1);
   transport_req=2;for(unsigned j=0;j<FS/CTL;j++)mix_block(out,CTL);for(unsigned k=0;k<NVOICE;k++)assert(!TSEL->v[k].active);
  }
- fclose(csv);puts("FORM all 22 PLAY/STOP: PASS");return 0;
+ fclose(csv);printf("FORM all %u PLAY/STOP: PASS\n",FORM_N);return 0;
 }

@@ -17,7 +17,7 @@ def spectrum(a):
  bands=np.array([p[(f>=lo)&(f<hi)].sum() for lo,hi in [(0,100),(100,300),(300,1000),(1000,3000),(3000,7000),(7000,22051)]])
  return bands/max(bands.sum(),1)
 report={'controls':{},'states':{},'morph':{}}
-labels=['STATE A','STATE B','MORPH','COLOR','GROOVE','DENSITY','SEED','EVOLVE','DIV','CYCLE','SWING','ROOT','SCALE','CHORD','VOICING','DOMAIN','DRUMS','DETUNE','DELAY']
+labels=['STATE A','STATE B','MORPH','COLOR','GROOVE','DENSITY','SEED','EVOLVE','DIV','CYCLE','SWING','ROOT','SCALE','CHORD','VOICING','STYLE','DRUMS','DETUNE','HARMONY','DRIVE']
 for k,label in enumerate(labels):
  a,b=[read(f'control-{k:02}-{e}') for e in range(2)]
  change=rms(norm(a)-norm(b));rhythm=rms(norm(env(a))-norm(env(b)))
@@ -25,7 +25,7 @@ for k,label in enumerate(labels):
  report['controls'][label]={'equal_rms_delta':change,'envelope_delta':rhythm,'spectral_band_delta':spectral}
  assert change>.06,(label,'ineffective control',change)
  if label in ['GROOVE','DENSITY','DIV','CYCLE','SWING','EVOLVE']:assert rhythm>.03,(label,'timing/structure did not change',rhythm)
-for s in range(1,23):
+for s in range(1,37):
  a=read(f'state-{s:02}');r=rms(a);pk=float(abs(a).max());report['states'][str(s)]={'rms':r/32768,'peak':pk/32768,'bands':spectrum(a).tolist()}
  assert r>300 and pk<32768,(s,r,pk)
  # Listening files retain the same gain as the native render. No per-state loudness normalization.

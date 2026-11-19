@@ -55,7 +55,10 @@ static uint32_t ms_clock;        /* (JIANT) samples since PLAY on the transport'
                                   * 0): MS_STEP's place */
 enum { MD_OFF, MD_PITCH, MD_CUT, MD_SHP, MD_AMP, MD_PAN, MD_DIST, MD_CHO, MD_DLY, MD_REV, MD_RATE, MD_VIB, MD_E1,
        MD_CLIP = MD_E1 + 8, MD_PNCH, MD_DTIME, MD_DFDBK, MD_DCOL, MD_DMIX, MD_RSIZE, MD_RDAMP, MD_CRATE, MD_CDEPTH, MD_MASTER_END,
-       MD_FCUT = MD_MASTER_END, MD_LEVEL, MD_LIFE, MD_N };
+       MD_FCUT = MD_MASTER_END, MD_LEVEL, MD_LIFE, MD_X1, MD_N = MD_X1 + 14 };
+/* (FORM 2) MD_X1..: FORM's own beyond its eight (a FORM part's only, per block): every one of its pages' values */
+static const uint8_t FORM_XDST[MD_N - MD_X1] = {P_CAOS, P_ASWING, P_APROB, P_ARATE, P_AORDER, P_SCALE, P_ROOT, P_CHRD,
+                                                P_CVOI, P_KEY, P_DETUNE, P_SSWING, P_SDIV, P_SLEN};
 /* (V10.7.34) LIFE (life.c), appended: the sources LIFE (the track's breath: its being's pulse, bipolar) and BEING (its being's
  * height in HOME > LIFE's water, bipolar, up +), the destination LIFE (per block: the track's LIFE, AMT 64 at a full source
  * = 100 %, on top of EDIT > VOICES 3's) */
@@ -182,6 +185,7 @@ static uint32_t mod_param(uint32_t d)
                                       [MD_REV] = P_REV, [MD_RATE] = P_LRATE, [MD_VIB] = P_LD_PIT};
     if (d == MD_FCUT) return P_FCUT;
     if (d == MD_LEVEL) return P_LEVEL;
+    if (d >= MD_X1) return FORM_XDST[d - MD_X1];
     return d >= MD_E1 ? P_E0 + d - MD_E1 : ID[d];
 }
 
@@ -582,6 +586,7 @@ BTAPP_FN static int mod_dst_ok(const track_t *t, uint32_t d)
     if (d == MD_CUT) {
     }
     if (d == MD_SHP && e == ENGI_DRUM) return 0;
+    if (d >= MD_X1) return e == ENGI_FORM;                /* (FORM 2) */
     if (d == MD_PITCH && e == ENGI_DRUM) return 0;
     if (d >= MD_E1 && d < MD_CLIP) {
         const param_desc_t *pd = track_desc(t, P_E0 + (k = d - MD_E1));
@@ -602,7 +607,7 @@ BTAPP_FN static int mod_dst_offer_bt(const track_t *t, uint32_t d)
  * packages retain the generic selector; never call an unmatched segment. */
 static int mod_dst_offer(const track_t *t, uint32_t d)
 {
-    return bt_hw_seg() ? mod_dst_offer_bt(t, d) : d < MD_N;
+    return bt_hw_seg() ? mod_dst_offer_bt(t, d) : d < MD_N && (d < MD_X1 || eng_idx(t->eng_req) == ENGI_FORM);
 }
 
 /* Bounded, clamped navigation. An old unavailable route survives until edited. */
@@ -633,6 +638,7 @@ BTAPP_FN static const char *mod_dst_name_bt(const track_t *t, int32_t v)
     v = clamp(v, 0, MD_N - 1);
     if (!mod_dst_ok(t, (uint32_t)v)) return "N/A";
     if (v >= MD_E1 && v < MD_CLIP) return track_desc(t, P_E0 + (uint32_t)v - MD_E1)->label;
+    if (v >= MD_X1) return track_desc(t, FORM_XDST[v - MD_X1])->label;
     if (v == MD_CUT) {
         static const uint8_t CUT_ID[NENGINES] = {P_E4, P_FCUT, P_E2, P_FCUT, P_FCUT, P_E0, P_FCUT, P_FCUT,
                                                 P_FCUT, P_FCUT, P_FCUT, P_E2, P_E2, P_FCUT, P_FCUT, P_FCUT, P_FCUT};

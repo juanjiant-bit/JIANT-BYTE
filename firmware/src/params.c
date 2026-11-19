@@ -82,7 +82,9 @@ static const char *const N_MSRC[] = {"OFF", "LFO", "ENV", "VEL", "KEY", "RAND", 
 static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN", "DIST", "CHO", "DLY", "REV", "L.RATE",
                                      "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
                                      "CLIP", "PNCH",   /* (JIANT: the master, FX > MASTER) */
-                                     "D.TIM", "D.FB", "D.TON", "D.MIX", "R.SIZ", "R.DMP", "C.RAT", "C.DEP", "F.CUT", "LEVEL", "LIFE"};   /* (0.7.0) the FX buses'
+                                     "D.TIM", "D.FB", "D.TON", "D.MIX", "R.SIZ", "R.DMP", "C.RAT", "C.DEP", "F.CUT", "LEVEL", "LIFE",
+                                     "STYLE", "DRIVE", "TONE", "WOBBLE", "HARMONY", "SCALE", "ROOT", "CHORD", "VOICING",   /* (FORM 2: */
+                                     "DRUMS", "DETUNE", "SWING", "RATE", "CYCLE"};   /* FORM's, mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
@@ -823,9 +825,12 @@ static const page_t PAGES[] = {
                                                          * mode: SCENE, TRACK, ROLE, CHORD (ui_scene.c) */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
+    /* (FORM 2, the owner: by importance, no DELAY) after STATES and RULES (the engine's): the timbre (STYLE DRIVE TONE
+     * WOBBLE, in its ARP slots), the harmony, the layers, the clock */
+    {"TIMBRE", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,P_APROB,P_ARATE}},
+    {"HARMONY", FAM_EDIT, SC_FORM, GR_NONE, {P_AORDER,P_SCALE,P_ROOT,P_CHRD}},
+    {"LAYERS", FAM_EDIT, SC_FORM, GR_NONE, {P_CVOI,P_KEY,P_DETUNE,P_LEVEL}},
     {"CLOCK", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_SDIV,P_SLEN,P_SSWING}},
-    {"NOTES", FAM_EDIT, SC_FORM, GR_NONE, {P_ROOT,P_SCALE,P_CHRD,P_CVOI}},
-    {"LAYERS", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_KEY,P_DETUNE,P_DLY}},
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
