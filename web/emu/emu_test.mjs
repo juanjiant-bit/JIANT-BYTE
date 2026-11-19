@@ -73,6 +73,11 @@ const home = a.screen();
 check(`boots: the splash, then HOME (${colours(home)} colours), the HOME LED lit`,
       splash > 1 && colours(home) > 4 && (a.ex.web_lit_buttons() >> B.HOME & 1) === 1);
 check("silent at rest", a.peak === 0);
+// (JIANT BYTE) part 1 is FORM in SONG (it plays with the transport, not the keys): a program change on channel 3
+// selects part 3 (WAVE, seq.c midi_pc_req -> song.sel) for the keys; its sound is that part's first preset
+a.ex.web_midi(0xC2, 0, 0);
+a.render(200);
+a.peak = 0;
 a.ex.web_keys(1 << 7);                                        // C4
 a.render(300);
 const keyLit = (a.ex.web_lit_keys() >> 7) & 1;
@@ -81,9 +86,9 @@ a.render(400);
 check(`a key sounds (peak ${a.peak.toFixed(3)}) and lights its LED`, a.peak > 0.01 && keyLit === 1);
 a.render(1500);
 a.peak = 0;
-a.ex.web_midi(0x90, 64, 100);                                  // Web MIDI: E4 on channel 1
+a.ex.web_midi(0x92, 64, 100);                                  // Web MIDI: E4 on channel 3 (part 3, WAVE)
 a.render(300);
-a.ex.web_midi(0x80, 64, 0);
+a.ex.web_midi(0x82, 64, 0);
 a.render(300);
 check(`a MIDI note in (USB-MIDI's queue) sounds (peak ${a.peak.toFixed(3)})`, a.peak > 0.01);
 const draws = a.ex.web_screen_draws();
