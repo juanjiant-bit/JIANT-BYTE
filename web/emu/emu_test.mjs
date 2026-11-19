@@ -73,9 +73,11 @@ const home = a.screen();
 check(`boots: the splash, then HOME (${colours(home)} colours), the HOME LED lit`,
       splash > 1 && colours(home) > 4 && (a.ex.web_lit_buttons() >> B.HOME & 1) === 1);
 check("silent at rest", a.peak === 0);
-// (JIANT BYTE) part 1 is FORM in SONG (it plays with the transport, not the keys): a program change on channel 3
-// selects part 3 (WAVE, seq.c midi_pc_req -> song.sel) for the keys; its sound is that part's first preset
-a.ex.web_midi(0xC2, 0, 0);
+// (JIANT BYTE) part 1 is FORM in SONG (it plays with the transport, not the keys): HOME's TRACKS page (SELECT 2)
+// and its KNOB 1 two tracks on select part 3 (WAVE) for the keys
+a.turn(EN.SELECT, 2);
+a.render(100);
+a.turn(EN.K1, 2);
 a.render(200);
 a.peak = 0;
 a.ex.web_keys(1 << 7);                                        // C4
