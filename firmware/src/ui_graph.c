@@ -2133,7 +2133,9 @@ static void draw_graph(void)
                 ub_formula_large(f ? dx_formula_text(dx_ui_lane) : "CLASSIC OSCILLATOR");
                 cv_text(8, 105 - AF_S_CAP_Y, &AF_S, dx_pagen(pg) == 9u ? "OCT+ EDIT FORMULA" : "TEXT: FORMULA PAGE", T_THEME);
                 cv_text(8, 126 - AF_X_CAP_Y, &AF_X, "w: PHASE  T: SECONDS  A: COLOR", T_DIM);
-            } else if (dx_pagen(pg) >= 13u)                 /* (DRUM-W) its pad's tables */
+            } else if (dx_pagen(pg) >= 20u)                 /* (DRUM-W) its own pages */
+                dw_panel2(dx_pagen(pg));
+            else if (dx_pagen(pg) >= 13u)
                 dw_panel();
             else if (pg->title[0] == 'S' || pg->title[0] == 'P' || pg->title[0] == 'A')   /* (0.9.4) PITCH AMP (SOUND 1..4): the drum kit, the sound edited lit (ui_engvis.c) */
                 vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));

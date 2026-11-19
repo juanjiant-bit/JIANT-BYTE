@@ -53,12 +53,40 @@ static void form_roman(const form_scale_t*sc,int32_t d,char*b)
  if(fi<7)str_cpy(b+str_len(b),"o",8-str_len(b));
 }
 /* ---- the engine's pages: FORM (FORMULA A, FORMULA B, MORPH, DEFORM A), DEFORM (DEFORM B, RATE, SWING, RUN), HARMONY ---- */
-static int form_owned_param(uint32_t id){return id==P_AGATE||id==P_ARATE||id==P_AORDER||id==P_LRTRG||id==P_SDIV||id==P_SLEN||id==P_KEY||id==P_DETUNE||id==P_CHRD||id==P_CVOI;}
+static int form_owned_param(uint32_t id){return id==P_AGATE||id==P_ARATE||id==P_AORDER||id==P_LRTRG||id==P_SDIV||id==P_SLEN||id==P_KEY||id==P_DETUNE||id==P_CHRD||id==P_CVOI||id==P_CAOS||id==P_ASWING||id==P_APROB;}
+/* MOTION: an equation a side moving its DEF (DEPTH how far, SPEED its time x1/2 .. x4), drawn as written */
+static const char *const FORM_MOTION[]={"OFF","sin(P/4)","tri(P/2)","P/4%1","1-T","(t>>11)&7","(t>>9^t>>12)&15","rnd(s)","sin(P)*sin(P/3)","abs(sin(P*3))","sqr(P/2)","s*5%7",0};
+#define FORM_NMOT 12u
+static const char *const FORM_STYLE[]={"FUNC","WOBBLE","REESE","GROWL","RING","SCREECH","ACID",0};   /* (funcbeat alone) */
+static const uint8_t FORM_STYLE_DOM[7]={0,5,6,7,8,9,10};
+static const char *const FORM_SPEED[]={"1/2","1","2","4",0};
+/* a MOTION's value (Q15, -1 .. 1) at the beats pq (Q16), the step s, its age T (Q16) */
+static int32_t form_motion(uint32_t k,uint32_t pq,uint32_t s,uint32_t T)
+{
+ int32_t v;uint32_t t=pq>>4;
+ switch(k){
+ case 1:return sine_i(pq<<14);                                   /* sin(P/4): a turn in 4 beats */
+ case 2:v=(int32_t)((pq<<15)>>16);return v<32768?v*2-32767:98303-v*2;   /* tri(P/2) */
+ case 3:return (int32_t)((pq<<14)>>17)-32767;                   /* P/4%1: a ramp a bar */
+ case 4:return 32767-(int32_t)(T>>1)*2;                          /* 1-T: down over each step */
+ case 5:return (int32_t)((t>>11)&7u)*9362-32767;                 /* (t>>11)&7: eight steps a 4 beats */
+ case 6:return (int32_t)(((t>>9)^(t>>12))&15u)*4369-32767;       /* bits */
+ case 7:return (int32_t)(fvm_hash(s*2654435761u)>>16)-32768;    /* rnd(s): held a step */
+ case 8:return mulq15(sine_i(pq<<16),sine_i((uint32_t)(((uint64_t)pq<<16)/3u)));   /* two against three */
+ case 9:{int32_t x=sine_i((uint32_t)(pq*3u)<<16);return (x<0?-x:x)*2-32767;}      /* abs(sin(P*3)) */
+ case 10:return (pq>>16)&1u?32767:-32767;                        /* sqr(P/2) */
+ case 11:return (int32_t)((s*5u)%7u)*10922-32767;                /* s*5%7 */
+ }
+ return 0;
+}
 static const param_desc_t *form_common_desc(uint32_t id){
  static const param_desc_t prog={"PROG",F_ENUM,0,FORM_NPROG-1,0,FORM_PROGN},crate={"LENGTH",F_ENUM,0,4,2,FORM_CRATE},
   notes={"NOTES",F_ENUM,0,6,0,FORM_NOTES},run={"RUN",F_ENUM,0,1,1,FORM_RUN},ra={"RATE A",F_ENUM,0,3,1,FORM_RATE},rb={"RATE B",F_ENUM,0,3,1,FORM_RATE},
   hits={"HITS",F_INT,1,16,16,0},rot={"ROTATE",F_INT,0,15,0,0},voi={"VOICING",F_ENUM,0,7,0,F1_VOICE};
- return id==P_AGATE?&prog:id==P_ARATE?&crate:id==P_AORDER?&notes:id==P_LRTRG?&run:id==P_SDIV?&ra:id==P_SLEN?&rb:id==P_KEY?&hits:id==P_DETUNE?&rot:id==P_CVOI?&voi:0;
+ static const param_desc_t ma={"MOD A",F_ENUM,0,FORM_NMOT-1,1,FORM_MOTION},mb={"MOD B",F_ENUM,0,FORM_NMOT-1,0,FORM_MOTION},dep={"DEPTH",F_PCT,0,127,24,0},
+  spd={"SPEED",F_ENUM,0,3,1,FORM_SPEED},swg={"SWING",F_PCT,0,100,0,0};
+ return id==P_AGATE?&prog:id==P_ARATE?&crate:id==P_LRTRG?&run:id==P_SDIV?&ra:id==P_SLEN?&rb:id==P_KEY?&hits:id==P_DETUNE?&swg:id==P_CVOI?&voi:
+        id==P_CAOS?&ma:id==P_ASWING?&mb:id==P_APROB?&dep:id==P_AORDER?&spd:0;
 }
 /* the presets: A B MORPH SWING, DEF A DEF B OCT A OCT B; the PROG, LENGTH, NOTES; RATE A RATE B HITS ROTATE (FP: the
  * rates x1, every step; FQ: its own) */
@@ -66,7 +94,7 @@ static const param_desc_t *form_common_desc(uint32_t id){
   MODS(P_AGATE,(prog)+1,P_ARATE,cr,P_AORDER,nt,P_LRTRG,1,P_SDIV,ra,P_SLEN,rb,P_KEY,hi,P_DETUNE,ro)}
 /* FORM 1's: its state to the next, its sends, its own progression (STATE) */
 #define FSTATE(label,a,b,echo,space,ch,vo) {label,{a,b,0,0,64,64,1,1},{0,0,127,24},0,TAG(FX),FX(0,24,echo,space),0,\
-  MODS(P_AGATE,0,P_ARATE,2,P_AORDER,0,P_LRTRG,1,P_SDIV,1,P_SLEN,1,P_KEY,16,P_DETUNE,0,P_CHRD,ch,P_CVOI,vo)}
+  MODS(P_AGATE,0,P_ARATE,2,P_AORDER,1,P_LRTRG,1,P_SDIV,1,P_SLEN,1,P_KEY,16,P_DETUNE,0,P_CHRD,ch,P_CVOI,vo,P_CAOS,1,P_ASWING,0,P_APROB,24)}
 #define FP(label,tag,a,b,m,da,db,sw,prog,cr,nt,oc) FQ(label,tag,a,b,m,da,db,sw,prog,cr,nt,oc,oc,1,1,16,0)
 static const preset_t FORM_PRESETS[]={
  FSTATE("01 SCORE",0,1,10,20,1,0), FSTATE("02 TIME RULE",1,2,0,5,1,0), FSTATE("03 COUNTER",2,3,72,45,1,0),
@@ -87,18 +115,18 @@ static const preset_t FORM_PRESETS[]={
 #undef FSTATE
 /* ---- the dice (ui_input.c: SELECT the whole of it; SEQ + SELECT the harmony alone): a pitched A, B by chance a pitched or
  * a drum, MORPH most of the time at an end; the harmony anything ---- */
-static const uint8_t FORM_DICE_COMP[8]={P_AGATE,P_ARATE,P_CHRD,P_CVOI,P_KEY,P_DETUNE,P_E2,P_E4};
+static const uint8_t FORM_DICE_COMP[8]={P_AGATE,P_ARATE,P_CHRD,P_CVOI,P_KEY,P_CAOS,P_ASWING,P_APROB};
 static int16_t form_rnd(uint32_t n){return (int16_t)(n?rng()%n:0u);}
 static void form_dice(track_t*t,uint32_t comp_only)
 {
  int16_t*p=t->p;
  if(!comp_only){
   p[P_E0]=form_rnd(F1_N);p[P_E1]=form_rnd(3u)?form_rnd(F1_N):p[P_E0];
-  p[P_E3]=form_rnd(3u)?0:form_rnd(50u);p[P_E6]=(int16_t)(form_rnd(3u));p[P_E7]=(int16_t)(form_rnd(3u));
+  p[P_E3]=form_rnd(2u)?0:(int16_t)(1+form_rnd(6u));p[P_DETUNE]=form_rnd(3u)?0:form_rnd(50u);p[P_E6]=(int16_t)(form_rnd(3u));p[P_E7]=(int16_t)(form_rnd(3u));
   p[P_SDIV]=form_rnd(4u)?1:form_rnd(4u);p[P_SLEN]=form_rnd(4u)?1:form_rnd(4u);p[P_LRTRG]=1;
  }
  p[P_AGATE]=form_rnd(FORM_NPROG);p[P_ARATE]=(int16_t)(1+form_rnd(4u));p[P_AORDER]=form_rnd(7u);
- p[P_KEY]=form_rnd(2u)?16:(int16_t)(3+form_rnd(11u));p[P_DETUNE]=form_rnd(16u);p[P_CHRD]=(int16_t)(1+form_rnd(11u));p[P_CVOI]=form_rnd(8u);
+ p[P_KEY]=form_rnd(2u)?16:(int16_t)(3+form_rnd(11u));p[P_CAOS]=form_rnd(FORM_NMOT);p[P_ASWING]=form_rnd(FORM_NMOT);p[P_APROB]=form_rnd(80u);p[P_AORDER]=form_rnd(4u);p[P_CHRD]=(int16_t)(1+form_rnd(11u));p[P_CVOI]=form_rnd(8u);
  p[P_E2]=form_rnd(3u)?0:form_rnd(128u);p[P_E4]=(int16_t)(20+form_rnd(90u));p[P_E5]=(int16_t)(20+form_rnd(90u));
 }
 static uint32_t form_cost(const track_t*t){uint32_t two=t->p[P_E2]>0&&t->p[P_E2]<127&&t->p[P_E0]!=t->p[P_E1];return (t->p[P_E0]<(int)F1_N||t->p[P_E1]<(int)F1_N?7u:6u)+(two?5u:0u);}
@@ -116,9 +144,9 @@ static void f1_view(const track_t*t,int16_t*q,uint32_t a,uint32_t b,uint32_t mor
  uint32_t pr=(uint32_t)clamp(t->p[P_AGATE],0,FORM_NPROG-1);
  memcpy(q,t->p,P_COUNT*sizeof *q);
  q[P_E0]=(int16_t)a;q[P_E1]=(int16_t)b;q[P_E2]=(int16_t)morph;q[P_E3]=(int16_t)def;q[P_E4]=0;q[P_E5]=100;q[P_E6]=0;q[P_E7]=64;
- q[P_CAOS]=0;q[P_ASWING]=x[0];q[P_ARATE]=x[1];q[P_APROB]=x[2];q[P_KEY]=100;q[P_DETUNE]=24;   /* (CHORD, VOICING: the part's own, P_CHRD P_CVOI) */
+ q[P_CAOS]=FORM_STYLE_DOM[clamp(t->p[P_E3],0,6)];q[P_ASWING]=x[0];q[P_ARATE]=x[1];q[P_APROB]=x[2];q[P_KEY]=100;q[P_DETUNE]=24;   /* (CHORD, VOICING: the part's own, P_CHRD P_CVOI) */
  q[P_AORDER]=pr==FORM_NPROG-1u?5:0;q[P_AGATE]=PR[pr<sizeof PR?pr:0];q[P_AOCT]=(int16_t)oct;q[P_SDIV]=DV[rate&3u];
- q[P_SLEN]=CY[clamp(t->p[P_ARATE],0,4)];q[P_SSWING]=t->p[P_E3];
+ q[P_SLEN]=CY[clamp(t->p[P_ARATE],0,4)];q[P_SSWING]=t->p[P_DETUNE];
 }
 /* a formula's program: A in the part's own slot (lofi_slot: MATH's), B in its second (WAVE's B); compiled when it changes */
 static const uint8_t FORM_CRB[5]={1,2,4,8,16};          /* CHORD RATE in beats */
@@ -149,6 +177,7 @@ static void form_harmony(const track_t*t,uint32_t bq,uint32_t s,form_note_t*o)
 /* (FORM 3) the panel's scopes: the last block of A and of B (half-rate samples, Q15) of the part form_scope_tr */
 static int16_t form_scope[2][64];
 static volatile uint8_t form_scope_tr=0xFF;
+static volatile uint8_t form_mot[2];                   /* (the panel: each side's DEF moved, now) */
 static uint8_t form_sc_i=64,form_sc_c;                 /* (the scopes' place, its countdown) */
 /* one side's time: its RATE r over the song's beats pb[] (Q16), SWING's pair split; into its t, T, P and its step */
 static void form_side_clock(const uint32_t*pb,uint32_t n,uint32_t r,uint32_t split,uint32_t r1,uint32_t r2,uint32_t*TT,uint32_t*TS,uint32_t*PP,uint32_t*s0)
@@ -167,20 +196,24 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  if(n>CTL)n=CTL;if(!n)return;
  /* the song's step (16ths, SWING's pair split: the gate's, the panel's) */
  pos=func_song(t)?func_clock_begin:(uint32_t)(((uint64_t)v->ph[0]<<16)/bl);
- uint32_t q0=pos<<2,pair=q0&0x1FFFFu,split=65536u+(uint32_t)clamp(t->p[P_E3],0,100)*218u,sb=((q0>>17)<<1)+(pair<split?0u:1u);
+ uint32_t q0=pos<<2,pair=q0&0x1FFFFu,split=65536u+(uint32_t)clamp(t->p[P_DETUNE],0,100)*218u,sb=((q0>>17)<<1)+(pair<split?0u:1u);
  /* the states: one (MORPH at an end, or A = B) or both, by FORM 1's own MORPH, the one that composes; DEF its COLOR, OCT
   * its melody's octave, RATE its DIV (B's at MORPH 127) */
  {
   uint32_t one=morph==0u||a==b?1u:morph==127u?2u:0u,f=one==2u?b:a,sd=one==2u;
   int16_t q[P_COUNT];const int16_t*keep=f1_p[MC_CPU()&1u];
-  f1_view(t,q,f,one?f:b,one?0u:morph,(uint32_t)clamp(t->p[sd?P_E5:P_E4],0,127),(uint32_t)clamp(t->p[sd?P_E7:P_E6],0,3),(uint32_t)clamp(t->p[sd?P_SLEN:P_SDIV],0,3));
+  uint32_t pm=(pos<<(uint32_t)clamp(t->p[P_AORDER],0,3))>>1,T=(pair<split?pair*65536u/split:(pair-split)*65536u/(131072u-split))&0xFFFFu,dep=(uint32_t)clamp(t->p[P_APROB],0,127);
+  int32_t da=clamp(t->p[P_E4]+(int32_t)((form_motion((uint32_t)clamp(t->p[P_CAOS],0,FORM_NMOT-1),pm,sb,T)*(int32_t)dep)>>15),0,127);
+  int32_t db=clamp(t->p[P_E5]+(int32_t)((form_motion((uint32_t)clamp(t->p[P_ASWING],0,FORM_NMOT-1),pm,sb,T)*(int32_t)dep)>>15),0,127);
+  form_mot[0]=(uint8_t)da;form_mot[1]=(uint8_t)db;          /* (the panel's) */
+  f1_view(t,q,f,one?f:b,one?0u:morph,(uint32_t)(one==2u?db:one?da:da+((db-da)*(int32_t)morph)/127),(uint32_t)clamp(t->p[sd?P_E7:P_E6],0,3),(uint32_t)clamp(t->p[sd?P_SLEN:P_SDIV],0,3));
   f1_p[MC_CPU()&1u]=q;f1_st[tr].note=v->note;f1_render(t,&f1_st[tr],YA,n,m);f1_p[MC_CPU()&1u]=keep;
   for(i=0;i<n;i++)YB[i]=YA[i];
  }
  uint32_t inc=pitch_inc((uint32_t)clamp(v->note,24,96)*16u)*hs,p0=v->ph[1];   /* (the scopes' trigger: the note's turn) */
  v->ph[1]=p0+inc*n;
  /* the EUCLID gate: HITS of the bar's 16 steps (16 all), ROTATE; an off step fades out, the next hit fades in */
- uint32_t hits=(uint32_t)clamp(t->p[P_KEY],1,16),kk=(sb+(uint32_t)clamp(t->p[P_DETUNE],0,15))&15u;
+ uint32_t hits=(uint32_t)clamp(t->p[P_KEY],1,16),kk=sb&15u;
  int32_t gt=hits>=16u||((kk+1u)*hits>>4)!=(kk*hits>>4)?32767:0,g=v->s[5];
  if(tr==form_scope_tr){                                  /* the scopes: triggered on the note's turn, ~2.5 turns in 64 points */
   uint32_t dec=clamp((int32_t)((0xFFFFFFFFu/(inc|1u))/26u),1,64),ph=p0;
@@ -199,6 +232,6 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  v->s[5]=g;v->ph[0]+=n*hs;
 }
 static const engine_t ENG_FORM={.name="FORM",.page_title={"FORM","DEFORM"},
- .edit={{"FORM A",F_ENUM,0,FORM_NT-1,0,FORM_NAMES},{"FORM B",F_ENUM,0,FORM_NT-1,1,FORM_NAMES},{"MORPH",F_PCT,0,127,0,0},{"SWING",F_PCT,0,100,0,0},
+ .edit={{"FORM A",F_ENUM,0,FORM_NT-1,0,FORM_NAMES},{"FORM B",F_ENUM,0,FORM_NT-1,1,FORM_NAMES},{"MORPH",F_PCT,0,127,0,0},{"STYLE",F_ENUM,0,6,0,FORM_STYLE},
         {"DEF A",F_PCT,0,127,64,0},{"DEF B",F_PCT,0,127,64,0},{"OCT A",F_ENUM,0,3,1,FORM_OCT},{"OCT B",F_ENUM,0,3,1,FORM_OCT}},
  .presets=FORM_PRESETS,.npresets=NELEM(FORM_PRESETS),.knob={P_E0,P_E1,P_E2,P_E4},.poly=1,.half=2,.note_on=form_note_on,.render=form_render};

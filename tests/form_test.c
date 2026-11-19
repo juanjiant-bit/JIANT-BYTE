@@ -43,7 +43,7 @@ int main(void)
     }
     {   /* each control heard */
         static const struct { const char *nm; unsigned id; int16_t v; } C[] = {
-            {"MORPH", P_E2, 127}, {"SWING", P_E3, 70}, {"DEF A", P_E4, 127}, {"OCT A", P_E6, 3}, {"RATE A", P_SDIV, 2},
+            {"MORPH", P_E2, 127}, {"STYLE", P_E3, 3}, {"SWING", P_DETUNE, 70}, {"MOD A", P_CAOS, 9}, {"DEPTH", P_APROB, 120}, {"DEF A", P_E4, 127}, {"OCT A", P_E6, 3}, {"RATE A", P_SDIV, 2},
             {"PROG", P_AGATE, 4}, {"LENGTH", P_ARATE, 0}, {"CHORD", P_CHRD, 7}, {"VOICING", P_CVOI, 5}, {"HITS", P_KEY, 5}};
         for (unsigned k = 0; k < NELEM(C); k++) {
             setup(0); play(ya);
@@ -56,9 +56,7 @@ int main(void)
             setup(0); TSEL->p[P_E2] = 127; TSEL->p[CB[k].id] = CB[k].v; play(yb);
             OK(dlt(ya, yb) > 0.1, "%s changes B (%.3f)", CB[k].nm, dlt(ya, yb));
         }
-        setup(0); TSEL->p[P_KEY] = 5; play(ya);
-        setup(0); TSEL->p[P_KEY] = 5; TSEL->p[P_DETUNE] = 3; play(yb);
-        OK(dlt(ya, yb) > 0.1, "ROTATE moves the hits (%.3f)", dlt(ya, yb));
+
     }
     {   /* the chords change in time: the progression's first and second chord differ in pitch */
         form_note_t a, b;
@@ -72,17 +70,18 @@ int main(void)
         setup(0); ui.home = 1; press(B_EDIT);
         int ok = cur_page()->id[0] == P_E0;
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_E4;
+        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_CAOS;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_AGATE;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_SDIV;
         frames(20);
-        OK(ok, "EDIT: FORM, DEFORM, HARMONY, PULSE");
+        OK(ok, "EDIT: FORM, DEFORM, MOTION, HARMONY, PULSE");
     }
     {   /* the dice in range */
         int ok = 1;
         for (unsigned k = 0; k < 40u; k++) {
             setup(0); form_dice(TSEL, k & 1u);
             ok &= TSEL->p[P_E0] >= 0 && TSEL->p[P_E0] < (int)FORM_NT && TSEL->p[P_E1] >= 0 && TSEL->p[P_E1] < (int)FORM_NT &&
-                  TSEL->p[P_AGATE] < (int)FORM_NPROG && TSEL->p[P_ARATE] <= 4 && TSEL->p[P_AORDER] <= 6 && TSEL->p[P_KEY] >= 1 && TSEL->p[P_KEY] <= 16 && TSEL->p[P_DETUNE] <= 15 && TSEL->p[P_CHRD] <= 11 && TSEL->p[P_CVOI] <= 7;
+                  TSEL->p[P_AGATE] < (int)FORM_NPROG && TSEL->p[P_ARATE] <= 4 && TSEL->p[P_AORDER] <= 6 && TSEL->p[P_KEY] >= 1 && TSEL->p[P_KEY] <= 16 && TSEL->p[P_DETUNE] <= 100 && TSEL->p[P_CAOS] < (int)FORM_NMOT && TSEL->p[P_E3] <= 6 && TSEL->p[P_CHRD] <= 11 && TSEL->p[P_CVOI] <= 7;
         }
         OK(ok, "40 throws of the dice in range");
     }

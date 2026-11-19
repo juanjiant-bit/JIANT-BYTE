@@ -241,6 +241,17 @@ static __attribute__((noinline)) void graph_form_lz(const track_t*t){
   form_scope_draw(form_scope[0],6,16,228,60,100);   /* (the sound playing: the formulas morphed) */
   heat_bar(6,82,228,228,6,T_DIM);
   cv_rect(mx-2,79,5,12,T_TEXT);
+ }else if(cur_page()->id[0]==P_CAOS){                     /* MOTION: each MOD's equation, its curve over 2 bars, the DEF now */
+  for(k=0;k<2u;k++){
+   uint32_t mk=(uint32_t)clamp(t->p[k?P_ASWING:P_CAOS],0,FORM_NMOT-1),i;int32_t y0=8+(int32_t)k*42,px=0,py=0;
+   form_cap(6,y0,k?"B":"A",heat_col(220));form_eq(18,y0,FORM_MOTION[mk],30u,1u,T_TEXT,T_TEXT);
+   {char b[8];fmt_int(b,form_mot[k]);form_cap(206,y0,b,heat_col(60+form_mot[k]*196/127));}
+   for(i=0;i<=114u;i++){
+    uint32_t pq=i*(8u<<16)/114u;int32_t vv=mk?form_motion(mk,pq,(pq<<2)>>16,(pq<<2)&0xFFFFu):0,x=6+(int32_t)i*2,yy=y0+24-vv*12/32768;
+    if(i)cv_line(px,py,x,yy,heat_col(80+(vv+32768)*170/65536));
+    px=x;py=yy;
+   }
+  }
  }else{                                                  /* the others: the equation */
   form_cap(6,4,"A",heat_col(220));form_cap(18,4,FORM_NAMES[a],T_TEXT);
   if(m&&a!=b){form_cap(136,4,"B",heat_col(220));form_cap(148,4,FORM_NAMES[b],T_TEXT);}

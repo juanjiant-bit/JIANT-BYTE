@@ -2171,14 +2171,10 @@ static uint8_t dx_ui_lane, dx_ui_side;
 static uint32_t dx_pagen(const page_t *pg)            /* SOUND 1..3; (0.5.1) X-MOD 4; (0.6.54) SOUND 4: 8 */
 {
     if (pg->title[0] == 'F') return pg->title[4] == ' ' ? 10u : 9u;
-    switch (pg->title[0]) {                           /* (DRUM-W) WAVE A 13, WAVE B 14, LAYER 15, MOD ENV 16, MOD LFO 17, MOD DEST 19,
-                                                         * NOISE 18; PITCH 1 and AMP 2 (SOUND and SOUND 2's) */
-    case 'W': return pg->title[5] == 'A' ? 13u : 14u;
-    case 'L': return 15u;
-    case 'M': return pg->title[4] == 'E' ? 16u : pg->title[4] == 'L' ? 17u : 19u;
-    case 'N': return 18u;
-    case 'P': return 1u;
-    case 'A': return 2u;
+    {                                                 /* (DRUM-W, its own pages: ui_dx.c DWP_*) */
+        static const char *const T[8] = {"PLAY", "WAVE", "SHAPE", "MOVE", "BODY", "NOISE", "COLOR", "MIX"};
+        uint32_t k;
+        for (k = 0; k < 8u; k++) if (str_eq(pg->title, T[k])) return 20u + k;
     }
     if (pg->title[0] == 'K')                          /* (V10.7.33: KIT LFO, was X-MOD) */
         return 4u;
@@ -2189,6 +2185,7 @@ static int dx_formula_page(void) { return !ui.home && cur_page()->graph == GR_DX
 static void dx_knob(const page_t *pg, uint32_t k, int32_t s);
 static void dx_cards(const page_t *pg);
 static void dw_panel(void);
+static void dw_panel2(uint32_t pn);
 static void dx_kit3_knob(uint32_t k, int32_t s);      /* (0.6.54) KIT 3: TONE's BP, FEEDBK */
 static void sw_ui_knob(const page_t *pg, uint32_t k, int32_t s);   /* (V10.6z6) EDIT > SWARM, SWARM 2 */
 static void sw_ui_cards_bt(const page_t *pg);

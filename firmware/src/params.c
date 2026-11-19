@@ -83,7 +83,7 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                      "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
                                      "CLIP", "PNCH",   /* (JIANT: the master, FX > MASTER) */
                                      "D.TIM", "D.FB", "D.TON", "D.MIX", "R.SIZ", "R.DMP", "C.RAT", "C.DEP", "F.CUT", "LEVEL", "LIFE",
-                                     "PROG", "LENGTH", "CHORD", "RATE A", "RATE B", "HITS", "ROTATE"};   /* (FORM 3: HARMONY, PULSE; mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
+                                     "PROG", "LENGTH", "CHORD", "DEPTH", "SPEED", "HITS", "SWING"};   /* (FORM 3: HARMONY, PULSE; mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
@@ -827,7 +827,9 @@ static const page_t PAGES[] = {
     /* (FORM 2, the owner: by importance, no DELAY) after STATES and RULES (the engine's): the timbre (STYLE DRIVE TONE
      * WOBBLE, in its ARP slots), the harmony, the layers, the clock */
     {"HARMONY", FAM_EDIT, SC_FORM, GR_NONE, {P_AGATE,P_ARATE,P_CHRD,P_CVOI}},   /* (FORM 3) PROG LENGTH CHORD VOICING */
-    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_SDIV,P_SLEN,P_KEY,P_DETUNE}},   /* (FORM 3) RATE A, RATE B, the EUCLID gate's HITS ROTATE */   /* (FORM 3) PROGRESS CHORD RATE NOTES OCTAVE (ROOT,
+    {"MOTION", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,P_APROB,P_AORDER}},   /* (FORM 3) MOD A, MOD B: an equation moving each
+                                                         * DEF; DEPTH, SPEED */
+    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_SDIV,P_SLEN,P_KEY,P_DETUNE}},   /* (FORM 3) RATE A, RATE B, HITS, SWING */   /* (FORM 3) RATE A, RATE B, the EUCLID gate's HITS ROTATE */   /* (FORM 3) PROGRESS CHORD RATE NOTES OCTAVE (ROOT,
                                                          * SCALE: SCL's, the song's) */
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
@@ -861,15 +863,14 @@ static const page_t PAGES[] = {
     {"TONE", FAM_EDIT, SC_TRACK, GR_NONE, {P_FKEY, ID_CRU, ID_LIF, 0xFF}},   /* (V10.7.35, the owner: was FILTER 3 and VOICES 3,
                                                          * a knob or two each) KEY TRK, CRUSH, LIFE. (filter2-mod) KEY: the keyboard tracking (was
                                                          * FILTER 2's first: DRIVE stays FILTER's, the knob of its power) */
-    {"WAVE A", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},  /* (DRUM-W, ui_dx.c) a pad's TABLE POS DRIVE */
-    {"WAVE B", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},  /* .. B's TABLE, the STRUCT, its AMOUNT */
-    {"LAYER", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. B's RATIO, B POS, VEL>POS */
-    {"MOD ENV", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. its envelope: ATTACK DECAY AMOUNT */
-    {"MOD LFO", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. its LFO: RATE SHAPE DEPTH */
-    {"MOD DEST", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},  /* .. where they go: ENV TO, LFO TO; the pitch's SWEEP */
-    {"PITCH", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. PATCH PITCH SWEEP (was SOUND) */
-    {"AMP", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},     /* .. DECAY NOISE CUTOFF (was SOUND 2) */
-    {"NOISE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. the noise's TYPE, FILTER, the TICK */
+    {"PLAY", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},    /* (DRUM-W, ui_dx.c dw_knob) the kit: WAVE MORPH DECAY STRIKE */
+    {"WAVE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},    /* .. a pad: PAD TABLE A POS TABLE B */
+    {"SHAPE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. PAD STRUCT AMOUNT RATIO */
+    {"MOVE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},    /* .. PAD ENV DECAY LFO */
+    {"BODY", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},    /* .. PAD PITCH SWEEP DECAY (the patch sounding) */
+    {"NOISE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. PAD NOISE CUTOFF TYPE */
+    {"COLOR", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. the kit: TUNE FOLD DRIVE CUTOFF */
+    {"MIX", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},     /* .. PAD LEVEL STEREO METAL */
     {"SOUND 3", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (JIANT 0.4) MODE, the pitch modulation, DRIVE */
     {"SOUND 4", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (JIANT 0.6.54) LAYER, FEEDBK, SEND */
     {"LEVELS", FAM_EDIT, SC_TRACK, GR_NONE, {P_LN0, P_LN1, P_LN2, P_LN3}},   /* DRUM only: the sounds' levels (was LANES) */
@@ -879,7 +880,7 @@ static const page_t PAGES[] = {
     {"OP3 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM3_ATK, P_FM3_DEC, P_FM3_SUS, P_FM3_REL}},
     {"OP4 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM4_ATK, P_FM4_DEC, P_FM4_SUS, P_FM4_REL}},
     {"OP LEVEL", FAM_EDIT, SC_TRACK, GR_NONE, {P_FM1_LEVEL, P_FM2_LEVEL, P_FM3_LEVEL, P_FM4_LEVEL}},
-    {"VOICES", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, ID_VMAX, P_GLIDE, P_PRIO}},   /* (codex/coherence: was VOICE) POLY GLIDE
+    {"VOICES", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, ID_VMAX, P_GLIDE, P_SIMG}},   /* (JIANT FM V10.7.60: IMAGE at hand, PRIO to VOICES 2) */   /* (codex/coherence: was VOICE) POLY GLIDE
                                                          * GL MODE PRIO */
     {"GLOBAL", FAM_GLO, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, G_TUNE}},
     {"SYSTEM", FAM_GLO, SC_GLOBAL, GR_NONE, {G_TRKS, G_LOADP, G_ROUTE, G_INFO}},   /* (0.6.18) TRACKS 4 / 6; (0.6.30)
@@ -929,7 +930,7 @@ static const page_t PAGES[] = {
     {"EUCLID", FAM_SEQ, SC_TRACK, GR_EUCLID, {ID_EU0, ID_EU0 + 1u, ID_EU0 + 2u, ID_EU0 + 3u}},   /* (V10.6, MUTATE's place)
                                                          * HITS STEPS ROTATE, LANE / VARY (ui_euclid.c) */
     /* (0.8.5) LENTE everywhere (ui_lens.c): pages the mock-up added, appended (the table's order is no one's index) */
-    {"VOICES 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_ALLOC, P_DETUNE, P_TVEL, P_SIMG}},   /* ALLOC, UNISON's detune (in TP since
+    {"VOICES 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_ALLOC, P_DETUNE, P_TVEL, P_PRIO}},   /* ALLOC, UNISON's detune (in TP since
                                                          * Felucca, on no page until 0.8.5), (after V10.7.2) VEL,
                                                          * (codex/coherence) IMAGE, the voices across (POLY; V10.49's STEREO
                                                          * page gone; was VOICE 2) */

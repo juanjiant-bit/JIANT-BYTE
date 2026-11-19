@@ -7,6 +7,8 @@
 typedef struct{int32_t s[8];uint32_t ph[3];int16_t xo[2];uint8_t note;} f1_vs_t;   /* (xo: each side's last sample, the other's modulator) */
 static const int16_t *f1_p[2];                           /* (a core's view of the part's parameters, its render's) */
 #define F1P(x) (f1_p[MC_CPU()&1u][x])
+/* STYLE FUNC: every state as funcbeat (its character bass its own); a character chosen: that one */
+static uint32_t f1_dom(uint32_t d,uint32_t own){return d?d:own>=5u?own:3u;}   /* (FORM: funcbeat alone, Juan: no BYTE HYBRID FLOAT; a character state its own) */
 /* SPDX-License-Identifier: GPL-3.0-only
  * FORM: bounded native adaptations of the 22 user-supplied reference equations.
  * Source/credits: docs/references/bytebeat-floatbeat-funcbeat.txt.
@@ -393,7 +395,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
   * character bass's domain (the nearer state's with DOMAIN AUTO); the GENES page (DRIVE, WOBBLE, TONE) */
  static const char RATCH[]="11111111111144222211111122224488";   /* (ref 5: a hit in 2, 4, 8) */
  uint32_t mixf=F1_GENE[am].mix|(am!=bm?F1_GENE[bm].mix:0u),fill=F1_GENE[am].form==F1F_FILL||F1_GENE[bm].form==F1F_FILL,riser=F1_GENE[am].form==F1F_RISER||F1_GENE[bm].form==F1F_RISER;
- uint32_t cdom=domain?domain:F1_STATE[morph<64u?a:b].domain,tone=(uint32_t)clamp(F1P(P_APROB),0,127),wob=(uint32_t)clamp(F1P(P_ARATE),0,7),drive=(uint32_t)clamp(F1P(P_ASWING),0,100);
+ uint32_t cdom=f1_dom(domain,F1_STATE[morph<64u?a:b].domain),tone=(uint32_t)clamp(F1P(P_APROB),0,127),wob=(uint32_t)clamp(F1P(P_ARATE),0,7),drive=(uint32_t)clamp(F1P(P_ASWING),0,100);
  uint32_t mrest=0,cacc=0,cslide=0,cbt=0,clr=32;
  for(uint32_t i=0;i<n;i++,tick+=hs){
   uint32_t beat=(pm*RATE_N[rate])>>RATE_S[rate],section=(uint32_t)(((uint64_t)pm*rcy)>>32);
@@ -435,7 +437,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
   uint32_t kq=mi?0x7FFFFFFFu/((mi>>1)|1u):0u;
   int32_t pmo[2]={(int32_t)(((int64_t)v->xo[1]*(int32_t)morph*(int32_t)kq)>>21),(int32_t)(((int64_t)v->xo[0]*(int32_t)(127u-morph)*(int32_t)kq)>>21)};
   for(uint32_t side=0;side<(am==bm?1u:2u);side++){
-   uint32_t id=ids[side],dom=domain?domain:F1_STATE[id].domain,mt=am==bm?tick:tick+(uint32_t)pmo[side],ii=mi;
+   uint32_t id=ids[side],dom=f1_dom(domain,F1_STATE[id].domain),mt=am==bm?tick:tick+(uint32_t)pmo[side],ii=mi;
    int32_t localcolor=clamp(color+(int32_t)F1_STATE[id].color-64,0,127);
    uint32_t voices=F1_STATE[id].voices;
    int32_t lead=f1_wave(id,mt,ii,(uint32_t)age,localcolor,seed),bass=id>=18&&id<F1_N1?f1_drop_bass(id,beat,mt*(bi/2u),localcolor):f1_wave(id,mt,bi,beat&65535u,localcolor/2,seed),ch=0;
