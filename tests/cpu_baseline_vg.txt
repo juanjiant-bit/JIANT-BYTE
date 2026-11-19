@@ -9,11 +9,11 @@ dly/half 1182
 dly/half.drive 1197
 dly/quarter 1227
 eng/DRUM-W 1215
-eng/FORM.A 782
-eng/FORM.A.life 868
-eng/FORM.AB 889
-eng/FORM.AB.life 976
-eng/FORM.AB.tight 889
+eng/FORM.A 1490
+eng/FORM.A.life 1608
+eng/FORM.AB 2085
+eng/FORM.AB.life 2206
+eng/FORM.AB.tight 1491
 eng/MATH 2182
 eng/MATH.FLOAT 3571
 eng/WAVE 3484
@@ -38,4 +38,4 @@ song/cputest.eq 3057
 song/cputest.life100 5143
 song/cputest.life50 5096
 song/cputest.vpol 4618
-song/cputest.vpol.half 4270
+song/cputest.vpol.half 4269
