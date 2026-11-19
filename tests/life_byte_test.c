@@ -50,7 +50,7 @@ static void network(unsigned receiver,unsigned donor,int amt,int third,int chang
  unsigned eng[3]={receiver,donor,ENGI_WAVE};
  if(third){unsigned ids[3]={ENGI_WAVE,ENGI_LOFI,ENGI_DRUM};for(unsigned i=0;i<3;i++)if(ids[i]!=receiver&&ids[i]!=donor)eng[2]=ids[i];}
  for(unsigned k=0;k<(third?3:2);k++){
-  if(eng[k]==ENGI_DRUM||eng[k]==99){host_drums(&trk[k]);dx_kit_load(DX_NKIT);if(eng[k]==99)memset(dx_form,0,sizeof dx_form);else if(change==(int)k)dx_form[0]=1;}
+  if(eng[k]==ENGI_DRUM||eng[k]==99){host_drums(&trk[k]);dx_kit_load(DX_NKIT);if(eng[k]==99)memset(dx_form,0,sizeof dx_form);else if(change==(int)k)dw_kit[0].ta=(uint8_t)((dw_kit[0].ta+5u)&15u);}
   else {host_preset(&trk[k],eng[k],eng[k]==ENGI_WAVE?1:9);if(change==(int)k) {if(eng[k]==ENGI_WAVE)trk[k].p[P_E0]=3;else host_preset(&trk[k],eng[k],1);}}
   trk[k].p[P_VOICE]=V_POLY;trk[k].p[P_SUS]=127;trk[k].p[P_DRIFT]=127;
   trk[k].p[P_DIST]=trk[k].p[P_CHOR]=trk[k].p[P_DLY]=trk[k].p[P_REV]=0;

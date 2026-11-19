@@ -1138,12 +1138,8 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
     if (pos + 2u + sizeof q->dw <= room && b[pos] == 'D' && b[pos + 1u] == 'W') {
         uint32_t k;
         memcpy(q->dw, b + pos + 2u, sizeof q->dw);
-        for (k = 0; k < 8u; k++) {                      /* (in range: a stored value never indexes past a name) */
-            q->dw[k].table %= WAVE_NF; q->dw[k].curve &= 3u;
-            if (q->dw[k].noise > DWN_RESON) q->dw[k].noise = 0;
-            if (q->dw[k].tick > DWT_CLICK) q->dw[k].tick = 0;
-            q->dw[k].scan &= 127u; q->dw[k].time &= 127u; q->dw[k].tlev &= 127u;
-        }
+        for (k = 0; k < 8u; k++)                        /* (in range: a stored value never indexes past a name) */
+            dw_sane(&q->dw[k]);
         pos += 2u + sizeof q->dw;
     }
     memset(q->mac_form, 0, sizeof q->mac_form);

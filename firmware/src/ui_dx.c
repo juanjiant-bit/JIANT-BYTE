@@ -72,21 +72,48 @@ static __attribute__((noinline)) void dx_knob(const page_t *pg, uint32_t k, int3
         dx_lane_turn(s);
         return;
     }
-    if (pn == 11u || pn == 12u) {                       /* (DRUM-W) TABLE: TABLE SCAN TIME; TABLE 2: CURVE NOISE TICK */
+    if (pn >= 13u) {                                    /* (DRUM-W) WAVE A, WAVE B, LAYER, MOD ENV, MOD LFO, NOISE, MOD DEST */
         dw_lane_t *D = &dw_kit[dx_ui_lane & 7u];
-        int32_t st = s > 0 ? 1 : -1;
-        if (pn == 11u) {
-            if (k == 1u) D->table = (uint8_t)clamp((int32_t)D->table + st, 0, (int32_t)WAVE_NF - 1);
-            else if (k == 2u) D->scan = (uint8_t)clamp((int32_t)D->scan + accel(EN_K1 + k, s, 127), 0, 127);
-            else D->time = (uint8_t)clamp((int32_t)D->time + accel(EN_K1 + k, s, 127), 0, 127);
-        } else if (k == 1u) D->curve = (uint8_t)clamp((int32_t)D->curve + st, 0, DWC_PING);
-        else if (k == 2u) D->noise = (uint8_t)clamp((int32_t)D->noise + st, 0, DWN_RESON);
-        else {                                          /* TICK: OFF, then six types of eight levels */
+        int32_t st = s > 0 ? 1 : -1, ac = accel(EN_K1 + k, s, 127);
+        uint8_t *u = 0, *e = 0;
+        int32_t emax = 0;
+        switch (pn * 4u + k) {
+        case 13u * 4u + 1u: e = &D->ta; emax = 15; break;
+        case 13u * 4u + 2u: u = &D->pos; break;
+        case 13u * 4u + 3u: L->mode = (uint8_t)(s > 0 ? L->mode | DX_DRIVE : L->mode & ~DX_DRIVE); return;
+        case 14u * 4u + 1u: e = &D->tb; emax = 15; break;
+        case 14u * 4u + 2u: e = &D->str; emax = DWS_N - 1; break;
+        case 14u * 4u + 3u: u = &D->bamt; break;
+        case 15u * 4u + 1u: e = &D->ratio; emax = (int32_t)DW_NRAT - 1; break;
+        case 15u * 4u + 2u: u = &D->bpos; break;
+        case 15u * 4u + 3u: u = &D->vel; break;
+        case 16u * 4u + 1u: u = &D->eatk; break;
+        case 16u * 4u + 2u: u = &D->edec; break;
+        case 16u * 4u + 3u: u = &D->eamt; break;
+        case 17u * 4u + 1u: u = &D->lrate; break;
+        case 17u * 4u + 2u: e = &D->lshp; emax = DWL_N - 1; break;
+        case 17u * 4u + 3u: u = &D->ldep; break;
+        case 19u * 4u + 1u: e = &D->edst; emax = DWD_N - 1; break;
+        case 19u * 4u + 2u: e = &D->ldst; emax = DWD_N - 1; break;
+        case 19u * 4u + 3u:                             /* PITCH MOD: the pitch envelope's kind */
+            L->mode = (uint8_t)((L->mode & ~0x60u) | (uint32_t)clamp((int32_t)((L->mode >> 5) & 3u) + st, 0, 3) << 5);
+            return;
+        case 18u * 4u + 1u: e = &D->noise; emax = DWN_RESON; break;
+        case 18u * 4u + 2u: {                           /* FILTER: LP BP HP, each with SNAP */
+            int32_t f = (int32_t)((L->mode >> 2) & 3u), ix = clamp((f > 2 ? 1 : f) * 2 + (int32_t)((L->mode >> 4) & 1u) + st, 0, 5);
+            L->mode = (uint8_t)((L->mode & ~0x1Cu) | (uint32_t)(ix / 2) << 2 | (uint32_t)(ix & 1) << 4);
+            return;
+        }
+        case 18u * 4u + 3u: {                           /* TICK: OFF, then six types of eight levels */
             int32_t ix = D->tick ? ((int32_t)D->tick - 1) * 8 + (int32_t)D->tlev / 16 + 1 : 0;
             ix = clamp(ix + st, 0, 48);
             D->tick = (uint8_t)(ix ? (ix - 1) / 8 + 1 : 0);
             D->tlev = (uint8_t)(ix ? ((ix - 1) % 8) * 16 + 15 : 0);
+            return;
         }
+        }
+        if (u) *u = (uint8_t)clamp((int32_t)*u + ac, 0, 127);
+        if (e) *e = (uint8_t)clamp((int32_t)*e + st, 0, emax);
         return;
     }
     if (pn == 9u) {                                     /* FORMULA: lane, formula, A/B, variable A */
@@ -153,7 +180,6 @@ static void dx_kit3_knob(uint32_t k, int32_t s)
     }
     uint32_t bp = DX_TONE_BP(dx_tone), fb = DX_TONE_FB(dx_tone);
     if (k == 0u) bp = (uint32_t)clamp((int32_t)bp + (s > 0 ? 1 : -1), 0, 15);
-    else if (k == 1u) fb = (uint32_t)clamp((int32_t)fb + (s > 0 ? 1 : -1), 0, 15);
     else if (k == 2u) dx_hands = (uint8_t)clamp((int32_t)dx_hands + (s > 0 ? 1 : -1), 0, 15);
     else dx_glue = (uint8_t)clamp((int32_t)dx_glue + (s > 0 ? 1 : -1), 0, 15);
     dx_tone = (uint8_t)(bp | fb << 4);
@@ -175,10 +201,10 @@ static __attribute__((noinline)) void dx_kit3_cards(void)
         else fmt_fix(val, (int32_t)(hz / 100u), 1);
     } else
         str_cpy(val, "OFF", sizeof val);
-    draw_column(0, "BP", val, bp ? (CUTOFF_HZ[78u + bp * 2u] < 1000u ? "Hz" : "kHz") : "", bp ? VAL(0u) : T_DIM,
+    draw_column(0, "METAL", val, bp ? (CUTOFF_HZ[78u + bp * 2u] < 1000u ? "Hz" : "kHz") : "", bp ? VAL(0u) : T_DIM,
                 (int32_t)bp * 1000 / 15, ICON_TONE);
-    fmt_int(val, (int32_t)fb);
-    gauge_column(1, "FEEDBK", fb ? val : "OFF", fb ? VAL(1u) : T_DIM, (int32_t)fb * 1000 / 15);
+    (void)fb;
+    empty_column(1);                                    /* (DRUM-W: FEEDBK gone with DRUM-X's oscillator) */
     fmt_int(val, (int32_t)dx_hands);                    /* (0.7.9) the CLAP's HANDS */
     gauge_column(2, "HANDS", dx_hands ? val : "OFF", dx_hands ? VAL(2u) : T_DIM, (int32_t)dx_hands * 1000 / 15);
     fmt_int(val, (int32_t)dx_glue);                     /* (0.9.9-snd1) the bus's GLUE */
@@ -211,18 +237,48 @@ static void dx_cards(const page_t *pg)
         ln[3] = dx_ui_side ? 'B' : 'A';
         ln[4] = 0;
     }
-    hot_gauge_column(0, "SOUND", ln, (int32_t)(dx_ui_lane & 7u) * 1000 / 7);
-    if (pn == 11u || pn == 12u) {                       /* (DRUM-W) */
+    hot_gauge_column(0, "PAD", ln, (int32_t)(dx_ui_lane & 7u) * 1000 / 7);
+    if (pn >= 13u) {                                    /* (DRUM-W) */
         const dw_lane_t *D = &dw_kit[dx_ui_lane & 7u];
-        if (pn == 11u) {
-            hot_gauge_column(1, "TABLE", N_WAVEF[D->table % WAVE_NF], (int32_t)(D->table % WAVE_NF) * 1000 / (int32_t)(WAVE_NF - 1u));
-            fmt_int(val, (int32_t)D->scan - 64);
-            hot_gauge_column(2, "SCAN", val, (int32_t)D->scan * 1000 / 127);
-            fmt_int(val, D->time);
-            hot_gauge_column(3, "TIME", val, (int32_t)D->time * 1000 / 127);
-        } else {
-            hot_gauge_column(1, "CURVE", N_DWC[D->curve & 3u], (int32_t)(D->curve & 3u) * 333);
-            hot_gauge_column(2, "NOISE", N_DWN[D->noise % 5u], (int32_t)(D->noise % 5u) * 250);
+        static const char *const PM[4] = {"DECAY", "LONG", "NOISE", "SINE"}, *const FL[3] = {"LP", "BP", "HP"};
+        uint32_t f;
+        switch (pn) {
+        case 13u:
+            hot_gauge_column(1, "TABLE A", N_WAVEF[D->ta & 15u], (int32_t)(D->ta & 15u) * 1000 / 15);
+            fmt_int(val, D->pos); hot_gauge_column(2, "POS", val, D->pos * 1000 / 127);
+            gauge_column(3, "DRIVE", L->mode & DX_DRIVE ? "ON" : "OFF", L->mode & DX_DRIVE ? VAL(3u) : T_DIM, L->mode & DX_DRIVE ? 1000 : 0);
+            break;
+        case 14u:
+            hot_gauge_column(1, "TABLE B", N_WAVEF[D->tb & 15u], (int32_t)(D->tb & 15u) * 1000 / 15);
+            hot_gauge_column(2, "STRUCT", N_DWS[D->str % DWS_N], (int32_t)(D->str % DWS_N) * 250);
+            fmt_int(val, D->bamt); gauge_column(3, "AMOUNT", D->bamt ? val : "OFF", D->bamt ? VAL(3u) : T_DIM, D->bamt * 1000 / 127);
+            break;
+        case 15u:
+            hot_gauge_column(1, "RATIO", N_DWR[D->ratio % DW_NRAT], (int32_t)(D->ratio % DW_NRAT) * 1000 / (int32_t)(DW_NRAT - 1u));
+            fmt_int(val, D->bpos); hot_gauge_column(2, "B POS", val, D->bpos * 1000 / 127);
+            fmt_int(val, (int32_t)D->vel - 64); hot_gauge_column(3, "VEL>POS", val, D->vel * 1000 / 127);
+            break;
+        case 16u:
+            fmt_int(val, D->eatk); hot_gauge_column(1, "ATTACK", val, D->eatk * 1000 / 127);
+            fmt_int(val, D->edec); hot_gauge_column(2, "DECAY", val, D->edec * 1000 / 127);
+            fmt_int(val, (int32_t)D->eamt - 64); hot_gauge_column(3, "AMOUNT", val, D->eamt * 1000 / 127);
+            break;
+        case 17u:
+            fmt_int(val, D->lrate); gauge_column(1, "RATE", D->lrate ? val : "OFF", D->lrate ? VAL(1u) : T_DIM, D->lrate * 1000 / 127);
+            hot_gauge_column(2, "SHAPE", N_DWL[D->lshp % DWL_N], (int32_t)(D->lshp % DWL_N) * 250);
+            fmt_int(val, (int32_t)D->ldep - 64); hot_gauge_column(3, "DEPTH", val, D->ldep * 1000 / 127);
+            break;
+        case 19u:
+            hot_gauge_column(1, "ENV TO", N_DWD[D->edst % DWD_N], (int32_t)(D->edst % DWD_N) * 200);
+            hot_gauge_column(2, "LFO TO", N_DWD[D->ldst % DWD_N], (int32_t)(D->ldst % DWD_N) * 200);
+            hot_gauge_column(3, "SWEEP", PM[(L->mode >> 5) & 3u], (int32_t)((L->mode >> 5) & 3u) * 333);
+            break;
+        default:
+            hot_gauge_column(1, "TYPE", N_DWN[D->noise % 5u], (int32_t)(D->noise % 5u) * 250);
+            f = (L->mode >> 2) & 3u;
+            str_cpy(val, FL[f > 2u ? 1u : f], sizeof val);
+            if ((L->mode >> 4) & 1u) str_cpy(val + str_len(val), " SNAP", 6);
+            hot_gauge_column(2, "FILTER", val, (int32_t)((f > 2u ? 1u : f) * 2u + ((L->mode >> 4) & 1u)) * 200);
             if (D->tick) {                              /* "CLICK 5": the type, the level 1 .. 8 */
                 uint32_t l;
                 str_cpy(val, N_DWT[D->tick % 7u], sizeof val);
@@ -230,6 +286,7 @@ static void dx_cards(const page_t *pg)
                 val[l] = ' '; val[l + 1u] = (char)('1' + D->tlev / 16); val[l + 2u] = 0;
             }
             hot_gauge_column(3, "TICK", D->tick ? val : "OFF", D->tick ? (((int32_t)D->tick - 1) * 8 + D->tlev / 16 + 1) * 1000 / 48 : 0);
+            break;
         }
         return;
     }
@@ -287,14 +344,14 @@ static void dx_cards(const page_t *pg)
         fmt_int(val, v[DXP_NOISE]);
         hot_gauge_column(2, "NOISE", val, v[DXP_NOISE] * 1000 / 127);
         fmt_int(val, v[DXP_COLOR]);
-        hot_gauge_column(3, "COLOR", val, v[DXP_COLOR] * 1000 / 127);
+        hot_gauge_column(3, "CUTOFF", val, v[DXP_COLOR] * 1000 / 127);
         return;
     }
-    hot_gauge_column(1, "SIDE", dx_ui_side ? "B" : "A", dx_ui_side ? 1000 : 0);   /* SOUND */
+    hot_gauge_column(1, "PATCH", dx_ui_side ? "B" : "A", dx_ui_side ? 1000 : 0);   /* PITCH (was SOUND) */
     fmt_int(val, v[DXP_PITCH]);
     hot_gauge_column(2, "PITCH", val, v[DXP_PITCH] * 1000 / 127);
     fmt_int(val, v[DXP_PMOD]);
-    hot_gauge_column(3, ((L->mode >> 2) & 3u) == DXF_GR ? "SCRAPE" : "PMOD", val, v[DXP_PMOD] * 1000 / 127);   /* (V10.7.8: GR's) */
+    hot_gauge_column(3, "SWEEP", val, v[DXP_PMOD] * 1000 / 127);   /* (V10.7.8: GR's) */
 }
 /* what the cards and the panel show changed */
 static uint32_t dx_sig(void)
@@ -308,6 +365,8 @@ static uint32_t dx_sig(void)
     for (i = 0; i < sizeof dx_fmod; i++) h = (h ^ ((const uint8_t *)dx_fmod)[i]) * 16777619u;
     for (i = 0; i < DXP_N; i++)
         h = (h ^ (uint32_t)L->a[i] << 8 ^ L->b[i]) * 16777619u;
+    for (i = 0; i < sizeof(dw_lane_t); i++)                /* (DRUM-W) the pad's tables and motion */
+        h = (h ^ ((const uint8_t *)&dw_kit[dx_ui_lane & 7u])[i]) * 16777619u;
     return h;
 }
 
@@ -340,3 +399,101 @@ static BTAPP_FN void sw_ui_cards_bt(const page_t *pg)
     }
 }
 static void sw_ui_knob(const page_t *pg, uint32_t k, int32_t s) { if (bt_hw_seg()) sw_ui_knob_bt(pg, k, s); }
+
+/* (DRUM-W) the panel of WAVE A .. NOISE: pad A's table as its four frames stacked in depth, the frame it plays now lit
+ * where it is (the hit's place, live, or its POS at rest) and the SCAN's way under it; B's frame beside it with the
+ * STRUCT joining them; the eight pads below, the one edited framed, the ones sounding lit */
+static void dw_wave_line(const int16_t *m, int32_t x, int32_t y, int32_t w, int32_t a, uint16_t c, int32_t th)
+{
+    int32_t k, px = x, py = y - (m[0] * a >> 15);
+    for (k = 1; k <= (int32_t)DW_N; k++) {
+        int32_t nx = x + k * w / (int32_t)DW_N, ny = y - (m[k] * a >> 15);
+        if (th > 1) cv_line_t(px, py, nx, ny, c, th);
+        else cv_line(px, py, nx, ny, c);
+        px = nx; py = ny;
+    }
+}
+/* (DRUM-W) MOD ENV's or MOD LFO's shape in a box (x, y, 66 x 34), lit to where the hit is */
+static void dw_mod_box(const dw_lane_t *D, int lfo, int32_t x, int32_t y, int32_t on)
+{
+    int32_t k, px = 0, py = 0, w = 64, h = 30, idle = lfo ? !D->lrate || D->ldep == 64 : D->eamt == 64;   /* (shown whole, dim when it does nothing) */
+    cv_rect(x, y, 66, 34, T_SURF);
+    for (k = 0; k <= w; k++) {
+        int32_t vq;
+        if (lfo) {                                       /* two turns of the shape */
+            uint32_t ph = (uint32_t)k * (0x80000000u / (uint32_t)w) * 4u;
+            switch (D->lshp) {
+            case DWL_SINE: vq = sine_i(ph); break;
+            case DWL_SQR: vq = ph < 0x80000000u ? 32767 : -32767; break;
+            case DWL_RAMP: vq = (int32_t)(ph >> 16) - 32768; break;
+            case DWL_SH: vq = (int32_t)(fvm_hash((ph >> 29) * 977u + 7u + (uint32_t)(k >= w / 2) * 131u) >> 17) - 32768; break;
+            default: vq = (int32_t)(ph >> 15); vq = vq < 65536 ? vq - 32768 : 98303 - vq; break;
+            }
+            vq = D->ldep < 64 ? -vq : vq;
+        } else {                                         /* ATTACK then DECAY, their times on a log scale */
+            int32_t ta = D->eatk * w / 254, td = w - ta, e;
+            if (k < ta) e = k * 32767 / (ta ? ta : 1);
+            else { int32_t x2 = (k - ta) * 65535 / (td ? td : 1); x2 = x2 * 127 / (D->edec + 16); x2 = x2 > 65535 ? 65535 : x2; e = (int32_t)(((65535u - (uint32_t)x2) * (65535u - (uint32_t)x2)) >> 17); }
+            vq = D->eamt < 64 ? -e : e;
+        }
+        {
+            int32_t nx = x + 1 + k, ny = y + 17 - (vq * h / 2 >> 15);
+            if (k) cv_line(px, py, nx, ny, idle ? T_DIM : on ? T_ACCENT : T_THEME);
+            px = nx; py = ny;
+        }
+    }
+    cv_line(x + 1, y + 17, x + 65, y + 17, ux_mix(T_SURF, T_DIM, 60));
+}
+static void dw_panel(void)
+{
+    static const char *const PAD[8] = {"KICK", "SNARE", "CLAP", "HAT C", "HAT O", "TOM", "RIM", "BELL"};
+    uint32_t ln = dx_ui_lane & 7u, k, pn = dx_pagen(cur_page());
+    const dw_lane_t *D = &dw_kit[ln];
+    int16_t m[DW_N + 1u];
+    int32_t top = (int32_t)(DW_FR - 1u) * 256, lv = dw_live[ln], on = (lv & 0x8000) != 0, p0 = D->pos * top / 127;
+    int32_t sp = on ? (lv & 0x7FFF) : p0;
+    int32_t se = D->edst == DWD_POSA || D->edst == DWD_POS ? clamp(p0 + ((int32_t)D->eamt - 64) * 12, 0, top) : p0;
+    int32_t x0 = 8, y0 = 88, dx = 10, dy = 12, w = 104, a = 12;
+    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, PAD[ln], T_ACCENT);
+    cv_text(60, 4 - AF_S_CAP_Y, &AF_S, N_WAVEF[D->ta & 15u], T_TEXT);
+    for (k = DW_FR; k-- > 0;) {                          /* the frames, the far one first */
+        int32_t ox = x0 + (int32_t)k * dx, oy = y0 - (int32_t)k * dy;
+        dw_frame(m, D->ta & 15u, (int32_t)k * 256);
+        dw_wave_line(m, ox, oy, w, a, ux_mix(T_BG, T_DIM, 40 + (int32_t)(3u - k) * 20), 1);
+    }
+    {                                                    /* the ENV's way on POS, then where it plays */
+        int32_t xa = x0 + p0 * dx / 256, ya = y0 - p0 * dy / 256, xb = x0 + se * dx / 256, yb = y0 - se * dy / 256;
+        int32_t xs = x0 + sp * dx / 256, ys = y0 - sp * dy / 256;
+        cv_line_t(xa + w + 6, ya, xb + w + 6, yb, ux_mix(T_BG, T_THEME, 50), 2);
+        dw_frame(m, D->ta & 15u, sp);
+        dw_wave_line(m, xs, ys, w, a + 2, on ? T_ACCENT : T_THEME, 2);
+        cv_rect(xs + w + 4, ys - 2, 5, 5, on ? T_ACCENT : T_THEME);
+    }
+    if (pn == 16u || pn == 17u || pn == 19u) {           /* MOD ENV, MOD LFO, MOD DEST: the modulators */
+        int lfo = pn == 17u;
+        if (pn == 19u) {
+            cv_text(160, 4 - AF_S_CAP_Y, &AF_S, N_DWD[D->edst % DWD_N], T_ACCENT);
+            dw_mod_box(D, 0, 160, 16, on);
+            cv_text(160, 54 - AF_S_CAP_Y, &AF_S, N_DWD[D->ldst % DWD_N], T_ACCENT);
+            dw_mod_box(D, 1, 160, 66, on);
+        } else {
+            cv_text(160, 22 - AF_S_CAP_Y, &AF_S, lfo ? "LFO" : "ENV", T_TEXT);
+            cv_text(160, 36 - AF_S_CAP_Y, &AF_S, N_DWD[(lfo ? D->ldst : D->edst) % DWD_N], T_ACCENT);
+            dw_mod_box(D, lfo, 160, 48, on);
+        }
+    } else if (D->bamt) {                                /* B, at its place, by the STRUCT */
+        int32_t bp = clamp(D->bpos * top / 127 + (on ? sp - p0 : 0), 0, top);
+        cv_text(160, 22 - AF_S_CAP_Y, &AF_S, N_DWS[D->str % DWS_N], T_ACCENT);
+        cv_text(160, 36 - AF_S_CAP_Y, &AF_S, N_WAVEF[D->tb & 15u], T_TEXT);
+        cv_rect(160, 48, 74, 34, T_SURF);
+        dw_frame(m, D->tb & 15u, bp);
+        dw_wave_line(m, 165, 65, 64, 15 * D->bamt / 127 + 2, T_THEME, 1);
+    } else
+        cv_text(160, 36 - AF_S_CAP_Y, &AF_S, "B OFF", T_DIM);
+    for (k = 0; k < 8u; k++) {                           /* the pads */
+        int32_t px = 6 + (int32_t)k * 29, s2 = (dw_live[k] & 0x8000) != 0;
+        cv_rect(px, 104, 26, 14, s2 ? ux_mix(T_SURF, T_ACCENT, 60) : T_SURF);
+        if (k == ln) cv_frame(px, 104, 26, 14, T_ACCENT);
+        cv_text(px + 4, 107 - AF_S_CAP_Y, &AF_S, DX_LANE_ABBR[k], k == ln ? T_TEXT : T_DIM);
+    }
+}

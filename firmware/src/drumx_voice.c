@@ -51,91 +51,99 @@ typedef struct {                                         /* a hit */
 } dx_voice_t;
 
 
-/* ---- (DRUM-W) the drums on wavetables: each lane's BODY a table of a formula f(w, A) of WAVE's bank, drawn in the main
- * loop (dw_poll, never in the audio) as 4 frames of 64 points, A = 0 .. 1; a hit scans its frames from COLOR's place by
- * SCAN over TIME (its CURVE), the two frames it is between mixed once a block, one interpolated read a sample (as the
- * sine it replaces); NOISE its colour (WHITE PINK BROWN VIOLET RESON), TICK an attack of a few ms (PULSE SAW RECT BURST
- * HF CLICK, computed only while it sounds). The envelopes, the noise filter, the choke, the clap's hands, the guiro and
- * the cowbell stay DRUM-X's. A lane whose table is not drawn yet plays a sine (a ms after a change) */
+/* ---- DRUM-W: a drum machine on wavetables. Each pad two tables of WAVE's bank (f(w, A), drawn in the main loop by
+ * dw_poll as 4 frames of 32 points, A = 0 .. 1: all sixteen, 2.1 KB of the pool), A the body and B the layer at its
+ * RATIO of the pitch, joined by a STRUCTURE (MIX FM RING SYNC FOLD: B's AMOUNT); each scanned from its POS, moved by
+ * the pad's own modulators: MOD ENV (ATTACK DECAY AMOUNT) and MOD LFO (RATE SHAPE DEPTH, from the hit), each to a DEST
+ * (POS A, POS B, both, B's AMOUNT, PITCH, the NOISE's colour), and the velocity (VEL: a soft hit elsewhere). The two frames a table is between mixed once a
+ * block, one interpolated read a sample a table (half rate). Then the noise (its colour WHITE PINK BROWN VIOLET RESON,
+ * through DRUM-X's filter), a TICK on the attack, DRUM-X's envelopes, pitch envelope, A / B patches and their MORPH */
 static uint32_t dx_pow2(uint32_t x);
 #define DW_N 32u                                         /* a frame's points (+1: the first again) */
 #define DW_FR 4u                                         /* frames a table, A = 0, 1/3, 2/3, 1 */
-#define DW_SL 7u                                         /* tables drawn at once (a kit's eight lanes; sharing a formula, one) */
-typedef struct { uint8_t table, scan, time, curve, noise, tick, tlev, pad; } dw_lane_t;   /* scan 64 none, 0 down, 127 up */
-enum { DWC_LIN, DWC_FAST, DWC_SLOW, DWC_PING };
+typedef struct {
+    uint8_t ta, tb, pos, bpos;                           /* A's table, B's; their places (0..127) */
+    uint8_t str, ratio, bamt;                            /* the STRUCTURE, B's RATIO, its AMOUNT */
+    uint8_t eatk, edec, eamt, edst;                      /* MOD ENV: ATTACK, DECAY, AMOUNT (64 none), its DEST */
+    uint8_t lrate, lshp, ldep, ldst;                     /* MOD LFO: RATE (0 off), SHAPE, DEPTH (64 none), its DEST */
+    uint8_t vel;                                         /* VEL: a soft hit elsewhere in the tables (64 none) */
+    uint8_t noise, tick, tlev, pad;                      /* the noise's colour, the TICK and its level */
+} dw_lane_t;
+enum { DWS_MIX, DWS_FM, DWS_RING, DWS_SYNC, DWS_FOLD, DWS_N };
+enum { DWD_POSA, DWD_POSB, DWD_POS, DWD_BAMT, DWD_PITCH, DWD_NOISE, DWD_N };   /* a modulator's DEST */
+enum { DWL_TRI, DWL_SINE, DWL_SQR, DWL_RAMP, DWL_SH, DWL_N };
 enum { DWN_WHITE, DWN_PINK, DWN_BROWN, DWN_VIOLET, DWN_RESON };
 enum { DWT_OFF, DWT_PULSE, DWT_SAW, DWT_RECT, DWT_BURST, DWT_HF, DWT_CLICK };
-static const char *const N_DWC[] = {"LIN", "FAST", "SLOW", "PING", 0};
+#define DW_NRAT 12u
+static const char *const N_DWS[] = {"MIX", "FM", "RING", "SYNC", "FOLD", 0};
+static const char *const N_DWD[] = {"POS A", "POS B", "POS AB", "B AMT", "PITCH", "NOISE", 0};
+static const char *const N_DWL[] = {"TRI", "SINE", "SQR", "RAMP", "S&H", 0};
 static const char *const N_DWN[] = {"WHITE", "PINK", "BROWN", "VIOLET", "RESON", 0};
 static const char *const N_DWT[] = {"OFF", "PULSE", "SAW", "RECT", "BURST", "HF", "CLICK", 0};
-/* the factory kit's lanes: KICK SNARE CLAP HAT C HAT O TOM RIM BELL */
-static const dw_lane_t DW_DEF[8] = {
-    {7, 0, 18, DWC_FAST, DWN_WHITE, DWT_CLICK, 50, 0},   /* KICK: FOLD, its brightness falling to the sine */
-    {2, 20, 40, DWC_FAST, DWN_WHITE, DWT_BURST, 60, 0},  /* SNARE: FMR down */
-    {13, 64, 30, DWC_LIN, DWN_PINK, DWT_OFF, 0, 0},      /* CLAP: NOISE */
-    {11, 90, 10, DWC_LIN, DWN_VIOLET, DWT_HF, 40, 0},    /* HAT C: BITS up */
-    {11, 100, 60, DWC_SLOW, DWN_VIOLET, DWT_HF, 30, 0},  /* HAT O */
-    {1, 10, 50, DWC_FAST, DWN_BROWN, DWT_CLICK, 40, 0},  /* TOM: FM2 down */
-    {9, 64, 20, DWC_LIN, DWN_RESON, DWT_PULSE, 70, 0},   /* RIM: PULSE */
-    {6, 80, 40, DWC_LIN, DWN_WHITE, DWT_RECT, 30, 0},    /* BELL: RING */
-};
-static dw_lane_t dw_kit[8] = {   /* (the music's: the factory kit's from the start; a kit or a project sets it) */
-    {7, 0, 18, DWC_FAST, DWN_WHITE, DWT_CLICK, 50, 0},   /* KICK: FOLD, its brightness falling to the sine */
-    {2, 20, 40, DWC_FAST, DWN_WHITE, DWT_BURST, 60, 0},  /* SNARE: FMR down */
-    {13, 64, 30, DWC_LIN, DWN_PINK, DWT_OFF, 0, 0},      /* CLAP: NOISE */
-    {11, 90, 10, DWC_LIN, DWN_VIOLET, DWT_HF, 40, 0},    /* HAT C: BITS up */
-    {11, 100, 60, DWC_SLOW, DWN_VIOLET, DWT_HF, 30, 0},  /* HAT O */
-    {1, 10, 50, DWC_FAST, DWN_BROWN, DWT_CLICK, 40, 0},  /* TOM: FM2 down */
-    {9, 64, 20, DWC_LIN, DWN_RESON, DWT_PULSE, 70, 0},   /* RIM: PULSE */
-    {6, 80, 40, DWC_LIN, DWN_WHITE, DWT_RECT, 30, 0},    /* BELL: RING */
-};
-static int8_t dw_tab[DW_SL][DW_FR][DW_N + 1u] __attribute__((section(".pool")));   /* (924 B of the pool: 8 bits, 32 points, 7 slots;
-                                                          * the pool's 8 KB headroom) */
-static volatile uint8_t dw_key[DW_SL];                   /* 1 + the formula drawn there, 0 none (dw_poll: 0 while it draws) */
-static int32_t dw_slot(uint32_t table)
-{
-    uint32_t k;
-    for (k = 0; k < DW_SL; k++)
-        if (dw_key[k] == table % WAVE_NF + 1u)
-            return (int32_t)k;
-    return -1;
+static const char *const N_DWR[] = {"1/2", "1", "1.41", "1.5", "2", "2.76", "3", "3.5", "4", "5.4", "7", "8", 0};
+static const uint16_t DW_RAT[DW_NRAT] = {2048, 4096, 5793, 6144, 8192, 11305, 12288, 14336, 16384, 22118, 28672, 32768};   /* Q12 */
+/* the factory kit's pads: KICK SNARE CLAP HAT C HAT O TOM RIM BELL
+ *  {A, B, POS, B POS, STRUCT, RATIO, AMOUNT, ENV: ATK DEC AMT DEST, LFO: RATE SHAPE DEPTH DEST, VEL, NOISE, TICK, LEVEL} */
+#define DW_DEF_KIT { \
+    {7, 0, 0, 0, DWS_FM, 0, 40, 0, 22, 118, DWD_POS, 0, DWL_TRI, 64, DWD_POSA, 80, DWN_BROWN, DWT_CLICK, 63, 0},      /* KICK: FOLD falling to the sine, a sub FM */ \
+    {2, 13, 2, 60, DWS_MIX, 4, 50, 0, 40, 98, DWD_POS, 0, DWL_TRI, 64, DWD_POSA, 84, DWN_WHITE, DWT_BURST, 63, 0},   /* SNARE: FMR down, a NOISE cycle */ \
+    {13, 11, 16, 60, DWS_RING, 5, 70, 0, 30, 88, DWD_POSA, 90, DWL_SH, 76, DWD_POSB, 64, DWN_PINK, DWT_OFF, 0, 0},  /* CLAP: NOISE ringed by BITS */ \
+    {11, 13, 127, 100, DWS_RING, 10, 90, 0, 12, 48, DWD_POS, 0, DWL_TRI, 64, DWD_POSA, 90, DWN_VIOLET, DWT_HF, 47, 0},   /* HAT C: BITS x NOISE */ \
+    {11, 9, 122, 90, DWS_RING, 9, 80, 10, 70, 58, DWD_POS, 70, DWL_TRI, 72, DWD_POSB, 90, DWN_VIOLET, DWT_HF, 31, 0}, /* HAT O */ \
+    {1, 14, 0, 40, DWS_FM, 3, 30, 0, 50, 108, DWD_POS, 0, DWL_TRI, 64, DWD_POSA, 76, DWN_BROWN, DWT_CLICK, 47, 0},    /* TOM: FM2 down */ \
+    {9, 6, 48, 70, DWS_MIX, 6, 70, 0, 20, 88, DWD_POSA, 0, DWL_TRI, 64, DWD_POSA, 80, DWN_RESON, DWT_PULSE, 79, 0},  /* RIM: PULSE and RING */ \
+    {0, 2, 0, 50, DWS_FM, 5, 70, 0, 60, 30, DWD_BAMT, 40, DWL_SINE, 70, DWD_POSB, 72, DWN_WHITE, DWT_RECT, 31, 0},  /* BELL: a sine, FMR's FM at 2.76 */ \
 }
-/* the main loop (project.c dw_poll): a table the kit wants and has not, drawn into a slot no lane wants (one a call) */
+static const dw_lane_t DW_DEF[8] = DW_DEF_KIT;
+static dw_lane_t dw_kit[8] = DW_DEF_KIT;   /* (the music's: the factory kit's from the start; a kit or a project sets it) */
+static void dw_sane(dw_lane_t *d)                        /* (a stored pad in range: no value indexes past a name) */
+{
+    uint8_t *u = (uint8_t *)d;
+    uint32_t k;
+    for (k = 0; k < sizeof *d; k++) u[k] &= 127u;
+    d->ta &= 15u; d->tb &= 15u; d->str %= DWS_N; d->ratio %= DW_NRAT; d->edst %= DWD_N; d->ldst %= DWD_N; d->lshp %= DWL_N;
+    if (d->noise > DWN_RESON) d->noise = 0;
+    if (d->tick > DWT_CLICK) d->tick = 0;
+}
+static int8_t dw_tab[16][DW_FR][DW_N + 1u] __attribute__((section(".pool")));   /* (2.1 KB of the pool: every table of the bank) */
+static volatile uint16_t dw_have;                        /* bit f: table f drawn (dw_poll; 0 while it draws) */
+static int32_t dw_lcyc[2][DW_N];                         /* (LIFE) each core's last pad cycle (dw_body) */
+static volatile uint16_t dw_live[8];                     /* (the panel) each pad's place now, 0 .. 768 (+ 1 << 15: sounding) */
+/* the main loop (project.c dw_poll): a table not drawn yet, the kit's first (one a call) */
 static void dw_poll_ws(gq_work_t *w)
 {
-    uint32_t want = 0, l, k, f, s, i, j;
+    uint32_t want = 0, l, k, f, i, j;
     for (l = 0; l < 8u; l++)
-        want |= 1u << (dw_kit[l].table % WAVE_NF);
-    for (f = 0; f < WAVE_NF; f++) {
-        if (!((want >> f) & 1u) || dw_slot(f) >= 0)
-            continue;
-        for (s = 0; s < DW_SL && dw_key[s] && ((want >> (dw_key[s] - 1u)) & 1u); s++)
-            ;
-        if (s == DW_SL)
-            return;                                      /* (no slot free: the oscillator of before) */
-        dw_key[s] = 0;
-        {
-            const char *tx = WAVE_BANK[f];
-            uint32_t n = 0, W[FVM_BLK], T[FVM_BLK] = {0}, y[FVM_BLK];
-            fvm_env_t e = {{0}, {0}, w->st};
-            while (tx[n]) n++;
-            if (fvm_compile(&w->cc, FVM_FULL(&w->pg), tx, n, 0) || w->pg.p.nstate > 1u)
-                return;
-            e.arr[FA_T] = T; e.arr[FA_W] = W;
-            for (j = 0; j < DW_FR; j++) {
-                e.u[FU_AF] = j * 127u / (DW_FR - 1u) * 516u;
-                for (k = 0; k < DW_N; k += FVM_BLK) {
-                    for (i = 0; i < FVM_BLK; i++) W[i] = (k + i) * (65536u / DW_N);
-                    fvm_run(&w->pg.p, &e, &w->sc, FVM_BLK, y);
-                    for (i = 0; i < FVM_BLK && k + i < DW_N; i++)
-                        dw_tab[s][j][k + i] = (int8_t)clamp((int32_t)y[i] >> 9, -127, 127);
-                }
-                dw_tab[s][j][DW_N] = dw_tab[s][j][0];
-            }
-        }
-        dw_key[s] = (uint8_t)(f + 1u);
+        want |= 1u << (dw_kit[l].ta & 15u) | 1u << (dw_kit[l].tb & 15u);
+    want &= ~(uint32_t)dw_have;
+    if (!want)
+        want = 0xFFFFu & ~(uint32_t)dw_have;              /* (then the rest: a table browsed is there at once) */
+    for (f = 0; f < 16u && !((want >> f) & 1u); f++)
+        ;
+    if (f == 16u)
         return;
+    {
+        const char *tx = WAVE_BANK[f];
+        uint32_t n = 0, W[FVM_BLK], T[FVM_BLK] = {0}, y[FVM_BLK];
+        fvm_env_t e = {{0}, {0}, w->st};
+        while (tx[n]) n++;
+        if (fvm_compile(&w->cc, FVM_FULL(&w->pg), tx, n, 0) || w->pg.p.nstate > 1u) {
+            dw_have |= (uint16_t)(1u << f);              /* (never: the bank compiles; a sine stays there) */
+            return;
+        }
+        e.arr[FA_T] = T; e.arr[FA_W] = W;
+        for (j = 0; j < DW_FR; j++) {
+            e.u[FU_AF] = j * 127u / (DW_FR - 1u) * 516u;
+            for (k = 0; k < DW_N; k += FVM_BLK) {
+                for (i = 0; i < FVM_BLK; i++) W[i] = (k + i) * (65536u / DW_N);
+                fvm_run(&w->pg.p, &e, &w->sc, FVM_BLK, y);
+                for (i = 0; i < FVM_BLK && k + i < DW_N; i++)
+                    dw_tab[f][j][k + i] = (int8_t)clamp((int32_t)y[i] >> 9, -127, 127);
+            }
+            dw_tab[f][j][DW_N] = dw_tab[f][j][0];
+        }
     }
+    dw_have |= (uint16_t)(1u << f);
 }
 static uint32_t dw_time(uint32_t t) { return 64u + ((dx_pow2(t * 9u * 4096u / 127u) >> 8) * 22u >> 4); }   /* (half-rate samples:
                                                           * 3 ms .. ~0.9 s) */
@@ -153,12 +161,6 @@ static int32_t dw_tick(uint32_t ty, uint32_t k)          /* the TICK's k-th half
     }
     return 0;
 }
-/* (V10.6q) the SINE's drive: 1 / tanh(its gain), Q12, every 8 COLOR (0..128): the driven sine's peak back to the sine's */
-static const uint16_t DX_NRM[17] = {16724, 11014, 8422, 6987, 6105, 5526, 5131, 4854, 4655, 4511, 4406, 4328, 4270, 4249, 4249,
-                                    4249, 4249};
-/* the oscillator's modulator ratios (Q12), by wave */
-static const uint16_t DX_RATIO[4] = {4096, 4096, 6021, 11305};
-
 /* x octaves (x / 4096 of them, below 16) as a Q16 factor 2^(x / 4096): the whole octaves a shift of 1.0, the rest
  * t (0 .. 1, the low 12 bits) a third-order polynomial 1 + c1 t + c2 t^2 + c3 t^3, its coefficients Q16 (c1 0.6957,
  * c2 0.2266, c3 0.0777: off by 0.01 % at most), taken as ((c3 t + c2) t + c1) t + 1 */
@@ -169,36 +171,6 @@ static __attribute__((noinline)) uint32_t dx_pow2(uint32_t x)
     acc = 45594u + ((t * acc) >> 12);
     acc = 65536u + ((t * acc) >> 12);
     return acc << (x >> 12);
-}
-/* (0.9.9-snd1) the owner: FEEDBK, FM ENV "too extreme, harsh noise, unusable"; "a SOPHIE-like palette: hard but
- * musical, metallic, rubbery, clean transients". The knobs on curves, most of the travel musical, the extreme only in
- * the last steps. FEEDBK (the kit's KIT 3 + the sound's SOUND 4, 0..15): the phase fed back per unit of the output, Q15
- * x this = phase (2^32 a turn); beta (rad) 1.6 (k / 13)^1.5 up to 13 (0.77 at 8, 1.25 at 11, 1.6 at 13: a sine
- * growing a saw's edge, rubber, metal), then 2.2 and 3.0 (noise, as most of it was: k x 4096, beta 1.2 at 6, 1.57 at 8);
- * and fed back the mean of the last two
- * outputs (the DX7's: the period-2 hunting of a one-sample loop gone: clean, no fizz) */
-static const uint16_t DX_FB_CURVE[16] = {0, 712, 2013, 3699, 5697, 7961, 10465, 13188, 16113, 19230, 22521, 25981, 29600,
-                                         33377, 37300, 41370};   /* (V10.6q: the curve on to 15, 1.98 rad; its 2.2 and 3.0 rad,
-                                                          * noise and 8 % DC, gone) */
-/* FM ENV (DRUM's E5, 0..127) -> the FM index the hit strikes with (dx_run's ix: 1 = 0.0245 rad): 3.26 (2^(6 x) - 1)
- * up to 114 (x = FM ENV / 127: 0.56 rad at 64, ~3.3 at 114: a beater, a click, a metal edge), then a line to the old
- * top (381, 9.3 rad: the noise) at 127; was 3 x FM ENV (4.7 rad at 64: a crunch) */
-/* (V10.6q) x^2 (x + 0.5) up to 114 (0.84 rad at 64, 2.3 at 96, 3.7 at 114: half the knob heard, it was ~0 up to ~100),
- * then the line to the top */
-static __attribute__((noinline)) int32_t dx_fm_env(int32_t fm)
-{
-    fm = clamp(fm, 0, 127);
-    return fm > 114 ? 150 + (fm - 114) * (381 - 150) / 13 : fm * fm * (fm + 64) / 15422;
-}
-/* .. and kept under the half rate's Nyquist (11 kHz): the hit's highest sideband (fc + (I + 1) fm, the carrier fc,
- * the modulator fm = fc ratio / 4096) at 10.5 kHz at most. (V10.6q) A ceiling, on COLOR's index too (it was FM ENV's
- * alone, and soft, e lim / (e + lim), which took ~40 % off a rim far under it): below it every index as asked, above
- * it no sideband folded back (the hats' FM was 77 % aliasing) */
-static __attribute__((noinline)) int32_t dx_fm_lim(int32_t e, uint32_t inc, uint32_t ratio)
-{
-    int32_t fc = (int32_t)(((inc >> 16) * 44100u) >> 16), fmh = (int32_t)(((uint32_t)fc * ratio) >> 12), lim;
-    lim = fc >= 10500 ? 0 : (10500 - fc) * 41 / (fmh > 0 ? fmh : 1) - 41;
-    return e < lim ? e : lim > 0 ? lim : 0;
 }
 /* what an envelope with a time constant of `us` microseconds keeps over one block, Q16: e^-a with a = CTL / (FS tau)
  * (in Q16: 95108934 / us for a block of 64 at 44.1 kHz), from the series of e^-a up to its a^4 / 24 term, each
@@ -225,45 +197,123 @@ static void dx_choke(dx_voice_t *v) { if (v->live) v->choke = 1; }
 /* a decay value (0..127) -> its tau in us: 3 ms x 2^(9 d / 127) */
 static uint32_t dx_tau(uint32_t d) { return ((dx_pow2(d * 9u * 4096u / 127u) >> 8) * 3000u) >> 8; }
 
-/* (0.6.49) LAYER's oscillator: a triangle (no table, a few operations; its odd partials add to the clang) */
-static inline int32_t dx_tri(uint32_t ph)
+/* (DRUM-W) table f's frame at place sp (0 .. 768: the four frames' span), into m[DW_N + 1]: once a block */
+static void dw_frame(int16_t *m, uint32_t f, int32_t sp)
 {
-    int32_t s = (int32_t)(ph >> 15);                     /* 0 .. 131071 */
-    return s < 65536 ? s - 32768 : 98303 - s;
-}
-
-/* (V10.6q) the cowbell's square: a triangle clipped (its edge k, Q8: ~2 samples) */
-static __attribute__((noinline)) int32_t dx_sq(uint32_t ph, int32_t k) { return clamp((dx_tri(ph) * k) >> 8, -32767, 32767); }
-
-/* (0.6.49) the oscillator's loop with LAYER (dx_run's FM ENV / FEEDBK loop and a triangle at sqrt 2 of it, frequency
- * modulated by it, its index up as LAYER's square; up to ~70 % of the mix): a function of its own (dx_run's loops as
- * they were) */
-static __attribute__((noinline)) void dx_layer(dx_voice_t *v, int32_t *y, uint32_t n, uint32_t *php, uint32_t *ph2p,
-                                               int32_t *op, int32_t *o1p, int32_t inc, int32_t dinc, int32_t ga, int32_t dga,
-                                               int32_t ix, int32_t dix, uint32_t ratio, int32_t fbk, int32_t lay)
-{
-    uint32_t i, ph = *php, ph2 = *ph2p, ph4 = v->ph4;
-    int32_t o = *op, o1 = *o1p, lx = lay * lay * 600, lm = lay * 3, fh = fbk >> 1;   /* (snd1: FEEDBK's mean of two) */
-    uint32_t st4 = lay ? 1448u : 0u;                     /* (LAYER 0: its phase kept) */
-    if (!ix && !dix)                                     /* (no FM on it: the modulator stands still, its phase kept) */
-        ratio = 0;
-    for (i = 0; i < n; i++, inc += dinc, ga += dga, ix += dix) {
-        int32_t o2, f = o + o1;
-        o1 = o;
-        o = sine_i(ph + (uint32_t)(sine_i(ph2) * ix) * 512u + (uint32_t)(f * fh));
-        o2 = dx_tri(ph4 + (uint32_t)(o * lx));
-        y[i] = mulq15(o + (((o2 - o) * lm) >> 6), ga >> 8);
-        ph += (uint32_t)inc << 4;
-        ph2 += ((uint32_t)inc >> 8) * ratio;
-        ph4 += ((uint32_t)inc >> 6) * st4;               /* (x 22.6: x 16 the step, sqrt 2) */
+    uint32_t k, i = (uint32_t)sp >> 8, fr = (uint32_t)sp & 255u;
+    const int8_t *a, *b;
+    if (!((dw_have >> f) & 1u)) {                        /* (not drawn yet, a ms after the power-on: a sine) */
+        for (k = 0; k <= DW_N; k++)
+            m[k] = (int16_t)((sine_i(k << 27) * 31) >> 5);
+        return;
     }
-    *php = ph;
-    *ph2p = ph2;
-    *op = o;
-    *o1p = o1;
-    v->ph4 = ph4;
+    if (i >= DW_FR - 1u) { i = DW_FR - 2u; fr = 256u; }
+    a = dw_tab[f][i];
+    b = dw_tab[f][i + 1u];
+    for (k = 0; k <= DW_N; k++)
+        m[k] = (int16_t)(a[k] * 256 + (b[k] - a[k]) * (int32_t)fr);
 }
-
+#define DW_RD(m, p) ((m)[(p) >> 27] + ((((m)[((p) >> 27) + 1u] - (m)[(p) >> 27]) * (int32_t)(((p) >> 12) & 0x7FFFu)) >> 15))
+/* (DRUM-W) the pad's modulators, once a block at the hit's age: MOD ENV, MOD LFO and VEL, Q15 each, summed by DEST
+ * into o[DWD_N]; (DRUM's own) STRIKE (MOD ENV's knob) and WAVE (TONE's) move both places too */
+static __attribute__((noinline)) void dw_mods(dx_voice_t *v, uint32_t ln, uint32_t n, int32_t fm, int32_t cofs, int32_t *o)
+{
+    const dw_lane_t *D = &dw_kit[ln];
+    uint32_t age = v->dwage, ta = D->eatk ? dw_time(D->eatk) : 0u, td = dw_time(D->edec), k;
+    int32_t e, sv = v->sv ? v->sv : 127, a[DWD_N] = {0};
+    if (D->eamt != 64u) {                                /* the ENV: up over ATTACK, down over DECAY (squared) */
+        if (age < ta)
+            e = (int32_t)((age * (0x7FFFFFFFu / ta)) >> 16);   /* (age < ta: fits) */
+        else {
+            uint32_t x = age - ta >= td ? 65535u : ((age - ta) * (0xFFFFFFFFu / td)) >> 16;
+            e = (int32_t)(((65535u - x) * (65535u - x)) >> 17);
+        }
+        a[D->edst % DWD_N] += (e * ((int32_t)D->eamt - 64)) >> 6;
+    }
+    if (D->lrate) {                                      /* the LFO from the hit, 0.27 .. 62 Hz */
+        uint32_t ph = v->ph4;
+        int32_t l;
+        switch (D->lshp) {
+        case DWL_SINE: l = sine_i(ph); break;
+        case DWL_SQR: l = ph < 0x80000000u ? 32767 : -32767; break;
+        case DWL_RAMP: l = (int32_t)(ph >> 16) - 32768; break;
+        case DWL_SH: l = (int32_t)(fvm_hash((ph >> 29) * 977u + v->hseed) >> 17) - 32768; break;   /* (8 steps a turn) */
+        default: l = (int32_t)(ph >> 15); l = l < 65536 ? l - 32768 : 98303 - l; break;
+        }
+        a[D->ldst % DWD_N] += (l * ((int32_t)D->ldep - 64)) >> 6;
+        v->ph4 = ph + (pitch_inc((uint32_t)D->lrate * 12u) >> 5) * 2u * n;
+    }
+    a[DWD_POS] += (127 - sv) * ((int32_t)D->vel - 64) * 4;   /* VEL */
+    for (k = 0; k < DWD_N; k++) a[k] = clamp(a[k], -32767, 32767);
+    o[0] = (((a[DWD_POSA] + a[DWD_POS]) * 768) >> 15);
+    o[1] = (((a[DWD_POSB] + a[DWD_POS]) * 768) >> 15);
+    o[2] = (a[DWD_BAMT] * 127) >> 15;
+    o[3] = (a[DWD_PITCH] * 192) >> 15;                   /* (1/16 semitones: +-12) */
+    o[4] = (a[DWD_NOISE] * 64) >> 15;
+    e = ((clamp(fm, 0, 127) * 6 * v->ep) >> 15) + clamp(cofs, -64, 63) * 6;
+    o[0] += e;
+    o[1] += e;
+}
+/* (DRUM-W) a pad's body, n half-rate samples into y: its places this block (POS, B POS and the modulators' oa, ob),
+ * the frames there, then A and B by the STRUCTURE (B's AMOUNT and gofs), at the oscillator's gain (ga + dga, Q23) */
+static __attribute__((noinline)) void dw_body(dx_voice_t *v, uint32_t ln, int32_t *y, uint32_t n, int32_t inc, int32_t dinc,
+                                              int32_t ga, int32_t dga, const int32_t *mo)
+{
+    const dw_lane_t *D = &dw_kit[ln];
+    uint32_t ph = v->ph, ph2 = v->ph2, i, st, stb, rq = DW_RAT[D->ratio % DW_NRAT];
+    int32_t top = (int32_t)(DW_FR - 1u) * 256, sa, sb, g = clamp((int32_t)D->bamt + mo[2], 0, 127) * 258, dstb;
+    int16_t ma[DW_N + 1u], mb[DW_N + 1u];
+    sa = clamp(D->pos * top / 127 + mo[0], 0, top);
+    sb = clamp(D->bpos * top / 127 + mo[1], 0, top);
+    dw_live[ln] = (uint16_t)(sa | 0x8000);
+    dw_frame(ma, D->ta & 15u, sa);
+    if (fl.on)                                           /* (LIFE: the cycle playing, its FRAGMENT) */
+        for (i = 0; i < DW_N; i++) dw_lcyc[MC_CPU() & 1u][i] = ma[i];
+    st = (uint32_t)inc << 4;
+    if (!g) {                                            /* (B out: A alone) */
+        for (i = 0; i < n; i++, inc += dinc, ga += dga) {
+            y[i] = mulq15(DW_RD(ma, ph), ga >> 8);
+            ph += (uint32_t)inc << 4;
+        }
+        v->ph = ph;
+        return;
+    }
+    dw_frame(mb, D->tb & 15u, sb);
+    stb = (uint32_t)(((uint64_t)st * rq) >> 12);         /* B at its RATIO, its step ramped as A's */
+    dstb = ((int32_t)(((uint64_t)((uint32_t)(inc + dinc * (int32_t)n) << 4) * rq) >> 12) - (int32_t)stb) / (int32_t)n;
+#define DW_LOOP(BODY) \
+    for (i = 0; i < n; i++, inc += dinc, ga += dga, stb += (uint32_t)dstb) { \
+        int32_t b = DW_RD(mb, ph2), a, o; \
+        uint32_t p1 = ph + ((uint32_t)inc << 4); \
+        BODY \
+        y[i] = mulq15(clamp(o, -32767, 32767), ga >> 8); \
+        ph = p1; \
+        ph2 += stb; \
+    }
+    switch (D->str) {                                    /* (a loop a STRUCT: no choice a sample) */
+    case DWS_FM:                                         /* B on A's phase, up to a turn */
+        DW_LOOP(o = DW_RD(ma, ph + ((uint32_t)mulq15(b, g) << 17)); (void)a;)
+        break;
+    case DWS_RING:                                       /* (the ring x2: as loud as A) */
+        DW_LOOP(a = DW_RD(ma, ph); o = a + mulq15(clamp(mulq15(a, b) * 2, -32767, 32767) - a, g);)
+        break;
+    case DWS_SYNC:                                       /* B restarted with each of A's turns */
+        DW_LOOP(a = DW_RD(ma, ph); o = a + mulq15(b - a, g); if (p1 < ph) ph2 = 0u - stb;)
+        break;
+    case DWS_FOLD:                                       /* A + B, folded at +-T */
+        DW_LOOP(a = clamp(DW_RD(ma, ph) + mulq15(b, g) * 2, -5 * 16384, 5 * 16384);
+                a = a > 16384 ? 32768 - a : a < -16384 ? -32768 - a : a;
+                a = a > 16384 ? 32768 - a : a < -16384 ? -32768 - a : a;
+                o = a * 2;)
+        break;
+    default:
+        DW_LOOP(o = DW_RD(ma, ph) + mulq15(b, g); (void)a;)
+        break;
+    }
+#undef DW_LOOP
+    v->ph = ph;
+    v->ph2 = ph2;
+}
 /* one block of lane L's hit v into y (n <= CTL): Q15, peaks near full scale. morph 0..127; tune16 1/16 semitones;
  * dofs / cofs / nofs move DECAY / COLOR / NOISE (-64..63). warp (DRUM's FOLD since JIANT 0.5, was WARP, 0..127): the
  * oscillator through a wavefolder after its envelope, x1 .. x9 into three folds at +-T: the hit's loud start folds
@@ -294,38 +344,10 @@ static uint8_t dx_lay[8] __attribute__((section(".data.dx_lay")));              
  * sweep on it), t 32 a turn, T the seconds since the hit, A COLOR (0 .. 1), v the hit's velocity. The rest of the lane as
  * ever: DECAY's envelope, the noise and its filter, MORPH between A and B, the SENDs, the group mutes. Stored in the
  * project's 'D' 'F' block (project.c), 0 before. Each lane's program compiled when its formula changes (dx_fprog) */
-static const char *const DX_FORMS[] = {
-    "sin(w)",                                        /* SINE */
-    "sat(sin(w)*(1+A*15))",                          /* SAT: a sine driven */
-    "sin(w+sin(w*2)*A*3)",                           /* FM */
-    "sin(w)*sqr(w*1.4142)*sqr(w*1.8221)",            /* METAL: three ratios */
-    "fix(t*(t>>5|t>>8)&255)/128-1",                  /* BITS: a bytebeat at the pitch */
-    "fix((t^t>>3)&255)/128-1",                       /* XOR */
-    "rnd(floor(w*(64-A*60)))",                       /* NOISE: held a share of a turn, coarser with COLOR */
-    "sin(w/(1+T*16))",                               /* CHIRP: the pitch falling as it rings */
-    "sin(floor(w*4)/4+sin(w)*A)",                    /* STEP */
-    "sin(w)*rnd(floor(w*8))",                        /* RING: ringed with noise */
-    "sin(w)*(t>>9&1?1:A)",                           /* STUT: gated in time, COLOR the gap's level */
-    "sin(sin(w)*(2+A*6))",                           /* FOLD */
-    "floor(sin(w)*(2+A*14))/(2+A*14)",               /* CRUSH: a few levels */
-    "(sin(w)+sin(w*1.5))/2",                         /* TONE2: a fifth */
-    "rnd(fix(t))*sqr(w*3.7)",                        /* HAT: noise through a square */
-    "fix(t*(42&t>>10)&255)/128-1",                   /* BYTE: the classic, at the pitch */
-    /* (JIANT BYTE: the owner, "a drum machine of floatbeat") the kit's own, every lane's at power-on (DX_FORM_DEF) */
-    "sin(w+sin(w*0.5)*A*2*max(0,1-T*8))",            /* FKICK: a sine, a sub-octave FM that dies in the first beat */
-    "sin(w)*0.5+rnd(floor(w*64))*(0.3+A*0.7)",       /* FSNR: a tone and the phase's noise, COLOR the noise */
-    "rnd(floor(w*48))*(sqr(T*60)+1)/2",              /* FCLAP: noise cut in bursts (the hands) */
-    "sqr(w)*sqr(w*1.4142)*sqr(w*1.7)*sqr(w*2.13)*(1-A)+rnd(floor(w*97))*A",   /* FHAT: four squares apart, noise */
-    "sqr(w*1.19)*sqr(w*1.62)*sqr(w*2.31)*0.7+rnd(floor(w*80))*(0.2+A*0.5)",   /* FOHAT: the open's, airier */
-    "sin(w+tri(w*0.5)*A*1.5)",                       /* FTOM: a sine, a triangle's FM */
-    "sin(w*1.7)*sqr(w*3.3)*max(0,1-T*40)",           /* FRIM: a metal click, gone in 25 ms */
-    "sat((sqr(w)+sqr(w*1.4815))*(1+A*3))",           /* FCOW: two squares at 540 : 800, driven */
-};
 static const char *const N_DXFORM[] = {"SINE", "SAT", "FM", "METAL", "BITS", "XOR", "NOISE", "CHIRP", "STEP", "RING",
                                        "STUT", "FOLD", "CRUSH", "TONE2", "HAT", "BYTE",
                                        "FKICK", "FSNR", "FCLAP", "FHAT", "FOHAT", "FTOM", "FRIM", "FCOW"};
-#define DX_NFORM (sizeof DX_FORMS / sizeof DX_FORMS[0])
-_Static_assert(DX_NFORM == sizeof N_DXFORM / sizeof N_DXFORM[0], "DRUM-X: a name a formula");
+#define DX_NFORM (sizeof N_DXFORM / sizeof N_DXFORM[0])
 enum { DFM_RATE, DFM_BEND, DFM_CRUSH, DFM_N };
 /* Per-lane formula modifiers. Zero is an exact bypass, including old projects. */
 static int8_t dx_fmod[8][DFM_N];
@@ -334,34 +356,16 @@ static int8_t dx_fmod[8][DFM_N];
 static char dx_text[8][DX_TEXT] __attribute__((section(".pool")));
 static uint8_t dx_form[8];                           /* (JIANT BYTE) 0, or 1 + the formula of DX_FORMS */
 /* (JIANT BYTE) the factory: every lane its floatbeat (KICK SNARE CLAP HATC HATO TOM RIM BELL: FKICK .. FCOW) */
-static const uint8_t DX_FORM_DEF[8] = {17, 18, 19, 20, 21, 22, 23, 24};
-static fvm_prog_t dx_fprg[8];
-static fvm_ins_t dx_fins[8][24] __attribute__((section(".pool")));                     /* (a lane's formula: 24 instructions at most) */
+static const uint8_t DX_FORM_DEF[8] = {0};   /* (DRUM-W: none; its tables are the formulas) */
 static uint8_t dx_fid[8];                            /* the formula compiled in dx_fprg (0: none yet) */
 static const char *dx_formula_text(uint32_t ln)
 {
     uint32_t f = dx_form[ln & 7u];
-    return f == DX_USER ? dx_text[ln & 7u] : f && f <= DX_NFORM ? DX_FORMS[f - 1u] : "sin(w)";
+    return f == DX_USER ? dx_text[ln & 7u] : "sin(w)";
 }
 static const char *dx_formula_name(uint32_t f)
 {
     return f == DX_USER ? "USER" : f && f <= DX_NFORM ? N_DXFORM[f - 1u] : "CLASSIC";
-}
-static const fvm_prog_t *dx_fprog(uint32_t ln, lofi_work_t *w)
-{
-    uint32_t f = dx_form[ln & 7u];
-    fvm_prog_t *p = &dx_fprg[ln & 7u];
-    if (!p->ins)
-        fvm_prog_init(p, dx_fins[ln & 7u], 24u);
-    if (dx_fid[ln & 7u] != f) {
-        const char *s = f ? dx_formula_text(ln) : "0";
-        uint32_t n = 0;
-        while (s[n]) n++;
-        if (fvm_compile(&w->c, p, s, n, 0) || p->nstate > 2u)
-            p->n = 0;                                    /* (silent) */
-        dx_fid[ln & 7u] = (uint8_t)f;
-    }
-    return p;
 }
 #define DX_LAY_L(x) ((uint32_t)(x) & 15u)
 #define DX_LAY_FB(x) ((uint32_t)(x) >> 4)
@@ -397,32 +401,20 @@ static __attribute__((noinline)) int32_t dx_hands_step(dx_voice_t *v, uint32_t n
     *g1 = (int32_t)(mul64(*g1, 4096 + s) >> 12);
     return (int32_t)(mul64(gn, 4096 + s0) >> 12);
 }
-/* (V10.7.8) the filter GR's stroke (dx_run_fx), on a half-rate block y[n] from the hit's sample sp: the guiro's ridges
- * ticks (a phase step sinc, 2^16 a tick), each falling as a square, the first eight growing (the stroke's swell); none
- * past the tick holding the stroke's end slen (the hit over by then: 1 back; ~120 ms at most past the stroke) */
-static __attribute__((noinline)) int dx_scrape(dx_voice_t *v, int32_t *y, uint32_t n, uint32_t sp, uint32_t slen, uint32_t sinc)
-{
-    uint32_t kl = (slen * sinc) >> 16, i;
-    for (i = 0; i < n; i++) {
-        uint32_t u = (sp + i) * sinc, d = (65535u - (u & 65535u)) >> 1, t = u >> 16;
-        y[i] = (y[i] * (int32_t)(t > kl ? 0u : ((d * d) >> 19) * (t < 8u ? 8u + t : 16u))) >> 15;
-    }
-    if (v->hpos == sp)                                   /* (the CLAP's HANDS count it too) */
-        v->hpos = (uint16_t)(sp + n);
-    return ((sp + n) * sinc) >> 16 > kl;
-}
 static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *v, int32_t morph, int32_t tune16,
                                              int32_t dofs, int32_t cofs, int32_t nofs, int32_t warp, int32_t fm, int32_t *y,
                                              uint32_t n, uint32_t feedback)
 {
-    int32_t life_color=0,q[DXP_N], p16, depth, ea0, ea1, en1, ep1, og, ng, ga, dga, gn, dgn, kd, inc, dinc, mt, cw, cx;
-    uint32_t i, k, wave = L->mode & 3u, flt = (L->mode >> 2) & 3u, ta, tn, tp, kb, inc1, sp, gr = flt == DXF_GR, slen = 0, sinc = 0;
+    int32_t life_color=0,q[DXP_N], mo[5], p16, depth, ea0, ea1, en1, ep1, og, ng, ga, dga, gn, dgn, kd, inc, dinc, mt, cx;
+    uint32_t i, k, flt = (L->mode >> 2) & 3u, ta, tn, tp, kb, inc1;
     tsvf_t c;
     uint32_t nf = n, ln = L >= dx_kit && L < dx_kit + 8 ? (uint32_t)(L - dx_kit) : 0u;
-    int32_t lay = (int32_t)DX_LAY_L(dx_lay[ln]), lfb = (int32_t)DX_TONE_FB(dx_tone) + (int32_t)DX_LAY_FB(dx_lay[ln]) + (int32_t)feedback;
+    (void)feedback;
+    if (flt == DXF_GR) flt = DXF_BP;                     /* (DRUM-W: no guiro; its filter a band) */
     if (!v->live && !v->trig) {
         for (i = 0; i < n; i++)
             y[i] = 0;
+        dw_live[ln] &= 0x7FFFu;                          /* (DRUM-W: the panel's pad unlit) */
         return;
     }
     if (nf < 2u) {                                       /* (ctl64) one sample (a hit starting at a block's last sample,
@@ -445,7 +437,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         *x += o > 0 ? o * (127 - *x < 63 ? 127 - *x : 63) / 63 : o * (*x < 64 ? *x : 64) / 64;
     }
     life_color=q[DXP_COLOR];
-    if(fl.on&&!dx_form[ln])q[DXP_COLOR]=fl_classic_color(life_color);
+    if(fl.on)q[DXP_COLOR]=fl_classic_color(life_color);
     if (!ln)                                             /* (V10.6z8, the owner: "the kick sounds like a snare") the
                                                           * KICK's NOISE on a cube: the kit's 40 (V10.6q) or 4..24 (before)
                                                           * as good as none, the body whole; the knob up to 127 still there
@@ -459,16 +451,11 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
                                                           * body; V10.6z8: the KICK's / 6, 40 ms again, as before V10.6q:
                                                           * the big sweep the owner asked back) */
     p16 = 384 + q[DXP_PITCH] * 12 + tune16;
-    depth = gr ? 0 : q[DXP_PMOD] * 6;                    /* (GR: PMOD the SCRAPE, below) */
+    depth = q[DXP_PMOD] * 6;
     ea0 = v->live ? v->ea : 1 << 30;                     /* (V10.6q) the block's start: a hit struck again while it rings
                                                           * rises from where it was over the block, its phases and
                                                           * filters as they were (a jump to 0 clicked: x35 a step) */
     if (v->trig) {                                       /* the hit: from the top */
-        v->fturn = 0;                                    /* (JIANT BYTE) a formula's time from 0 at each hit (its phase
-                                                          * too: the formula the same at every hit) */
-        v->fst[0] = v->fst[1] = 0;
-        if (dx_form[ln])
-            v->ph = 0;
         if (!v->live) {
             v->ph = v->ph2 = v->ph4 = 0;
             v->ic1 = v->ic2 = 0;
@@ -483,21 +470,16 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         if (!v->rng)
             v->rng = 0x2545F491;
         v->hpos = v->hsum = 0;
-        v->dwage = 0;                                    /* (DRUM-W) the scan and the tick from the top */
+        v->dwage = 0;                                    /* (DRUM-W) the scan, the LFO and the tick from the top */
+        v->ph4 = 0;
         v->hseed = (uint16_t)(((uint32_t)v->rng * 2654435761u) >> 16);   /* (not drawn from the noise: OFF as it was) */
         v->inc = pitch_inc((uint32_t)clamp(p16 + depth, 0, 2047));
     }
-    sp = v->hpos;                                        /* (V10.7.8) GR: half-rate samples since the hit */
-    if (gr) {                                            /* (V10.7.8, the owner: a guiro) the filter GR, a band-pass whose
-                                                          * hit is a stroke over the guiro's ridges: ticks at 24 .. 64 Hz
-                                                          * (PITCH), held and swelling for the SCRAPE (PMOD's place: 0 .. 173
-                                                          * ms) times the velocity's 4th power (an accent the long stroke,
-                                                          * a soft hit a "chk"), the last tick decaying with DECAY */
-        int32_t sv = v->sv ? v->sv : 127;
-        sv = (sv * sv * sv * sv) >> 14;                  /* (Q14 of 127^4 / 2^14) */
-        slen = (uint32_t)((q[DXP_PMOD] * 31 * sv) >> 14);
-        sinc = (uint32_t)((3048 + 40 * q[DXP_PITCH]) * 3) >> 7;   /* (a tick's phase step, 2^16 a tick) */
-        flt = DXF_BP;
+    dw_mods(v, ln, n, fm, cofs, mo);                     /* (DRUM-W) the pad's modulators, once a block */
+    if (fl.on && fl_ctx[MC_CPU() & 1u].id) {            /* (LIFE's on the pad: its places moved, finer than COLOR's steps) */
+        int32_t lo = (fl.shape[fl_ctx[MC_CPU() & 1u].id - 1u].num * 6) >> 8;
+        mo[0] += lo;
+        mo[1] += lo;
     }
     k = 11890000u / ((pitch_inc((uint32_t)clamp(p16, 0, 2047)) >> 12) | 1u);   /* (V10.6q) half its period (us): no shorter */
     kb = v->choke ? dx_fall(1500u) : dx_fall(ta > k ? ta : k);   /* (a choked hit: gone in ~5 ms; a blip shorter than its own
@@ -505,10 +487,6 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
     ea1 = mulq16(v->ea, kb);
     en1 = mulq16(v->en, v->choke ? kb : dx_fall(tn));
     ep1 = (int32_t)(((uint32_t)v->ep * dx_fall(tp)) >> 16);
-    if (sp < slen) {                                     /* (GR: the stroke held) */
-        ea1 = v->ea;
-        en1 = v->en;
-    }
     {
         uint32_t pm = (L->mode >> 5) & 3u;
         int32_t off = (depth * ep1) >> 15;              /* DECAY, LONG: the envelope */
@@ -520,24 +498,22 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
             v->ph3 += v->inc << 3;                      /* (V10.6q: << 3, 1/8 at CTL 64; was 1/16) */
             off = (off * sine_i(v->ph3)) >> 15;
         }
-        inc1 = pitch_inc((uint32_t)clamp(p16 + off, 0, 2047));
+        inc1 = pitch_inc((uint32_t)clamp(p16 + off + mo[3], 0, 2047));
     }
     ng = q[DXP_NOISE] * 258;
     og = ((32767 - ng) * 11) >> 4;                       /* (x 11 / 16: about the DRUM kits' level) */
     ng = (ng * 11) >> 4;
-    cw = wave == DXW_METAL && ln == DV_BELL;             /* (V10.6q) the cowbell: the CMOS one (below), its band on its
-                                                          * pitch, between its two squares (its COLOR the timbre) */
-    cx = cw ? clamp(((p16 - 360) * 19 >> 8) + 4, 0, 113) : q[DXP_COLOR] + (!ln << 5);   /* (the filter's cutoff, as a
+    cx = clamp(q[DXP_COLOR] + mo[4], 0, 127) + (!ln << 5);   /* (the filter's cutoff, as a
                                                           * COLOR; V10.6z8: the KICK's 2 1/4 octaves up, its noise turned
                                                           * up a knock, a beater: not a rumble under the body) */
     if (flt < DXF_HP && cx < 96)                         /* (V10.6q) LP, BP: the band's power goes with its cutoff, the
                                                           * gain back as 1 / sqrt(fc) to COLOR 96's (x8 at most): a dark
                                                           * snare or clap as loud as a bright one (were up to 18 dB under) */
         ng = (ng * (int32_t)(dx_pow2((uint32_t)(cx < 12 ? 84 : 96 - cx) * 146u) >> 4)) >> 12;
-    ga = mulq15(og, cw ? (ea0 >> 16) + (v->en >> 16) : ea0 >> 15) << 8;   /* the oscillator's gain, Q23, stepped (the
+    ga = mulq15(og, ea0 >> 15) << 8;   /* the oscillator's gain, Q23, stepped (the
                                                           * cowbell's in two stages: half on the noise's SNAP, a click,
                                                           * half on the decay, the tail) */
-    dga = ((mulq15(og, cw ? (ea1 >> 16) + (en1 >> 16) : ea1 >> 15) << 8) - ga) / (int32_t)n;
+    dga = ((mulq15(og, ea1 >> 15) << 8) - ga) / (int32_t)n;
     gn = mulq15(ng >> 3, v->en >> 15) << 11;             /* the noise's (ng up to x8: >> 3) */
     {
         int32_t g1 = mulq15(ng >> 3, en1 >> 15) << 11;
@@ -547,174 +523,35 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
     }
     inc = (int32_t)(v->inc >> 4) * 2;                    /* (>> 4: the step fits; x 2: half rate) */
     dinc = ((int32_t)(inc1 >> 4) * 2 - inc) / (int32_t)n;
-    if (og && dx_form[ln]) {                             /* (JIANT BYTE) a formula lane: its formula for the oscillator */
-        uint32_t ph = v->ph, W[FVM_BLK], T[FVM_BLK], S[FVM_BLK], o[FVM_BLK], m = n > FVM_BLK ? FVM_BLK : n, nt = v->fturn;
-        lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
-        const fvm_prog_t *pg = dx_fprog(ln, wk);
-        fvm_env_t en = {{T, W, S, 0, 0}, {0}, v->fst};
-        int32_t rate = clamp(dx_fmod[ln][DFM_RATE], -24, 24);
-        uint32_t rk = rate ? dx_pow2((uint32_t)(rate + 24) * 4096u / 12u) >> 2 : 65536u;
-        uint32_t bend = (uint32_t)clamp(dx_fmod[ln][DFM_BEND], 0, 127);
-        uint32_t crush = (uint32_t)clamp(dx_fmod[ln][DFM_CRUSH], 0, 12);
-        int32_t fe = dx_fm_env(fm), ix = (fe * v->ep) >> 15;
-        int32_t dix = (((fe * ep1) >> 15) - ix) / (int32_t)m;
-        en.u[FU_A] = (uint32_t)q[DXP_COLOR];
-        en.u[FU_AF] = (uint32_t)q[DXP_COLOR] * 516u;
-        en.u[FU_VEL] = v->sv ? v->sv : 127u;
-        for (i = 0; i < m; i++) {                        /* w: the turns since the hit at the pitch (its envelope on it),
-                                                          * t 32 a turn, T the seconds (half-rate samples since the hit) */
-            uint32_t p2 = ph + ((uint32_t)inc << 4);
-            W[i] = nt << 16 | ph >> 16;
-            if (rate) W[i] = (uint32_t)(((uint64_t)W[i] * rk) >> 16);
-            if (bend) W[i] += (uint32_t)((sine_i(W[i] << 16) * (int32_t)bend) / 64);
-            /* MOD ENV: hit envelope bends the formula phase, leaving its clock intact. */
-            if (ix) W[i] += (uint32_t)((sine_i(ph << 1) * ix) >> 7);
-            ix += dix;
-            T[i] = W[i] >> 11;
-            S[i] = (uint32_t)(((uint64_t)(sp + i) * 194783u) >> 16);
-            if (rate) S[i] = (uint32_t)(((uint64_t)S[i] * rk) >> 16);
-            nt += p2 < ph;
-            ph = p2;
-            inc += dinc;
-        }
-        if(fl.on)fl_envelope(ea1>>15); /* actual hit decay gates what this formula donates */
-        formula_run(pg, &en, &wk->s, m, o);
-        for (i = 0; i < m; i++, ga += dga) {
-            int32_t s = ((int32_t)o[i] >> 1) * 3 >> 2;      /* (x 3/4: a formula's wave fuller than the sine the lane's
-                                                          * level was made for) */
-            s = clamp(s, -32767, 32767);
-            if (crush) s = (s / (int32_t)(1u << crush)) * (int32_t)(1u << crush);
-            y[i] = mulq15(s, ga >> 8);
-        }
-        for (; i < n; i++)
-            y[i] = 0;
-        v->ph = ph;
-        v->fturn = nt;
-        if (warp) {
-            int32_t fold = clamp(warp, 0, 127), g = 16 + ((fold * fold * 5) >> 10), c = g * 6144 / (8 + g);
-            for (i=0;i<n;i++) {
-                int32_t z=clamp((y[i]*g)>>4,-5*16384,5*16384);
-                for (uint32_t j=0;j<3;j++) z=z>16384?32768-z:z < -16384?-32768-z:z;
-                y[i]=(z*c)>>12;
-            }
-        }
-    } else if (og && !cw && dw_slot(dw_kit[ln].table) >= 0) {   /* (DRUM-W) the body: the lane's table, scanned */
+    if (og) {                                            /* (DRUM-W) the body: its tables */
         const dw_lane_t *D = &dw_kit[ln];
-        const int8_t (*tb)[DW_N + 1u] = dw_tab[dw_slot(D->table)];
-        uint32_t ph = v->ph, age = v->dwage, T = dw_time(D->time), pr, f, fr;
-        int32_t top = (int32_t)(DW_FR - 1u) * 256, s0 = q[DXP_COLOR] * top / 127, s1 = clamp(s0 + ((int32_t)D->scan - 64) * 28, 0, top), sp8;
-        int16_t m[DW_N + 1u];
-        pr = age >= T ? 65536u : (uint32_t)(((uint64_t)age << 16) / T);   /* (once a block) */
-        pr = D->curve == DWC_FAST ? 65536u - (((65536u - pr) * (65536u - pr)) >> 16) : D->curve == DWC_SLOW ? (pr * pr) >> 16 :
-             D->curve == DWC_PING ? (pr < 32768u ? pr * 2u : (65536u - pr) * 2u) : pr;
-        sp8 = s0 + (int32_t)((((int64_t)(s1 - s0)) * (int32_t)(pr >> 1)) >> 15);
-        f = (uint32_t)sp8 >> 8;
-        fr = (uint32_t)sp8 & 255u;
-        if (f >= DW_FR - 1u) { f = DW_FR - 2u; fr = 256u; }
-        for (k = 0; k <= DW_N; k++)                      /* the frame between its two: once a block */
-            m[k] = (int16_t)(tb[f][k] * 256 + (tb[f + 1u][k] - tb[f][k]) * (int32_t)fr);
-        for (i = 0; i < n; i++, inc += dinc, ga += dga) {
-            uint32_t j = ph >> 27;
-            int32_t o = m[j] + (((m[j + 1u] - m[j]) * (int32_t)((ph >> 12) & 0x7FFFu)) >> 15);
-            y[i] = mulq15(o, ga >> 8);
-            ph += (uint32_t)inc << 4;
-        }
-        v->ph = ph;
+        uint32_t age = v->dwage;
+        dw_body(v, ln, y, n, inc, dinc, ga, dga, mo);
         if (D->tick && age < 64u) {                      /* the TICK: its first ms, at the hit's level */
             int32_t tg = mulq15(og, ea0 >> 15) * (int32_t)D->tlev >> 7;
             for (i = 0; i < n && age + i < 64u; i++)
                 y[i] = clamp(y[i] + mulq15(dw_tick(D->tick, age + i), tg), -32767, 32767);
         }
-        v->dwage = age + n < 0x7FFFFFFFu ? age + n : age;
         if (L->mode & DX_DRIVE) {
             int32_t dl = 14000 + !ln * 8000;
             for (i = 0; i < n; i++)
                 y[i] = (softclip(y[i] * 3) * dl) >> 15;
         }
-    } else if (og) {                                     /* the oscillator */
-        uint32_t ph = v->ph;
-        int32_t fold = clamp(warp, 0, 127);
-        fm = clamp(fm, 0, 127);
-        warp = fm || lfb || lay ? 0x100 : 0;            /* (FM ENV, FEEDBK, LAYER: the loop below; the flag stripped there) */
-        if (cw) {                                        /* (V10.6q) the 808's cowbell: two squares at the pitch and x1.47
-                                                          * (540 / 800 Hz at PITCH 64), each a triangle clipped to an edge
-                                                          * of ~2 samples (no wrap folded back: as good as PolyBLEP under
-                                                          * the band), through the band-pass (below); COLOR the timbre: 0
-                                                          * their mix .. 64 their ring (A B) .. 127 A's phase driven by B
-                                                          * (FM) */
-            uint32_t ph2 = v->ph2, st = (uint32_t)inc << 4;
-            int32_t u = (q[DXP_COLOR] - 64) * 520, t = u < 0 ? u + 33280 : 32767;   /* (ring 0 .. 1 up to 64, FM 0 .. 1 over it) */
-            int32_t ka = (int32_t)((1u << 29) / ((st >> 8) | 1u)), kb = (ka * 2787) >> 12;   /* (the edges' gains, Q8) */
-            int32_t a = v->mo, fbk = DX_FB_CURVE[lfb > 15 ? 15 : lfb], um;
-            u = u < 0 ? 0 : u;
-            um = u + ((fm ? dx_fm_env(fm) * v->ep >> 15 : 0) * 43);   /* (FM ENV: A's modulation struck with the hit) */
-            for (i = 0; i < n; i++, inc += dinc, ga += dga) {
-                int32_t b = dx_sq(ph2, kb), o;
-                a = dx_sq(ph + ((uint32_t)(dx_tri(ph2) * um) << 1) + (uint32_t)(a * fbk), ka);   /* (A's phase driven by B's
-                                                          * triangle, up to pi: no phase jumps; FEEDBK its own) */
-                o = (a + b) >> 2;                        /* (half scale: the sums fit) */
-                o += mulq15(((mulq15(a, b) * 3) >> 2) - o, t);   /* (the ring x1.5: its sum and difference off the band) */
-                o += mulq15(((a * 3) >> 2) - o, u);
-                y[i] = mulq15(o << 1, ga >> 8);
-                st = (uint32_t)inc << 4;
-                ph += st;
-                ph2 += (st >> 12) * 6021u;
-            }
-            v->mo = a;
-            v->ph2 = ph2;
-        } else if (wave == DXW_SINE && !warp) {          /* drive x0.25 (as good as clean) .. x2.5 into the soft clip;
-                                                          * (V10.6q) on one line from COLOR 0 (was clean at 0, then x1 ..
-                                                          * x2.5: a step), its peak back to the sine's: a colour, not a level */
-            int32_t g = 1024 + q[DXP_COLOR] * 72, j = q[DXP_COLOR] >> 3, nrm = DX_NRM[j] + (((DX_NRM[j + 1] - DX_NRM[j]) * (q[DXP_COLOR] & 7)) >> 3);
-            for (i = 0; i < n; i++, inc += dinc, ga += dga) {
-                y[i] = mulq15((softclip((sine_i(ph) * g) >> 12) * nrm) >> 12, ga >> 8);
-                ph += (uint32_t)inc << 4;
-            }
-        } else {                                         /* FM (up to ~1.5 cycles of phase: COLOR's index), and (0.6.36)
-                                                          * FM ENV: the FM struck with the hit and gone with the pitch
-                                                          * envelope (1..40 ms): a beater, a click, a metal edge on the
-                                                          * attack, the tail clean; a SINE gets its octave as the
-                                                          * modulator, the other waves their own ratio and COLOR's index
-                                                          * under it. (V10.6o: one loop; without FM ENV, FEEDBK and LAYER
-                                                          * its index steady, nothing fed back, as the plain FM loop was) */
-            uint32_t ph2 = v->ph2, ratio = wave == DXW_SINE ? 8192u : DX_RATIO[wave];
-            int32_t base = wave == DXW_SINE ? 0 : dx_fm_lim(q[DXP_COLOR] * 3, inc1, ratio), fe = fm ? dx_fm_lim(dx_fm_env(fm), inc1, ratio) : 0;   /* (snd1) */
-            int32_t ix = base + ((fe * v->ep) >> 15), dix = ((base + ((fe * ep1) >> 15)) - ix) / (int32_t)n;
-            int32_t o = v->mo, o1 = v->mo1, fbk = DX_FB_CURVE[lfb > 15 ? 15 : lfb];   /* (FEEDBK: on its curve, snd1) */
-            dx_layer(v, y, n, &ph, &ph2, &o, &o1, inc, dinc, ga, dga, ix, dix, ratio, fbk, lay);   /* (0.6.49) LAYER: a second
-                                                          * one at sqrt 2, FM'd by the first (V10.6q: its loop the only
-                                                          * one, LAYER 0 none of it) */
-            v->ph2 = ph2;
-            if (warp) {                                  /* (the feedback's memory: only its own loop's) */
-                v->mo = o;
-                v->mo1 = (int16_t)o1;
-            }
-        }
-        v->ph = ph;
-        if (L->mode & DX_DRIVE) {                       /* (JIANT 0.4) DRIVE: x3 into the soft clip, the level near */
-            int32_t dl = 14000 + !ln * 8000;             /* (V10.6q: 14000, was 22000: +4 dB louder; V10.6z8: the KICK's
-                                                          * 22000 again, its punch as before V10.6q) */
-            for (i = 0; i < n; i++)
-                y[i] = (softclip(y[i] * 3) * dl) >> 15;
-        }
-        if (fold) {                                      /* (JIANT 0.5) FOLD: after the envelope, so it follows it */
-            int32_t g = 16 + ((fold * fold * 5) >> 10), c = g * 6144 / (8 + g);   /* (Q4: x1 .. x5.9 on fold^2; V10.6q,
-                                                          * was on fold: +5..+14 dB at the first steps); out x 1.5 g / (0.5
-                                                          * + g), Q12: x1 at the start (was x1.5 at once) */
+        if (warp > 0) {                                  /* FOLD (DRUM's): after the envelope, so it follows it */
+            int32_t fold = clamp(warp, 0, 127), g = 16 + ((fold * fold * 5) >> 10), c = g * 6144 / (8 + g);
             for (i = 0; i < n; i++) {
-                int32_t v = clamp((y[i] * g) >> 4, -5 * 16384, 5 * 16384), a;
+                int32_t z = clamp((y[i] * g) >> 4, -5 * 16384, 5 * 16384), a;
                 for (a = 0; a < 3; a++)
-                    v = v > 16384 ? 32768 - v : v < -16384 ? -32768 - v : v;
-                y[i] = (v * c) >> 12;
+                    z = z > 16384 ? 32768 - z : z < -16384 ? -32768 - z : z;
+                y[i] = (z * c) >> 12;
             }
         }
     } else {
         for (i = 0; i < n; i++)
             y[i] = 0;
     }
-    mt = wave == DXW_METAL && (0x98u >> ln) & 1u ? -1 : 0;   /* (V10.6q) the hats' METAL through the filter
-                                                          * with the noise, in their band (its clank at 1 .. 2.5 kHz was
-                                                          * 13 % of a hat) */
+    v->dwage = v->dwage + n < 0x7FFFFFFFu ? v->dwage + n : v->dwage;
+    mt = 0;
     if (ng || mt) {                                      /* the noise (and METAL) through its filter */
         int32_t ic1 = v->ic1, ic2 = v->ic2, rng = v->rng;
         int32_t mr, ck, cv;                              /* (V10.6o: one loop) the output r & mr - k v1 - cv v2: LP v2,
@@ -745,8 +582,6 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         v->rng = rng;
         v->dwn = nc;
     }
-    if (gr && dx_scrape(v, y, n, sp, slen, sinc))      /* (V10.7.8) GR: past its last tick, the hit is over */
-        ea1 = en1 = 0;
     if (DX_TONE_BP(dx_tone) && (0xD8u >> ln) & 1u) {     /* (0.6.36) TONE's BP on the metal sounds (the hats, the rim,
                                                           * the cowbell); (V10.6q) around the sound's own COLOR, an
                                                           * octave under it .. over it, half dry (was 1.5 .. 9 kHz for all
@@ -771,7 +606,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
     }
     if (nf & 1u)                                         /* (an odd block: its last sample held) */
         y[nf - 1u] = y[nf - 2u];
-    if(fl.on&&!dx_form[ln])fl_classic_capture(life_color,(ea1>en1?ea1:en1)>>15,y,nf);
+    if(fl.on)fl_classic_capture(life_color,(ea1>en1?ea1:en1)>>15,og?dw_lcyc[MC_CPU()&1u]:0,og?FVM_BLK:0u);
     v->hl = y[nf - 1u];
     v->ea = ea1;
     v->en = en1;

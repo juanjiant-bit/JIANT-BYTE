@@ -183,7 +183,7 @@ static void host_legacy_sample_perc(track_t *t)
     t->engine = ENGI_SAMPLE;
 }
 /* the drums of the render tests: DRUM's kit (the power-on track 4; until 1.0.2 these used SAMPLE PERC) */
-static void host_drums(track_t *t) { host_preset(t, ENGI_DRUM, 0); }
+static void host_drums(track_t *t) { static gq_work_t w; uint32_t k; host_preset(t, ENGI_DRUM, 0); for (k = 0; k < 16u; k++) dw_poll_ws(&w); }   /* (DRUM-W: its tables drawn, as the main loop has by then) */
 
 static void put_step(track_t *t, uint32_t i, uint32_t n, const uint8_t *notes, uint32_t time, uint32_t flags)
 {

@@ -706,7 +706,7 @@ static int32_t drum_keys(const track_t *t, uint32_t k)
  * were; a few move the whole kit (the per-block destinations: the knobs, the sends; the LFO FREE, a hit does not restart
  * it): no RAND -> PAN (one pan for the kit: every hit would throw the kick about too) */
 static const preset_t DRUM_PRESETS[] = {                /* (0.7.2) one a factory kit: drumx_voice.c DX_KITS, this order */
-    {"DRUM-X", DRUM_KIT_E, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 20), PAT(12)},   /* (core.h: SAMPLE PERC's too) */
+    {"DRUM-W", DRUM_KIT_E, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 20), PAT(12)},   /* (core.h: SAMPLE PERC's too) */
     {"909 CLUB", {60, 64, 78, 64, 64, 0, 0, 10}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 16), PAT(12)},
     {"808 BOOM", {58, 60, 54, 76, 59, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 24), PAT(12)},
     {"LOFI DUST", {70, 64, 46, 54, 78, 0, 0, 20}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(8, 0, 0, 18), PAT(12),
@@ -747,10 +747,10 @@ static const engine_t ENG_DRUM = {
     .edit = {
         {"MORPH", F_PCT, 0, 127, 64, 0},
         {"TUNE", F_PCT, 0, 127, 64, 0},
-        {"TONE", F_PCT, 0, 127, 64, 0},
+        {"WAVE", F_PCT, 0, 127, 64, 0},             /* (DRUM-W: every pad's place in its tables, and the noise's cutoff; was TONE) */
         {"DECAY", F_PCT, 0, 127, 64, 0},
         {"NOISE", F_PCT, 0, 127, 64, 0},
-        {"MOD ENV", F_PCT, 0, 127, 0, 0},             /* (JIANT: was ACC; 0.6.36: was FM, a fixed FM: the FM struck
+        {"STRIKE", F_PCT, 0, 127, 0, 0},            /* (DRUM-W: the hit struck further into the tables; was MOD ENV) */             /* (JIANT: was ACC; 0.6.36: was FM, a fixed FM: the FM struck
                                                          * with the hit, gone with the pitch envelope) */
         {"FOLD", F_PCT, 0, 127, 0, 0},              /* (JIANT 0.5: a wavefolder, was WARP) */
         {"DRIVE", F_PCT, 0, 127, 0, 0},

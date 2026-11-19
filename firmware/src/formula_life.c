@@ -68,6 +68,7 @@ static void fl_capture(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,fl_
     for(uint32_t i=0;i<FVM_BLK;i++)y[i]=fvm_sample(piece.ty,v[i]);
     fl_project(a,y);
 }
+static int32_t fl_other_h(uint32_t id,uint32_t k,uint32_t weight);
 /* Classic DRUM receives a slow COLOR operand and donates its COLOR number.
  * It has no compiled fragment: no fabricated bytecode or live-noise resampling. */
 static int32_t fl_classic_color(int32_t color)
@@ -75,19 +76,34 @@ static int32_t fl_classic_color(int32_t color)
     uint32_t c=MC_CPU()&1u,id=fl_ctx[c].id;if(!fl.on||!id)return color;
     id--;uint32_t g=fl.gate[id],own=g&&fl.node[fl.rd][id].has_number;
     uint32_t count=fl.ncount-own,w=fl.number_weight-(own?g:0);
-    if(!count||!w)return color;
-    int32_t num=(fl.numbers-(own?fl.node[fl.rd][id].number*(int32_t)g:0))/(int32_t)w;
-    int32_t depth=(int32_t)fl_ctx[c].depth*(fl.numbers_amt+fl.link_amt)/200;
-    int32_t target=clamp((num/64-color)*depth/512,-32,32)*256;
-    fl.shape[id].num+=(target-fl.shape[id].num)/16;
+    int32_t target=0,ft=0;
+    if(count&&w){
+        int32_t num=(fl.numbers-(own?fl.node[fl.rd][id].number*(int32_t)g:0))/(int32_t)w;
+        int32_t depth=(int32_t)fl_ctx[c].depth*(fl.numbers_amt+fl.link_amt)/200;
+        target=clamp((num/64-color)*depth/512,-32,32)*256;
+    }
+    {   /* (DRUM-W) the others' FRAGMENTS too: their spectrum's centroid pulls the colour (the pad's places) */
+        uint32_t wf=fl.weight-g;
+        if(fl.count-(g!=0)&&wf&&fl.fragments_amt){
+            int32_t sp=0,ms=0;
+            for(uint32_t k=0;k<FL_POINTS;k++){int32_t h=fl_other_h(id,k,wf);h=h<0?-h:h;sp+=h*(int32_t)(k/2u+1u);ms+=h;}
+            if(ms>64){
+                int32_t cen=sp*127/(ms*(int32_t)FL_HARM);
+                ft=clamp((cen-color)*(int32_t)fl_ctx[c].depth*fl.fragments_amt/200,-32*256,32*256);   /* (in 1/256: a small LIFE heard too) */
+            }
+        }
+    }
+    target=clamp(target+ft,-48*256,48*256);
+    {int32_t d=target-fl.shape[id].num;fl.shape[id].num+=d/16+(d>0)-(d<0);}   /* (a small target reached too) */
     return clamp(color+(fl.shape[id].num>>8),0,127);
 }
 static void fl_classic_capture(int32_t color,int32_t envelope,const int32_t*y,uint32_t n)
 {
-    uint32_t c=MC_CPU()&1u,id=fl_ctx[c].id;(void)y;(void)n;if(!fl.on||!id)return;
+    uint32_t c=MC_CPU()&1u,id=fl_ctx[c].id;if(!fl.on||!id)return;
     fl_node_t*a=&fl.node[fl.rd^1u][id-1u];
     a->valid=1;a->note=fl_ctx[c].note;a->n=0;a->has_number=1;a->number=(uint16_t)(color*64);
     a->envelope=(uint16_t)clamp(envelope,0,32767);memset(a->wave,0,sizeof a->wave);
+    if(y&&n==FVM_BLK)fl_project(a,y);   /* (DRUM-W) its table's cycle playing now: a FRAGMENT too */
 }
 /* Signed coefficients must stay signed through subtraction AND division. */
 static int32_t fl_other_h(uint32_t id,uint32_t k,uint32_t weight)

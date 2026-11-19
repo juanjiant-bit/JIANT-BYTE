@@ -8,7 +8,7 @@ dly/full.throw 1254
 dly/half 1182
 dly/half.drive 1197
 dly/quarter 1227
-eng/DRUM-W 1139
+eng/DRUM-W 1215
 eng/FORM.A 1453
 eng/FORM.A.life 1573
 eng/FORM.AB 2047
@@ -32,10 +32,10 @@ seq/mono4 1381
 seq/plain 2042
 seqtick/live 94
 seqtick/plain 88
-song/cputest 2800
-song/cputest.djf 2948
-song/cputest.eq 3014
-song/cputest.life100 4796
-song/cputest.life50 4741
-song/cputest.vpol 4521
-song/cputest.vpol.half 4172
+song/cputest 2845
+song/cputest.djf 2995
+song/cputest.eq 3057
+song/cputest.life100 5143
+song/cputest.life50 5096
+song/cputest.vpol 4618
+song/cputest.vpol.half 4269
