@@ -9,7 +9,7 @@ import html, os
 
 R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(R, 'docs', 'cheatsheet')
-VERSION = 'V10.7.37'   # (the release; a rename is this one line)
+VERSION = 'v0.12'   # (JIANT BYTE's release; a rename is this one line)
 
 HEAT = ['#22d3ee', '#3b82f6', '#8b5cf6', '#d946ef', '#ef4444', '#ff7a00', '#facc15', '#f4f1ea']
 
@@ -104,15 +104,15 @@ def knobs(*labels):
 
 
 def page(title, sub, body, name):
-    doc = f"""<!doctype html><html><head><meta charset="utf-8"><title>JIANT FM · {e(title)}</title>
+    doc = f"""<!doctype html><html><head><meta charset="utf-8"><title>JIANT BYTE · {e(title)}</title>
 <style>{CSS}</style></head><body>
-<header><img src="signature.png" alt="JIANT FM signature"><div>
-<h1>JIANT FM · {e(title)}</h1><h2>{e(sub)}</h2>
-<div class="ver">firmware {VERSION} · M-VAVE FM-1 · juanjiant-bit.github.io/JIANT</div></div></header>
+<header><img src="signature.png" alt="JIANT BYTE signature"><div>
+<h1>JIANT BYTE · {e(title)}</h1><h2>{e(sub)}</h2>
+<div class="ver">firmware {VERSION} · M-VAVE FM-1 · juanjiant-bit.github.io/JIANT-BYTE</div></div></header>
 <div class="rule"></div>
 {body}
-<footer><span>GPL-3.0 · fork of Felucca (Hügelton Instruments) · song mode from SLOOP</span>
-<span>JIANT FM {VERSION}</span></footer>
+<footer><span>GPL-3.0 · built on JIANT FM, a fork of Felucca (Hügelton Instruments) · song mode from SLOOP</span>
+<span>JIANT BYTE {VERSION}</span></footer>
 </body></html>"""
     with open(os.path.join(OUT, name), 'w') as f:
         f.write(doc)
@@ -165,7 +165,7 @@ def controls():
     t = '<table>' + ''.join(f'<tr><td class="n">{e(n)}</td><td>{d}</td></tr>' for n, d in rows) + '</table>'
     pb = [
         ('HOME', 'LIFE (the voices alive, the tracks moving each other)  |  MACROS (M1–M4 over the beings)  |  LIVE MIX (FILTER · SPACE · CLIP · DUCK on the mix)  |  TRACKS (every track a lane: K1 track, LEVEL PAN REV; GLO + black key mute, + white key solo)  |  TIMELINE  |  ARRANGE  |  PARTS (tracks × parts: a head the part, a cell the track)  |  GEN: GEN 1 · GEN 2 · GEN 3', 'MENU'),
-        ('EDIT', 'SOUND: EDIT 1 · EDIT 2  |  TONE: FILTER · MORPH · RETRIG · ROTOR · WORDS · SWARM · SWARM 2  |  AUTO KNOBS  |  VOICES: VOICES · VOICES 2 · VOICES 3 (last). EXT: EDIT 1 / 2 are EXT and SHAPE. FM6: SOUND (ALGO · PATCH)  |  TONE: FILTER  |  OPERATOR: OPERATOR · OP ENV · OPERATOR 2  |  VOICES. DRUM: KIT: KIT · KIT 2 · KIT 3 · KIT 4  |  SOUND: SOUND 1–4  |  LEVELS 1–2  |  TONE: KIT LFO · FILTER · STEREO · VOICES', 'INIT · RECALL · sound mutes'),
+        ('EDIT', 'SOUND: EDIT 1 · EDIT 2 (FORM: STATES · RULES, then TIMBRE · HARMONY · LAYERS · CLOCK)  |  TONE: FILTER · FILTER 2 · TONE  |  VOICES: VOICES · VOICES 2 · VOICES 3  |  AUTO KNOBS (last). DRUM: KIT: KIT · KIT 2 · KIT 3 · KIT 4  |  SOUND: SOUND 1–4  |  LEVELS 1–2  |  TONE: KIT LFO · FILTER · STEREO · VOICES', 'INIT · RECALL · sound mutes'),
         ('SEQ', 'STEP  |  PATTERN: LENGTH · RHYTHM · TRACK  |  EUCLID: EUCLID · MODES · MUTATE  |  PLAYHEADS  |  STRETCH  |  STEP COND: STEP COND · COND 2  |  LOCKS: LOCKS · LYRICS  |  TRACK GEN', 'SEQ TOOLS'),
         ('FX', 'TRACK: SENDS · DIST · AUTO PAN  |  BUSES  |  DELAY: DELAY 1–3  |  REVERB 1–2  |  CHORUS  |  SLICER: SLICER · SLICER IN 1–2 · SL PITCH  |  MASTER · TAPE · EQ · BALANCE',
          'PUNCH-IN FX · the lane at the foot'),
@@ -320,85 +320,46 @@ def controls():
 def sound():
     b = []
     b.append(sec('ENGINES · EDIT 1 / EDIT 2'))
-    eng = [
-        ('ANALOG', HEAT[1], 'WAVE DETUNE MIX INT', 'FILTER: TYPE CUT RES DRIVE',
-         'SAW SQR TRI SIN PWM <b>SYNC RING SAW3 PLS3</b>; INT: osc 2 ±24 st; NOISE on AUTO KNOBS; on SAW3 / PLS3 EDIT 1 is '
-         'WAVE INT <b>INT 3</b> DETUNE (osc 3\'s interval; MIX on AUTO KNOBS). V10.7.21: no EDIT 2, its FILTER page instead. Its filter is per voice. <b>Its picture</b> (0.9.6): '
-         'a cell whose membrane is the wave, spikes where DRIVE clips, a ring at CUT.'),
-        ('FM6', HEAT[3], 'ALG FB MOD RATIO', 'SLOT MEG VMOD SPREAD',
-         'Dexed\'s 6 operators, 32 algorithms drawn, .syx patches (SLOT), MOD / RATIO move the modulators. '
-         '<b>OPERATOR · OP ENV · OPERATOR 2</b>: each operator on the device (ratio / fixed, fine, level, its envelope, '
-         'mode, detune, velocity). <b>SLOT B1–B32</b>: a 32-voice .syx sent from the web editor. <b>Its picture</b> (0.9.6): '
-         'the operators as bichos wired as the algorithm, OP ENV\'s riding its envelope.'),
-        ('PHASE', HEAT[2], 'WAVE WAVE2 DCW ENV', 'DETUNE LINE SUB FB',
-         'Phase distortion (CZ); <b>FB</b> feeds the output back into the phase: hard edge to growl. <b>Its picture</b> '
-         '(0.9.6): a snail, its shell\'s chambers at the bent phase, its sole the wave.'),
-        ('MATH', HEAT[0], 'CHIP WAVE ALGO VAR', 'MOTN GRIT BEND LOOP',
-         '(V10.6e: LOFI\'s formulas alone; its chip waves load as ANALOG) <b>BYTE</b>: ALGO VAR · MOTN GRIT BEND LOOP. <b>FLOAT</b> (floatbeat): '
-         'ALGO VAR · MOTN FBK BEND LOOP; CHIP sets FULL / 4BIT / 1BIT. Every sound starts still (MOTION 0), RTRG on: in tune. '
-         '48 formulas each in BYTE and FLOAT (ALGO 0–191); MOTN past half is <b>SYNC</b>: the formula\'s slow bits follow the bar.'),
-        ('STRING', HEAT[3], 'EXCITE DECAY BRIGHT POS', 'STRETCH BODY SIZE BOW',
-         'Karplus-Strong string (snd5): EXCITE NOISE PLUCK PICK HAMMR STICK; POS where it is struck, STRETCH a stiff, '
-         'metallic string, BODY / SIZE its box. RELEASE is its damper: the string rings after the step and dies out when let '
-         'go. <b>BOW</b> (V10.7.27): a bow\'s stick and slip, its pressure; ATTACK the stroke, POS bridge ↔ fingerboard, the '
-         'body follows the register. <b>FDBK</b>: an electric guitar into an amp (MOVE where POS was; EDIT 2 <b>GAIN</b> the '
-         'feedback\'s amount, DIST the tube, <b>SPEAKR</b> the harmonic it blooms into, BLOOM the swell; FEEDBACK: the <b>mod wheel</b> walks '
-         'up to the amp). NYLON, STEEL GTR, HARP, PIANO, MARIMBA, BOWED, VIOLIN, VIOLA, CELLO, FEEDBACK…'),
-        ('ADD', HEAT[1], 'MODE MORPH BRIGHT PARTIAL', 'SHIFT COMB DECAY MOTION',
-         'Additive (snd5): partials by MODE HARM ODD WIDE BELL BAR DRUM <b>PRIME FIFTH SUB PLATE</b> (par6); MORPH between '
-         'spectra, PARTIAL how many, SHIFT stretches them, COMB carves notches, DECAY the highs die first, MOTION sweeps '
-         'the spectrum. Presets PRIME ORG, QUINT, DRONE, GONG, TOTEM…'),
-        ('VOICE', HEAT[6], 'VOWEL VOWEL2 TALK SHIFT', 'BUZZ BREATH Q RAND',
-         'Formant voice (after klattsch): vowels, talk, breath. <b>WORDS</b> (0.8.5): LANG ES / EN / JA sings syllables, '
-         'a note each (POS THEME ARTIC SHIFT · BUZZ BREATH Q LOOP); LYRIC TEXT (OCT+ on WORDS types it, KNOB 3 dice, '
-         'D# PH 1–3 the phonemes; V10.7.33: the web editor turns words into phonemes, English with the CMU dictionary) '
-         'or W1–16 words, S1–8 scat; "-" holds the vowel. <b>Its picture</b> (0.9.4): a CT head '
-         'whose tongue, jaw, lips and velum sing the phoneme.'),
-        ('WHEEL', HEAT[5], 'REG SUB BODY TOP', 'PERC CLICK DRIVE SPEED', 'Drawbar organ: registrations, percussion, rotary. '
-         '<b>Its picture</b> (0.9.6): nine tube worms, one a drawbar, bent by the rotor.'),
-        ('WEST', HEAT[4], 'FOLD SYMM MOD RATIO', 'GATE DECAY RES DUST',
-         '(V10.7.36, NOISE\'s place) West coast: a sine, FM from a second one (RATIO 0.5–8, bell ratios 1.41 2.76 5.40), a '
-         '<b>wavefolder</b> (FOLD, SYMM: even harmonics) into a <b>low-pass gate</b> (a vactrol: filter + VCA struck together; '
-         'GATE filter ↔ VCA, DECAY the strike, past 88 held open: drones). <b>DUST</b>: crackle that pings the gate, the core '
-         'gone past 72, hiss past 96. Harder notes fold more. A NOISE project opens as a DUST patch. Plucks, BONGO, MARIMBA, '
-         'bells, FOLD BASS, leads, drones. <b>Its picture</b>: the folded wave, lit by the gate.'),
-        ('DRUM-X', '#ff7a00', 'MORPH TUNE TONE DECAY', 'NOISE FM ENV FOLD DRIVE',
-         '8 sounds BD SD CP CH OH TM RS CB, sides A / B: <b>MORPH</b> morphs the kit. The kit first: <b>KIT 3</b> BP FEEDBK, <b>KIT LFO</b> RATE DEPTH SHAPE '
-         'RAND. Then a sound (KNOB 1 the sound): SIDE PITCH PMOD · DECAY NOISE COLOR · MODE PM.TYPE DRIVE · <b>LAYER</b> (no note) FEEDBK '
-         '<b>SEND</b> (CHO / DLY / REV). Last LEVELS and <b>STEREO</b> IMAGE (a knob through the kit\'s stereo placings). '
-         '<b>KIT 4 KEY MAP</b> (V10.6r): EXTENDED (default) +1 FILLS, −1 KICK / TOM or one sound chromatic, −2 FX KIT, −3 FLAM; or CLASSIC. Cowbell: classic CMOS (V10.6q). '
-         'KIT and SOUND 1–4 draw the kit as little beings that squash and shout on each hit (0.9.4).'),
-        ('EXT', HEAT[0], 'SOURCE GAIN GATE PLAY', 'WIDTH RING BITS RATE',
-         '(V10.54; EXT since V10.6d) SOURCE <b>SWARM</b>: a melody from the Bluetooth around (PROX first, then AIR; FAR / NEAR morph, CHAOS). Else not a synth: the USB audio input on a track of its own (an interface on USB HOST behind a powered hub, or '
-         'the computer with USB IN+OUT). SOURCE IN 1 · IN 2 · 1+2 · STEREO (two tracks can take IN 1 and IN 2); PLAY <b>THRU</b> '
-         '(always) or <b>KEYS</b> (only while a note plays, at its envelope: the steps gate it); RING a sine at the note (KEYS); '
-         'BITS, RATE crush it. FILTER, DIST, LEVEL, PAN, sends as any track; the page shows both inputs\' meters. '
-         '<b>MOD SRC FOLLOW</b>: its envelope. Presets IN 1, MIC GATE, SPACE IN, TRANCE GATE, RING IN, CRUSH IN…'),
-        ('ANIMAL', '#4ade80', 'MODE PRESS CHAOS SIZE', 'SWEEP RATE GROUP TEMP',
-         'Animal calls (0.8.3), MODE the source: <b>CMOS</b> the 40106 / 4093 bird circuit (TOUCH COUPLE CAP · HYST RATE '
-         'GROUP FM) · <b>PULSE</b> crickets, cicadas, frogs (CLICK Q · DETUNE) · <b>WHSTL</b> birds, a Hopf whistle · '
-         '<b>WING</b> mosquito, bee, fly (BUZZ DRIFT · DOPPLR) · <b>GLOTT</b> wolf, bark, roar, purr (MOUTH ROUGH · AIR). '
-         'GROUP: syllables + gaps; TEMP °C speeds a cricket up (Dolbear). A note is a call. <b>Its picture</b> (0.9.4): '
-         'bird ↔ insect ↔ mammal by MODE, leaned by SIZE.'),
+    eng = [   # (JIANT BYTE v0.12: the four engines, as src/engines.c ENGINE_ORDER shows them)
+        ('FORM', HEAT[4], 'STATE A · STATE B · MORPH · COLOR', 'GROOVE · DENSITY · SEED · EVOLVE',
+         'A part that plays itself: melody, bass, chords and drums from formulas. <b>36 states</b> (01 SCORE … 22 NESTED EQ, '
+         '23 STRUM 332 … 36 ACID); <b>MORPH composes</b>: between A and B each step takes its melody, each section its '
+         'progression, from one or the other. <b>TIMBRE</b>: STYLE (AUTO, BYTE FLOAT FUNC HYBRID, <b>WOBBLE REESE GROWL RING '
+         'SCREECH ACID</b>: a character bass) · DRIVE · TONE · WOBBLE (1/2 … 1/16, STEPS, JUMPS, BAR). <b>HARMONY</b>: HARMONY '
+         '(AUTO CLASSIC DEGREES FAMILY PEDAL BITS: chords in the scale\'s degrees) · PROGRESS (AXIS II-V-I VAMP DESCEND FOURTHS '
+         'EPIC POP CIRCLE) · CHORD · VOICING (CLOSE LEAD OPEN +BASS DROP QUARTAL NEAR WIDE). <b>LAYERS</b>: DRUMS DETUNE OCTAVE '
+         'LEVEL. <b>CLOCK</b>: RUN (NOTE / SONG) RATE CYCLE SWING. Key and scale: SCL\'s, the song\'s. <b>SELECT</b> dices all of '
+         'FORM, SEQ + SELECT its composition.'),
+        ('DRUM-X', '#ff7a00', 'MORPH · TUNE · TONE · DECAY', 'NOISE · MOD ENV · FOLD · DRIVE',
+         '8 sounds BD SD CP CH OH TM RS CB, sides A / B: <b>MORPH</b> morphs the kit; each lane a drum voice or a formula. The kit '
+         'first: <b>KIT 3</b> BP FEEDBK, <b>KIT LFO</b> RATE DEPTH SHAPE RAND. Then a sound (KNOB 1 the sound): SIDE PITCH PMOD · '
+         'DECAY NOISE COLOR · MODE PM.TYPE DRIVE · <b>LAYER</b> FEEDBK <b>SEND</b>. LEVELS and <b>STEREO</b> IMAGE.'),
+        ('WAVE', HEAT[1], 'A · POS · WARP · AMT', 'B · MIX · DETUNE · SUB',
+         'A parametric wavetable of formulas: two formulas A and B, <b>POS</b> sweeps them, <b>WARP</b> bends the phase (sync, '
+         'mirror, quantise, FM) by AMT; three detuned voices (DETUNE) and a SUB.'),
+        ('MATH', HEAT[0], 'CHIP · WAVE · ALGO · VAR', 'MOTION · GRIT · BEND · LOOP',
+         'Formulas as voices. <b>BYTE</b> (48 bytebeats), <b>FLOAT</b> (48 floatbeats: GRIT is FBK), <b>USER</b> (your own text, '
+         'or one SEED invents), <b>FUNC</b> (SONG / BEAT: the formula is the arrangement). <b>CAOS</b> folds, jumps and feeds '
+         'the time back; <b>TIME</b> UNSYNC · SYNC · FIJO; MOTION a note value of the tempo.'),
     ]
-    ORDER = ['DRUM-X', 'ANALOG', 'PHASE', 'FM6', 'VOICE', 'ANIMAL', 'MATH', 'WHEEL', 'WEST', 'STRING', 'ADD', 'EXT']   # (V10.6e: the band first; EXT last)
-    eng.sort(key=lambda r: ORDER.index(r[0]))                     # (src/engines.c ENGINE_ORDER: PRESETS, KNOB 2 ENG)
+    ORDER = ['FORM', 'DRUM-X', 'WAVE', 'MATH']   # (src/engines.c ENGINE_ORDER: PRESETS, KNOB 2 ENG)
+    eng.sort(key=lambda r: ORDER.index(r[0]))
     t = '<table><tr><th>ENGINE</th><th>EDIT 1</th><th>EDIT 2</th><th>WHAT TO KNOW</th></tr>'
     for n, c, e1, e2, d in eng:
-        t += (f'<tr><td class="n" style="--c:{c}">{e(n)}</td><td style="width:22%">{knobs(*e1.split())}</td>'
-              f'<td style="width:22%">{knobs(*e2.split())}</td><td>{d}</td></tr>')
+        t += (f'<tr><td class="n" style="--c:{c}">{e(n)}</td><td style="width:22%">{knobs(*e1.split(" · "))}</td>'
+              f'<td style="width:22%">{knobs(*e2.split(" · "))}</td><td>{d}</td></tr>')
     t += '</table>'
-    b.append(card('TWELVE ENGINES: ELEVEN SYNTHS AND EXT', HEAT[7], t))
+    b.append(card('FOUR ENGINES', HEAT[7], t))
     b.append('<div class="grid g3" style="margin-top:22px">')
     b.append(card('FILTER · EVERY ENGINE', HEAT[3], knobs('TYPE', 'CUT', 'RES', 'DRV') +
                   '<p style="margin-top:8px"><b>LP · HP · BP · COMB · COMB- · LP24</b> (LP24: four poles; DRV takes it from clean to a growl and a scream). COMB rings tuned to the note (COMB-: hollow, odd harmonics): CUT moves it '
-                  '±32 st, RES how much it rings. ANALOG and MATH: per voice; the others: on the track, following '
-                  'LFO / ENV DEST FLT (DRV: ANALOG\'s own; the others drive the track into the filter; DRUM-X, EXT: the track\'s DIST).</p>'
+                  '±32 st, RES how much it rings. MATH: per voice; the others: on the track, following '
+                  'LFO / ENV DEST FLT (DRV drives the track into the filter; DRUM-X: the track\'s DIST).</p>'
                   + knobs('NOISE', 'RATE', 'MODE', 'DEST') +
                   '<p style="margin-top:8px"><b>FILTER 2</b>: a modulator, NOISE its depth (±3.5 oct on CUT, ±1 oct on pitch); MODE '
                   '<b>SOFT · STEP</b> random, gliding or held (RATE 0.4 .. 320 Hz), <b>METAL</b> audio-rate at a RATIO of the note '
                   '(x0.5 .. x4: on pitch, FM), <b>BREAK</b> in time (DIV 1/8 .. 1/32), <b>DUST</b> spikes (RATE: density); <b>DEST</b> '
-                  'FILT · F75 · MIX · P75 · PITCH (VOICE: FILT). <b>FILTER 3</b>: KEY tracking 0 .. 100 % (ANALOG starts at 21 %). '
+                  'FILT · F75 · MIX · P75 · PITCH. <b>FILTER 3</b>: KEY tracking 0 .. 100 %. '
                   'MOD source <b>F.NOISE</b>: the raw modulator. LP24 with DRV: level kept, RES top sings.</p>'))
     b.append(card('VOICE · PLAYING', HEAT[2], knobs('VCE', 'GLD', 'GLMOD', 'PRIO') +
                   '<p style="margin-top:8px">POLY · MONO · LEG · UNI · DRONE (held after the key, the next note glides; '
@@ -406,7 +367,7 @@ def sound():
                   '<b>8 voices</b> shared by the six tracks (MONO and LEGATO keep their note). <b>EDIT › VOICES 2 IMAGE</b> (V10.49; was its STEREO page): '
                   'in POLY each voice its own place across the stereo field, drawn on the page (V10.52).</p>'))
     b.append(card('DICE', HEAT[5], '<p><b>EDIT + SELECT</b>: a random factory preset of the engine, every '
-                  'parameter moved up to a quarter of its range. DRUM-X: both sides of every sound around the factory '
+                  'parameter moved up to a quarter of its range. <b>FORM</b>: its own dice, all of it coherent (states, timbre, harmony, rules, clock); SEQ + SELECT its composition alone. DRUM-X: both sides of every sound around the factory '
                   'kit. Heard at once: OCT+ OK keeps it, OCT- CANCEL brings the sound back. SEQ / LFO / FX + SELECT: the sequence, the LFO, the effects, the same way. HOME + SELECT (or HOME twice on HOME): <b>GEN</b>, the song generator, HOME\'s last three pages: GENRE (<b>EXPLORE</b>, where it opens: no genre, every rule broken; RANDOM; 43 genres; PRESETS too) · SEED · ENERGY · FORM; DRUMS · BASS · CHORDS · ARP · LEAD amounts; COMPLEX · SWING · HUMAN (SELECT: the next page). OCT+ makes the piece (again: a new seed), OCT- back to MACROS. GLO + G4 undoes.</p>'))
     b.append('</div>')
 
@@ -425,7 +386,9 @@ def sound():
                   '<h4>SOURCES</h4><p>' + k('LFO', 'ENV', 'VEL', 'KEY', 'RAND', 'MODW', 'AT', 'EXPR', 'M1', 'M2', 'M3', 'M4',
                                              'STEP', 'NOISE', 'PROX', 'ENV2', 'FOLLOW', 'OCT+', 'OCT-') + '</p>'
                   '<h4>DESTINATIONS</h4><p>' + k('PITCH', 'CUT', 'SHP', 'AMP', 'PAN', 'DIST', 'CHO', 'DLY', 'REV', 'RATE',
-                                                  'VIB', 'E1…E8', 'CLIP', 'PNCH', 'D.TIM', 'D.FB', 'D.TON', 'D.MIX', 'R.SIZ', 'R.DMP', 'C.RAT', 'C.DEP') + '</p>'
+                                                  'VIB', 'E1…E8', 'CLIP', 'PNCH', 'D.TIM', 'D.FB', 'D.TON', 'D.MIX', 'R.SIZ', 'R.DMP', 'C.RAT', 'C.DEP', 'F.CUT', 'LEVEL', 'LIFE') + '</p>'
+                  '<h4>FORM\'S OWN (A FORM TRACK)</h4><p>' + k('STYLE', 'DRIVE', 'TONE', 'WOBBLE', 'HARMONY', 'PROGRESS', 'OCTAVE', 'CHORD',
+                                                  'VOICING', 'DRUMS', 'DETUNE', 'SWING', 'RATE', 'CYCLE') + '</p>'
                   '<p style="margin-top:6px">E1…E8: the engine\'s own EDIT knobs. CLIP / PNCH: the master. D. R. C.: the DELAY, REVERB and CHORUS buses (a STEP source on D.TIM sequences the delay time). '
                   '<b>PROX</b>: how close the Bluetooth phone is (or AIR: a hand); MENU › SYSTEM › BLUETOOTH, OCT+: FAR / NEAR, MIN MAX SPD. '
                   '<b>FOLLOW</b>: the audio input\'s envelope (an input opens a filter, ducks a pad). '
