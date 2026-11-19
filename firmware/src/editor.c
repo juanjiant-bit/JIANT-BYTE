@@ -565,8 +565,9 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         ed_v(d->def);
         ed_str(d->label, 8);
         ed_str(desc_unit(d), 8);
-        if (d->fmt == F_ENUM && d->names)                  /* up to 40 (0.7.0: the matrix DST has 30; was 24; V10.7.34: 33) */
-            for (i = 0; i <= (uint32_t)(d->max - d->min) && i < 40u; i++) {
+        if (d->fmt == F_ENUM && d->names)                  /* up to 48 (0.7.0: the matrix DST has 30; was 24; V10.7.34: 33;
+                                                         * JIANT BYTE v0.14: 47, FORM's 14 at the end; ~500 B of ed_out) */
+            for (i = 0; i <= (uint32_t)(d->max - d->min) && i < 48u; i++) {
                 int dst = d->names == N_MDST, show = dst && (mod_dst_offer(TSEL, i) || i == (uint32_t)*vp);
                 if (show && i) { ed_b(mod_dst_scope(TSEL, i)); ed_b(':'); }
                 ed_str(dst ? (show ? mod_dst_name(TSEL, (int32_t)i) : N_MDST[0]) : d->names[d->min + (int32_t)i], show && i ? 6u : 8u);
