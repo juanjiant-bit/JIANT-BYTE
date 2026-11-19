@@ -54,6 +54,9 @@ static LIFE_SZ void life_master(void)
 }
 /* After note events and performance mutes, before either render core starts. */
 static uint32_t fl_blk;
+static volatile uint8_t load_tight;     /* (voice.c: the overload guard tripped) */
+static uint16_t fl_shed;                /* (byte-cpu-light) blocks left of LIFE shed by the guard (~2 s after it lets go):
+                                         * the parts but the selected one without LIFE, their depth gliding to 0 */
 static uint8_t fl_idle;                 /* (byte-cpu-light) LIFE off and its state cleared */                 /* (byte-cpu-light) blocks, for the captures' turn */
 static LIFE_SZ void life_formula_block(uint32_t hush)
 {
@@ -80,9 +83,14 @@ static LIFE_SZ void life_formula_block(uint32_t hush)
     }
     fl_idle=0;
     memset(fl.sum,0,sizeof fl.sum);memset(life.w,0,sizeof life.w);
+    if(load_tight)fl_shed=(uint16_t)(2u*FS/CTL);else if(fl_shed)fl_shed--;
+    uint32_t shed=fl_shed?~(1u<<(song.sel%NTRK))&((1u<<NTRK)-1u):0u;   /* (bit p: part p's LIFE shed) */
+    fl_cap_m=0;
+    for(i=0;i<NTRK;i++)if((punch||life_v[LIFE_N+i])&&!((shed>>i)&1u))fl_cap_m|=(uint8_t)(1u<<i);
     for(i=0;i<NTRK;i++) {
         int32_t target=fl.on?life_pt(i,0):0;
         if(target<punch*2)target=punch*2;
+        if((shed>>i)&1u)target=0;
         fl.depth[i]=(uint16_t)(target?fl.depth[i]+clamp(target-fl.depth[i],-4,4):0);
     }
     for(i=0;i<FL_VOICES;i++) {
@@ -95,7 +103,7 @@ static LIFE_SZ void life_formula_block(uint32_t hush)
             else w->valid=0;
         }
         if(fl.on&&p->valid&&tr<trk_live&&!trk[tr].p[P_MUTE]&&!((hush>>tr)&1u)&&
-           (punch||life_v[LIFE_N+tr])&&v->active&&v->stage!=4u&&v->note==p->note&&
+           (punch||life_v[LIFE_N+tr])&&!((shed>>tr)&1u)&&v->active&&v->stage!=4u&&v->note==p->note&&
            (trk[tr].engine!=ENGI_DRUM||!dx_lane_muted((uint32_t)v->s[0]))) {
             g=(uint32_t)clamp(v->env_out,0,32767)>>7;
             g=g*(uint32_t)clamp(trk[tr].p[P_LEVEL],0,127)/127u;

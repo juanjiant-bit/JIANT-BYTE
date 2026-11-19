@@ -95,14 +95,16 @@ static int32_t fl_other_h(uint32_t id,uint32_t k,uint32_t weight)
     return (fl.sum[k]-(int32_t)fl.node[fl.rd][id].wave[k]*(int32_t)fl.gate[id])/(int32_t)weight;
 }
 /* (byte-cpu-light) LIFE on a formula's output already made (fl_run's, or WAVE's table read: eng_wave.c) */
+static uint8_t fl_cap_m=0xFF;           /* (byte-cpu-light, life.c) bit p: part p's voices captured (its LIFE on, not shed) */
 static __attribute__((noinline)) void fl_post(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,uint32_t n,uint32_t*out)
 {
     uint32_t c=MC_CPU()&1u,id=fl_ctx[c].id;
     if(!fl.on||!id||!p->n||!n)return;
     if(n>FVM_BLK)n=FVM_BLK;
     id--;const fl_node_t*self=&fl.node[fl.rd][id];fl_node_t*write=&fl.node[fl.rd^1u][id];
-    if(!write->valid)fl_capture(p,e,sc,write); /* once, even for WAVE's A/B/unison */
     uint32_t g=fl.gate[id],other=fl.count-(g!=0),weight=fl.weight-g,depth=fl_ctx[c].depth;
+    if(!write->valid&&(g||depth||((fl_cap_m>>(id/NVOICE))&1u)))fl_capture(p,e,sc,write); /* once, even for WAVE's A/B/unison;
+                                         * (byte-cpu-light) not for a voice LIFE neither hears nor gives (shed) */
     fl_shape_t*z=&fl.shape[id];
     if(!depth||!(fl.numbers_amt|fl.fragments_amt|fl.link_amt)){memset(z,0,sizeof *z);return;}
     uint32_t connected=other&&weight;
