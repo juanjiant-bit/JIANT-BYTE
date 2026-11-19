@@ -193,7 +193,7 @@ def build_loader():
 # I-cache (32 KiB, shared by both cores and the UI) kept for the engines (Kirill's audit, LOOM-8)
 HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0", "perf_begin", "perf_pre", "perf_block", "perf_master", "slicer_bus",
            "dly_lo", "dly_grain", "dly_grain_adv", "dly_wow_adv", "dly_line_clear", "dly_rate", "fx_rest",
-           "rev_run", "rev_idle", "rev_room", "rev_room_mod", "rev_spring", "rev_spring_side", "rev_cloud", "rev_shimmer",
+           "rev_run", "rev_idle", "rev_room", "rev_spring", "rev_cloud", "rev_shimmer",   # (as JIANT FM V10.7.56: rev_spring_side and rev_room_mod from flash, fx.c calls them through a register: the room)
            "rev_reso", "cho_admit", "dist_shape", "dist_amp")
 
 
