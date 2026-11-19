@@ -3,7 +3,7 @@
  * (JIANT BYTE, byte-cpu-light) BYTE's engines at half the rate (voice.c voice_half) against the full one, under 4 kHz:
  * JIANT FM's voices_probe halfq (V10.7.56) for BYTE's engines. Well: about -19 dB; near 0 or over: the engine does not
  * follow the doubled increments (another pitch, another tempo).
- *   byte_half_test [LIM] [ENGINE]   (every engine with .half, or ENGINE forced to the generic path to try it) */
+ *   byte_half_test [LIM] [ENGINE]   (every engine with .half but FORM (its song: form_half_test) and DRUM, or ENGINE alone) */
 static unsigned vsoft_host = 0;
 #define VSOFT vsoft_host
 #define main hostsim_main
@@ -115,8 +115,8 @@ int main(int argc, char **argv)
         uint32_t seen;
         for (seen = 0; seen < e && ENGINES[seen] != en; seen++) {}
         if (seen < e) continue;                         /* (a retired number playing as another: once) */
-        if (argc > 2 && !strcmp(argv[2], en->name) && !en->half) en->half = 1;   /* (try the generic path) */
-        if (!en->half || e == ENGI_DRUM || !en->npresets) continue;
+        if (argc > 2 && strcmp(argv[2], en->name)) continue;   /* (one engine) */
+        if (!en->half || e == ENGI_DRUM || e == ENGI_FORM || !en->npresets) continue;
         for (pr = 0; pr < en->npresets; pr++) {
             for (k = 0; k < 2u; k++) {
                 phrase_t ph = {en->presets[pr].name, (uint8_t)e, (uint8_t)pr, 4, (uint8_t)k, {48, 55, 60, 64}, 500, 200, -1};

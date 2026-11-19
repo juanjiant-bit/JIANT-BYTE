@@ -190,23 +190,26 @@ static int32_t form_section(uint32_t state,uint32_t phase,uint32_t layer,uint32_
 static uint32_t form_pitch(const track_t*t,int32_t note){return pitch_inc((uint32_t)clamp(scale_snap(t,note),24,96)*16u);}
 static uint32_t form_cost(const track_t*t){return t->p[P_E2]>0&&t->p[P_E2]<127&&t->p[P_E0]!=t->p[P_E1]?12u:7u;}
 static void form_note_on(track_t*t,voice_t*v){memset(v->s,0,sizeof v->s);memset(v->ph,0,sizeof v->ph);v->s[5]=t->p[P_E2]*256;v->s[6]=t->p[P_E3]*256;}
-static __attribute__((noinline)) void form_life(track_t*t,voice_t*v,uint32_t a,uint32_t b,uint32_t morph,int32_t color,uint32_t inc,uint32_t tick,int32_t*y,uint32_t n){
+static __attribute__((noinline)) void form_life(track_t*t,voice_t*v,uint32_t a,uint32_t b,uint32_t morph,int32_t color,uint32_t inc,uint32_t tick,int32_t*y,uint32_t n,uint32_t hs){
  if(!fl.on)return;
  uint32_t id=fl_ctx[MC_CPU()&1u].id;if(!id)return;
  fl_node_t*node=&fl.node[fl.rd^1u][id-1u];
  if(!node->valid){int32_t cycle[FVM_BLK];for(uint32_t i=0;i<FVM_BLK;i++)cycle[i]=form_mix(form_wave(a,i,0x100000000ull/FVM_BLK,0,color,0),form_wave(b,i,0x100000000ull/FVM_BLK,0,color,0),morph);node->valid=1;node->note=v->note;node->envelope=32767;node->has_number=1;node->number=(uint16_t)(color*64);node->n=1;fl_project(node,cycle);}
  static fvm_ins_t in={FO_PUSH,FM_ARR,0,FA_XF};static const fvm_prog_t p={.ins=&in,.cap=1,.n=1,.depth=1,.ty=FT_FIX};
- for(uint32_t off=0;off<n;off+=FVM_BLK){uint32_t count=n-off<FVM_BLK?n-off:FVM_BLK,W[FVM_BLK],X[FVM_BLK],O[FVM_BLK];for(uint32_t i=0;i<count;i++){W[i]=((tick+off+i)*inc)>>16;X[i]=(uint32_t)(y[off+i]*2);}fvm_env_t e={{0},{0},0};e.arr[FA_W]=W;e.arr[FA_XF]=X;fl_run(&p,&e,&lofi_work[MC_CPU()&1u].s,count,O);for(uint32_t i=0;i<count;i++)y[off+i]=fvm_sample(FT_FIX,O[i]);}
+ for(uint32_t off=0;off<n;off+=FVM_BLK){uint32_t count=n-off<FVM_BLK?n-off:FVM_BLK,W[FVM_BLK],X[FVM_BLK],O[FVM_BLK];for(uint32_t i=0;i<count;i++){W[i]=((tick+(off+i)*hs)*inc)>>16;X[i]=(uint32_t)(y[off+i]*2);}fvm_env_t e={{0},{0},0};e.arr[FA_W]=W;e.arr[FA_XF]=X;fl_run(&p,&e,&lofi_work[MC_CPU()&1u].s,count,O);for(uint32_t i=0;i<count;i++)y[off+i]=fvm_sample(FT_FIX,O[i]);}
  (void)t;
 }
 static volatile uint8_t load_tight;              /* (voice.c: the overload guard tripped) */
 static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*out,uint32_t n,const vmod_t*m)
 {
  if(n>CTL)n=CTL;if(!n)return;
+ /* (byte-cpu-light) at half the rate (voice.c voice_half, .half 2): n is CTL / 2 (or / 4) and each sample is hs on.
+  * FORM's time is its tick (phases tick*inc, the song's clock, the ages): the tick steps hs, the one-poles' coefs hs times */
+ uint32_t hs=1u<<VH_SH();
  uint32_t a=(uint32_t)clamp(t->p[P_E0],0,21),b=(uint32_t)clamp(t->p[P_E1],0,21),seed=(uint32_t)clamp(t->p[P_E6],0,127),groove=(uint32_t)clamp(t->p[P_E4],0,7),density=(uint32_t)clamp(t->p[P_E5],0,127),evolve=(uint32_t)clamp(t->p[P_E7],0,127),domain=(uint32_t)clamp(t->p[P_CAOS],0,4);
  const form_state_t*A=&FORM_STATE[a],*B=&FORM_STATE[b];
  uint32_t samples=(uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300),tick=v->ph[0],pos,end;
- if(func_song(t)){pos=func_clock_begin;end=func_clock_end;}else{pos=(uint32_t)(((uint64_t)tick<<16)/samples);end=(uint32_t)(((uint64_t)(tick+n)<<16)/samples);}
+ if(func_song(t)){pos=func_clock_begin;end=func_clock_end;}else{pos=(uint32_t)(((uint64_t)tick<<16)/samples);end=(uint32_t)(((uint64_t)(tick+n*hs)<<16)/samples);}
  uint32_t dpos=(end-pos)/n,rem=(end-pos)%n,carry=0;
  static const uint8_t RATE_N[]={1,2,4,8,3,6,1,1,1,1},RATE_D[]={4,4,4,4,4,4,8,16,32,64};uint32_t rate=(uint32_t)clamp(t->p[P_SDIV],0,9),cycle=(uint32_t)clamp(t->p[P_SLEN],1,64),last=0xffffffffu,mi=0,bi=0,ci[4]={0};
  int32_t tonal[CTL],drums[CTL];uint32_t lastinc=pitch_inc((uint32_t)clamp(v->note,24,96)*16u);
@@ -222,7 +225,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  int32_t swing=clamp(t->p[P_SSWING],0,100)*160;uint32_t split=32768u+(uint32_t)swing;
  uint32_t recip1=(uint32_t)(0x80000000ull/split),recip2=(uint32_t)(0x80000000ull/(65536u-split));
  uint32_t mcyc=~0u,msec=~0u,mutation=0;int32_t sec0=0,sec1=0,sec2=0;uint32_t cd[4]={0};
- for(uint32_t i=0;i<n;i++,tick++){
+ for(uint32_t i=0;i<n;i++,tick+=hs){
   uint32_t beat=(pos%(cycle<<16))*RATE_N[rate]/RATE_D[rate],section=(pos%(cycle<<16))/cycle;
   uint32_t cyc=pos/(cycle<<16),swingpos=beat&65535u;
   if(cached_cycle!=cyc){for(uint32_t side=0;side<2;side++){const form_state_t*st=side?B:A;uint32_t raw[4]={st->gate,st->kick,st->snare,st->hat};for(uint32_t k=0;k<4;k++)masks[side][k]=form_pattern(raw[k],groove,seed,cyc);}cached_cycle=cyc;event_step=drum_step=~0u;}
@@ -261,7 +264,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
    else if(dom==4){int32_t bits=(int32_t)(((tick*(mi>>16))^(tick>>5))&255u)*256-32768;x=(x*3+mulq15(bits,lead))/4;}
    if(id>=18)x=x/2+bass;
    x=soft_knee(x,26000);uint32_t slot=side;
-   if(dom==3||id==4||id==12||id==17){int32_t fb=v->s[2+slot]/4;int32_t u=soft_knee(x+fb,26000),coef=2500+localcolor*120;v->s[slot]+=mulq15(u-v->s[slot],coef);v->s[2+slot]=v->s[slot];x=id==12?(x-v->s[slot])/2:v->s[slot];}
+   if(dom==3||id==4||id==12||id==17){int32_t fb=v->s[2+slot]/4;int32_t u=soft_knee(x+fb,26000),coef=clamp((2500+localcolor*120)*(int32_t)hs,0,32000);v->s[slot]+=mulq15(u-v->s[slot],coef);v->s[2+slot]=v->s[slot];x=id==12?(x-v->s[slot])/2:v->s[slot];}
    sources[side]=x;
   }
   if(am==bm)sources[1]=sources[0];tonal[i]=clamp(form_mix(sources[0],sources[1],morph),-32767,32767);
@@ -279,10 +282,10 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
   drums[i]=mulq15(ds,sec2)*dm/127;
   pos+=dpos;carry+=rem;if(carry>=n){carry-=n;pos++;}
  }
- form_life(t,v,a,b,morph,color,lastinc,v->ph[0],tonal,n);
- for(uint32_t i=0;i<n;i++){int32_t x=soft_knee(tonal[i]+drums[i],28000);v->s[4]+=(x-v->s[4])/512;x-=v->s[4];out[i]+=voice_amp(clamp(x,-32767,32767),m,i);}
+ form_life(t,v,a,b,morph,color,lastinc,v->ph[0],tonal,n,hs);
+ for(uint32_t i=0;i<n;i++){int32_t x=soft_knee(tonal[i]+drums[i],28000);v->s[4]+=(x-v->s[4])/(int32_t)(512u/hs);x-=v->s[4];out[i]+=voice_amp(clamp(x,-32767,32767),m,i);}
  v->ph[0]=tick;
 }
 static const engine_t ENG_FORM={.name="FORM",.page_title={"STATES","RULES"},
  .edit={{"STATE A",F_ENUM,0,21,0,FORM_NAMES},{"STATE B",F_ENUM,0,21,1,FORM_NAMES},{"MORPH",F_PCT,0,127,0,0},{"COLOR",F_PCT,0,127,64,0},{"GROOVE",F_ENUM,0,7,0,FORM_GROOVE},{"DENSITY",F_PCT,0,127,100,0},{"SEED",F_INT,0,127,0,0},{"EVOLVE",F_PCT,0,127,64,0}},
- .presets=FORM_PRESETS,.npresets=FORM_N,.knob={P_E0,P_E1,P_E2,P_E3},.poly=1,.note_on=form_note_on,.render=form_render};
+ .presets=FORM_PRESETS,.npresets=FORM_N,.knob={P_E0,P_E1,P_E2,P_E3},.poly=1,.half=2,.note_on=form_note_on,.render=form_render};

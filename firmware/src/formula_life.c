@@ -172,7 +172,8 @@ static __attribute__((noinline)) void fl_post(const fvm_prog_t*p,const fvm_env_t
      * two mixes stepped linearly across the call. The partials from one sine and one cosine (a recurrence), not one
      * table read each. The sound as before within the slews' rounding; a fraction of the instructions. */
     int32_t num_target=number>0?number*32767/(number+512):0;
-    int32_t f128=(int32_t)(n*256u/(128u+n/2u)),f64=(int32_t)(n*256u/(64u+n/2u)),f256=(int32_t)(n*256u/(256u+n/2u));
+    uint32_t ns=n<<VH_SH();                     /* (byte-cpu-light) at half the rate a sample is two: the slews in time */
+    int32_t f128=(int32_t)(ns*256u/(128u+ns/2u)),f64=(int32_t)(ns*256u/(64u+ns/2u)),f256=(int32_t)(ns*256u/(256u+ns/2u));
     int32_t num_mix0=z->num_mix,mix0=z->mix,link0=z->link,num0=z->num,color0=z->color;
     z->num+=(int32_t)(((int64_t)(num_target*256-z->num)*f128)>>8);
     z->link+=(int32_t)(((int64_t)(link_target*256-z->link)*f128)>>8);

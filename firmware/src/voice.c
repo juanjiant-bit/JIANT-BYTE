@@ -722,13 +722,17 @@ static struct { volatile uint32_t peak, late, shed; } load_diag;
  * load, the voices go to half the rate (voice_soft) before anything is cut; the overload's last resort stays
  * (audio.c shed_voice). VPOL 0: the shared budget as before (tests) */
 #ifndef VPOL
-#define VPOL 0u                                        /* (JIANT BYTE, byte-cpu-light: off until MATH, FORM and DRUM-X
-                                                         * have a half-rate path: with VPOL the half rate is the relief) */
+#define VPOL 0u                                        /* (JIANT BYTE, byte-cpu-light) off: BYTE's song asks more voices
+                                                         * than the half rate gives back (cpu_vg song/cputest 2951, .vpol
+                                                         * 3887, .vpol.half 3573). The half rate stays the guard's relief
+                                                         * (voice_soft vh_held): WAVE and MATH half 1, FORM half 2 */
 #endif
 static uint8_t vpol_on = VPOL;                          /* (a test may run the shared budget of before) */
 #define VPOL_ON() (vpol_on && sys_load != LOAD_ECO)         /* (LOAD ECO, the owner's own choice to spend less: its shared
                                                          * budget of ECO_VOICES as before) */
+#ifndef VPOL_VOICES
 #define VPOL_VOICES 16u                                 /* the voices the parts may sound together (the hurry's measure) */
+#endif
 #define VPOL_LINE 2u
 static uint8_t vpol_chord = 0xFF;                       /* the chord part (0xFF: none) */
 static __attribute__((noinline)) void vpol_scan(void)   /* (voice_soft, ~1.5 s) the chord part from the sequences */
@@ -822,6 +826,8 @@ static uint8_t vh_quart;                                /* (V10.7.56) bit p: par
 static int32_t vh_c[NTRK * NVOICE] __attribute__((section(".pool")));   /* a voice: VH_* (bits 0..2), its last sample at
                                                          * half the rate << 3 (the pool: zero at boot; 224 B of it were
                                                          * left over its 8 KiB of headroom, the RAM has none) */
+static int32_t vh_lp[NTRK * NVOICE] __attribute__((section(".pool")));   /* (V10.7.56) a tail at half the rate: its
+                                                         * low-pass (~5.5 kHz, the tail's own sample) */
 #define VH_ST(c) ((uint32_t)(c) & 7u)
 /* the end of a half (audio.c shed_check): pct the render's share of it (%), pct_all with TIMER5 nested in it, cores2
  * both cores rendering. The guard above; the admission's prediction starts again from the average */
@@ -1106,7 +1112,8 @@ static __attribute__((noinline)) void voice_soft(void)
                 }
                 nh += !s;
             } else if (v->stage != 4u) {
-                if (rel_hurry[p] && voice_lvl(t, v) < TAIL_END) {
+                if ((rel_hurry[p] || VPOL_ON()) && voice_lvl(t, v) < TAIL_END) {   /* (V10.7.56: always, no noise floor
+                                                         * of tails under -60 dB) */
                     voice_kill(v);
                     voice_trims++;
                 } else if (near && !s)
@@ -1177,6 +1184,7 @@ static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, 
                                                  const vmod_t *m, uint32_t vi)
 {
     uint32_t st = VH_ST(vh_c[vi]), i, gen = e->half == 1u || e->half == 3u;
+    uint8_t *vs = &vh_sh_c[MC_CPU() & 1u];
     int32_t hb[CTL / 2], x = 0, pv = vh_c[vi] >> 3;
     vmod_t h = *m;
     if (n != CTL || st == VH_OUT) {
@@ -1195,7 +1203,9 @@ static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, 
         h.amp1 = 4 * m->amp1 - 3 * m->amp0;
         for (i = 0; i < CTL / 4u; i++)
             hq[i] = 0;
+        *vs = 2;
         e->render(t, v, hq, CTL / 4u, &h);
+        *vs = 0;
         if (st != VH_ON)
             pv = 2 * hq[0] - hq[1];
         for (i = 0; i < CTL / 4u; i++) {
@@ -1219,9 +1229,20 @@ static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, 
     }
     for (i = 0; i < CTL / 2u; i++)
         hb[i] = 0;
+    *vs = 1;
     e->render(t, v, hb, CTL / 2u, &h);
+    *vs = 0;
     if (st != VH_ON)                                    /* the sample before the first: the one rendered, else a line back */
         pv = st == VH_IN && gen ? 2 * x - hb[0] : 2 * hb[0] - hb[1];
+    if (!v->gate && VPOL_ON()) {                       /* (V10.7.56, JIANT FM) a released voice: its tail low-passed
+                                                         * (one pole, ~5.5 kHz at 22 kHz): no fizz of the half rate's
+                                                         * folds, no bright floor of many tails */
+        int32_t y = st == VH_ON ? vh_lp[vi] : hb[0];
+        for (i = 0; i < CTL / 2u; i++)
+            hb[i] = y += ((hb[i] - y) * 3) >> 2;           /* (pole 0.25: ~5.5 kHz at 22 kHz) */
+        vh_lp[vi] = y;
+    } else
+        vh_lp[vi] = hb[CTL / 2u - 1u];
     for (i = 0; i < CTL / 2u; i++) {
         out[2u * i] += (pv + hb[i]) >> 1;
         out[2u * i + 1u] += pv = hb[i];

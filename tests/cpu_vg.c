@@ -22,6 +22,7 @@
  *   song/cputest   SAVE > TOOLS 6 CPU TEST's song (song_dice.c cpu_test_song), playing: what the device is measured on
  *   song/cputest.djf  (0.9.1) .. with the master DJ FILTER on (GLO > MIXER KNOB 4 at -24, a low-pass): its cost on top
  *   song/cputest.eq   (p9) .. with the master's EQ on (FX > EQ, the four bands 6 -3 3 -6 dB): its cost on top
+ *   song/cputest.vpol(.half)  (byte-cpu-light) .. under VPOL, every voice at the full rate (and the guard tripped: held at half)
  *   mix/idle       (0.9.9 ctl64) nothing sounding, stopped: the fixed cost of a block (the events, the split, the buses,
  *                  the buffers, the master)
  *   seq/mono4      (0.9.9 ctl64) four MONO tracks (ANALOG FM6 VOICE WHEEL) at 1/16, 150 BPM, one note a step, each
@@ -136,6 +137,8 @@ static void vg_seq(int heavy)
 }
 int main(void)
 {
+    vpol_on = 0;                                        /* (byte-cpu-light) the shared budget, as the budgets were set;
+                                                         * VPOL: song/cputest.vpol */
     static const struct { const char *eng, *pre; uint32_t notes; } E[] = {
         {"ANALOG", "FAT BASS", 8}, {"PHASE", "STRING", 8}, {"MATH", "BYTE BENT", 8}, {"VOICE", "WOW BASS", 4},
         {"DRUM", "", 8}, {"WEST", "METAL", 8}, {"ANIMAL", "ROAR", 8},
@@ -277,6 +280,14 @@ int main(void)
         life_v[0] = 100; vg_section("song/cputest.life100");
         life_v[0] = l0;
     }
+    /* (byte-cpu-light) VPOL (voice.c, as JIANT FM V10.7.56): no voice taken, the half rate the relief, on the load the
+     * device measures (audio.c load_half), which the host has not. .vpol: every voice asked for, at the full rate (what
+     * the guard sees before it trips); .vpol.half: the guard tripped, every part's held voices at half (vh_held) */
+    vpol_on = 1;
+    vg_section("song/cputest.vpol");
+    load_tight = 1; vh_held = 0xFF;
+    vg_section("song/cputest.vpol.half");
+    load_tight = 0; vh_held = 0; vpol_on = 0;
     {   /* (cpu5) the idle floor: mix/idle the power-on state 2 s on, nothing played (the buses never excited: cpu4's
          * certificates); mix/idle.tail after a chord into CLOUD, the delay and the chorus has rung out and the buses'
          * gate has shut (fx.c fx_rest), 6 s after the keys went up (the delay's FEEDBK holds the gate ~4 s) */

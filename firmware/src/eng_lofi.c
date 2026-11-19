@@ -165,6 +165,9 @@ static void lofi_time(const int16_t *p, lofi_tm_t *m)
             m->inc = (r * 24u / v) >> 8;                /* (UNSYNC on a value: the tempo's pace from the note, Q8) */
             m->mul = 256u;
         }
+        m->sr <<= VH_SH();                              /* (byte-cpu-light, as JIANT FM V10.7.56) at half the rate the
+        m->qr <<= VH_SH();                               * tempo's steps a sample twice as long */
+        m->inc <<= VH_SH();
     }
 }
 /* (0.5.4) VAR as a mutation of the time (BYTE's t, FLOAT's step count): v >> 4 picks the way, v & 15 how much. 0..15
@@ -429,6 +432,9 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
     lofi_time(p, &tmc);
     mul = tmc.mul; sy = tmc.sy; sb = tmc.sb; sr = tmc.sr; tinc = tmc.inc; key = tmc.key; qb = tmc.qb; qr = tmc.qr;
     hold *= 1 + (p[P_E5] >> 3);                         /* (0.5.4) GRIT: each sample held up to 16 x longer */
+    int32_t vsh = (int32_t)VH_SH(), sk = vsh ? 3 : 2;   /* (as JIANT FM V10.7.56) at half the rate: the hold half as
+                                                         * many samples, the two smoothing poles squared */
+    hold = (hold + vsh) >> vsh;
     if (n > LOFI_N)
         n = LOFI_N;
     {   /* (JIANT BYTE) pass 1: MATH's time as ever, the times the formula is read at (a new held sample) gathered */
@@ -488,10 +494,10 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
         tt += tf >> 24;
         tf &= 0xFFFFFFu;
         ts += tinc ? tinc : ((ti >> 8) * mul) >> 16;
-        l1 += ((held >> 1) - l1) >> 1;                  /* (JIANT 0.5) the 8-bit steps rounded: two one-poles before
+        l1 += (((held >> 1) - l1) * sk) >> 2;                  /* (JIANT 0.5) the 8-bit steps rounded: two one-poles before
                                                          * the filter (BYTE was knife-sharp); 0.9.11: at ~4.9 kHz, were
                                                          * ~6.3 (x 0.6): their images softer, the steps' edges filed */
-        l2 += (l1 - l2) >> 1;
+        l2 += ((l1 - l2) * sk) >> 2;
         out[i] += voice_amp(soft_knee(svf_mode(flt, l2, &ic1, &ic2, ft, kd), 16000) << 1, m, i);
     }
     v->s[3] = l1;
@@ -588,7 +594,8 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
         tt += tf >> 24;
         tf &= 0xFFFFFFu;
         ts += tinc ? tinc : ((ti >> 8) * mul) >> 16;
-        sm = LOFI_SOFT(s >> 1, sm);
+        sm = VH_SH() ? sm + ((((s >> 1) - sm) * 55) >> 6) : LOFI_SOFT(s >> 1, sm);   /* (as JIANT FM V10.7.56:
+                                                         * at half the rate the pole squared, 1 - (3/8)^2) */
         out[i] += voice_amp(soft_knee(svf_mode(flt, sm, &y1, &y2, ft, kd), 16000) << 1, m, i);
     }
     v->ph[2] = (uint32_t)sm;
@@ -772,6 +779,7 @@ static const engine_t ENG_LOFI = {
     .npresets = NELEM(LOFI_PRESETS),
     .note_on = lofi_note_on,
     .render = lofi_render,
+    .half = 1,
     .knob = {P_E1, P_E2, P_E3, P_REL},
     .keep = 0x31,                /* the held sample and the filter */
     .desc = lofi_desc,
