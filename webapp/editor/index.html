@@ -918,6 +918,8 @@ function fmtValue(d, v) {
    the right values; parameters the file does not have are null (left at the engine default). Engines are
    matched by name. The old single-sound file ("felucca-patch" version 1, "Save to file") is read too. */
 const LIB = { FORMAT: "felucca-library", VERSION: 1 };
+/* (JIANT BYTE) the drum engine's name: DRUM (JIANT FM, BYTE before v0.14) or DRUM-W (its lanes on wavetables) */
+const isDrumName = (n) => n === "DRUM" || n === "DRUM-W";
 
 /* parameter keys by id from the instrument DESCs */
 function paramKeys(pdesc, pe0, pcount) {
@@ -1170,7 +1172,7 @@ async function capturePatch(rq, info, name) {
   const dump = parse[CMD.DUMP](await rq(req.dump()), info);
   const steps = [];
   for (let i = 0; i < UP.PAT && i < info.nstep; i++) steps.push(parse[CMD.STEP_GET](await rq(req.stepGet(i))));
-  const drum = info.engines[dump.engine] === "DRUM";   /* (a DRUM track that strikes a lane: its grid) */
+  const drum = isDrumName(info.engines[dump.engine]);   /* (a DRUM track that strikes a lane: its grid) */
   let fm6 = null;                                      /* an FM6 track: its own patch (the selected track's) */
   if (info.fm6 && info.engines[dump.engine] === "FM6") {
     const sel = info.ntrk ? parse[CMD.TRACK](await rq(req.track())).sel : 0;
@@ -1586,7 +1588,7 @@ const PERC_SET = 4, DRUM_KIT_E = [64, 64, 70, 64, 64, 0, 0, 0];
 function fromPerc(pt, engines, pe0) {
   const names = engines && engines.length ? engines : null;
   const name = pt.engineName || (names || [])[pt.engine];
-  const p = pt.p || pt.params, drum = names ? names.indexOf("DRUM") : 10;
+  const p = pt.p || pt.params, drum = names ? names.findIndex(isDrumName) : 10;
   if (!(name === "SAMPLE" || (pt.engine === 4 && (!name || name === "-"))) || !Array.isArray(p) || drum < 0) return null;   /* (4: "-" once retired) */
   const e0 = pe0 ?? p.length - 8;
   if (p[e0] !== PERC_SET) return null;
@@ -1603,7 +1605,7 @@ const engineLabel = (engines, e) => (e === 1 && (engines || [])[1] === "-" ? (is
 const BYTE_LAYOUT = { nengines: 17, pcount: 123, pe0: 115, gcount: 73 };
 /* every engine number's name as INFO sends it (engines.c ENGINES[]: a retired number plays as another engine,
    ENG_LIVE), the engine each number plays on, and the order the device shows them in (ENGINE_ORDER) */
-const BYTE_ENG_NAMES = ["WAVE", "-", "WAVE", "MATH", "-", "WAVE", "-", "MATH", "WAVE", "-", "DRUM", "WAVE", "MATH", "WAVE", "MATH", "MATH", "FORM"];
+const BYTE_ENG_NAMES = ["WAVE", "-", "WAVE", "MATH", "-", "WAVE", "-", "MATH", "WAVE", "-", "DRUM-W", "WAVE", "MATH", "WAVE", "MATH", "MATH", "FORM"];
 const BYTE_ENG_LIVE = [13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 16];
 const BYTE_ENG_ORDER = [16, 10, 13, 3];
 /* the engines: their EDIT 1 / EDIT 2 titles and descriptors, their factory presets (preset_t: e[8], env, mono (bit 0;
@@ -1656,7 +1658,7 @@ const BYTE_ENG_DEFS = (D, P) => ({
       P("35 WOBBLE", [34, 33, 0, 64, 0, 100, 0, 64], [0, 0, 127, 24], 18, 0, 0, [[61, 1], [78, 0], [75, 100], [29, 32], [25, 0], [26, 2], [76, 1], [77, 0], [44, 24], [17, 0], [24, 0], [21, 70], [18, 6], [22, 60], [20, 0], [19, 1]], 0, [1, 25, 11, 31]),
       P("36 ACID", [35, 26, 0, 64, 0, 100, 0, 64], [0, 0, 127, 24], 18, 0, 0, [[61, 1], [78, 0], [75, 100], [29, 32], [25, 0], [26, 2], [76, 1], [77, 0], [44, 24], [17, 0], [24, 0], [21, 30], [18, 4], [22, 100], [20, 0], [19, 1]], 0, [1, 25, 31, 21]),
     ] },
-  10: { name: "DRUM", titles: ["KIT", "KIT 2"], edit: [
+  10: { name: "DRUM-W", titles: ["KIT", "KIT 2"], edit: [
       D("MORPH", 1, 0, 127, 64),
       D("TUNE", 1, 0, 127, 64),
       D("TONE", 1, 0, 127, 64),
@@ -1811,7 +1813,7 @@ function makeMockDevice(opt = {}) {
   const BYTE_DEF = BYTE_ENG_DEFS(D, P);
   const ENG = BYTE_ENG_NAMES.map((n, i) => BYTE_DEF[BYTE_ENG_LIVE[i]] || GONE);
   const FORM_E = BYTE_ENG_NAMES.indexOf("FORM"), FORM_COMMON = BYTE_FORM_COMMON(D);
-  const FM6_E = ENG.findIndex((e) => e.name === "FM6"), FM6_OWN = FM6.FACTORY_PK.length, DRUM_E = ENG.findIndex((e) => e.name === "DRUM");
+  const FM6_E = ENG.findIndex((e) => e.name === "FM6"), FM6_OWN = FM6.FACTORY_PK.length, DRUM_E = ENG.findIndex((e) => isDrumName(e.name));
   /* factory PATTERNS[] (engines.c; the device loads them from SEQ > PATTERNS, presets only suggest one): absolute
      notes, 0 rest; flags 1 accent, 2 slide, 4 tie (holds the previous note) */
   const T_ = 4;
@@ -1869,7 +1871,7 @@ function makeMockDevice(opt = {}) {
   const desc = (scope, id) => (scope === 0 && id < P_COUNT ? tdesc(st.tracks[st.sel], id)
     : scope === 1 && id < G_COUNT ? GP[id] : null);
   const EMPTY = { n: 0, notes: [0, 0, 0, 0], time: 2, flags: 0, vel: 0, hit: 0, acc: 0, chance: 100, ratchet: 1 };
-  const isDrum = () => ENG[st.engine].name === "DRUM";
+  const isDrum = () => isDrumName(ENG[st.engine].name);
   const clearSteps = () => st.step.forEach((s) => Object.assign(s, EMPTY, { notes: [0, 0, 0, 0] }));
   function toGrid(s) {                            /* eng_drum.c step_to_grid: a lane's own note becomes its hit */
     if (s.time !== 0) return;
@@ -1898,7 +1900,7 @@ function makeMockDevice(opt = {}) {
     st.p[I.P_ED_FLT] = pr.fenv || 0;
     st.p[I.P_VOICE] = pr.mono & 1 ? I.V_LEGATO : I.V_POLY;
     if (pr.mono >> 1 === I.PT_BASS) st.p[I.P_TVEL] = 0;   /* (a bass: VEL 0 %) */
-    if (e.name === "MATH" || e.name === "DRUM") st.p[I.P_LRTRG] = e.name === "DRUM" ? km : 1;   /* MATH: RTRG on; DRUM: its KEY MAP kept */
+    if (e.name === "MATH" || isDrumName(e.name)) st.p[I.P_LRTRG] = isDrumName(e.name) ? km : 1;   /* MATH: RTRG on; DRUM: its KEY MAP kept */
     if (pr.xp) {                                  /* (V10.36) BREATHE: the LFO DRIFT, slow, on the filter */
       st.p[I.P_LWAVE] = 5; st.p[I.P_LRATE] = pr.xp & 0x80 ? -14 : -1; st.p[I.P_LD_FLT] = pr.xp & 63; st.p[I.P_LD_PIT] = pr.xp >> 6 & 1;
     }
@@ -2492,7 +2494,7 @@ function enumShown(d) {
 /* (JIANT BYTE) FORM DRUM WAVE MATH (generated: BYTE_ENG_ORDER), then JIANT FM's for an older firmware (0.9.9: DRUM-X
    VOICE ANIMAL first; DIGITAL, FELUCCA_FM4 builds only, last; LOFI an older firmware's MATH) */
 const ENGINE_ORDER = [...BYTE_ENG_ORDER.map((n) => BYTE_ENG_NAMES[n]),
-  ...["ANALOG", "PHASE", "FM6", "VOICE", "ANIMAL", "LOFI", "WHEEL", "WEST", "NOISE", "STRING", "ADD", "EXT", "SAMPLE", "DIGITAL"]];
+  ...["DRUM", "ANALOG", "PHASE", "FM6", "VOICE", "ANIMAL", "LOFI", "WHEEL", "WEST", "NOISE", "STRING", "ADD", "EXT", "SAMPLE", "DIGITAL"]];
 /* (JIANT BYTE) a name INFO gives several numbers (a retired engine's number plays as WAVE or MATH: engines.c ENG_LIVE)
    is listed once, at the number of the engine itself; a firmware the tables do not know: its first number */
 const isByteNames = (names) => !!names && names.length === BYTE_ENG_NAMES.length && names.every((n, i) => n === BYTE_ENG_NAMES[i]);
@@ -2927,7 +2929,7 @@ const LAYOUT = (pe0) => [
       [96 + 4 * k, 97 + 4 * k, 98 + 4 * k, 99 + 4 * k]])] : [])] },   /* (JIANT) the modulation sequence: LEN DIV SLEW, its 16 levels */
   ...(pe0 >= 61 ? [{ t: "MATRIX", mod: 49 }] : []),   /* the matrix: P_M1SRC 49 .. P_M4AMT 60, one row per slot */
   { t: "EDIT", engine: true, pages: [["EDIT 1", 0, [pe0, pe0 + 1, pe0 + 2, pe0 + 3]], ["EDIT 2", 0, [pe0 + 4, pe0 + 5, pe0 + 6, pe0 + 7]],
-    ...(pe0 >= 91 && engName() === "DRUM" ? [["LANES", 0, P_LANES.slice(0, 4)], ["LANES 2", 0, P_LANES.slice(4)]] : [])] },   /* lane levels 83..90 */
+    ...(pe0 >= 91 && isDrumName(engName()) ? [["LANES", 0, P_LANES.slice(0, 4)], ["LANES 2", 0, P_LANES.slice(4)]] : [])] },   /* lane levels 83..90 */
   ...(engName() === "FORM" ? [{ t: "FORM", pages: BYTE_FORM_PAGES.map(([title, ids]) => [title, 0, ids]) }] : []),   /* (JIANT BYTE)
                                                     FORM's own pages (params.c PAGES, SC_FORM; generated): its labels over DESC */
   ...(pe0 >= 81 && engName() === "DIGITAL" ? [{ t: "OP ENV", pages: [   /* P_FM1_ATK 61: ATK DEC SUS REL LVL per operator (a
