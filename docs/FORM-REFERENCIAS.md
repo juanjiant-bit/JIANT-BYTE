@@ -44,21 +44,28 @@ T=t,t/=4,max(min(sin(sqrt(T/6*[1,1,1.2,1.5,1,1,1.2,1.1][t>>14&7]&63)4)/((t>>(t&8
 Multiplicadores 1 1.2 1.5 1.1 por beat (justos); `sqrt(fase)&63` (timbre que barre en el ciclo); desplazamiento de bits
 por sección (la figura se acelera o se frena); click de caída de pitch `4E3/(t%8192)`.
 
-## 4. Generativa larga
+## 4. Dubstep a medio tiempo: wobble de velocidad cambiante, ring mod, sub dentro de la distorsión (Juan: "este dubstep está bueno")
 
 ```
-v=5E4/(1E4+t%4E4)(B=sin)((t%4E4)**.250),(c==>v=A(v))((=>v+=2B(random())/1.0002**((t+4E4)%8E4))((_=>v+=A(B(t3)/1.0002(t%2E4))/2)(c(X=t/1250,v+=(A=tanh)(B(t/4E4PI2**((C=int)(X<<X^(X>>3|X>>6))%4)-6)**5B(tPI/200(1+C(2*(X>>5|X>>7)/(1+C(X>>X)))%8))B(tPI/25)**3100+B(tPI/800)*25),v/=2))))
+v=5E4/(1E4+t%4E4)*(B=sin)((t%4E4)**.2*50),(c=_=>v=A(v))((_=>v+=2*B(random())/1.0002**((t+4E4)%8E4))((_=>v+=A(B(t**3)/1.0002**(t%2E4))/2)(c(X=t/1250,v+=(A=tanh)(B(t/4E4*PI*2**((C=int)(X<<X^(X>>3|X>>6))%4)-6)**5*B(t*PI/200*(1+C(2*(X>>5|X>>7)/(1+C(X>>X)))%8))*B(t*PI/25)**3*100+B(t*PI/800)*25),v/=2))))
 ```
-Notas por operaciones de bits sobre un tiempo lento (`X<<X^(X>>3|X>>6)`): caótico con estructura; proporciones que
-evolucionan en ciclos largos; cadenas de tanh con realimentación.
+Bombo cada 4E4 (caída de pitch por raíz quinta), caja de ruido decayendo a media vuelta ((t+4E4)%8E4): medio tiempo;
+hat metálico sin(t**3). Bajo: el wobble cambia de velocidad cada paso (sin(lento*2^(bits(X)%4-6))**5: 4 velocidades
+elegidas por bits, la potencia 5 lo afila); ring mod de tres senos (un armónico que salta por bits, un portador agudo
+al cubo); tanh(growl*100 + sub*25): el sub DENTRO de la saturación (intermodulación, distorsión asimétrica); el bus
+saturado (v=tanh(v)). Capa de carácter: wobble con patrón de velocidades, RING, DRIVE con cuánto sub entra a la
+saturación; gen de ritmo: grilla a medio tiempo.
 
-## 5. Bytebeat: melodías en enteros, ratchets
+## 5. Acid: bajo de 8 bits empaquetado, squelch de tan() (Juan: "esto más acid")
 
 ```
-[(M=x=>(t*(y=x?1.01:1)(t>>9|1932555120>>(a=t>>13&7))&128^(ty>>2)(t>>11|58132275>>a)&191)/255-.75+(X=sin)(8cbrt(b=t%(16384/'11111111111144222211111122223389'[31&t>>13])))1200/b+(tan(tyPI/1024)(1&-t>>11)((3&t>>12)>0)/1.5400/(c=t%4096)&1)+(tX(t>>4)&255&-t>>6)(1&t>>(x?11:14))*(d=1&t>>19)/191+(e=random)()400/cd+(e()+X(t<<3)/3)*4E3/(t%524288))(0),M(1)]
+[(M=x=>(t*(y=x?1.01:1)*(t>>9|1932555120>>(a=t>>13&7))&128^(t*y>>2)*(t>>11|58132275>>a)&191)/255-.75+(X=sin)(8*cbrt(b=t%(16384/'11111111111144222211111122223389'[31&t>>13])))*1200/b+(tan(t*y*PI/1024)*(1&-t>>11)*((3&t>>12)>0)/1.5*400/(c=t%4096)&1)+(t*X(t>>4)&255&-t>>6)*(1&t>>(x?11:14))*(d=1&t>>19)/191+(e=random)()*400/c*d+(e()+X(t<<3)/3)*4E3/(t%524288))(0),M(1)]
 ```
-Melodías empaquetadas en enteros de 32 bits; redisparo del bombo por string (2 4 3 8 9: redobles, ratchets);
-desafinación estéreo 1.01; zumbido de tan().
+Bajo de 8 bits: patrones empaquetados en enteros (1932555120, 58132275) por compás, XOR de dos capas; el `|t>>9` hace
+resbalar la nota dentro del paso (como el slide de una 303). Squelch: tan() cerca de sus polos (picos de resonancia)
+cortado por 400/(t%4096) y a 1 bit: el filtro resonante con su envolvente. Estéreo a 1.01; bombo cbrt con redobles por
+string; barrido FM de bits cada 2^19. Capa de carácter: ACID (onda por pasabajos resonante con envolvente por paso,
+acento, slide, squelch tipo tan; acento y slide del gen de ritmo), solo en el lead.
 
 ## 6. Arreglo que se arma
 
