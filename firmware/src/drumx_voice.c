@@ -58,9 +58,9 @@ typedef struct {                                         /* a hit */
  * HF CLICK, computed only while it sounds). The envelopes, the noise filter, the choke, the clap's hands, the guiro and
  * the cowbell stay DRUM-X's. A lane whose table is not drawn yet plays a sine (a ms after a change) */
 static uint32_t dx_pow2(uint32_t x);
-#define DW_N 64u                                         /* a frame's points (+1: the first again) */
+#define DW_N 32u                                         /* a frame's points (+1: the first again) */
 #define DW_FR 4u                                         /* frames a table, A = 0, 1/3, 2/3, 1 */
-#define DW_SL 8u                                         /* tables drawn at once (a kit's eight lanes; sharing a formula, one) */
+#define DW_SL 7u                                         /* tables drawn at once (a kit's eight lanes; sharing a formula, one) */
 typedef struct { uint8_t table, scan, time, curve, noise, tick, tlev, pad; } dw_lane_t;   /* scan 64 none, 0 down, 127 up */
 enum { DWC_LIN, DWC_FAST, DWC_SLOW, DWC_PING };
 enum { DWN_WHITE, DWN_PINK, DWN_BROWN, DWN_VIOLET, DWN_RESON };
@@ -89,7 +89,8 @@ static dw_lane_t dw_kit[8] = {   /* (the music's: the factory kit's from the sta
     {9, 64, 20, DWC_LIN, DWN_RESON, DWT_PULSE, 70, 0},   /* RIM: PULSE */
     {6, 80, 40, DWC_LIN, DWN_WHITE, DWT_RECT, 30, 0},    /* BELL: RING */
 };
-static int16_t dw_tab[DW_SL][DW_FR][DW_N + 1u] __attribute__((section(".pool")));   /* (4.2 KB of the pool) */
+static int8_t dw_tab[DW_SL][DW_FR][DW_N + 1u] __attribute__((section(".pool")));   /* (924 B of the pool: 8 bits, 32 points, 7 slots;
+                                                          * the pool's 8 KB headroom) */
 static volatile uint8_t dw_key[DW_SL];                   /* 1 + the formula drawn there, 0 none (dw_poll: 0 while it draws) */
 static int32_t dw_slot(uint32_t table)
 {
@@ -127,7 +128,7 @@ static void dw_poll_ws(gq_work_t *w)
                     for (i = 0; i < FVM_BLK; i++) W[i] = (k + i) * (65536u / DW_N);
                     fvm_run(&w->pg.p, &e, &w->sc, FVM_BLK, y);
                     for (i = 0; i < FVM_BLK && k + i < DW_N; i++)
-                        dw_tab[s][j][k + i] = (int16_t)clamp((int32_t)y[i] >> 1, -32767, 32767);
+                        dw_tab[s][j][k + i] = (int8_t)clamp((int32_t)y[i] >> 9, -127, 127);
                 }
                 dw_tab[s][j][DW_N] = dw_tab[s][j][0];
             }
@@ -599,7 +600,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         }
     } else if (og && !cw && dw_slot(dw_kit[ln].table) >= 0) {   /* (DRUM-W) the body: the lane's table, scanned */
         const dw_lane_t *D = &dw_kit[ln];
-        const int16_t (*tb)[DW_N + 1u] = dw_tab[dw_slot(D->table)];
+        const int8_t (*tb)[DW_N + 1u] = dw_tab[dw_slot(D->table)];
         uint32_t ph = v->ph, age = v->dwage, T = dw_time(D->time), pr, f, fr;
         int32_t top = (int32_t)(DW_FR - 1u) * 256, s0 = q[DXP_COLOR] * top / 127, s1 = clamp(s0 + ((int32_t)D->scan - 64) * 28, 0, top), sp8;
         int16_t m[DW_N + 1u];
@@ -611,10 +612,10 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         fr = (uint32_t)sp8 & 255u;
         if (f >= DW_FR - 1u) { f = DW_FR - 2u; fr = 256u; }
         for (k = 0; k <= DW_N; k++)                      /* the frame between its two: once a block */
-            m[k] = (int16_t)(tb[f][k] + (((tb[f + 1u][k] - tb[f][k]) * (int32_t)fr) >> 8));
+            m[k] = (int16_t)(tb[f][k] * 256 + (tb[f + 1u][k] - tb[f][k]) * (int32_t)fr);
         for (i = 0; i < n; i++, inc += dinc, ga += dga) {
-            uint32_t j = ph >> 26;
-            int32_t o = m[j] + (((m[j + 1u] - m[j]) * (int32_t)((ph >> 11) & 0x7FFFu)) >> 15);
+            uint32_t j = ph >> 27;
+            int32_t o = m[j] + (((m[j + 1u] - m[j]) * (int32_t)((ph >> 12) & 0x7FFFu)) >> 15);
             y[i] = mulq15(o, ga >> 8);
             ph += (uint32_t)inc << 4;
         }
