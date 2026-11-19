@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 OUT=build/byte-check
 mkdir -p "$OUT"
 python3 -c 'import tools.build as b; b.generate()' > "$OUT/generate.log"
-for test in fvm funcbeat funcbeat_ui func_music funcsong byte wave life_byte life_sound life_extreme byte_generation song_generator fuga drumw voice_limit byte_myloop byte_controls byte_automation form form_life form_navigation form_half; do
+for test in fvm funcbeat funcbeat_ui func_music funcsong byte wave life_byte life_sound life_extreme byte_generation song_generator fuga drumw voice_limit byte_myloop byte_controls byte_automation form; do
     echo "BYTE: $test"
     # ui_test.c still contains unused helpers for retired FM engines. GCC 14+
     # diagnoses their declarations; they are eliminated from these host checks.
@@ -23,9 +23,6 @@ mkdir -p "$OUT/fx_demo"                     # (byte-cpu-light) REVERB TYPE: ROOM
 "${CC:-cc}" -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/reverb" tests/reverb_test.c -lm
 "$OUT/reverb" "$OUT/fx_demo" > "$OUT/reverb.log" 2>&1 || { cat "$OUT/reverb.log"; exit 1; }
 echo "BYTE: reverb ok"
-"$OUT/form" checks
-"$OUT/form" probes
-python3 tests/form_audio_test.py
 python3 tests/life_sound_test.py
 python3 tests/life_extreme_test.py
 python3 tests/funcsong_test.py

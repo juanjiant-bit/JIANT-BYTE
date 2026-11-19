@@ -186,91 +186,69 @@ static void graph_focus_lz(const track_t *t)
             cv_clip_text(x + 2, 121 - AF_X_CAP_Y, &AF_X, di->label, i == k ? T_INK : T_TEXT, bg, 23);
     }
 }
-/* FORM visual language: equations, event masks, arrangement and harmony, not a repeated preset list. */
+/* (FORM 3) the panel: the PROGRESSION in roman numerals, the chord playing lit; FORMULA A's equation (A, the DEFORM,
+ * lit in it), B's under it while MORPH is between; the bar's 16 steps, the one playing lit */
 static void form_cap(int32_t x,int32_t y,const char*s,uint16_t c){cv_text_on(x,y-AF_S_CAP_Y,&AF_S,s,c,T_BG);}
-static void form_num(int32_t x,int32_t y,int32_t n,const char*s,uint16_t c){char b[24];fmt_int(b,n);str_cpy(b+str_len(b),s,sizeof b-str_len(b));form_cap(x,y,b,c);}
 static uint32_t form_view_clock(const track_t*t){
- if(func_song(t))return func_clock_begin;
- for(uint32_t i=0;i<NVOICE;i++)if(t->v[i].active)return (uint32_t)(((uint64_t)t->v[i].ph[0]<<16)/((uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300)));
- return 0;
+ uint32_t c=0;
+ if(func_song(t))c=func_clock_begin;
+ else for(uint32_t i=0;i<NVOICE;i++)if(t->v[i].active){c=(uint32_t)(((uint64_t)t->v[i].ph[0]<<16)/((uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300)));break;}
+ return c;
 }
-static void form_wave_trace(uint32_t state,int32_t color,int32_t x,int32_t y,int32_t w,int32_t h,uint16_t ink){
- int32_t py=y;cv_rect(x,y+h/2,w,1,T_LINE);
- for(int32_t i=0;i<w;i+=2){int32_t v=form_wave(state,(uint32_t)i,0x100000000ull/(uint32_t)w,0,color,0);int32_t yy=y+h/2-v*(h/2-1)/32768;if(i)cv_line_t(x+i-2,py,x+i,yy,ink,1);py=yy;}
-}
-static void form_state_card(const track_t*t,uint32_t state,int32_t y,uint16_t ink){
- uint32_t mode=(uint32_t)clamp(t->p[P_CAOS],0,10),dom=mode?mode:FORM_STATE[state].domain;
- cv_rect(6,y,3,32,ink);form_cap(14,y+1,FORM_NAMES[state],T_TEXT);form_cap(14,y+17,FORM_DOMAIN[dom],ink);
- form_wave_trace(state,clamp(t->p[P_E3]+FORM_STATE[state].color-64,0,127),164,y,68,31,ink);
-}
-static __attribute__((noinline)) void form_states_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m){
- form_state_card(t,a,3,T_ACCENT);form_state_card(t,b,42,T_THEME);
- form_cap(8,84,"A",T_ACCENT);form_cap(224,84,"B",T_THEME);
- for(int32_t i=0;i<26;i++)cv_rect(26+i*7,84,5,10,ux_mix(T_ACCENT,T_THEME,i*4));
- int32_t pos=26+(int32_t)m*180/127;cv_rect(pos,80,3,18,T_TEXT);
- form_num(8,107,(127-(int32_t)m)*100/127,"% A",T_ACCENT);form_num(179,107,(int32_t)m*100/127,"% B",T_THEME);
- form_cap(8,127,t->p[P_LRTRG]?"PLAY: COMPOSITION":"HOLD KEY: COMPOSITION",T_DIM);
-}
-static __attribute__((noinline)) void form_rules_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m,uint32_t clock){
- static const char*const lanes[]={"KICK","SNARE","HAT"};
- uint32_t cyc=clock/((uint32_t)clamp(t->p[P_SLEN],1,64)<<16),seed=(uint32_t)t->p[P_E6],groove=(uint32_t)t->p[P_E4];
- form_cap(8,4,"PERCUSSION / ONE BAR",T_TEXT);
- for(uint32_t lane=0;lane<3;lane++){
-  uint32_t ma=lane==0?FORM_STATE[a].kick:lane==1?FORM_STATE[a].snare:FORM_STATE[a].hat;
-  uint32_t mb=lane==0?FORM_STATE[b].kick:lane==1?FORM_STATE[b].snare:FORM_STATE[b].hat;
-  ma=form_pattern(ma,groove,seed,cyc);mb=form_pattern(mb,groove,seed,cyc);form_cap(8,27+(int32_t)lane*20,lanes[lane],T_DIM);
-  for(uint32_t j=0;j<16;j++){int32_t amp=0,age=form_event(ma,mb,j,0,m,(uint32_t)t->p[P_E5],seed+lane*19u,&amp);if(age)amp=0;cv_rect(64+(int32_t)j*10,24+(int32_t)lane*20,8,12,amp?ux_mix(T_RAISE,T_THEME,20+amp*80/32767):T_RAISE);}
+/* an equation in lines of cols characters from (x, y) in the formula font (6 px a character), A lit; at most rows
+ * lines, the last ending "~" when it goes on */
+static void form_eq(int32_t x,int32_t y,const char*s,uint32_t cols,uint32_t rows,uint16_t ink,uint16_t lit)
+{
+ uint32_t n=str_len(s),row,i;
+ for(row=0;row<rows&&row*cols<n;row++){
+  char ln[48];uint32_t k=0,o=row*cols;
+  for(i=0;i<cols&&o+i<n&&k<sizeof ln-2u;i++)ln[k++]=s[o+i];
+  if(row==rows-1u&&o+cols<n&&k)ln[k-1]='~';
+  ln[k]=0;
+  cv_text_on(x,y+(int32_t)row*11-AF_F_CAP_Y,&AF_F,ln,ink,T_BG);
+  for(i=0;i<k;i++)if(ln[i]=='A'){char c1[2]={'A',0},pre[48];str_cpy(pre,ln,i+1u);cv_text_on(x+text_w(&AF_F,pre),y+(int32_t)row*11-AF_F_CAP_Y,&AF_F,c1,lit,T_BG);}
  }
- form_cap(8,90,"SECTION ENTRIES",T_TEXT);
- for(uint32_t j=0;j<8;j++){int32_t q=form_mix(form_section(a,j<<13,2,(uint32_t)t->p[P_E7]),form_section(b,j<<13,2,(uint32_t)t->p[P_E7]),m);cv_rect(8+(int32_t)j*28,105,24,9,ux_mix(T_RAISE,T_ACCENT,q*100/32767));}
- form_cap(8,127,"SEED SHIFTS / EVOLVE ARRANGES",T_DIM);
 }
-static __attribute__((noinline)) void form_clock_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m,uint32_t clock){
- static const char*const layers[]={"MELODY","HARMONY","DRUMS"};uint32_t cycle=(uint32_t)clamp(t->p[P_SLEN],1,64),part=(clock%(cycle<<16))*8u/(cycle<<16);
- form_cap(8,4,t->p[P_LRTRG]?"SONG / PLAY TRANSPORT":"NOTE / KEY TRANSPORT",T_TEXT);
- form_num(8,22,(int32_t)cycle," BEATS",T_ACCENT);char div[24]="DIV ";const char*unit="";param_format(track_desc(t,P_SDIV),t->p[P_SDIV],div+4,&unit);str_cpy(div+str_len(div),unit,sizeof div-str_len(div));form_cap(118,22,div,T_DIM);
- for(uint32_t layer=0;layer<3;layer++){form_cap(8,43+(int32_t)layer*17,layers[layer],T_DIM);for(uint32_t j=0;j<8;j++){int32_t q=form_mix(form_section(a,j<<13,layer,(uint32_t)t->p[P_E7]),form_section(b,j<<13,layer,(uint32_t)t->p[P_E7]),m);cv_rect(72+(int32_t)j*20,40+(int32_t)layer*17,17,10,ux_mix(T_RAISE,layer==2?T_ACCENT:T_THEME,q*100/32767));} }
- cv_rect(72+(int32_t)part*20,36,17,2,T_TEXT);
- form_cap(8,99,"SWING",T_TEXT);cv_rect(63,104,166,1,T_LINE);for(uint32_t j=0;j<8;j++){int32_t x=64+(int32_t)j*20+(j&1u?t->p[P_SSWING]*9/100:0);cv_rect(x,98,3,j&1u?8:14,j&1u?T_THEME:T_ACCENT);}
- form_cap(8,127,"DIV: SPEED / CYCLE: FORM LENGTH",T_DIM);
-}
-static __attribute__((noinline)) void form_notes_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m,uint32_t clock){
- /* (FORM 2) the notes as they sound: eng_form.c form_step (the harmony, the melody's gene, the voicing), the nearer
-  * state's; HARMONY's mode at the top, the chord of this section with its VOICING */
- uint32_t cycle=(uint32_t)clamp(t->p[P_SLEN],1,64),cyc=clock/(cycle<<16),section=(clock%(cycle<<16))/cycle>>13,seed=(uint32_t)clamp(t->p[P_E6],0,127),ev=(uint32_t)clamp(t->p[P_E7],0,127);
- uint32_t mutation=((fvm_hash(seed+cyc*37u+section*7u)>>(28u-ev/43u))&7u)*ev/127u,id=m<64u?a:b,hm=t->p[P_AORDER]?(uint32_t)clamp(t->p[P_AORDER],0,5):0u;
- int32_t root=48+t->p[P_ROOT],prev=0;form_step_t fs;
- form_cap(8,4,"MELODY",T_TEXT);form_cap(90,4,"HARMONY",T_DIM);form_cap(160,4,hm?FORM_HARM[hm]:FORM_HARM[1u+(t->p[P_AGATE]>0&&FORM_GENE[id].harm==FH_CLASSIC?FH_FAMILY:FORM_GENE[id].harm)],T_ACCENT);
- cv_rect(8,61,224,1,T_LINE);
- for(uint32_t i=0;i<16;i++){form_step(t,id,id,i,section,cyc,seed,mutation,root,&fs);if(fs.rest){prev=0;continue;}
-  int32_t y=61-clamp(fs.mn-root,0,36);if(i&&prev)cv_line_t(10+(int32_t)(i-1)*14,prev,10+(int32_t)i*14,y,T_DIM,1);cv_rect(8+(int32_t)i*14,y-2,6,5,T_THEME);prev=y;}
- form_cap(8,62,"PROGRESS",T_DIM);form_cap(90,62,FORM_PROG[clamp(t->p[P_AGATE],0,8)],T_TEXT);form_cap(8,75,"CHORD",T_TEXT);form_cap(90,75,"VOICING",T_DIM);form_cap(160,75,FORM_VOICE[clamp(t->p[P_CVOI],0,7)],T_ACCENT);
- form_step(t,id,id,0,section,cyc,seed,mutation,root,&fs);
- uint32_t count=FORM_STATE[id].voices>1?(t->p[P_CHRD]?(uint32_t)clamp(FORM_STATE[id].voices,1,4):1u):0u;
- if(!count)form_cap(8,99,"NO CHORD LAYER IN THIS STATE",T_DIM);
- for(uint32_t k=0;k<count;k++){char name[8];note_name(name,(uint32_t)fs.cn[k]);cv_rect(8+(int32_t)k*56,94,50,18,T_RAISE);form_cap(16+(int32_t)k*56,99,name,T_TEXT);}
- form_cap(8,127,"MELODY + HARMONY FOLLOW SCALE",T_DIM);(void)b;
-}
-static __attribute__((noinline)) void form_layers_panel(const track_t*t,uint32_t a,uint32_t b,uint32_t m,uint32_t layers){
- /* (FORM 2) TIMBRE: the styles of A and B, DRIVE TONE WOBBLE; LAYERS: the VOICING, the drums, DETUNE, the LEVEL */
- uint32_t mode=(uint32_t)clamp(t->p[P_CAOS],0,10),da=mode?mode:FORM_STATE[a].domain,db=mode?mode:FORM_STATE[b].domain;
- uint32_t hasdrums=(m<127&&(FORM_STATE[a].kick|FORM_STATE[a].snare|FORM_STATE[a].hat))||(m>0&&(FORM_STATE[b].kick|FORM_STATE[b].snare|FORM_STATE[b].hat));
- const char*labs[3];int32_t val[3];
- if(layers){
-  form_cap(8,4,"LAYERS",T_TEXT);form_cap(8,24,"OCTAVE",T_DIM);form_cap(90,24,FORM_OCT[clamp(t->p[P_AOCT],0,3)],T_ACCENT);
-  labs[0]="PERCUSSION";labs[1]="DETUNE";labs[2]="LEVEL";val[0]=hasdrums?t->p[P_KEY]:0;val[1]=t->p[P_DETUNE];val[2]=t->p[P_LEVEL];
- }else{
-  form_cap(8,4,"TIMBRE",T_TEXT);form_cap(8,24,"A",T_ACCENT);form_cap(26,24,FORM_DOMAIN[da],T_ACCENT);form_cap(132,24,"B",T_THEME);form_cap(150,24,FORM_DOMAIN[db],T_THEME);
-  cv_line_t(25,39,105,51,T_ACCENT,1);cv_line_t(205,39,135,51,T_THEME,1);form_cap(109,49,"MIX",T_TEXT);
-  labs[0]="DRIVE";labs[1]="TONE";labs[2]="WOBBLE";val[0]=t->p[P_ASWING]*127/100;val[1]=t->p[P_APROB];val[2]=clamp(t->p[P_ARATE],0,7)*127/7;
+/* a scope of 64 half-rate samples in (x, y, w, h), each segment as hot as it is loud, dimmed by lvl (0 .. 100) */
+static void form_scope_draw(const int16_t*sc,int32_t x,int32_t y,int32_t w,int32_t h,int32_t lvl)
+{
+ int32_t i,px=x,py=y+h/2;
+ cv_rect(x,y+h/2,w,1,ux_mix(T_BG,T_DIM,50));
+ for(i=0;i<64;i++){
+  int32_t v=sc[i],nx=x+i*w/63,ny=y+h/2-v*(h/2-1)/32768,a=v<0?-v:v;
+  if(i)cv_line_t(px,py,nx,ny,ux_mix(T_BG,heat_col(70+a*186/32768),lvl),2);
+  px=nx;py=ny;
  }
- for(uint32_t i=0;i<3;i++){int32_t y=72+(int32_t)i*17;form_cap(8,y,labs[i],T_DIM);cv_rect(92,y,140,9,T_RAISE);cv_rect(92,y,clamp(val[i],0,127)*140/127,9,i==0?T_ACCENT:T_THEME);}
- if(layers)form_cap(8,127,hasdrums?"":"NO DRUM PATTERN IN THIS PAIR",T_DIM);
- else{form_cap(8,127,"WOBBLE",T_DIM);form_cap(70,127,FORM_WOB[clamp(t->p[P_ARATE],0,7)],T_TEXT);}
 }
 static __attribute__((noinline)) void graph_form_lz(const track_t*t){
- uint32_t a=(uint32_t)clamp(t->p[P_E0],0,FORM_N-1),b=(uint32_t)clamp(t->p[P_E1],0,FORM_N-1),m=(uint32_t)clamp(t->p[P_E2],0,127),clock=form_view_clock(t),id=cur_page()->id[0];
- if(id==P_E4)form_rules_panel(t,a,b,m,clock);else if(id==P_LRTRG)form_clock_panel(t,a,b,m,clock);else if(id==P_AORDER)form_notes_panel(t,a,b,m,clock);else if(id==P_CAOS||id==P_KEY)form_layers_panel(t,a,b,m,id==P_KEY);else form_states_panel(t,a,b,m);
+ uint32_t a=(uint32_t)clamp(t->p[P_E0],0,FORM_N-1),b=(uint32_t)clamp(t->p[P_E1],0,FORM_N-1),m=(uint32_t)clamp(t->p[P_E2],0,127);
+ uint32_t pr=(uint32_t)clamp(t->p[P_AGATE],0,FORM_NPROG-1),len=form_plen(pr),clock=form_view_clock(t),step=(clock<<2)>>16,k,first=cur_page()->id[0]==P_E0;
+ form_scale_t sc;form_scale(t,&sc);form_note_t fn;form_harmony(t,clock,step,&fn);
+ int32_t mx=6+(int32_t)(228u*m/127u);
+ cv_oy=0;form_scope_tr=(uint8_t)(t-trk);
+ if(first){                                              /* FORM: the two waveforms playing, MORPH between them */
+  form_cap(6,4,"A",heat_col(220));form_cap(18,4,FORM_NAMES[a],T_TEXT);
+  form_cap(126,4,"B",heat_col(220));form_cap(138,4,FORM_NAMES[b],T_TEXT);
+  cv_rect(6,14,108,62,T_SURF);cv_rect(126,14,108,62,T_SURF);
+  form_scope_draw(form_scope[0],8,16,104,58,100-(int32_t)m*70/127);
+  form_scope_draw(form_scope[1],128,16,104,58,30+(int32_t)m*70/127);
+  heat_bar(6,82,228,228,6,T_DIM);
+  cv_rect(mx-2,79,5,12,T_TEXT);
+ }else{                                                  /* the others: the equation */
+  form_cap(6,4,"A",heat_col(220));form_cap(18,4,FORM_NAMES[a],T_TEXT);
+  if(m&&a!=b){form_cap(136,4,"B",heat_col(220));form_cap(148,4,FORM_NAMES[b],T_TEXT);}
+  heat_bar(6,13,228,228,2,T_DIM);cv_rect(mx-1,11,3,6,T_TEXT);
+  form_eq(6,22,FORM_BANK[m==127u?b:a],37u,m&&m<127u&&a!=b?3u:6u,m<64u?T_TEXT:T_DIM,heat_col(230));
+  if(m&&m<127u&&a!=b)form_eq(6,57,FORM_BANK[b],37u,3u,m>=64u?T_TEXT:T_DIM,heat_col(230));
+ }
+ {int32_t bw=len>4u?28:54,x0=(240-(int32_t)len*bw)/2;     /* the progression, the chord playing hot */
+  for(k=0;k<len;k++){char nb[8];int32_t x=x0+(int32_t)k*bw,on=k==fn.chord;uint16_t c=on?heat_col(200):T_SURF;
+   form_roman(&sc,FORM_PROGS[pr][k],nb);
+   cv_rect(x+1,94,bw-2,14,c);
+   cv_text_on(x+(bw-text_w(&AF_S,nb))/2,97-AF_S_CAP_Y,&AF_S,nb,on?T_BG:T_TEXT,c);}}
+ {uint32_t hits=(uint32_t)clamp(t->p[P_CHRD],1,16),rot=(uint32_t)clamp(t->p[P_CVOI],0,15);   /* the bar's steps: the EUCLID's hits hot */
+  for(k=0;k<16u;k++){int32_t x=6+(int32_t)k*14;uint32_t kk=(k+rot)&15u,hit=hits>=16u||((kk+1u)*hits>>4)!=(kk*hits>>4);
+   cv_rect(x,112,12,6,k==(step&15u)?(hit?heat_col(240):T_TEXT):hit?heat_col(90+(k&3u?0:40)):T_SURF);}}
 }
 /* the lens's panel for EDIT's page pg (1), else 0 (its own) */
 static int graph_edit_lz(const track_t *t, const page_t *pg)

@@ -172,7 +172,7 @@ int main(void)
         vg_quiet();
         vg_part(0, ENGI_FORM, 0, 0);
         trk[0].p[P_E0] = 2; trk[0].p[P_E1] = 7; trk[0].p[P_E2] = (int16_t)(i & 1u ? 64 : 0);
-        trk[0].p[P_E5] = 127; trk[0].p[P_CHRD] = 3; trk[0].p[P_KEY] = 127;
+        trk[0].p[P_E5] = 1; trk[0].p[P_E7] = 1;   /* (FORM 3: RATE x1, RUN SONG) */
         if (i == 4u) trk[0].p[P_E2] = 64;
         if (i == 2u || i == 3u) life_v[0] = 100;
         load_tight = i == 4u;                       /* (the overload guard tripped: one state) */

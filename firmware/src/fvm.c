@@ -450,7 +450,9 @@ static const struct { char nm[5]; uint8_t kind, ty, ix; } FVM_VARS[] = {
     {"P", NK_ARR, FT_FIX, FA_BEAT}, {"p", NK_UNI, FT_FIX, FU_BEAT}, {"freq", NK_UNI, FT_FIX, FU_HZ},
     {"O1", NK_ARR, FT_FIX, FA_O1}, {"O2", NK_ARR, FT_FIX, FA_O1 + 1}, {"O3", NK_ARR, FT_FIX, FA_O1 + 2},   /* (JIANT BYTE) */
     {"O4", NK_ARR, FT_FIX, FA_O1 + 3}, {"O5", NK_ARR, FT_FIX, FA_O1 + 4}, {"O6", NK_ARR, FT_FIX, FA_O1 + 5},   /* cross-mod */
-    {"I", NK_ARR, FT_FIX, FA_IN},                    /* (JIANT BYTE) an effect's input (fx.c dist_eq) */                  /* (JIANT BYTE) the song's position in beats (a modifier's clock) */
+    {"I", NK_ARR, FT_FIX, FA_IN},
+    {"w3", NK_ARR, FT_FIX, FA_XF}, {"w5", NK_ARR, FT_FIX, FA_IN}, {"wd", NK_ARR, FT_FIX, FA_X},   /* (FORM 3) the chord's third
+                                                     * and fifth, the root a little sharp (FORM's own arrays: X, I, x elsewhere) */                    /* (JIANT BYTE) an effect's input (fx.c dist_eq) */                  /* (JIANT BYTE) the song's position in beats (a modifier's clock) */
 };
 enum { FC_SIN, FC_COS, FC_TRI, FC_SAW, FC_SQR, FC_ABS, FC_MIN, FC_MAX, FC_FLOOR, FC_INT, FC_FIX, FC_RND, FC_SAT,
        FC_CLIP, FC_PH, FC_LP, FC_HP, FC_NOTE, FC_CHORD, FC_KICK, FC_SNARE, FC_HAT };

@@ -438,7 +438,7 @@ static void dw_mod_box(const dw_lane_t *D, int lfo, int32_t x, int32_t y, int32_
         }
         {
             int32_t nx = x + 1 + k, ny = y + 17 - (vq * h / 2 >> 15);
-            if (k) cv_line(px, py, nx, ny, idle ? T_DIM : on ? T_ACCENT : T_THEME);
+            if (k) cv_line(px, py, nx, ny, idle ? T_DIM : heat_col(on ? 230 : 160));
             px = nx; py = ny;
         }
     }
@@ -459,15 +459,15 @@ static void dw_panel(void)
     for (k = DW_FR; k-- > 0;) {                          /* the frames, the far one first */
         int32_t ox = x0 + (int32_t)k * dx, oy = y0 - (int32_t)k * dy;
         dw_frame(m, D->ta & 15u, (int32_t)k * 256);
-        dw_wave_line(m, ox, oy, w, a, ux_mix(T_BG, T_DIM, 40 + (int32_t)(3u - k) * 20), 1);
+        dw_wave_line(m, ox, oy, w, a, ux_mix(T_BG, heat_col(60 + (int32_t)k * 40), 55), 1);   /* (thermal: the far frames hotter) */
     }
     {                                                    /* the ENV's way on POS, then where it plays */
         int32_t xa = x0 + p0 * dx / 256, ya = y0 - p0 * dy / 256, xb = x0 + se * dx / 256, yb = y0 - se * dy / 256;
         int32_t xs = x0 + sp * dx / 256, ys = y0 - sp * dy / 256;
         cv_line_t(xa + w + 6, ya, xb + w + 6, yb, ux_mix(T_BG, T_THEME, 50), 2);
         dw_frame(m, D->ta & 15u, sp);
-        dw_wave_line(m, xs, ys, w, a + 2, on ? T_ACCENT : T_THEME, 2);
-        cv_rect(xs + w + 4, ys - 2, 5, 5, on ? T_ACCENT : T_THEME);
+        dw_wave_line(m, xs, ys, w, a + 2, heat_col(on ? 235 : 170), 2);
+        cv_rect(xs + w + 4, ys - 2, 5, 5, heat_col(on ? 245 : 170));
     }
     if (pn == 16u || pn == 17u || pn == 19u) {           /* MOD ENV, MOD LFO, MOD DEST: the modulators */
         int lfo = pn == 17u;
@@ -487,12 +487,12 @@ static void dw_panel(void)
         cv_text(160, 36 - AF_S_CAP_Y, &AF_S, N_WAVEF[D->tb & 15u], T_TEXT);
         cv_rect(160, 48, 74, 34, T_SURF);
         dw_frame(m, D->tb & 15u, bp);
-        dw_wave_line(m, 165, 65, 64, 15 * D->bamt / 127 + 2, T_THEME, 1);
+        dw_wave_line(m, 165, 65, 64, 15 * D->bamt / 127 + 2, heat_col(90 + D->bamt), 1);
     } else
         cv_text(160, 36 - AF_S_CAP_Y, &AF_S, "B OFF", T_DIM);
     for (k = 0; k < 8u; k++) {                           /* the pads */
         int32_t px = 6 + (int32_t)k * 29, s2 = (dw_live[k] & 0x8000) != 0;
-        cv_rect(px, 104, 26, 14, s2 ? ux_mix(T_SURF, T_ACCENT, 60) : T_SURF);
+        cv_rect(px, 104, 26, 14, s2 ? heat_col(200) : T_SURF);
         if (k == ln) cv_frame(px, 104, 26, 14, T_ACCENT);
         cv_text(px + 4, 107 - AF_S_CAP_Y, &AF_S, DX_LANE_ABBR[k], k == ln ? T_TEXT : T_DIM);
     }

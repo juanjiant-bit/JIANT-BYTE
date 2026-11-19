@@ -1442,6 +1442,8 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
         h ^= anim_fr * 2654435761u;                  /* DRUM-X: the specimen moves every frame (codex/anim: tick) */
     if (pg->graph == GR_DXSND) h ^= anim_fr * 2654435761u ^ dx_sig();
     if (pg->graph == GR_SWARM) h ^= anim_fr * 2654435761u;   /* (V10.6z6: the morph, live) */
+    if ((pg->scope == SC_ENGINE || pg->scope == SC_FORM) && trk_eng(t) == ENGI_FORM)
+        h ^= anim_fr * 2654435761u;                  /* (FORM 3: its scopes, the chord and the step, live) */
     if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_FM6)   /* the patch (PAT's algorithm, levels, FB) */
         h ^= (fm6_pgen[(t - trk) % NTRK] + 1u) * 2246822519u;
     if (fop_page(pg->graph))                         /* (0.6.77) OPERATOR, OP ENV (track pages): the patch, the operator */
