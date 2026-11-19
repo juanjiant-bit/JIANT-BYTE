@@ -19,6 +19,10 @@ for test in fvm funcbeat funcbeat_ui func_music funcsong byte wave life_byte lif
     fi
     tail -n 1 "$OUT/$test.log"
 done
+mkdir -p "$OUT/fx_demo"                     # (byte-cpu-light) REVERB TYPE: ROOM and CLOUD at half the rate, as their reference
+"${CC:-cc}" -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/reverb" tests/reverb_test.c -lm
+"$OUT/reverb" "$OUT/fx_demo" > "$OUT/reverb.log" 2>&1 || { cat "$OUT/reverb.log"; exit 1; }
+echo "BYTE: reverb ok"
 "$OUT/form" checks
 "$OUT/form" probes
 python3 tests/form_audio_test.py

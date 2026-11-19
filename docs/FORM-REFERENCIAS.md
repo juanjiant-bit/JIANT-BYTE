@@ -128,3 +128,23 @@ Melodía en nibbles (0xA7305730: 10 7 3 0 5 7 3 0), una octava arriba cada 2^18;
 
 Cada estado: una combinación de capas, no un string de notas. A / B / MORPH mezclan caracteres; SEED y EVOLVE generan
 (no rotan). Lo que decide se decide por paso o por sección: el costo por muestra, el de hoy.
+
+## 12. Growl dubstep: formantes por sincronismo, wobble trapezoidal
+
+```
+sr=48E3,ts=t*abs(150/(sr*120)),v=(t,p,te)=>sin(max(-PI/2,min(PI/2,asin(sin(t*PI+p*PI))*te)))/2+.5,tt=2**(parseInt('5 5 5 5 5 5 5 5 55  5 5 55  55  5 5 55  55  55  55  5 5 5 5 008855  55  5 5 55  55  5 5 5 5 008855  55  5 5 008855  5588cccc0000'[ts*16&127],36)/12-5/12)*t*256*55,(sin(t/sr%(128/tt*t)*((v(ts/2,2,1.5)*140+50)*256)*PI/32)+sin(t/sr%(128/tt*t)*(v(ts/2,1,1.5)*3080+2200)*PI))/2*(1-tt/128/sr%1)||0
+```
+Dos senos a frecuencias de formante (grave ~50-190, agudo 2200-5280) que reinician la fase cada ciclo de la nota (hard
+sync: el tono de la nota, la vocal de los formantes); wobble trapezoidal (seno recortado: mesetas en los extremos), cada
+formante con su fase (la vocal cambia, no solo el brillo); notas por semicorchea en un string con silencios y saltos de
+quinta y octava; envolvente por ciclo de nota. Barato: dos senos y un reinicio de fase.
+
+## La capa de carácter (Juan: dubstep, timbres complejos y distorsionados)
+
+WOBBLE (LFO sincronizado 1/4 1/8 1/8T 1/16 con patrón, sobre filtro e índice FM; forma de seno a trapezoide a cuadrada),
+REESE (sierras desafinadas, phasing), GROWL (ref. 12: formantes por sincronismo), SCREECH (FM de índice alto), SUB (seno
+limpio debajo de la distorsión); cadena de distorsión: wavefold, tanh, bitcrush, sample & hold. Parámetros de carácter
+que cambian la fórmula (pliegue, índice, wobble, desafinación, formantes), en lugares libres de la parte.
+
+Decidido (Juan, 2026-11-19): la armonía nueva también en los 22 estados actuales; el MORPH compone (lo discreto paso a
+paso por probabilidad, lo continuo mezclado).
