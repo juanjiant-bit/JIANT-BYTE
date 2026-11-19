@@ -454,7 +454,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
   }
   if(am==bm)sources[1]=sources[0];
   {int32_t w=(int32_t)morph,e=w*(127-w)/48;                 /* (the mix: equal power, ~+3 dB at the middle, no dip) */
-   tonal[i]=clamp(f1_mix(sources[0],sources[1],morph)*(127+e)/127,-32767,32767);}
+   tonal[i]=(f1_mix(sources[0],sources[1],morph)*(127+e))>>7;}   /* (no clamp: soft_knee below; its bound folded was a ROM-looking constant) */
   if(drive)tonal[i]=softclip((tonal[i]*(16+(int32_t)drive*2))>>4);   /* (FORM 2) DRIVE: the sum (the sub inside it) */
   int32_t ds=0;
   for(uint32_t lane=0;lane<3;lane++){

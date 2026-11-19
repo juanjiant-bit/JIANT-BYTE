@@ -238,9 +238,7 @@ static __attribute__((noinline)) void graph_form_lz(const track_t*t){
  if(first){                                              /* FORM: the two waveforms playing, MORPH between them */
   form_cap(6,4,"A",heat_col(220));form_cap(18,4,FORM_NAMES[a],T_TEXT);
   form_cap(126,4,"B",heat_col(220));form_cap(138,4,FORM_NAMES[b],T_TEXT);
-  cv_rect(6,14,108,62,T_SURF);cv_rect(126,14,108,62,T_SURF);
-  form_scope_draw(form_scope[0],8,16,104,58,100-(int32_t)m*70/127);
-  form_scope_draw(form_scope[1],128,16,104,58,30+(int32_t)m*70/127);
+  form_scope_draw(form_scope[0],6,16,228,60,100);   /* (the sound playing: the formulas morphed) */
   heat_bar(6,82,228,228,6,T_DIM);
   cv_rect(mx-2,79,5,12,T_TEXT);
  }else{                                                  /* the others: the equation */

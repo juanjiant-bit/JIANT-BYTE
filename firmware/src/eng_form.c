@@ -13,58 +13,10 @@ static int32_t scale_snap(const track_t*,int32_t);      /* seq.c: the song's sca
 static uint32_t scale_mask(const track_t *t);           /* seq.c */
 #include "eng_form1.c"                                  /* FORM 1's 36 states: FORM A / B's first */
 /* ---- the bank: the synths first, then the drums, the bytebeats last (each in 32 instructions: FORMULA B's slot) ---- */
-static const char *const FORM_BANK[]={
- "sat(saw(w*2)*(1-T)*(1-T)*(1+A*4))*.6",                                            /* PLUCK: a saw struck, A its drive */
- "sin(w*4+sin(w*14)*(1-T)*(.5+A*6))*(1-T)*.7",                                      /* FM BELL: 3.5 : 1, A the index */
- "sin(w+sin(w*2)*(1-T)*(1+A*4))*.8",                                                /* FM BASS */
- "(sin(w*2)+sin(w3*2)+sin(w5*2)+sin(w)*A)*.25",                                     /* PAD: the chord, A its root below */
- "lp(saw(w*2)+saw(w3*2)+saw(w5*2),.04+A*.4)*.45",                                   /* SAW CHORD: A the cutoff */
- "(saw(w*2)+saw(wd*2)+saw(w3*2)*A)*.3",                                             /* SUPERSAW: detuned, A the third */
- "(sqr(w*2)-sqr(w*2+.5+tri(P/4)*.4*A))*.35",                                        /* PWM: its width moving, A how far */
- "sat(lp(saw(w),.02+(1-T)*(1-T)*(.05+A*.6))*3)*.5",                                 /* ACID: a filter struck, A its sweep */
- "lp(saw(w)+saw(wd),.04+A*.3)*.6",                                                  /* REESE: two saws beating, A the cutoff */
- "lp(saw(w)+sqr(w),.01+abs(sin(P*(1+floor(A*4))))*.3)*.6",                          /* WOBBLE: A its rate, 1 .. 5 a beat */
- "sin(w*(1+floor(A*5))+sin(w)*3*abs(sin(P*2)))*.6",                                 /* GROWL: FM breathing, A the partial */
- "sin(w*2)*sin(w*(4+floor((1+tri(P/4))*A*6)))*.8",                                  /* FORMANT: a vowel moving, A how far */
- "sin(sin(w*2)*(1+A*6+(1-T)*3))*.6",                                                /* FOLD: A the folds */
- "tri(w*(2+A*7+(1-T)*4))*.6",                                                       /* SYNC: the hard sync struck, A its ratio */
- "(sin(w*4)+sin(w*8)*.3*A+sin(w3*4)*.5+sin(w5*4)*.5)*(1-T)*.4",                     /* KEYS: the chord struck, A its overtone */
- "(sin(w)+tri(w*2)*A*.5)*.9",                                                       /* SUB: A its edge */
- "(sin(w*2)+sin(w3*2)*(T>.06+A*.1)+sin(w5*2)*(T>.12+A*.2))*(1-T)*.4",               /* STRUM: the chord strummed, A slower (ref 1) */
- "lp(saw(w*2)+saw(w3*2)+saw(w5*2),.06+A*.4)*(1-T)*(1-T)*(c%4==2)*.6",               /* STAB: the offbeat chord (ref 2) */
- "lp(saw(w*2)+saw(w3*2)+saw(w5*2),.08+A*.2)*.4*(1-(1-P%1)*(1-P%1))",                /* PUMP PAD: ducked each beat (ref 2) */
- "sin(w*(2+s%4))*(1-T)*(.6+A*.4)",                                                  /* HARMONICS: the harmonic series stepped (ref 3) */
- "sin(w*2*(1+(1-T)*(1-T)*A*4))*(1-T)*.7",                                           /* CHIRP: the pitch falling (ref 14) */
- "(rnd(t)*D*A+sin(w*2*(1+D)))*D*.5",                                                /* RISER: up over the chord (ref 7) */
- "floor((sin(w*2)+sin(w3*2)+sin(w5*2))*(2+A*6))/(2+A*6)*.3",                        /* CRUSH CHD: the chord in few levels */
- "sin(w*2+sin(w*3+sin(w*5)*A*2)*2)*(1-T)*.6",                                       /* NESTED FM: FM in FM */
- "sat(lp(saw(w)+saw(wd)+sin(w),.01+abs(sin(P*3))*(.15+A*.4))*2)*.5",                /* DUB: the triplet wobble (ref 4) */
- "(sin(w*2)*sin(w*(6+floor(A*4)))+sin(w3*2)*sin(w3*(5+floor(A*4)))*.6)*.5",         /* VOX: two formants (ref 12) */
- "(sin(w*2)+sin(w*4)*.5+sin(w*6)*.3*A+sin(w3*2)*.4+sin(w5*2)*.4)*.25",              /* ORGAN */
- "sin(w*2)*sin(w*(7+floor(A*9)))*(1-T*.5)*.8",                                      /* RING: ring modulated */
- "lp(sqr(w*2),.1+A*.4)*((s*3)%8<5)*(1-T)*.5",                                       /* NIBBLE: an arpeggio with rests (ref 11) */
- "sin(T*10+(1-T)*(1-T)*(2+A*6))*(1-T)*(c%4==0)",                                    /* KICK: four on the floor, A its sweep */
- "sin(T*10+(1-T)*(1-T)*6)*(1-T)*(c%4==0)+saw(w)*(1-T)*(c%4==2)*(.3+A*.5)",          /* KICK BASS: the bass between */
- "hp(rnd(t),.5)*(1-T)*(1-T)*(.15+A*.4)",                                            /* HATS: every 16th, A louder */
- "(rnd(t)*.7+sin(T*30)*.3)*(1-T)*(1-T)*(c%8==4)",                                   /* SNARE: on 2 and 4 */
- "(sin(T*10+(1-T)*4)*(c%4==0)+rnd(t)*((c%8==4)*.5+(c%2)*A*.25))*(1-T)",             /* BEAT */
- "(sin(T*10+(1-T)*4)*(2313>>c&1)+rnd(t)*((4112>>c&1)*.45+A*.15))*(1-T)",            /* BREAK */
- "sin(w*4*(1+(1-T)*2))*(1-T)*(1-T)*((s*5+A*8)%8<3)",                                /* PERC: tuned, A its rhythm */
- "rnd(t)*((T<.08)+(T>.12)*(T<.2)+(T>.25)*(1-T))*(c%8==4)*.7",                       /* CLAP: three hands */
- "lp(sin(T*10+(1-T)*(1-T)*4)*(c%4==0)+rnd(t)*.3,.03+A*.1)*(1-T)*2",                 /* RUMBLE: the kick's low tail */
- "hp(rnd(t),.6)*(1-(T*(1+floor(A*3)))%1)*.35",                                      /* ROLLS: hats in 2, 3, 4 a step (ref 5) */
- "sin(w*2*(1+(1-T)*.5))*(1-T)*(1-T)*(1170>>c&1)",                                   /* TOMS: the chord's root as toms */
- "lp(fix(t*(t>>9|t>>12)&255)/128-1,.15+A*.6)",                                      /* BYTE: the classic, A the cutoff */
- "lp(fix((int(w*256)^(t>>7))&255)/128-1,.15+A*.7)",                                 /* BITS: the phase's byte xor time */
- "lp(fix((t*(b+1)&t>>5|t>>8)&255)/128-1,.2+A*.6)",                                  /* XOR: the chord's degree in it */
- "lp(fix((t*(s%7+1))>>(c%4)&255)/128-1,.15+A*.6)",                                  /* GLITCH: its shift by the bar */
- "lp(fix(t*((t>>11)%4+1)&t>>5&255)/128-1,.2+A*.5)",                                 /* BITGROOVE: (ref 15) */
-};
+static const char *const FORM_BANK[]={"sin(w)"};    /* (FORM 3's formulas: out for now, Juan: "too simple"; the deeper ones to come) */
 /* FORM 1's states' own DRIVE WOBBLE TONE CHORD VOICING (its presets', FORM 2) */
 static const uint8_t F1_XTRA[36][5]={{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{0,2,127,1,0},{20,2,64,4,6},{0,2,64,7,4},{0,2,64,1,0},{0,2,64,4,6},{30,4,90,1,0},{0,2,64,4,6},{10,2,64,4,0},{20,4,64,1,0},{0,2,64,7,7},{0,2,64,4,6},{10,2,64,1,0},{60,5,70,1,0},{70,6,60,1,0},{30,4,100,1,0}};
-static const char *const FORM_NAMES[]={"01 SCORE","02 TIME RULE","03 COUNTER","04 FIVE PART","05 TUNED MEM","06 SWITCH","07 BASS ECHO","08 DETUNE","09 RATIOS","10 NESTED FM","11 BIT MORPH","12 CRUSH CHD","13 FILTER CHD","14 SWEEPS","15 BIT GROOVE","16 MASK SONG","17 NONLIN CHD","18 GENERATIVE","19 SHAPED ARP","20 BUILD UP","21 BIT PAIRS","22 NESTED EQ","23 STRUM 332","24 HOUSE M9","25 CHIRP","26 DRIFT","27 BITPACK","28 BUILD","29 RISER","30 FILLS","31 SUITE","32 DEGREES","33 NIBBLE","34 GROWL","35 WOBBLE","36 ACID",
- "PLUCK","FM BELL","FM BASS","PAD","SAW CHORD","SUPERSAW","PWM","ACID","REESE","WOBBLE","GROWL","FORMANT","FOLD","SYNC","KEYS","SUB","STRUM","STAB","PUMP PAD","HARMONICS","CHIRP","RISER","CRUSH CHD","NESTED FM","DUB","VOX","ORGAN","RING","NIBBLE","KICK","KICK BASS","HATS","SNARE","BEAT","BREAK","PERC","CLAP","RUMBLE","ROLLS","TOMS","BYTE","BITS","XOR","GLITCH","BITGROOVE",0};
-#define FORM_NSYN 29u                     /* the pitched ones first: the dice's A */
+static const char *const FORM_NAMES[]={"01 SCORE","02 TIME RULE","03 COUNTER","04 FIVE PART","05 TUNED MEM","06 SWITCH","07 BASS ECHO","08 DETUNE","09 RATIOS","10 NESTED FM","11 BIT MORPH","12 CRUSH CHD","13 FILTER CHD","14 SWEEPS","15 BIT GROOVE","16 MASK SONG","17 NONLIN CHD","18 GENERATIVE","19 SHAPED ARP","20 BUILD UP","21 BIT PAIRS","22 NESTED EQ","23 STRUM 332","24 HOUSE M9","25 CHIRP","26 DRIFT","27 BITPACK","28 BUILD","29 RISER","30 FILLS","31 SUITE","32 DEGREES","33 NIBBLE","34 GROWL","35 WOBBLE","36 ACID","SINE",0};
 #define FORM_N (sizeof FORM_BANK/sizeof FORM_BANK[0])
 _Static_assert(F1_N+FORM_N==sizeof FORM_NAMES/sizeof FORM_NAMES[0]-1u,"FORM: a name a formula");
 #define FORM_NT F1_N                                    /* FORM A / B: FORM 1's 36 states (the bank's formulas out of the
@@ -169,19 +121,6 @@ static void f1_view(const track_t*t,int16_t*q,uint32_t a,uint32_t b,uint32_t mor
  q[P_SLEN]=CY[clamp(t->p[P_ARATE],0,4)];q[P_SSWING]=t->p[P_E3];
 }
 /* a formula's program: A in the part's own slot (lofi_slot: MATH's), B in its second (WAVE's B); compiled when it changes */
-static const fvm_prog_t *form_prog(uint32_t tr,uint32_t side,uint32_t f,lofi_work_t*w)
-{
- fvm_prog_t *pg=side?&wave_prg_b[tr]:lofi_slot(tr);
- uint16_t *id=side?&wave_id_b[tr]:&lofi_prg_id[tr],want=(uint16_t)(0x8000u|f);
- if(side&&!pg->ins)fvm_prog_init(pg,wave_ins_b[tr],32u);
- if(*id!=want){
-  const char*s=FORM_BANK[(f-F1_N)%FORM_N];uint32_t n=0;
-  while(s[n])n++;
-  if(fvm_compile(&w->c,pg,s,n,0)||pg->nstate>2u)pg->n=0;   /* (silent) */
-  *id=want;
- }
- return pg;
-}
 static const uint8_t FORM_CRB[5]={1,2,4,8,16};          /* CHORD RATE in beats */
 static const uint16_t FORM_SEMI[13]={4096,4340,4598,4871,5161,5468,5793,6137,6502,6889,7298,7732,8192};   /* 2^(k/12), Q12 */
 /* the step's note and chord: the progression's degree at beat bq (Q16), the NOTES on step s */
@@ -223,47 +162,23 @@ static void form_side_clock(const uint32_t*pb,uint32_t n,uint32_t r,uint32_t spl
 static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*out,uint32_t n,const vmod_t*m)
 {
  uint32_t hs=1u<<VH_SH(),tr=(uint32_t)(t-trk)%NTRK,i,a=(uint32_t)clamp(t->p[P_E0],0,FORM_NT-1),b=(uint32_t)clamp(t->p[P_E1],0,FORM_NT-1);
- uint32_t morph=(uint32_t)clamp(t->p[P_E2],0,127),bl=(uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300);
- uint32_t PB[CTL],W[CTL],X3[CTL],X5[CTL],XD[CTL],TT[CTL],TS[CTL],PP[CTL],YU[CTL],pos,dpos,rem,carry=0;
+ uint32_t morph=(uint32_t)clamp(t->p[P_E2],0,127),bl=(uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300),pos;
  int32_t YA[CTL],YB[CTL];
- lofi_work_t*wk=&lofi_work[MC_CPU()&1u];
  if(n>CTL)n=CTL;if(!n)return;
- uint32_t s0i=morph==127u&&a!=b?1u:0u,s1i=morph&&morph<127u&&a!=b?2u:s0i+1u;   /* the sides played: A, B, or both */
- /* the song's beats (Q16) at each sample: its clock (RUN SONG: seq.c's) or the note's own */
- if(func_song(t)){pos=func_clock_begin;dpos=func_clock_end-func_clock_begin;}
- else{uint32_t tk=v->ph[0];pos=(uint32_t)(((uint64_t)tk<<16)/bl);dpos=(uint32_t)((((uint64_t)(tk+n*hs))<<16)/bl)-pos;}
- rem=dpos%n;dpos/=n;
- for(i=0;i<n;i++){PB[i]=pos;pos+=dpos;carry+=rem;if(carry>=n){carry-=n;pos++;}}
- /* SWING: each pair of 16ths, the second late (up to a triplet's) */
- uint32_t sw=(uint32_t)clamp(t->p[P_E3],0,100)*218u,split=65536u+sw,r1=(uint32_t)(0x100000000ull/split)>>1,r2=(uint32_t)(0x100000000ull/(131072u-split))>>1;
- uint32_t sb;form_side_clock(PB,1u,1u,split,r1,r2,TT,TS,PP,&sb);   /* (the song's step: the harmony's, the gate's) */
- form_note_t fn;form_harmony(t,PB[0],sb,&fn);
- /* the phases at the lower OCTAVE of the two, the other's an exact octave up (a shift) */
- uint32_t oa=(uint32_t)clamp(t->p[P_E6],0,3),ob=(uint32_t)clamp(t->p[P_E7],0,3),om=s0i?ob:s1i==2u&&ob<oa?ob:oa,ka=oa>om?oa-om:0u,kb=ob>om?ob-om:0u;
- uint32_t inc=pitch_inc((uint32_t)clamp(fn.note+((int32_t)om-1)*12,12,108)*16u)*hs,i3=(uint32_t)(((uint64_t)inc*FORM_SEMI[fn.third])>>12),i5=(uint32_t)(((uint64_t)inc*FORM_SEMI[fn.fifth])>>12),id=inc+(inc>>7);
- uint32_t p0=v->ph[1],p3=(uint32_t)v->s[6],p5=(uint32_t)v->s[7],pd=v->ph[2],cb=FORM_CRB[clamp(t->p[P_ARATE],0,4)]<<16;
- uint32_t f1both=s1i-s0i==2u&&a<F1_N&&b<F1_N;           /* (FORM 1 on both sides: its own MORPH, the one that composes) */
- for(uint32_t side=s0i;side<s1i;side++){
-  uint32_t k=side?kb:ka,r=(uint32_t)clamp(t->p[side?P_SLEN:P_SDIV],0,3),s,q0=p0,q3=p3,q5=p5,qd=pd,f=side?b:a,df=(uint32_t)clamp(t->p[side?P_E5:P_E4],0,127);
-  int32_t*y=side?YB:YA;
-  if(f<F1_N){                                           /* FORM 1: its state, its whole composition */
-   int16_t q[P_COUNT];f1_vs_t*st=&f1_st[tr];
-   f1_view(t,q,f,f1both?b:f,f1both?morph:0u,df,side?ob:oa,r);f1_p[MC_CPU()&1u]=q;
-   st->note=v->note;f1_render(t,st,y,n,m);
-   if(f1both){for(i=0;i<n;i++)YB[i]=YA[i];s1i=s0i+1u;break;}
-   continue;
-  }
-  for(i=0;i<n;i++){W[i]=(q0<<k)>>16;X3[i]=(q3<<k)>>16;X5[i]=(q5<<k)>>16;XD[i]=(qd<<k)>>16;q0+=inc;q3+=i3;q5+=i5;qd+=id;}
-  form_side_clock(PB,n,r,split,r1,r2,TT,TS,PP,&s);
-  fvm_env_t e={{TT,W,TS,XD,X3},{0},&v->s[side?2:0]};
-  e.arr[FA_BEAT]=PP;e.arr[FA_IN]=X5;
-  e.u[FU_NOTE]=(uint32_t)clamp(fn.note+((int32_t)(side?ob:oa)-1)*12,0,127);e.u[FU_STEP]=s;e.u[FU_C]=s&15u;e.u[FU_D]=s>>4;e.u[FU_B]=(uint32_t)fn.deg;
-  e.u[FU_DF]=(uint32_t)((PB[0]%cb)/(cb>>16));e.u[FU_BPS]=bl;e.u[FU_AF]=df*65536u/127u;e.u[FU_A]=df*2u;
-  lofi_run(form_prog(tr,side,f,wk),&e,wk,n,YU);
-  for(i=0;i<n;i++)y[i]=clamp(fvm_sample(FT_FIX,YU[i]),-32767,32767);
+ /* the song's step (16ths, SWING's pair split: the gate's, the panel's) */
+ pos=func_song(t)?func_clock_begin:(uint32_t)(((uint64_t)v->ph[0]<<16)/bl);
+ uint32_t q0=pos<<2,pair=q0&0x1FFFFu,split=65536u+(uint32_t)clamp(t->p[P_E3],0,100)*218u,sb=((q0>>17)<<1)+(pair<split?0u:1u);
+ /* the states: one (MORPH at an end, or A = B) or both, by FORM 1's own MORPH, the one that composes; DEF its COLOR, OCT
+  * its melody's octave, RATE its DIV (B's at MORPH 127) */
+ {
+  uint32_t one=morph==0u||a==b?1u:morph==127u?2u:0u,f=one==2u?b:a,sd=one==2u;
+  int16_t q[P_COUNT];const int16_t*keep=f1_p[MC_CPU()&1u];
+  f1_view(t,q,f,one?f:b,one?0u:morph,(uint32_t)clamp(t->p[sd?P_E5:P_E4],0,127),(uint32_t)clamp(t->p[sd?P_E7:P_E6],0,3),(uint32_t)clamp(t->p[sd?P_SLEN:P_SDIV],0,3));
+  f1_p[MC_CPU()&1u]=q;f1_st[tr].note=v->note;f1_render(t,&f1_st[tr],YA,n,m);f1_p[MC_CPU()&1u]=keep;
+  for(i=0;i<n;i++)YB[i]=YA[i];
  }
- if(s1i-s0i==1u)for(i=0;i<n;i++)(s0i?YA:YB)[i]=(s0i?YB:YA)[i];   /* (one side: both buffers it) */
- v->ph[1]=p0+inc*n;v->s[6]=(int32_t)(p3+i3*n);v->s[7]=(int32_t)(p5+i5*n);v->ph[2]=pd+id*n;
+ uint32_t inc=pitch_inc((uint32_t)clamp(v->note,24,96)*16u)*hs,p0=v->ph[1];   /* (the scopes' trigger: the note's turn) */
+ v->ph[1]=p0+inc*n;
  /* the EUCLID gate: HITS of the bar's 16 steps (16 all), ROTATE; an off step fades out, the next hit fades in */
  uint32_t hits=(uint32_t)clamp(t->p[P_KEY],1,16),kk=(sb+(uint32_t)clamp(t->p[P_DETUNE],0,15))&15u;
  int32_t gt=hits>=16u||((kk+1u)*hits>>4)!=(kk*hits>>4)?32767:0,g=v->s[5];
@@ -276,7 +191,6 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  }
  for(i=0;i<n;i++){
   int32_t y=YA[i];
-  if(s1i-s0i==2u)y+=((YB[i]-y)*(int32_t)morph)>>7;
   g+=(gt-g)>>(6u-VH_SH());y=mulq15(y,g);
   y=soft_knee(y,26000);
   v->s[4]+=(y-v->s[4])/(int32_t)(512u/hs);y-=v->s[4];      /* (the DC away) */

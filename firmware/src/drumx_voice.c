@@ -67,7 +67,8 @@ typedef struct {
     uint8_t eatk, edec, eamt, edst;                      /* MOD ENV: ATTACK, DECAY, AMOUNT (64 none), its DEST */
     uint8_t lrate, lshp, ldep, ldst;                     /* MOD LFO: RATE (0 off), SHAPE, DEPTH (64 none), its DEST */
     uint8_t vel;                                         /* VEL: a soft hit elsewhere in the tables (64 none) */
-    uint8_t noise, tick, tlev, pad;                      /* the noise's colour, the TICK and its level */
+    uint8_t noise, tick, tlev, gain;                     /* the noise's colour, the TICK and its level; the pad's trim (64 x1,
+                                                          * 0 as 64: the factory's balance, LEVELS on it) */
 } dw_lane_t;
 enum { DWS_MIX, DWS_FM, DWS_RING, DWS_SYNC, DWS_FOLD, DWS_N };
 enum { DWD_POSA, DWD_POSB, DWD_POS, DWD_BAMT, DWD_PITCH, DWD_NOISE, DWD_N };   /* a modulator's DEST */
@@ -85,14 +86,14 @@ static const uint16_t DW_RAT[DW_NRAT] = {2048, 4096, 5793, 6144, 8192, 11305, 12
 /* the factory kit's pads: KICK SNARE CLAP HAT C HAT O TOM RIM BELL
  *  {A, B, POS, B POS, STRUCT, RATIO, AMOUNT, ENV: ATK DEC AMT DEST, LFO: RATE SHAPE DEPTH DEST, VEL, NOISE, TICK, LEVEL} */
 #define DW_DEF_KIT { \
-    {7, 0, 0, 0, DWS_FM, 0, 40, 0, 22, 118, DWD_POS, 0, DWL_TRI, 64, DWD_POSA, 80, DWN_BROWN, DWT_CLICK, 63, 0},      /* KICK: FOLD falling to the sine, a sub FM */ \
-    {2, 13, 2, 60, DWS_MIX, 4, 50, 0, 40, 98, DWD_POS, 0, DWL_TRI, 64, DWD_POSA, 84, DWN_WHITE, DWT_BURST, 63, 0},   /* SNARE: FMR down, a NOISE cycle */ \
-    {13, 11, 16, 60, DWS_RING, 5, 70, 0, 30, 88, DWD_POSA, 90, DWL_SH, 76, DWD_POSB, 64, DWN_PINK, DWT_OFF, 0, 0},  /* CLAP: NOISE ringed by BITS */ \
-    {11, 13, 127, 100, DWS_RING, 10, 90, 0, 12, 48, DWD_POS, 0, DWL_TRI, 64, DWD_POSA, 90, DWN_VIOLET, DWT_HF, 47, 0},   /* HAT C: BITS x NOISE */ \
-    {11, 9, 122, 90, DWS_RING, 9, 80, 10, 70, 58, DWD_POS, 70, DWL_TRI, 72, DWD_POSB, 90, DWN_VIOLET, DWT_HF, 31, 0}, /* HAT O */ \
-    {1, 14, 0, 40, DWS_FM, 3, 30, 0, 50, 108, DWD_POS, 0, DWL_TRI, 64, DWD_POSA, 76, DWN_BROWN, DWT_CLICK, 47, 0},    /* TOM: FM2 down */ \
-    {9, 6, 48, 70, DWS_MIX, 6, 70, 0, 20, 88, DWD_POSA, 0, DWL_TRI, 64, DWD_POSA, 80, DWN_RESON, DWT_PULSE, 79, 0},  /* RIM: PULSE and RING */ \
-    {0, 2, 0, 50, DWS_FM, 5, 70, 0, 60, 30, DWD_BAMT, 40, DWL_SINE, 70, DWD_POSB, 72, DWN_WHITE, DWT_RECT, 31, 0},  /* BELL: a sine, FMR's FM at 2.76 */ \
+    {1, 0, 0, 0, DWS_FM, 0, 24, 0, 14, 108, DWD_BAMT, 0, DWL_TRI, 64, DWD_POSA, 72, DWN_BROWN, DWT_CLICK, 40, 92},     /* KICK: a sine, a sub-octave FM struck that dies in the first beat */ \
+    {2, 13, 2, 60, DWS_MIX, 4, 50, 0, 40, 98, DWD_POS, 0, DWL_TRI, 64, DWD_POSA, 84, DWN_WHITE, DWT_BURST, 63, 70},   /* SNARE: FMR down, a NOISE cycle */ \
+    {13, 11, 16, 60, DWS_RING, 5, 70, 0, 30, 88, DWD_POSA, 90, DWL_SH, 76, DWD_POSB, 64, DWN_PINK, DWT_OFF, 0, 110},  /* CLAP: NOISE ringed by BITS */ \
+    {11, 13, 127, 100, DWS_RING, 10, 90, 0, 12, 48, DWD_POS, 0, DWL_TRI, 64, DWD_POSA, 90, DWN_VIOLET, DWT_HF, 47, 64},   /* HAT C: BITS x NOISE */ \
+    {11, 9, 122, 90, DWS_RING, 9, 80, 10, 70, 58, DWD_POS, 70, DWL_TRI, 72, DWD_POSB, 90, DWN_VIOLET, DWT_HF, 31, 64}, /* HAT O */ \
+    {1, 0, 0, 0, DWS_MIX, 0, 0, 0, 20, 80, DWD_POSA, 0, DWL_TRI, 64, DWD_POSA, 72, DWN_BROWN, DWT_CLICK, 31, 104},    /* TOM: FM2 to the sine */ \
+    {9, 6, 110, 70, DWS_MIX, 6, 40, 0, 12, 64, DWD_POSA, 0, DWL_TRI, 64, DWD_POSA, 80, DWN_RESON, DWT_PULSE, 47, 64},  /* RIM: a narrow PULSE, a RING */ \
+    {0, 2, 0, 50, DWS_FM, 5, 70, 0, 60, 30, DWD_BAMT, 40, DWL_SINE, 70, DWD_POSB, 72, DWN_WHITE, DWT_RECT, 31, 48},  /* BELL: a sine, FMR's FM at 2.76 */ \
 }
 static const dw_lane_t DW_DEF[8] = DW_DEF_KIT;
 static dw_lane_t dw_kit[8] = DW_DEF_KIT;   /* (the music's: the factory kit's from the start; a kit or a project sets it) */
@@ -503,6 +504,11 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
     ng = q[DXP_NOISE] * 258;
     og = ((32767 - ng) * 11) >> 4;                       /* (x 11 / 16: about the DRUM kits' level) */
     ng = (ng * 11) >> 4;
+    {                                                    /* (DRUM-W) the pad's trim */
+        int32_t gt = dw_kit[ln].gain ? dw_kit[ln].gain : 64;
+        og = og * gt >> 6;
+        ng = ng * gt >> 6;
+    }
     cx = clamp(q[DXP_COLOR] + mo[4], 0, 127) + (!ln << 5);   /* (the filter's cutoff, as a
                                                           * COLOR; V10.6z8: the KICK's 2 1/4 octaves up, its noise turned
                                                           * up a knock, a beater: not a rumble under the body) */
@@ -630,7 +636,7 @@ typedef struct { dx_lane_t lane[8]; uint8_t lay[8]; uint8_t snd[8]; } dx_kit_t;
 static const dx_kit_t DX_KITS[] = {
     {   /* DRUM-X */
         {
-            {DX_MODE(DXW_SINE, DXF_LP, 1), {9, 70, 72, 4, 20}, {14, 100, 88, 10, 60}},   /* KICK */
+            {DX_MODE(DXW_SINE, DXF_LP, 1), {0, 95, 100, 4, 20}, {2, 110, 92, 10, 60}},   /* KICK (DRUM-W: CyDrums' curve, 200 > 34 Hz over 300 ms, long) */
             {DX_MODE(DXW_FM, DXF_BP, 0), {40, 30, 52, 80, 90}, {46, 18, 64, 104, 70}},   /* SNARE */
             {DX_MODE(DXW_SINE, DXF_BP, 0), {60, 0, 46, 127, 84}, {54, 0, 58, 127, 76}},   /* CLAP */
             {DX_MODE(DXW_METAL, DXF_HP, 0), {100, 0, 22, 96, 116}, {108, 0, 14, 112, 122}},   /* HAT CL */
