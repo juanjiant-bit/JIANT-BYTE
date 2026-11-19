@@ -43,11 +43,115 @@ typedef struct {                                         /* a hit */
     uint16_t hpos, hsum, hseed;
     uint32_t fturn;                                      /* (JIANT BYTE) a formula lane's whole turns since the hit (w) */
     int32_t fst[2];                                      /* .. its formula's states (ph lp hp) */
+    uint32_t dwage;                                      /* (DRUM-W) half-rate samples since the hit (the scan, the tick) */
+    int32_t dwn;                                         /* (DRUM-W) the noise colour's state */
     int16_t mo1;                                         /* (0.9.9-snd1) FEEDBK: the output a sample before mo (the mean
                                                           * of the two fed back; in the struct's padding) */                          /* (0.7.9) CLAP's HANDS: half-rate samples since the hit, the
                                                           * hands come in so far (Q12, over the hit's own), this hit's dice */
 } dx_voice_t;
 
+
+/* ---- (DRUM-W) the drums on wavetables: each lane's BODY a table of a formula f(w, A) of WAVE's bank, drawn in the main
+ * loop (dw_poll, never in the audio) as 4 frames of 64 points, A = 0 .. 1; a hit scans its frames from COLOR's place by
+ * SCAN over TIME (its CURVE), the two frames it is between mixed once a block, one interpolated read a sample (as the
+ * sine it replaces); NOISE its colour (WHITE PINK BROWN VIOLET RESON), TICK an attack of a few ms (PULSE SAW RECT BURST
+ * HF CLICK, computed only while it sounds). The envelopes, the noise filter, the choke, the clap's hands, the guiro and
+ * the cowbell stay DRUM-X's. A lane whose table is not drawn yet plays a sine (a ms after a change) */
+static uint32_t dx_pow2(uint32_t x);
+#define DW_N 64u                                         /* a frame's points (+1: the first again) */
+#define DW_FR 4u                                         /* frames a table, A = 0, 1/3, 2/3, 1 */
+#define DW_SL 8u                                         /* tables drawn at once (a kit's eight lanes; sharing a formula, one) */
+typedef struct { uint8_t table, scan, time, curve, noise, tick, tlev, pad; } dw_lane_t;   /* scan 64 none, 0 down, 127 up */
+enum { DWC_LIN, DWC_FAST, DWC_SLOW, DWC_PING };
+enum { DWN_WHITE, DWN_PINK, DWN_BROWN, DWN_VIOLET, DWN_RESON };
+enum { DWT_OFF, DWT_PULSE, DWT_SAW, DWT_RECT, DWT_BURST, DWT_HF, DWT_CLICK };
+static const char *const N_DWC[] = {"LIN", "FAST", "SLOW", "PING", 0};
+static const char *const N_DWN[] = {"WHITE", "PINK", "BROWN", "VIOLET", "RESON", 0};
+static const char *const N_DWT[] = {"OFF", "PULSE", "SAW", "RECT", "BURST", "HF", "CLICK", 0};
+/* the factory kit's lanes: KICK SNARE CLAP HAT C HAT O TOM RIM BELL */
+static const dw_lane_t DW_DEF[8] = {
+    {7, 0, 18, DWC_FAST, DWN_WHITE, DWT_CLICK, 50, 0},   /* KICK: FOLD, its brightness falling to the sine */
+    {2, 20, 40, DWC_FAST, DWN_WHITE, DWT_BURST, 60, 0},  /* SNARE: FMR down */
+    {13, 64, 30, DWC_LIN, DWN_PINK, DWT_OFF, 0, 0},      /* CLAP: NOISE */
+    {11, 90, 10, DWC_LIN, DWN_VIOLET, DWT_HF, 40, 0},    /* HAT C: BITS up */
+    {11, 100, 60, DWC_SLOW, DWN_VIOLET, DWT_HF, 30, 0},  /* HAT O */
+    {1, 10, 50, DWC_FAST, DWN_BROWN, DWT_CLICK, 40, 0},  /* TOM: FM2 down */
+    {9, 64, 20, DWC_LIN, DWN_RESON, DWT_PULSE, 70, 0},   /* RIM: PULSE */
+    {6, 80, 40, DWC_LIN, DWN_WHITE, DWT_RECT, 30, 0},    /* BELL: RING */
+};
+static dw_lane_t dw_kit[8] = {   /* (the music's: the factory kit's from the start; a kit or a project sets it) */
+    {7, 0, 18, DWC_FAST, DWN_WHITE, DWT_CLICK, 50, 0},   /* KICK: FOLD, its brightness falling to the sine */
+    {2, 20, 40, DWC_FAST, DWN_WHITE, DWT_BURST, 60, 0},  /* SNARE: FMR down */
+    {13, 64, 30, DWC_LIN, DWN_PINK, DWT_OFF, 0, 0},      /* CLAP: NOISE */
+    {11, 90, 10, DWC_LIN, DWN_VIOLET, DWT_HF, 40, 0},    /* HAT C: BITS up */
+    {11, 100, 60, DWC_SLOW, DWN_VIOLET, DWT_HF, 30, 0},  /* HAT O */
+    {1, 10, 50, DWC_FAST, DWN_BROWN, DWT_CLICK, 40, 0},  /* TOM: FM2 down */
+    {9, 64, 20, DWC_LIN, DWN_RESON, DWT_PULSE, 70, 0},   /* RIM: PULSE */
+    {6, 80, 40, DWC_LIN, DWN_WHITE, DWT_RECT, 30, 0},    /* BELL: RING */
+};
+static int16_t dw_tab[DW_SL][DW_FR][DW_N + 1u] __attribute__((section(".pool")));   /* (4.2 KB of the pool) */
+static volatile uint8_t dw_key[DW_SL];                   /* 1 + the formula drawn there, 0 none (dw_poll: 0 while it draws) */
+static int32_t dw_slot(uint32_t table)
+{
+    uint32_t k;
+    for (k = 0; k < DW_SL; k++)
+        if (dw_key[k] == table % WAVE_NF + 1u)
+            return (int32_t)k;
+    return -1;
+}
+/* the main loop (project.c dw_poll): a table the kit wants and has not, drawn into a slot no lane wants (one a call) */
+static void dw_poll_ws(gq_work_t *w)
+{
+    uint32_t want = 0, l, k, f, s, i, j;
+    for (l = 0; l < 8u; l++)
+        want |= 1u << (dw_kit[l].table % WAVE_NF);
+    for (f = 0; f < WAVE_NF; f++) {
+        if (!((want >> f) & 1u) || dw_slot(f) >= 0)
+            continue;
+        for (s = 0; s < DW_SL && dw_key[s] && ((want >> (dw_key[s] - 1u)) & 1u); s++)
+            ;
+        if (s == DW_SL)
+            return;                                      /* (no slot free: the oscillator of before) */
+        dw_key[s] = 0;
+        {
+            const char *tx = WAVE_BANK[f];
+            uint32_t n = 0, W[FVM_BLK], T[FVM_BLK] = {0}, y[FVM_BLK];
+            fvm_env_t e = {{0}, {0}, w->st};
+            while (tx[n]) n++;
+            if (fvm_compile(&w->cc, FVM_FULL(&w->pg), tx, n, 0) || w->pg.p.nstate > 1u)
+                return;
+            e.arr[FA_T] = T; e.arr[FA_W] = W;
+            for (j = 0; j < DW_FR; j++) {
+                e.u[FU_AF] = j * 127u / (DW_FR - 1u) * 516u;
+                for (k = 0; k < DW_N; k += FVM_BLK) {
+                    for (i = 0; i < FVM_BLK; i++) W[i] = (k + i) * (65536u / DW_N);
+                    fvm_run(&w->pg.p, &e, &w->sc, FVM_BLK, y);
+                    for (i = 0; i < FVM_BLK && k + i < DW_N; i++)
+                        dw_tab[s][j][k + i] = (int16_t)clamp((int32_t)y[i] >> 1, -32767, 32767);
+                }
+                dw_tab[s][j][DW_N] = dw_tab[s][j][0];
+            }
+        }
+        dw_key[s] = (uint8_t)(f + 1u);
+        return;
+    }
+}
+static uint32_t dw_time(uint32_t t) { return 64u + ((dx_pow2(t * 9u * 4096u / 127u) >> 8) * 22u >> 4); }   /* (half-rate samples:
+                                                          * 3 ms .. ~0.9 s) */
+static int32_t dw_tick(uint32_t ty, uint32_t k)          /* the TICK's k-th half-rate sample (0 past it) */
+{
+    int32_t e = 64 - (int32_t)k;
+    if (e <= 0) return 0;
+    switch (ty) {
+    case DWT_PULSE: return k < 2u ? 32767 : 0;
+    case DWT_SAW: return (e * 1024 - 32768) * e >> 6;
+    case DWT_RECT: return k < 24u ? ((k & 4u) ? 20000 : -20000) : 0;
+    case DWT_BURST: return (int32_t)((fvm_hash(k * 977u + 13u) >> 16) - 32768u) * e >> 6;
+    case DWT_HF: return sine_i(k * 0x2C000000u) * e >> 6;
+    case DWT_CLICK: return k < 32u ? sine_i(k * 0x0C000000u) * (32 - (int32_t)k) >> 5 : 0;
+    }
+    return 0;
+}
 /* (V10.6q) the SINE's drive: 1 / tanh(its gain), Q12, every 8 COLOR (0..128): the driven sine's peak back to the sine's */
 static const uint16_t DX_NRM[17] = {16724, 11014, 8422, 6987, 6105, 5526, 5131, 4854, 4655, 4511, 4406, 4328, 4270, 4249, 4249,
                                     4249, 4249};
@@ -378,6 +482,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         if (!v->rng)
             v->rng = 0x2545F491;
         v->hpos = v->hsum = 0;
+        v->dwage = 0;                                    /* (DRUM-W) the scan and the tick from the top */
         v->hseed = (uint16_t)(((uint32_t)v->rng * 2654435761u) >> 16);   /* (not drawn from the noise: OFF as it was) */
         v->inc = pitch_inc((uint32_t)clamp(p16 + depth, 0, 2047));
     }
@@ -492,6 +597,39 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
                 y[i]=(z*c)>>12;
             }
         }
+    } else if (og && !cw && dw_slot(dw_kit[ln].table) >= 0) {   /* (DRUM-W) the body: the lane's table, scanned */
+        const dw_lane_t *D = &dw_kit[ln];
+        const int16_t (*tb)[DW_N + 1u] = dw_tab[dw_slot(D->table)];
+        uint32_t ph = v->ph, age = v->dwage, T = dw_time(D->time), pr, f, fr;
+        int32_t top = (int32_t)(DW_FR - 1u) * 256, s0 = q[DXP_COLOR] * top / 127, s1 = clamp(s0 + ((int32_t)D->scan - 64) * 28, 0, top), sp8;
+        int16_t m[DW_N + 1u];
+        pr = age >= T ? 65536u : (uint32_t)(((uint64_t)age << 16) / T);   /* (once a block) */
+        pr = D->curve == DWC_FAST ? 65536u - (((65536u - pr) * (65536u - pr)) >> 16) : D->curve == DWC_SLOW ? (pr * pr) >> 16 :
+             D->curve == DWC_PING ? (pr < 32768u ? pr * 2u : (65536u - pr) * 2u) : pr;
+        sp8 = s0 + (int32_t)((((int64_t)(s1 - s0)) * (int32_t)(pr >> 1)) >> 15);
+        f = (uint32_t)sp8 >> 8;
+        fr = (uint32_t)sp8 & 255u;
+        if (f >= DW_FR - 1u) { f = DW_FR - 2u; fr = 256u; }
+        for (k = 0; k <= DW_N; k++)                      /* the frame between its two: once a block */
+            m[k] = (int16_t)(tb[f][k] + (((tb[f + 1u][k] - tb[f][k]) * (int32_t)fr) >> 8));
+        for (i = 0; i < n; i++, inc += dinc, ga += dga) {
+            uint32_t j = ph >> 26;
+            int32_t o = m[j] + (((m[j + 1u] - m[j]) * (int32_t)((ph >> 11) & 0x7FFFu)) >> 15);
+            y[i] = mulq15(o, ga >> 8);
+            ph += (uint32_t)inc << 4;
+        }
+        v->ph = ph;
+        if (D->tick && age < 64u) {                      /* the TICK: its first ms, at the hit's level */
+            int32_t tg = mulq15(og, ea0 >> 15) * (int32_t)D->tlev >> 7;
+            for (i = 0; i < n && age + i < 64u; i++)
+                y[i] = clamp(y[i] + mulq15(dw_tick(D->tick, age + i), tg), -32767, 32767);
+        }
+        v->dwage = age + n < 0x7FFFFFFFu ? age + n : age;
+        if (L->mode & DX_DRIVE) {
+            int32_t dl = 14000 + !ln * 8000;
+            for (i = 0; i < n; i++)
+                y[i] = (softclip(y[i] * 3) * dl) >> 15;
+        }
     } else if (og) {                                     /* the oscillator */
         uint32_t ph = v->ph;
         int32_t fold = clamp(warp, 0, 127);
@@ -580,13 +718,19 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         int32_t ic1 = v->ic1, ic2 = v->ic2, rng = v->rng;
         int32_t mr, ck, cv;                              /* (V10.6o: one loop) the output r & mr - k v1 - cv v2: LP v2,
                                                           * BP v1, HP r - k v1 - v2 (each exactly as its own loop was) */
-        kd = flt == DXF_BP ? 2400 : 6000;                /* (BP a little resonant) */
+        uint32_t ncol = dw_kit[ln].noise;                /* (DRUM-W) the colour: RESON its filter ringing */
+        int32_t nc = v->dwn;
+        kd = ncol == DWN_RESON ? 700 : flt == DXF_BP ? 2400 : 6000;   /* (BP a little resonant) */
         tsvf_coef_k(&c, (cx + 14) << 8, kd);   /* (+ an octave of the table: the same Hz at half rate) */
         mr = flt == DXF_LP || flt == DXF_BP ? 0 : -1;
         ck = flt == DXF_LP ? 0 : flt == DXF_BP ? -4096 : kd;
         cv = flt == DXF_LP ? -1 : flt == DXF_BP ? 0 : 1;
         for (i = 0; i < n; i++, gn += dgn) {
-            int32_t r = mulq15((((int32_t)noise32(&rng) >> 17) * 23170) >> 15, gn >> 8) + ((y[i] & mt) >> 1), v3 = r - ic2, v1, v2;
+            int32_t wn = (int32_t)noise32(&rng) >> 17;
+            if (ncol == DWN_PINK) { nc += (wn - nc) >> 2; wn = (wn + nc * 3) >> 2; }
+            else if (ncol == DWN_BROWN) { nc += (wn - nc) >> 4; wn = clamp(nc * 3, -32767, 32767); }
+            else if (ncol == DWN_VIOLET) { int32_t d = wn - nc; nc = wn; wn = d >> 1; }
+            int32_t r = mulq15((wn * 23170) >> 15, gn >> 8) + ((y[i] & mt) >> 1), v3 = r - ic2, v1, v2;
                                                          /* (+-11585: 1/sqrt2, half rate: the same power in half the
                                                           * band, +3 dB; its gain before the filter, V10.6q) */
             v1 = (c.a1 * ic1 + c.a2 * v3) >> 13;
@@ -598,6 +742,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         v->ic1 = ic1;
         v->ic2 = ic2;
         v->rng = rng;
+        v->dwn = nc;
     }
     if (gr && dx_scrape(v, y, n, sp, slen, sinc))      /* (V10.7.8) GR: past its last tick, the hit is over */
         ea1 = en1 = 0;

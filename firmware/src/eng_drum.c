@@ -731,6 +731,7 @@ static void dx_kit_load(uint32_t k)
     memcpy(dx_kit, K->lane, sizeof dx_kit);
     memcpy(dx_lay, K->lay, sizeof dx_lay);
     memcpy(dx_snd, K->snd, sizeof dx_snd);
+    memcpy(dw_kit, DW_DEF, sizeof dw_kit);              /* (DRUM-W) the lanes' tables, scans, noises, ticks */
     if (k == DX_NKIT) {                                 /* explicit all-formula kit; existing presets unchanged */
         uint32_t l;
         memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);

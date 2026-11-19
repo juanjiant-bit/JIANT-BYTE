@@ -265,3 +265,4 @@ static void math_poll_ws(gq_work_t *w)
 }
 
 static void math_poll(void);                            /* (JIANT BYTE: project.c, the main loop calls it: ui_input.c) */
+static void dw_poll(void);                              /* (DRUM-W: project.c, the main loop: ui_input.c) */
