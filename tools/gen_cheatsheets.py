@@ -9,7 +9,7 @@ import html, os
 
 R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(R, 'docs', 'cheatsheet')
-VERSION = 'v0.12'   # (JIANT BYTE's release; a rename is this one line)
+VERSION = 'v0.14'   # (JIANT BYTE's release; a rename is this one line)
 
 HEAT = ['#22d3ee', '#3b82f6', '#8b5cf6', '#d946ef', '#ef4444', '#ff7a00', '#facc15', '#f4f1ea']
 
@@ -320,7 +320,7 @@ def controls():
 def sound():
     b = []
     b.append(sec('ENGINES · EDIT 1 / EDIT 2'))
-    eng = [   # (JIANT BYTE v0.12: the four engines, as src/engines.c ENGINE_ORDER shows them)
+    eng = [   # (JIANT BYTE v0.14: the four engines, as src/engines.c ENGINE_ORDER shows them)
         ('FORM', HEAT[4], 'STATE A · STATE B · MORPH · COLOR', 'GROOVE · DENSITY · SEED · EVOLVE',
          'A part that plays itself: melody, bass, chords and drums from formulas. <b>36 states</b> (01 SCORE … 22 NESTED EQ, '
          '23 STRUM 332 … 36 ACID); <b>MORPH composes</b>: between A and B each step takes its melody, each section its '

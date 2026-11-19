@@ -129,9 +129,13 @@ jobs:
         run: |
           # Preserve other published assets; replace only directories built in this run.
           for d in emu webapp firmware; do rm -rf "$d"; cp -r "/tmp/byte-site/$d" "$d"; done
+          # (the front page, its second page and the docs it links: copied over, other files kept)
+          for f in index.html frecuencia.html; do if [ -e "/tmp/byte-site/$f" ]; then cp "/tmp/byte-site/$f" "$f"; fi; done
+          if [ -d /tmp/byte-site/docs ]; then mkdir -p docs && cp -r /tmp/byte-site/docs/. docs/; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add emu webapp firmware
+          for f in docs index.html frecuencia.html; do if [ -e "$f" ]; then git add "$f"; fi; done
           if ! git diff --cached --quiet; then
             git commit -m "Publish JIANT /B1T3 ${GITHUB_SHA::7}"
             git push origin HEAD:gh-pages

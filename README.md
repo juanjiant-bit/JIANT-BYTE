@@ -18,10 +18,10 @@ JIANT BYTE is a new synthesizer on the FM-1, built on [JIANT FM](https://github.
 [SLOOP](https://github.com/isod89/sloop-fm1)). It keeps JIANT FM's foundation (six tracks, the sequencer, songs, MIDI,
 USB, the effects, the updater) and replaces the rest with formulas, from the most tonal and playable to the wildest.
 
-**v0.12: light CPU and FORM 2.** The CPU TEST down from 3254 to 2817 instructions a sample (FORM alone -33 %, the half rate,
+**v0.14: light CPU and FORM 2.** The CPU TEST down from 3254 to 2817 instructions a sample (FORM alone -33 %, the half rate,
 the reverb at 22 kHz, LIFE shed by the guard); FORM composes by layers, from a chord progression to a whole electronic
 beat: 36 states, harmony by the scale's degrees, character basses, a MORPH that composes, a coherent dice.
-[What changed](docs/byte-v012.md) · [FORM's references](docs/FORM-REFERENCIAS.md).
+[What changed](docs/byte-v014.md) · [FORM's references](docs/FORM-REFERENCIAS.md).
 
 LIFE v0.8: recorrido audible en canciones generadas, NUM armónico y profundidad independiente del volumen del donante. [Guía y comparaciones](docs/byte-v08.md).
 

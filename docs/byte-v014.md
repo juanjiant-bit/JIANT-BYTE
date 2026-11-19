@@ -1,4 +1,4 @@
-# BYTE v0.12 — CPU liviana y FORM 2
+# BYTE v0.14 — CPU liviana y FORM 2
 
 Dos frentes en esta versión: que BYTE use poca CPU (el FM-1 se reiniciaba al morphear FORM con DENSITY alto, y con
 cuatro pistas el audio se rompía) y que FORM pase de 22 estados cerrados a un motor que compone por capas, desde una
@@ -9,7 +9,7 @@ progresión armónica hasta un beat electrónico completo.
 Medido con `tests/cpu_vg.c` (valgrind, instrucciones por muestra). La referencia es la CPU TEST de JIANT FM V10.7.23
 (2864); BYTE estaba en 3254.
 
-| Sección | Antes | v0.12 |
+| Sección | Antes | v0.14 |
 |---|---|---|
 | CPU TEST (`song/cputest`) | 3254 | **2817** |
 | CPU TEST con LIFE 100 | 9104 | 4816 |
