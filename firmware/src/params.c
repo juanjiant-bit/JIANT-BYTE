@@ -863,6 +863,8 @@ static const page_t PAGES[] = {
     {"TONE", FAM_EDIT, SC_TRACK, GR_NONE, {P_FKEY, ID_CRU, ID_LIF, 0xFF}},   /* (V10.7.35, the owner: was FILTER 3 and VOICES 3,
                                                          * a knob or two each) KEY TRK, CRUSH, LIFE. (filter2-mod) KEY: the keyboard tracking (was
                                                          * FILTER 2's first: DRIVE stays FILTER's, the knob of its power) */
+    {"TABLE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (DRUM-W) a sound's TABLE SCAN TIME (ui_dx.c) */
+    {"TABLE 2", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}}, /* (DRUM-W) its CURVE NOISE TICK */
     {"SOUND", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* DRUM: a sound of the kit (ui_dx.c) */
     {"SOUND 2", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"SOUND 3", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (JIANT 0.4) MODE, the pitch modulation, DRIVE */

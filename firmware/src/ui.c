@@ -2171,6 +2171,7 @@ static uint8_t dx_ui_lane, dx_ui_side;
 static uint32_t dx_pagen(const page_t *pg)            /* SOUND 1..3; (0.5.1) X-MOD 4; (0.6.54) SOUND 4: 8 */
 {
     if (pg->title[0] == 'F') return pg->title[4] == ' ' ? 10u : 9u;
+    if (pg->title[0] == 'T') return pg->title[5] == ' ' ? 12u : 11u;   /* (DRUM-W) TABLE, TABLE 2 */
     if (pg->title[0] == 'K')                          /* (V10.7.33: KIT LFO, was X-MOD) */
         return 4u;
     return pg->title[5] == ' ' ? (pg->title[6] == '4' ? 8u : (uint32_t)(pg->title[6] - '0')) : 1u;

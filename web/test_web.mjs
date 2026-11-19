@@ -191,7 +191,7 @@ async function editorMock() {
   const info = E.parse[E.CMD.INFO](await rq(E.req.info()));
   /* (JIANT BYTE) 17 numbers: FORM 16, DRUM 10, WAVE 13, MATH 3; the retired ones named as the engine they play as
      (engines.c ENGINES[], ENG_LIVE), the reserved ones "-" */
-  ok(info.nengines === 17 && info.engines.join() === "WAVE,-,WAVE,MATH,-,WAVE,-,MATH,WAVE,-,DRUM,WAVE,MATH,WAVE,MATH,MATH,FORM"
+  ok(info.nengines === 17 && info.engines.join() === "WAVE,-,WAVE,MATH,-,WAVE,-,MATH,WAVE,-,DRUM-W,WAVE,MATH,WAVE,MATH,MATH,FORM"
  && info.pcount === 123 && info.pe0 === 115, "editor: INFO");
   let descs = 0;
   for (let i = 0; i < info.pcount; i++) if (E.parse[E.CMD.DESC](await rq(E.req.desc(0, i))).label) descs++;
@@ -301,7 +301,7 @@ async function editorMock() {
   {   /* the lists in the device's order (engines.c ENGINE_ORDER, JIANT BYTE): FORM DRUM WAVE MATH, each once (at its own
          number, not a retired one that plays as it), "-" never; the numbers stay */
     const shown = E.engineOrder(info.engines).map((i) => info.engines[i]);
-    ok(shown.join() === "FORM,DRUM,WAVE,MATH" && E.engineOrder(info.engines).join() === "16,10,13,3",
+    ok(shown.join() === "FORM,DRUM-W,WAVE,MATH" && E.engineOrder(info.engines).join() === "16,10,13,3",
        "editor: engines listed FORM DRUM WAVE MATH (JIANT BYTE; indices kept)");
     ok(E.engineOrder(["ANALOG", "X", "-", "DRUM", "FM6"]).join() === "3,0,4,1", "editor: an unknown engine follows the known ones");
     ok(E.engineOrder(["ANALOG", "DIGITAL", "FM6", "DRUM"]).join() === "3,0,2,1", "editor: DIGITAL (FELUCCA_FM4 builds) after the others");
@@ -437,7 +437,7 @@ function mockTables() {
     m0.stop();
     ok(ph.name === "-" && ph.presets.length === 0,
        "editor: engine 9 reserved (PHYS retired in TONIC), no presets");
-    ok(dr.name === "DRUM" && dr.edit.map((d) => d.label).join() === "MORPH,TUNE,TONE,DECAY,NOISE,MOD ENV,FOLD,DRIVE" &&
+    ok((dr.name === "DRUM" || dr.name === "DRUM-W") && dr.edit.map((d) => d.label).join() === "MORPH,TUNE,TONE,DECAY,NOISE,MOD ENV,FOLD,DRIVE" &&
        dr.presets.length === 12 && dr.presets.slice(0, 9).every((p) => p.pat === 12) && dr.presets[1].name === "909 CLUB" &&
        dr.presets[9].name === "HIP HOP" && dr.presets[9].pat === 14 && dr.presets[10].name === "LATIN PERC" && dr.presets[10].pat === 12 &&
        dr.presets[11].name === "FLOAT KIT",

@@ -121,6 +121,7 @@ typedef struct {
     uint8_t dx_snd[8];                         /* (0.6.48) its sounds' SENDs (eng_drum.c): FUNC's 'D' 'S' block, 0 before */
     uint8_t dx_lay[8];                         /* (0.6.49) its sounds' LAYER, FEEDBK (drumx_voice.c): 'D' 'L', 0 before */
     uint8_t dx_form[8];                        /* (JIANT BYTE) its sounds' formulas (drumx_voice.c dx_form): 'D' 'F', 0 before */
+    dw_lane_t dw[8];                           /* (DRUM-W) its sounds' tables, scans, noises, ticks (drumx_voice.c dw_kit): 'D' 'W' */
     uint8_t voice_limit[NTRK];                 /* VL tail: per-track voice budget */
     char dx_text[8][DX_TEXT];                 /* DU: editable bounded formula text per instrument */
     int8_t dx_fmod[8][DFM_N];                 /* DQ tail extension: RATE/BEND/CRUSH, absent = exact bypass */
@@ -673,6 +674,7 @@ static uint32_t proj_packed_size(const project_t *q)
         if (q->dx_snd[i]) { n += 2u + sizeof q->dx_snd; break; }
     for (i = 0; i < sizeof q->dx_lay; i++)              /* (0.6.49) the LAYERs' */
         if (q->dx_lay[i]) { n += 2u + sizeof q->dx_lay; break; }
+    n += 2u + sizeof q->dw;                             /* (DRUM-W) the tables': always */
     n += 2u + sizeof q->dx_form;                        /* (JIANT BYTE) the formulas': always (a kit of all-oscillator
                                                          * lanes is a choice; absent reads as the floatbeat factory) */
     for (i = 0; i < sizeof q->mac_form; i++)            /* (JIANT BYTE) the macros' equations' */
@@ -815,6 +817,9 @@ static int proj_pack(project_store_t *out, const project_t *q)
         memcpy(b + pos, q->dx_form, sizeof q->dx_form);
         pos += sizeof q->dx_form;
     }
+    b[pos++] = 'D'; b[pos++] = 'W';                     /* (DRUM-W) the kit's tables */
+    memcpy(b + pos, q->dw, sizeof q->dw);
+    pos += sizeof q->dw;
     for (i = 0; i < sizeof q->mac_form && !q->mac_form[i]; i++)
         ;
     if (i < sizeof q->mac_form) {                       /* (JIANT BYTE) the macros' equations */
@@ -1128,6 +1133,18 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         for (k = 0; k < sizeof q->dx_form; k++)
             if (q->dx_form[k] > DX_NFORM && q->dx_form[k] != DX_USER) q->dx_form[k] = 0;
         pos += 2u + sizeof q->dx_form;
+    }
+    memcpy(q->dw, DW_DEF, sizeof q->dw);                /* (DRUM-W; absent: the factory kit's) */
+    if (pos + 2u + sizeof q->dw <= room && b[pos] == 'D' && b[pos + 1u] == 'W') {
+        uint32_t k;
+        memcpy(q->dw, b + pos + 2u, sizeof q->dw);
+        for (k = 0; k < 8u; k++) {                      /* (in range: a stored value never indexes past a name) */
+            q->dw[k].table %= WAVE_NF; q->dw[k].curve &= 3u;
+            if (q->dw[k].noise > DWN_RESON) q->dw[k].noise = 0;
+            if (q->dw[k].tick > DWT_CLICK) q->dw[k].tick = 0;
+            q->dw[k].scan &= 127u; q->dw[k].time &= 127u; q->dw[k].tlev &= 127u;
+        }
+        pos += 2u + sizeof q->dw;
     }
     memset(q->mac_form, 0, sizeof q->mac_form);
     if (pos + 2u + sizeof q->mac_form <= room && b[pos] == 'M' && b[pos + 1u] == 'F') {   /* (JIANT BYTE) the macros' */
@@ -1487,6 +1504,7 @@ static void project_capture(project_t *p)
     p->dx_hands = (uint8_t)(dx_hands | dx_glue << 4);   /* (0.7.9; snd1: GLUE) */
     memcpy(p->dx_snd, dx_snd, sizeof p->dx_snd);        /* (0.6.48) */
     memcpy(p->dx_lay, dx_lay, sizeof p->dx_lay);        /* (0.6.49) */
+    memcpy(p->dw, dw_kit, sizeof p->dw);                /* (DRUM-W) */
     memcpy(p->dx_text, dx_text, sizeof p->dx_text);
     memcpy(p->dx_fmod, dx_fmod, sizeof p->dx_fmod);
     memcpy(p->dx_form, dx_form, sizeof p->dx_form);     /* (JIANT BYTE) */
@@ -1657,6 +1675,7 @@ static void sound_put(project_t *p, uint32_t k)
         dx_glue = p->dx_hands >> 4;
         memcpy(dx_snd, p->dx_snd, sizeof dx_snd);
         memcpy(dx_lay, p->dx_lay, sizeof dx_lay);
+        memcpy(dw_kit, p->dw, sizeof dw_kit);
         memcpy(dx_text, p->dx_text, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
         memcpy(dx_fmod, p->dx_fmod, sizeof dx_fmod);
         memcpy(dx_form, p->dx_form, sizeof dx_form);
@@ -1729,6 +1748,7 @@ static int project_restore_runtime(const project_t *input)
     dx_glue = p->dx_hands >> 4;                         /* (snd1: its GLUE) */
     memcpy(dx_snd, p->dx_snd, sizeof dx_snd);           /* (0.6.48: its SENDs) */
     memcpy(dx_lay, p->dx_lay, sizeof dx_lay);           /* (0.6.49: its LAYERs) */
+    memcpy(dw_kit, p->dw, sizeof dw_kit);               /* (DRUM-W) */
     memcpy(dx_text, p->dx_text, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
     memcpy(dx_fmod, p->dx_fmod, sizeof dx_fmod);
     memcpy(dx_form, p->dx_form, sizeof dx_form);        /* (JIANT BYTE: its formula lanes) */
@@ -1861,6 +1881,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     dx_glue = 0;
     memset(dx_snd, 0, sizeof dx_snd);
     memcpy(dx_lay, DX_LAY_DEF, sizeof dx_lay);
+    memcpy(dw_kit, DW_DEF, sizeof dw_kit);
     memset(dx_text, 0, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
     memset(dx_fmod, 0, sizeof dx_fmod);
     memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);       /* (JIANT BYTE) every lane its floatbeat */

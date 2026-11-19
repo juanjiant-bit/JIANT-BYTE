@@ -72,6 +72,23 @@ static __attribute__((noinline)) void dx_knob(const page_t *pg, uint32_t k, int3
         dx_lane_turn(s);
         return;
     }
+    if (pn == 11u || pn == 12u) {                       /* (DRUM-W) TABLE: TABLE SCAN TIME; TABLE 2: CURVE NOISE TICK */
+        dw_lane_t *D = &dw_kit[dx_ui_lane & 7u];
+        int32_t st = s > 0 ? 1 : -1;
+        if (pn == 11u) {
+            if (k == 1u) D->table = (uint8_t)clamp((int32_t)D->table + st, 0, (int32_t)WAVE_NF - 1);
+            else if (k == 2u) D->scan = (uint8_t)clamp((int32_t)D->scan + accel(EN_K1 + k, s, 127), 0, 127);
+            else D->time = (uint8_t)clamp((int32_t)D->time + accel(EN_K1 + k, s, 127), 0, 127);
+        } else if (k == 1u) D->curve = (uint8_t)clamp((int32_t)D->curve + st, 0, DWC_PING);
+        else if (k == 2u) D->noise = (uint8_t)clamp((int32_t)D->noise + st, 0, DWN_RESON);
+        else {                                          /* TICK: OFF, then six types of eight levels */
+            int32_t ix = D->tick ? ((int32_t)D->tick - 1) * 8 + (int32_t)D->tlev / 16 + 1 : 0;
+            ix = clamp(ix + st, 0, 48);
+            D->tick = (uint8_t)(ix ? (ix - 1) / 8 + 1 : 0);
+            D->tlev = (uint8_t)(ix ? ((ix - 1) % 8) * 16 + 15 : 0);
+        }
+        return;
+    }
     if (pn == 9u) {                                     /* FORMULA: lane, formula, A/B, variable A */
         if (k == 1u) {
             uint32_t ln = dx_ui_lane & 7u;
@@ -195,6 +212,27 @@ static void dx_cards(const page_t *pg)
         ln[4] = 0;
     }
     hot_gauge_column(0, "SOUND", ln, (int32_t)(dx_ui_lane & 7u) * 1000 / 7);
+    if (pn == 11u || pn == 12u) {                       /* (DRUM-W) */
+        const dw_lane_t *D = &dw_kit[dx_ui_lane & 7u];
+        if (pn == 11u) {
+            hot_gauge_column(1, "TABLE", N_WAVEF[D->table % WAVE_NF], (int32_t)(D->table % WAVE_NF) * 1000 / (int32_t)(WAVE_NF - 1u));
+            fmt_int(val, (int32_t)D->scan - 64);
+            hot_gauge_column(2, "SCAN", val, (int32_t)D->scan * 1000 / 127);
+            fmt_int(val, D->time);
+            hot_gauge_column(3, "TIME", val, (int32_t)D->time * 1000 / 127);
+        } else {
+            hot_gauge_column(1, "CURVE", N_DWC[D->curve & 3u], (int32_t)(D->curve & 3u) * 333);
+            hot_gauge_column(2, "NOISE", N_DWN[D->noise % 5u], (int32_t)(D->noise % 5u) * 250);
+            if (D->tick) {                              /* "CLICK 5": the type, the level 1 .. 8 */
+                uint32_t l;
+                str_cpy(val, N_DWT[D->tick % 7u], sizeof val);
+                l = str_len(val);
+                val[l] = ' '; val[l + 1u] = (char)('1' + D->tlev / 16); val[l + 2u] = 0;
+            }
+            hot_gauge_column(3, "TICK", D->tick ? val : "OFF", D->tick ? (((int32_t)D->tick - 1) * 8 + D->tlev / 16 + 1) * 1000 / 48 : 0);
+        }
+        return;
+    }
     if (pn == 9u) {
         uint32_t f = dx_form[dx_ui_lane & 7u];
         hot_gauge_column(1, "FORMULA", dx_formula_name(f), (f == DX_USER ? DX_NFORM : f) * 1000 / DX_NFORM);

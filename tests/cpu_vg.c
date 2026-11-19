@@ -48,8 +48,10 @@ static uint32_t vg_preset(uint32_t e, const char *n)
 static void vg_section(const char *name)
 {
     uint32_t b;
-    for (b = 0; b < 64u; b++)
+    for (b = 0; b < 64u; b++) {
         mix_block(vo, CTL);                         /* (warm: the attacks, the glides, the FX lines filling) */
+        dw_poll();                                  /* (DRUM-W: its tables, as the main loop draws them) */
+    }
     CALLGRIND_ZERO_STATS;
     CALLGRIND_START_INSTRUMENTATION;
     for (b = 0; b < NB; b++)
@@ -141,7 +143,7 @@ int main(void)
                                                          * VPOL: song/cputest.vpol */
     static const struct { const char *eng, *pre; uint32_t notes; } E[] = {
         {"ANALOG", "FAT BASS", 8}, {"PHASE", "STRING", 8}, {"MATH", "BYTE BENT", 8}, {"VOICE", "WOW BASS", 4},
-        {"DRUM", "", 8}, {"WEST", "METAL", 8}, {"ANIMAL", "ROAR", 8},
+        {"DRUM-W", "", 8}, {"WEST", "METAL", 8}, {"ANIMAL", "ROAR", 8},
         {"MATH", "FLOAT PAD", 8}, {"WAVE", "SAW PAD", 8}};   /* (JIANT BYTE: MATH by its name, its FLOAT too, WAVE;
                                                          * WHEEL and FM6 retired) */
     static const char *const RT[5] = {"ROOM", "SPRING", "SHIMR", "RESO", "CLOUD"};
