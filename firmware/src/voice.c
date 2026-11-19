@@ -1162,7 +1162,7 @@ static __attribute__((noinline)) void voice_soft(void)
     else if (VPOL_ON() && load_tight && dear == NPART && ++vh_wait >= HALF_WAIT / 8u) {   /* (V10.7.56) every held voice that
                                                          * can at half, still over: FM6 down to a quarter, part by part */
         for (p = 0; p < NPART; p++)
-            if (ENGINES[trk[p].engine] == &ENG_FM6 && !((vh_quart >> p) & 1u)) {
+            if (0 && !((vh_quart >> p) & 1u)) {           /* (JIANT BYTE: FM6 retired: its synthesis out of the image) */
                 vh_quart |= (uint8_t)(1u << p);
                 break;
             }
