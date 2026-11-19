@@ -291,7 +291,9 @@ static __attribute__((noinline)) void form_step(const track_t*t,uint32_t sid,uin
 {
  const form_state_t*S=&FORM_STATE[sid],*R=&FORM_STATE[rid];const form_gene_t*G=&FORM_GENE[sid],*H=&FORM_GENE[rid];
  form_scale_t sc;form_scale(t,&sc);
- uint32_t hm=t->p[P_AORDER]?(uint32_t)clamp(t->p[P_AORDER]-1,0,4):H->harm,cv=(uint32_t)clamp(t->p[P_CVOI],0,7),ix=step+seed+mutation,pp=sectionn/2u;
+ uint32_t hm=t->p[P_AORDER]?(uint32_t)clamp(t->p[P_AORDER]-1,0,4):t->p[P_AGATE]>0&&H->harm==FH_CLASSIC?FH_FAMILY:H->harm,   /* (a PROGRESS chosen
+                                                          * on HARMONY AUTO: a classic state played by its family) */
+cv=(uint32_t)clamp(t->p[P_CVOI],0,7),ix=step+seed+mutation,pp=sectionn/2u;
  int32_t md=0,mel,bass,sk[4],chord=clamp(t->p[P_CHRD],0,11);o->rest=0;
  switch(G->mel){                                          /* the melody: semitones (classic string) or degrees */
  case FM_ARP:{int32_t a=FORM_ARP[(step+(((step>>2)&3u)^((step>>3)&1u))+seed)&7u];if(a<0)o->rest=1;else md=a;break;}

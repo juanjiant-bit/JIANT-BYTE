@@ -240,7 +240,7 @@ static __attribute__((noinline)) void form_notes_panel(const track_t*t,uint32_t 
  uint32_t cycle=(uint32_t)clamp(t->p[P_SLEN],1,64),cyc=clock/(cycle<<16),section=(clock%(cycle<<16))/cycle>>13,seed=(uint32_t)clamp(t->p[P_E6],0,127),ev=(uint32_t)clamp(t->p[P_E7],0,127);
  uint32_t mutation=((fvm_hash(seed+cyc*37u+section*7u)>>(28u-ev/43u))&7u)*ev/127u,id=m<64u?a:b,hm=t->p[P_AORDER]?(uint32_t)clamp(t->p[P_AORDER],0,5):0u;
  int32_t root=48+t->p[P_ROOT],prev=0;form_step_t fs;
- form_cap(8,4,"MELODY",T_TEXT);form_cap(90,4,"HARMONY",T_DIM);form_cap(160,4,hm?FORM_HARM[hm]:FORM_HARM[1u+FORM_GENE[id].harm],T_ACCENT);
+ form_cap(8,4,"MELODY",T_TEXT);form_cap(90,4,"HARMONY",T_DIM);form_cap(160,4,hm?FORM_HARM[hm]:FORM_HARM[1u+(t->p[P_AGATE]>0&&FORM_GENE[id].harm==FH_CLASSIC?FH_FAMILY:FORM_GENE[id].harm)],T_ACCENT);
  cv_rect(8,61,224,1,T_LINE);
  for(uint32_t i=0;i<16;i++){form_step(t,id,id,i,section,cyc,seed,mutation,root,&fs);if(fs.rest){prev=0;continue;}
   int32_t y=61-clamp(fs.mn-root,0,36);if(i&&prev)cv_line_t(10+(int32_t)(i-1)*14,prev,10+(int32_t)i*14,y,T_DIM,1);cv_rect(8+(int32_t)i*14,y-2,6,5,T_THEME);prev=y;}

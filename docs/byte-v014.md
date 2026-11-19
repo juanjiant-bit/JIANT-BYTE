@@ -69,7 +69,7 @@ composición. CANCEL deshace.
 | TIMBRE | STYLE, DRIVE, TONE, WOBBLE |
 | HARMONY | HARMONY, PROGRESS, CHORD, VOICING |
 | LAYERS | DRUMS, DETUNE, OCTAVE, LEVEL |
-| CLOCK | RUN, RATE, CYCLE, SWING |
+| CLOCK | RUN, DIV, CYCLE, SWING |
 
 La tónica y la escala son las de SCL, las de toda la canción. La página ARP no aparece en FORM: sus lugares son los
 genes. Todos los valores de FORM son destinos de la matriz de modulación.
