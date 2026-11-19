@@ -721,6 +721,9 @@ static struct { volatile uint32_t peak, late, shed; } load_diag;
  * engine's voices; every other melodic part is a single line (two voices: the note and the last one's tail). Over the
  * load, the voices go to half the rate (voice_soft) before anything is cut; the overload's last resort stays
  * (audio.c shed_voice). VPOL 0: the shared budget as before (tests) */
+#ifndef FORM_HALF
+#define FORM_HALF 1u
+#endif
 #ifndef VPOL
 #define VPOL 0u                                        /* (JIANT BYTE, byte-cpu-light) off: BYTE's song asks more voices
                                                          * than the half rate gives back (cpu_vg song/cputest 2951, .vpol
@@ -1104,7 +1107,9 @@ static __attribute__((noinline)) void voice_soft(void)
                 continue;
             }
             if (voice_held(t, v)) {
-                if ((vh_held >> p) & 1u)
+                if (((vh_held >> p) & 1u) || (FORM_HALF && ENGINES[t->engine] == &ENG_FORM))   /* (byte-cpu-light)
+                                                         * FORM always at half the rate: its song, 22 kHz (-23 % of
+                                                         * FORM alone; above 11 kHz lost) */
                     s = s ? s : VH_IN;
                 else if (s != VH_OUT) {
                     again += s == VH_ON;                /* (a tail at half the rate played again: a whole voice now) */

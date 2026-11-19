@@ -5,6 +5,7 @@
  * at DENSITY 127 with a chord), once with every block of its voice at half, compared under 4 kHz (as byte_half_test).
  * Well: about -15 dB or less; near 0: the half rate is another tempo or another pitch.
  *   form_half_test [LIM] */
+#define FORM_HALF 0u                                    /* (the full rate to compare against) */
 #define UI_TEST_NO_MAIN
 #include "ui_test.c"
 #include <sys/wait.h>

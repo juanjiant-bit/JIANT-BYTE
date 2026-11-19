@@ -8,8 +8,12 @@ static int32_t fvm_music_env(int32_t age,uint32_t duration)
     uint32_t a=(uint32_t)age,up=a<1024u?a*32u:32767u;
     /* Four-beat durations need two guard bits before the 32-bit product.
      * At most one Q15 unit of error; no 64-bit division in the envelope. */
-    uint32_t shift=duration>65536u?2u:0u;
-    uint32_t down=(((duration-a)>>shift)*32767u)/(duration>>shift);
+    uint32_t shift=duration>65536u?2u:0u,down;
+    if(!(duration&(duration-1u)))               /* (byte-cpu-light) a power of two (FORM's 1, 4 beats; the kick): a shift,
+                                                 * the same value (no division a sample on the FM-1) */
+        down=(((duration-a)>>shift)*32767u)>>(31u-(uint32_t)__builtin_clz(duration>>shift));
+    else
+        down=(((duration-a)>>shift)*32767u)/(duration>>shift);
     return (int32_t)(up*down/32768u);
 }
 static int32_t fvm_music_tone(int32_t note,uint32_t tick,int32_t color)
