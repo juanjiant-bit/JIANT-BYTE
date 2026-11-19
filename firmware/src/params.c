@@ -834,7 +834,8 @@ static const page_t PAGES[] = {
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
-    {"RETRIG", FAM_EDIT, SC_TRACK, GR_NONE, {P_LRTRG, 0xFF, 0xFF, 0xFF}},
+    {"MORE", FAM_EDIT, SC_TRACK, GR_NONE, {P_LRTRG, P_GLMODE, P_DETUNE, P_TVEL}},   /* (JIANT FM V10.7.60, normalized) MATH BYTE /
+                                                         * FLOAT's MORE: RESTART first (was RETRIG) */
     {"CAOS", FAM_EDIT, SC_TRACK, GR_NONE, {P_CAOS, P_KEY, 0xFF, 0xFF}},   /* (JIANT BYTE) MATH: from tonal to wild, the keys */
     {"GAIN", FAM_EDIT, SC_TRACK, GR_NONE, {P_KEY, P_E7, 0xFF, 0xFF}},   /* (JIANT BYTE) DRUM-X: GAIN and DRIVE, the kit's power */
     {"MORPH", FAM_EDIT, SC_TRACK, GR_MORPH, {P_MORPH, P_DRIFT, 0xFF, 0xFF}},   /* (0.6.45) ANALOG PHASE LOFI: the wave morphs;
@@ -930,7 +931,8 @@ static const page_t PAGES[] = {
     {"EUCLID", FAM_SEQ, SC_TRACK, GR_EUCLID, {ID_EU0, ID_EU0 + 1u, ID_EU0 + 2u, ID_EU0 + 3u}},   /* (V10.6, MUTATE's place)
                                                          * HITS STEPS ROTATE, LANE / VARY (ui_euclid.c) */
     /* (0.8.5) LENTE everywhere (ui_lens.c): pages the mock-up added, appended (the table's order is no one's index) */
-    {"VOICES 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_ALLOC, P_DETUNE, P_TVEL, P_PRIO}},   /* ALLOC, UNISON's detune (in TP since
+    {"MORE", FAM_EDIT, SC_TRACK, GR_NONE, {P_GLMODE, P_DETUNE, P_TVEL, 0xFF}},   /* (JIANT FM V10.7.60, normalized: was VOICES 2;
+                                                         * ALLOC and PRIO off the panel, kept for the editor, NRPN, projects) */   /* ALLOC, UNISON's detune (in TP since
                                                          * Felucca, on no page until 0.8.5), (after V10.7.2) VEL,
                                                          * (codex/coherence) IMAGE, the voices across (POLY; V10.49's STEREO
                                                          * page gone; was VOICE 2) */

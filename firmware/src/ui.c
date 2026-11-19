@@ -429,6 +429,7 @@ static void live_commit(uint32_t m);
  * the loop): 120 ms after the SLPIN, SLPOUT (lcd_power(1)); 120 ms after that one frame redraws everything
  * (ui.force), then DISPON (lcd_power(2)) */
 #define ui_scr (favorites.factory[15][27])
+#define ui_help_off (favorites.factory[15][31])   /* (JIANT FM V10.7.60) MENU > DISPLAY > HELP: bit 0 OFF (0: ON) */
 #define SCR_DEF 0u                                     /* NEVER (1.1.5.1; 1.1.5: 30 MIN) */
 static const uint8_t SCR_CODE[5] = {0, 2, 1, 4, 7};    /* the stored byte of NEVER 5 15 30 60 MIN (1.1.5: 3 2 1 0 7) */
 static const uint8_t SCR_DEC[8] = {0, 2, 1, 0, 3, 0, 0, 4};   /* .. and back (3: 1.1.5's NEVER; 5, 6 unknown) */
@@ -659,10 +660,11 @@ static int page_visible(uint32_t i)
     if (PAGES[i].graph == GR_FOCUS)                     /* (0.8.5) FOCUS: a synth's (FM6: OPERATOR, DRUM: SOUND; V10.54 not INPUT's) */
         return te != ENGI_DRUM && te != ENGI_INPUT &&
                !(FELUCCA_FM4 && te == ENGI_DIGITAL);
-    if (PAGES[i].id[0] == ID_CRU)                       /* (V10.7.35) VOICES 3: a kit's and EXT's (a synth's on TONE) */
-        return 1; /* VOICES 3 also exposes the glide mode for synths */
-    if (PAGES[i].id[0] == P_ALLOC)                      /* (0.8.5) VOICE 2: not a kit's */
-        return te != ENGI_DRUM;
+    if (PAGES[i].id[0] == ID_CRU)                       /* (V10.7.35) VOICES 3: a kit's and EXT's MORE (a synth's CRUSH on TONE) */
+        return te == ENGI_DRUM || te == ENGI_INPUT;
+    if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_GLMODE)   /* (JIANT FM V10.7.60) MORE: a synth's, MATH BYTE / FLOAT
+                                                         * its own (RESTART) */
+        return te != ENGI_DRUM && te != ENGI_INPUT && te != ENGI_FORM && !(trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE);
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)   /* (0.6.10) OPERATOR, OP ENV, OPERATOR 2: FM6's
                                                          * (JIANT BYTE: retired) */
         return 0;
@@ -672,7 +674,7 @@ static int page_visible(uint32_t i)
         return trk_eng(TSEL) == ENGI_DRUM;
     if (PAGES[i].id[0] == P_CAOS)                       /* (JIANT BYTE) CAOS: MATH's and WAVE's */
         return trk_engp(TSEL) == &ENG_LOFI || trk_engp(TSEL) == &ENG_WAVE;
-    if (PAGES[i].id[0] == P_LRTRG && PAGES[i].id[1] == 0xFFu)   /* (0.6.12) RETRIG: LOFI BYTE / FLOAT's */
+    if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_LRTRG)   /* (0.6.12) RETRIG: LOFI BYTE / FLOAT's (now its MORE) */
         return trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE;
     if (PAGES[i].scope == SC_ENGINE && PAGES[i].fam == FAM_EDIT)   /* (V10.7.21) ANALOG: its own EDIT 1 (INT in NOISE's
                                                          * place), no EDIT 2; every other engine EDIT 1 and EDIT 2 */
@@ -2217,7 +2219,7 @@ static uint32_t act_cols(void)                   /* the columns that are actions
     if (pg->graph == GR_PUNCH) return 8u;               /* (0.6.99) PUNCH: KNOB 4 CLEAR */
     if (pg->graph == GR_EVENTS || pg->graph==GR_TRACKGEN) return 16u;
     if (pg->graph == GR_TOOLS) return 15u;
-    if (pg->graph == GR_LYRIC || pg->graph==GR_LYRSTEP) return 8u;
+    if (0 /* (VOICE retired) */ || 0 /* (VOICE retired) */) return 8u;
     if (pg->graph == GR_SONG)
         return 1u;                               /* (0.8.5) ADD a row (PLAY: the song) */
     if (pg->graph == GR_PATS)
@@ -2245,7 +2247,7 @@ static uint32_t act_col(void)
     if (dx_formula_page() || func_formula_page()) return 5u;
     if (!ui.home && cur_page()->graph == GR_SONG) return 1u;
     if (!ui.home && (cur_page()->graph == GR_EVENTS || cur_page()->graph==GR_TRACKGEN)) return 5u;
-    if (!ui.home && (cur_page()->graph == GR_LYRIC || cur_page()->graph==GR_LYRSTEP)) return 4u;
+    if (!ui.home && (0 /* (VOICE retired) */ || 0 /* (VOICE retired) */)) return 4u;
     return !ui.home && cur_page()->graph == GR_PATS ? 2u : ui.act;
 }
 
@@ -2256,8 +2258,8 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
     if (dx_formula_page() || func_formula_page()) return "EDIT FORMULA";
     if (cur_page()->graph == GR_PUNCH) return "CLR AUTO";   /* (snd2) the punch-in lane only */
     if (cur_page()->graph == GR_EVENTS) return ev_act_name();
-    if (cur_page()->graph == GR_LYRIC) return "TYPE";
-    if (cur_page()->graph == GR_LYRSTEP) return "PLACE";
+    if (0 /* (VOICE retired) */) return "TYPE";
+    if (0 /* (VOICE retired) */) return "PLACE";
     if (cur_page()->graph == GR_TRACKGEN) return "MAKE";
     if (cur_page()->graph == GR_TOOLS) {
         static const char *const actions[] = {"CLEAR", "CLEAR", "INIT", "DELETE", "CLEAR", "INIT"};
@@ -2284,8 +2286,8 @@ static int act_ready(void)
     if (!c--)
         return 0;
     if (cur_page()->graph == GR_EVENTS) return ev_act_ready();
-    if (cur_page()->graph == GR_LYRIC) return 1;
-    if (cur_page()->graph == GR_LYRSTEP) return !chain_busy() && lyr_get(song.sel)[0];
+    if (0 /* (VOICE retired) */) return 1;
+    if (0 /* (VOICE retired) */) return !chain_busy() && lyr_get(song.sel)[0];
     if (cur_page()->graph == GR_TRACKGEN) return !chain_busy() && trackgen_ok(TSEL);
     if (cur_page()->graph == GR_TOOLS)                  /* one case per action: CLEAR PROJECT (stopped), CLEAR SEQ, INIT,
                                                          * DELETE ROW, CLEAR SONG, CPU TEST */

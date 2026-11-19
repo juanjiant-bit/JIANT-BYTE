@@ -779,7 +779,7 @@ _Static_assert(sizeof MATH_ORDER == NELEM(LOFI_PRESETS), "MATH's browsing order:
 
 static const engine_t ENG_LOFI = {
     .name = "MATH",
-    .page_title = {"MATH", "TIME"},
+    .page_title = {"FORMULA", "MOTION"},
     .edit = {
         {"CHIP", F_ENUM, 0, 3, 2, N_CHIP},           /* (FLOAT: 8BIT reads FULL, lofi_desc) */
         {"WAVE", F_ENUM, RW_BYTE, RW_FUNC, RW_BYTE, N_RWAVE},   /* (JIANT BYTE: USER, the part's own) */

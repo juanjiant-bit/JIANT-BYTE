@@ -70,25 +70,27 @@ static const ng_t CG_HOME[] = {
 #endif
                                {"MACROS", "MACRO"}, {"LIVE MIX", "LIVE"}, {"TRACKS", "TRK"}, {"TIMELINE", "TIME"},
                                {"ARRANGE", "ARR"}, {"PARTS", 0}, {"GEN", 0}};
-static const nv_t CE_SYN[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("MOTION",0,0,1), NV("HARMONY",0,0,1), NV("PULSE",0,0,1), NV("MORPH", 0, 0, 1), NV("RETRIG", 0, 0, 1),
-                              NV("ROTOR", 0, 0, 1), NV("WORDS", 0, 0, 1), NV("SWARM", 0, 0, 1), NV("SWARM 2", 0, 0, 1),
-                              NV("FILTER", 0, 1, 1), NV("FILTER 2", 0, 1, 1), NV("TONE", 0, 1, 1), NV("VOICES", 0, 2, 1),
-                              NV("VOICES 2", 0, 2, 1), NV("VOICES 3", 0, 2, 1), NV("AUTO KNOBS", 0, 3, 2)};   /* (VOICES 3: EXT's) */   /* (V10.7.35, the owner: the sound first, its
+static const nv_t CE_SYN[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("MOTION",0,0,1), NV("HARMONY",0,0,1), NV("PULSE",0,0,1),
+                              NV("WORDS", 0, 0, 1), NV("SWARM", 0, 0, 1), NV("SWARM 2", 0, 0, 1),
+                              NV("FILTER", 0, 1, 1), NV("FILTER 2", 0, 1, 1), NV("TONE", 0, 1, 1), NV("AUTO KNOBS", "FOCUS", 2, 2),
+                              NV("VOICES", "PLAY", 3, 1), NV("MORE", 0, 3, 1), NV("VOICES 3", "MORE", 3, 1)};   /* (JIANT FM V10.7.60,
+                                                         * normalized: SOUND TONE FOCUS PLAY, the engine's extras and the voices'
+                                                         * last on MORE; EXT's MORE its CRUSH page) */   /* (VOICES 3: EXT's) */   /* (V10.7.35, the owner: the sound first, its
                                                          * engine's own page with it; FILTER 3 and VOICES 3 one page, TONE;
                                                          * VOICES then AUTO KNOBS last) (V10.7.33: VOICES 3, CRUSH; the
                                                          * voices' pages last, after the sound's (the user); codex/coherence:
                                                          * PLAY, was VOICE (the engine's name too); STEREO's IMAGE on PLAY 2) */
-static const ng_t CG_SYN[] = {{"SOUND", 0}, {"TONE", 0}, {"VOICES", 0}, {"AUTO KNOBS", "AUTO"}};
+static const ng_t CG_SYN[] = {{"SOUND", 0}, {"TONE", 0}, {"FOCUS", 0}, {"PLAY", 0}};
 static const nv_t CE_FM6[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("OPERATOR", 0, 1, 2), NV("OP ENV", 0, 1, 2),
                               NV("OPERATOR 2", 0, 1, 2), NV("FILTER", 0, 2, 1), NV("FILTER 2", 0, 2, 1), NV("TONE", 0, 2, 1),
-                              NV("VOICES", 0, 3, 1), NV("VOICES 2", 0, 3, 1)};   /* (V10.7.35: the sound first) */
+                              NV("VOICES", "PLAY", 3, 1), NV("MORE", 0, 3, 1)};   /* (V10.7.35: the sound first) */
 static const ng_t CG_FM6[] = {{"SOUND", 0}, {"OPERATOR", "OPS"}, {"TONE", 0}, {"VOICES", 0}};
 static const nv_t CE_DRM[] = {NV("PLAY", 0, 0, 2), NV("WAVE", 0, 1, 2), NV("SHAPE", 0, 1, 2), NV("MOVE", 0, 1, 2), NV("BODY", 0, 1, 2),
                               NV("NOISE", 0, 1, 2), NV("COLOR", 0, 2, 2), NV("MIX", 0, 2, 2)};   /* (DRUM-W: its own eight; the kit's
                                                          * old pages, LEVELS, VOICES, KIT LFO, out of the way) */
 static const ng_t CG_DRM[] = {{"PLAY", 0}, {"PAD", 0}, {"KIT", 0}};
-static const nv_t CE_DIG[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("FILTER", 0, 1, 1), NV("FILTER 2", 0, 1, 1), NV("TONE", 0, 1, 1), NV("VOICES", 0, 1, 1),
-                              NV("VOICES 2", 0, 1, 1), NV("OP1 ENV", 0, 2, 2), NV("OP2 ENV", 0, 2, 2), NV("OP3 ENV", 0, 2, 2),
+static const nv_t CE_DIG[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("FILTER", 0, 1, 1), NV("FILTER 2", 0, 1, 1), NV("TONE", 0, 1, 1), NV("VOICES", "PLAY", 1, 1),
+                              NV("MORE", 0, 1, 1), NV("OP1 ENV", 0, 2, 2), NV("OP2 ENV", 0, 2, 2), NV("OP3 ENV", 0, 2, 2),
                               NV("OP4 ENV", 0, 2, 2), NV("OP LEVEL", 0, 2, 2)};
 static const ng_t CG_DIG[] = {{"SOUND", 0}, {"TONE", 0}, {"OPERATOR", "OPS"}};
 enum { LV_PAT, LV_BAR, LV_STEP, LV_N };                 /* SEQ's pictures: the bars, the roll, the step large */
@@ -442,10 +444,9 @@ static __attribute__((noinline)) const char *nav_page_name(void)
     str_cpy(b, v->nm ? v->nm : v->t, 24);
     if (sec == SEC_EDIT && v->g == 0u && !v->nm && PAGES[ui.page].scope == SC_ENGINE) {   /* (EDIT 1 . OSC) */
         const char *pt = trk_engp(TSEL)->page_title[PAGES[ui.page].id[0] != P_E0];
-        if (pt && pt[0] && pt[0] != '-') {
-            str_cpy(b + str_len(b), " \xB7 ", 4);
-            str_cpy(b + str_len(b), pt, 24 - str_len(b));
-        }
+        if (pt && pt[0] && pt[0] != '-')                /* (JIANT FM V10.7.60, normalized: the engine's page by its own
+                                                         * name, FORMULA VOWELS FORM .., not EDIT 1 / EDIT 2) */
+            str_cpy(b, pt, 24);
     }
     return b;
 }

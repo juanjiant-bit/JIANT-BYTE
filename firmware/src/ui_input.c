@@ -3,6 +3,26 @@
  * Portions Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
 /* Felucca UI input: LEDs, knobs and buttons, SEQ step entry, panel setup. */
 #include "ui_name.c"                                    /* NAME: naming user presets and projects */
+/* (JIANT FM V10.7.60, normalized: the users' "I don't know what I turned") a knob's plain meaning in the header while it
+ * turns (its card keeps the value), MENU > DISPLAY > HELP OFF silences it. One string: label, meaning, label, .. */
+static const char KNOB_HINT[] =
+    "CUT\0FILTER CUTOFF\0""RES\0FILTER RESONANCE\0""Q\0RESONANCE\0""DRIVE\0SATURATION\0""DIST\0DISTORTION\0""DLY\0DELAY SEND\0""REV\0REVERB SEND\0""CHORUS\0CHORUS SEND\0""ATK\0ATTACK TIME\0""DEC\0DECAY TIME\0""SUS\0SUSTAIN LEVEL\0""REL\0RELEASE TIME\0""GLIDE\0GLIDE TIME\0""UNISON\0DETUNED STACK\0""VOICES\0VOICE MODE\0""VEL\0VELOCITY AMOUNT\0""IMAGE\0STEREO WIDTH\0""LEN\0PATTERN LENGTH\0""DIV\0STEP SPEED\0""GATE\0NOTE LENGTH\0""CHANCE\0STEP PROBABILITY\0""HUMAN\0TIMING HUMANIZE\0""FEEDBK\0DELAY REPEATS\0""FB\0FEEDBACK\0""DAMP\0HIGH DAMPING\0""PRE\0PRE-DELAY\0""CLIP\0MASTER CLIPPER\0""PUNCH\0DRUM PUNCH\0""DUCK\0SIDECHAIN DUCK\0""WOW\0TAPE WOBBLE\0""ROOT\0SCALE ROOT\0""STRUM\0STRUM TIME\0""PROB\0PROBABILITY\0""FADE\0LFO FADE IN\0""SLEW\0SMOOTHING\0""SPREAD\0STEREO SPREAD\0""FOLD\0WAVEFOLDER\0""DUST\0CRACKLE NOISE\0""RTRG\0PHASE RESET\0""VAR\0FORMULA VARIANT\0""CAOS\0CHAOS AMOUNT\0""LIFE\0LIFE DEPTH\0""CRUSH\0BIT CRUSH\0""KEY TRK\0CUTOFF FOLLOWS KEY\0""WARP\0TIME WARP\0""FORM A\0STATE A\0""FORM B\0STATE B\0""MORPH\0A TO B, BY TIMBRE\0""STYLE\0FUNCBEAT FLAVOUR\0""DEF A\0DEFORM A\0""DEF B\0DEFORM B\0""OCT A\0OCTAVE A\0""OCT B\0OCTAVE B\0""RATE A\0STEP RATE A\0""RATE B\0STEP RATE B\0""PROG\0CHORD PROGRESSION\0""LENGTH\0BARS A CHORD\0""CHORD\0CHORD TYPE\0""VOICING\0CHORD SPREAD\0""MOD A\0EQUATION ON DEF A\0""MOD B\0EQUATION ON DEF B\0""DEPTH\0HOW FAR\0""SPEED\0HOW FAST\0""HITS\0EUCLID HITS\0""SWING\0SWING AMOUNT\0" "GL MODE\0GLIDE: RATE OR TIME\0""AMOUNT\0HOW MUCH\0""DEST\0WHAT IT MOVES\0""TUNE\0TUNING\0";
+static void knob_hint(const char *label)
+{
+    const char *p = KNOB_HINT;
+    char b[40];
+    if (!label || (ui_help_off & 1u))
+        return;
+    while (p < KNOB_HINT + sizeof KNOB_HINT - 1u && !str_eq(p, label))
+        p += str_len(p) + 1u, p += str_len(p) + 1u;
+    if (p >= KNOB_HINT + sizeof KNOB_HINT - 1u)
+        return;
+    str_cpy(b, label, sizeof b);
+    str_cpy(b + str_len(b), ": ", sizeof b - str_len(b));
+    str_cpy(b + str_len(b), p + str_len(p) + 1u, sizeof b - str_len(b));
+    if (ui.msg_t && str_eq(ui.msg, b)) { ui.msg_t = 40; return; }   /* (still turning: it stays) */
+    ui_say(b, "");
+}
 /* ----------------------------------------------------------- LEDs --- */
 /* The LED picture is built off-line and copied one byte per column: clearing
  * and relighting would let the 10 kHz scan catch the dark gap and flicker. */
@@ -1510,7 +1530,7 @@ static void edit_param(uint32_t slot, int32_t steps)
         dx_kit3_knob(slot, steps);
         return;
     }
-    if(pg->graph==GR_LYRSTEP) {
+    if(0 /* (VOICE retired) */) {
         if(!slot) cursor_set((int32_t)ui.cursor+steps);
         if(slot==1u) {lyric_word=(uint8_t)clamp((int32_t)lyric_word+steps,0,31);lyric_syl=1;}
         if(slot==2u) lyric_syl=(uint8_t)clamp((int32_t)lyric_syl+steps,0,19);
@@ -1770,11 +1790,11 @@ static __attribute__((noinline)) void act_do(void)
         return;
     if (func_formula_page()) { name_open(NK_FUNC, song.sel); return; }
     if(cur_page()->graph==GR_TRACKGEN) {trackgen_make();return;}
-    if (cur_page()->graph == GR_LYRIC) {                /* (0.8.5) WORDS: the lyric, typed (the NAME screen) */
+    if (0 /* (VOICE retired) */) {                /* (0.8.5) WORDS: the lyric, typed (the NAME screen) */
         name_open(NK_LYRIC, song.sel);
         return;
     }
-    if(cur_page()->graph==GR_LYRSTEP) {
+    if(0 /* (VOICE retired) */) {
         char label[20];uint32_t pos=lyric_pick(label);
         if(chain_busy()) {ui_message("SONG PLAYS: STOP IT TO EDIT");return;}
         if(!label[0]) {ui_message("TYPE A LYRIC FIRST");return;}
@@ -2159,6 +2179,23 @@ static void presets_turn(int32_t s) /* One continuous preset list; EDIT + PRESET
     char nm[24];
     if (!ui.home && cur_page()->graph == GR_BROWSE) {
         pl_scroll(s);
+        return;
+    }
+    if (!ui.home && PAGES[ui.page].fam == FAM_SEQ) {   /* (JIANT FM V10.7.60, normalized) on SEQ the step: slow a step, fast
+                                                         * a whole bar; the bar and the step said */
+        int32_t len = TSEL->p[P_SLEN] > 0 ? TSEL->p[P_SLEN] : 1, d = accel(EN_PRESET, s, len), nb = (len + 15) / 16;
+        if (nb > 1 && (d >= 4 || d <= -4)) {
+            int32_t bar = clamp((int32_t)ui.cursor / 16 + (d > 0 ? 1 : -1), 0, nb - 1);
+            cursor_set(bar * 16 + (int32_t)ui.cursor % 16 < len ? bar * 16 + (int32_t)ui.cursor % 16 : len - 1);
+        } else
+            cursor_set((int32_t)ui.cursor + s);
+        str_cpy(nm, "BAR ", sizeof nm);
+        fmt_int(nm + 4, (int32_t)ui.cursor / 16 + 1);
+        str_cpy(nm + str_len(nm), "/", sizeof nm - str_len(nm));
+        fmt_int(nm + str_len(nm), nb);
+        str_cpy(nm + str_len(nm), "  STEP ", sizeof nm - str_len(nm));
+        fmt_int(nm + str_len(nm), (int32_t)ui.cursor + 1);
+        ui_message(nm);
         return;
     }
     cur = preset_pos(&total);
@@ -3254,6 +3291,10 @@ static void ui_input_frame(void)
             pg->graph == GR_GCOMP || pg->graph == GR_LIVE) {   /* (not an empty column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40, ui.knob_ms = fm1_ms;
+        }
+        if (!ui.home && !ui.menu && !ui.confirm) {      /* (JIANT FM V10.7.60) its meaning in the header */
+            const param_desc_t *hd = page_desc(pg, k, &hv);
+            if (hd) knob_hint(hd->label);
         }
         if (home_macros()) {                            /* (0.8.5) HOME's MACROS: M1..M4 */
             macro_turn(k, s, accel(EN_K1 + k, s, 127));   /* (JIANT BYTE: left past 0, an equation) */

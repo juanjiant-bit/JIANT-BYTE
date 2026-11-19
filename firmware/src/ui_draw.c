@@ -1643,7 +1643,7 @@ static void draw_columns(void)
         empty_column(3);
         return;
     }
-    if(cur_page()->graph==GR_LYRSTEP) {
+    if(0 /* (VOICE retired) */) {
         char label[20];uint32_t pos=lyric_pick(label);
         fmt_int(val,(int32_t)ui.cursor+1);hot_text_column(0,"STEP",val);
         hot_text_column(1,"WORD",label[0]?label:"NO TEXT");
