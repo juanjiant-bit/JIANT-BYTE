@@ -21,7 +21,10 @@ for level in [0,25,50,75,100]:
     assert high(x)<.005 and .5<ratio<1.25,(level,'hiss/level',ratio)
     report['levels'].append(dict(life=level,equal_rms_change=d,rms_ratio=ratio,high_band=high(x)))
 assert report['levels'][-1]['equal_rms_change']>.75,'maximum must transform the sustained receiving timbre'
-assert all(a['equal_rms_change']<b['equal_rms_change'] for a,b in zip(report['levels'],report['levels'][1:]))
+# (BYTE 0.16) LINK's cross-FM: the change grows to LIFE 75 and stays transformed past it (an FM's index past ~3/4 turn
+# no longer moves an equal-RMS difference up: the waveform is already another, its sidebands only spread)
+lv=report['levels']
+assert all(a['equal_rms_change']<b['equal_rms_change'] for a,b in zip(lv[:4],lv[1:4])) and lv[4]['equal_rms_change']>.75
 for classic in [0,1]:
     nohit=read(100,0,classic)
     for hit,name in enumerate(['kick','snare','clap'],1):

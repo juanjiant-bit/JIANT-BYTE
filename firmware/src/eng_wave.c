@@ -210,7 +210,12 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
                         for (k = 0; k < c; k++)
                             W[o + k] = (W[o + k] + (uint32_t)(((int32_t)yb[o + k] * (int32_t)amt) >> 7)) & 0xFFFFu;
                 }
-                if (ta) { wt_read(ta, W + o, c, ya + o); if (!u) fl_post(pa, &ea, &wk->s, c, ya + o); }
+                if (ta) {
+                    uint32_t Wm[FVM_BLK], Tm[FVM_BLK];       /* (BYTE 0.16) LIFE LINK's cross-FM on the table's read too */
+                    fvm_env_t em = ea;                       /* (its LIFE after: on the moved phase too) */
+                    if (fl.on && fl.link_amt && c <= FVM_BLK && fl_fm(&ea, c, Wm, Tm)) { em.arr[FA_W] = Wm; if (ea.arr[FA_T]) em.arr[FA_T] = Tm; }
+                    wt_read(ta, em.arr[FA_W], c, ya + o); if (!u) fl_post(pa, &em, &wk->s, c, ya + o);
+                }
                 else (u ? fvm_run : formula_run)(pa, &ea, &wk->s, c, ya + o);
             }
             for (i = 0; i < n; i++) {

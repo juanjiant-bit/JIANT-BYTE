@@ -19,6 +19,9 @@ static struct {
     uint32_t strikes;
     uint16_t strike[FL_VOICES];
     uint16_t gate[FL_VOICES],depth[NTRK],count,ncount,weight,number_weight;
+    int32_t fmi[FL_VOICES];   /* (BYTE 0.16) LINK's cross-FM: each voice's index now (Q16 turns; fl_fm) */
+    uint8_t fmr[FL_VOICES];   /* .. its ratio (x4), chosen as its FM starts: a ratio that jumps is a phase step */
+    int16_t fmc[FL_VOICES][4];   /* .. its modulator's shape the call before (Q15: ramped to the new, no phase step) */
     uint8_t rd,on,numbers_amt,fragments_amt,link_amt;
 } fl;
 static struct {uint16_t id,depth,envelope;uint8_t note;} fl_ctx[2];
@@ -262,7 +265,7 @@ static __attribute__((noinline)) void fl_post(const fvm_prog_t*p,const fvm_env_t
     uint32_t ei=(uint32_t)z->ein,eo=(uint32_t)z->eout;
     while(ei>65535u||eo>65535u){ei>>=1;eo>>=1;}
     int32_t gain=eo?(int32_t)isqrt32((ei<<16)/eo):256;
-    gain=clamp(gain,256,384);
+    gain=clamp(gain,256,fl.fmi[id]?1024:384);   /* (BYTE 0.16: LINK's FM moves the energy into the phase's dwell: up to +12 dB back) */   /* (BYTE 0.16: LINK's FM moves the energy into the phase's dwell: up to +12 dB back) */
     if(!z->gain)z->gain=65536;
     z->gain+=(gain*256-z->gain)/8;gain=z->gain>>8;
     if(output_peak&&gain>32767*256/output_peak)gain=32767*256/output_peak;
@@ -272,8 +275,67 @@ static __attribute__((noinline)) void fl_post(const fvm_prog_t*p,const fvm_env_t
     }
 }
 
+/* (BYTE 0.16, the owner: "the first LIFE, the FM, was good; more timbre, not only extreme FM noise") LINK as cross-FM
+ * between the formulas: the receiver's phase (x, and t with it) moved by the other voices' waveform (their first two
+ * harmonics, LIFE's own capture: not raw audio), at a simple ratio of the receiver's own pitch (1, 2, 3, 1/2, 3/2 by the
+ * donors' number): harmonic sidebands, pitched, at any index. The index grows as LINK squared x the voice's LIFE (up to
+ * ~2 turns at 100 %), capped by the note's height (no sideband past ~fs/8: no fizz on high notes), slewed a call */
+static __attribute__((noinline)) int fl_fm(const fvm_env_t*e,uint32_t n,uint32_t*W,uint32_t*T)   /* 1: W, T moved */
+{
+    uint32_t c=MC_CPU()&1u,id=fl_ctx[c].id;
+    const uint32_t *W0=e->arr[FA_W],*T0=e->arr[FA_T];
+    if(!id||!W0||n<2u)return 0;
+    id--;
+    uint32_t g=fl.gate[id],other=fl.count-(g!=0),weight=fl.weight-g;
+    int32_t ld=(int32_t)(fl_ctx[c].depth*fl.link_amt/100u);           /* (0 .. ~256) */
+    if(!ld){fl.fmi[id]=0;return 0;}                                     /* (the voice's LIFE 0: bypass, exact) */
+    int32_t target=other&&weight?ld*ld*3/4:0;                            /* (Q16 turns: 3/4 at 256, ~4.7 radians: past it the
+                                                         * change no longer grows, its timbre only noisier) */
+    uint32_t step=0;
+    for(uint32_t i=1;i<n;i++){uint32_t d=W0[i]-W0[i-1];d=d>0x80000000u?0u-d:d;if(d>step)step=d;}
+    static const uint8_t RQ[5]={4,8,12,2,6};                          /* ratio x4: 1 2 3 1/2 3/2 */
+    uint32_t own=g&&fl.node[fl.rd][id].has_number,nw=fl.number_weight-(own?g:0);
+    int32_t number=nw?(fl.numbers-(own?fl.node[fl.rd][id].number*(int32_t)g:0))/(int32_t)nw:0;
+    uint32_t r4=fl.fmi[id]&&fl.fmr[id]?fl.fmr[id]:RQ[((uint32_t)number>>9)%5u];
+    fl.fmr[id]=(uint8_t)r4;
+    if(step){                                                          /* (the cap: (fs/8)/(r f0) - 1 radians) */
+        int32_t bmax=(int32_t)((16384u*2u)/(r4*step))-1;   /* (fs/8: the sidebands under ~5.5 kHz, no hiss) */
+        int32_t imax=bmax>0?bmax*10430:0;                              /* (radians -> Q16 turns: /2pi) */
+        if(target>imax)target=imax;
+    }
+    int32_t i0=fl.fmi[id];
+    fl.fmi[id]=target-i0<512&&i0-target<512?target:i0+(target-i0)/8;   /* (~a few ms, then there) */
+    if(!i0&&!fl.fmi[id])return 0;
+    int32_t a1=0,b1=0,a2=0,b2=0;
+    if(other&&weight){a1=fl_other_h(id,0,weight);b1=fl_other_h(id,1,weight);a2=fl_other_h(id,2,weight);b2=fl_other_h(id,3,weight);}
+    int32_t mass=(a1<0?-a1:a1)+(b1<0?-b1:b1)+(a2<0?-a2:a2)+(b2<0?-b2:b2);
+    if(mass<64){a1=24576;b1=a2=b2=0;mass=24576;}                       /* (no shape to take: a sine) */
+    int32_t sc=(32767<<10)/mass;a1=(a1*sc)>>10;b1=(b1*sc)>>10;a2=(a2*sc)>>10;b2=(b2*sc)>>10;   /* (peak <= 1) */
+    int16_t *pc=fl.fmc[id];
+    if(!i0){pc[0]=(int16_t)a1;pc[1]=(int16_t)b1;pc[2]=(int16_t)a2;pc[3]=(int16_t)b2;}   /* (from rest: the shape as it is) */
+    int32_t q[4]={pc[0],pc[1],pc[2],pc[3]},dq[4]={(a1-pc[0])/(int32_t)n,(b1-pc[1])/(int32_t)n,(a2-pc[2])/(int32_t)n,(b2-pc[3])/(int32_t)n};
+    pc[0]=(int16_t)a1;pc[1]=(int16_t)b1;pc[2]=(int16_t)a2;pc[3]=(int16_t)b2;
+    int32_t ix=i0,dix=(fl.fmi[id]-i0)/(int32_t)n;
+    for(uint32_t i=0;i<n;i++,ix+=dix){
+        uint32_t ph=(W0[i]*r4)<<14;                                     /* (x r: W's turn is 65536; << 16, / 4) */
+        int32_t s1=sine_i(ph),c1=sine_i(ph+0x40000000u),s2=(s1*c1)>>14,c2=((c1*c1-s1*s1)>>15);
+        int32_t m=(q[0]*s1+q[1]*c1+q[2]*s2+q[3]*c2)>>15;               /* (Q15) */
+        q[0]+=dq[0];q[1]+=dq[1];q[2]+=dq[2];q[3]+=dq[3];
+        int32_t dw=(int32_t)(((int64_t)m*ix)>>15);
+        W[i]=W0[i]+(uint32_t)dw;
+        T[i]=T0?T0[i]+(uint32_t)(dw>>11):0u;
+    }
+    return 1;
+}
 static __attribute__((noinline)) void fl_run(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,uint32_t n,uint32_t*out)
 {
+    uint32_t W[FVM_BLK],T[FVM_BLK];
+    if(fl.on&&fl.link_amt&&n<=FVM_BLK&&fl_fm(e,n,W,T)){   /* (the caller's arrays untouched: its own copy moved) */
+        fvm_env_t en=*e;en.arr[FA_W]=W;if(e->arr[FA_T])en.arr[FA_T]=T;
+        fvm_run(p,&en,sc,n,out);
+        fl_post(p,&en,sc,n,out);
+        return;
+    }
     fvm_run(p,e,sc,n,out);
     fl_post(p,e,sc,n,out);
 }
