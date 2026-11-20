@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Formulas · JIANT BYTE</title>
+<meta name="description" content="Bytebeat, floatbeat and funcbeat: what they are, how they sound, played in the browser, and where they live in JIANT BYTE.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=Inter+Tight:wght@400;600&family=Michroma&family=VT323&display=swap" rel="stylesheet">
+<style>
+/* (JIANT BYTE) the FM-1's screen as a page: black, the thermal palette (violet, orange, cream), cards outlined in their
+   value's colour, tabs as EDIT's, formulas in the pixel monospace */
+:root{--bg:#000;--panel:#0b0b10;--line:#24242e;--dim:#7c7c8c;--text:#e9e6f2;--cream:#ffe9c2;--violet:#8b5cff;--purple:#b45cff;
+--orange:#ff7a1a;--amber:#ffb347;--hot:linear-gradient(90deg,#5b2bff,#b45cff 30%,#ff5a6a 62%,#ff9a2a 82%,#ffe9c2);
+--label:"Chakra Petch",system-ui,sans-serif;--value:"Inter Tight",system-ui,sans-serif;--title:"Michroma",system-ui,sans-serif;--mono:"VT323",ui-monospace,monospace}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 var(--value);-webkit-font-smoothing:antialiased}
+a{color:var(--amber)}
+.wrap{max-width:860px;margin:0 auto;padding:0 16px}
+header.top{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--line)}
+.crumb{font:600 12px/1 var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.crumb a{color:var(--text);text-decoration:none}.crumb b{color:var(--orange)}
+.langs{display:flex;gap:4px}
+.langs button,.chip{font:600 12px/1 var(--label);letter-spacing:.08em;background:#15151c;color:var(--dim);border:1px solid var(--line);border-radius:5px;padding:7px 10px;cursor:pointer}
+.langs button[aria-pressed=true]{background:var(--purple);color:#fff;border-color:var(--purple)}
+.hero{padding:56px 0 28px}
+.kicker{font:600 12px/1 var(--label);letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+h1{font:400 clamp(30px,8vw,56px)/1.05 var(--title);margin:16px 0 8px;letter-spacing:.02em}
+h1 span{background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{color:#c9c5d6;max-width:640px}
+.heat{height:6px;border-radius:3px;background:var(--hot);margin:22px 0 0}
+nav.tabs{position:sticky;top:0;z-index:5;background:rgba(0,0,0,.92);backdrop-filter:blur(6px);padding:10px 0;border-bottom:1px solid var(--line)}
+nav.tabs .row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+nav.tabs a{font:600 13px/1 var(--label);letter-spacing:.08em;text-align:center;text-decoration:none;color:var(--text);background:#15151c;border-radius:5px;padding:9px 4px}
+nav.tabs a.on{background:var(--purple);color:#fff}
+section.beat{padding:40px 0 18px;border-bottom:1px solid var(--line);scroll-margin-top:52px}
+.screen{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin:18px 0}
+.shead{display:flex;align-items:center;gap:10px;font:600 15px/1 var(--label);letter-spacing:.06em;margin-bottom:10px}
+.badge{background:var(--orange);color:#000;border-radius:3px;padding:2px 6px;font-size:13px}
+.shead .play{color:var(--purple)}.shead .bpm{color:var(--purple);font-size:20px}.shead .nm{color:var(--text)}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.card{border:1.5px solid var(--c,var(--violet));border-radius:6px;padding:6px 7px 7px;min-width:0}
+.card .l{font:600 11px/1.1 var(--label);letter-spacing:.06em;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .v{font:600 clamp(16px,4.6vw,24px)/1.2 var(--value);color:var(--c,var(--violet));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .m{height:3px;margin-top:4px;background:repeating-linear-gradient(90deg,var(--c,var(--violet)) 0 3px,transparent 3px 5px);opacity:.75}
+canvas.scope{display:block;width:100%;height:180px;margin:10px 0 4px;background:#000;border-radius:6px}
+.formula{display:flex;gap:8px;align-items:stretch;margin-top:8px}
+.formula textarea{flex:1;min-width:0;background:#000;color:var(--cream);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:22px/1.15 var(--mono);resize:vertical;min-height:46px}
+.formula textarea:focus{outline:1px solid var(--purple)}
+.btn{font:600 14px/1 var(--label);letter-spacing:.1em;border:0;border-radius:6px;padding:0 16px;cursor:pointer;background:#15151c;color:var(--text);min-width:84px}
+.btn.on{background:#3ad16f;color:#000}
+.ex{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip[aria-pressed=true]{background:#2a1a3a;color:var(--cream);border-color:var(--purple)}
+.err{font:600 12px/1.3 var(--label);color:#ff5a6a;min-height:16px;margin-top:6px}
+h2{font:400 clamp(20px,5vw,30px)/1.2 var(--title);margin:6px 0 10px}
+h2 small{display:block;font:600 12px/1 var(--label);letter-spacing:.2em;color:var(--orange);margin-bottom:12px}
+p{color:#c9c5d6;margin:10px 0}
+code{font:19px/1 var(--mono);color:var(--cream);background:#15151c;border-radius:3px;padding:0 4px}
+.inbyte{border-left:3px solid var(--orange);padding:6px 12px;margin:16px 0;background:#0b0b10}
+.inbyte b{font:600 12px/1 var(--label);letter-spacing:.14em;color:var(--orange);display:block;margin-bottom:6px}
+footer{padding:28px 0 48px;color:var(--dim);font-size:14px}
+@media (max-width:520px){.cards{grid-template-columns:repeat(2,1fr)}canvas.scope{height:150px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div class="crumb"><a href="./">← <b>JIANT</b> BYTE</a> · M-VAVE FM-1</div>
+  <div class="langs"><button data-l="en" aria-pressed="true">EN</button><button data-l="es" aria-pressed="false">ES</button></div>
+</header>
+<div class="hero">
+  <div class="kicker" data-i="kick">A page about formulas</div>
+  <h1><span>t</span> → sound</h1>
+  <p class="lede" data-i="lede">A formula reads the time and returns a sample. Three ways of writing it, three ways of sounding: bytebeat, floatbeat and funcbeat. Each one plays here, in the browser; edit it and listen.</p>
+  <div class="heat"></div>
+</div>
+</div>
+<nav class="tabs"><div class="wrap row"><a href="#bytebeat" class="on">BYTEBEAT</a><a href="#floatbeat">FLOATBEAT</a><a href="#funcbeat">FUNCBEAT</a></div></nav>
+<div class="wrap">
+
+<section class="beat" id="bytebeat" data-mode="byte">
+  <h2><small>01</small>Bytebeat</h2>
+  <p data-i="b1">Whole numbers, eight bits at a time. <code>t</code> counts samples (8000 a second); the formula's result is cut to 0..255 and that byte is the speaker's position. Shifts (<code>&gt;&gt;</code>) slow <code>t</code> down into rhythm, <code>&amp;</code> <code>|</code> <code>^</code> mix the bits into melody: the grit is the arithmetic itself.</p>
+  <div class="screen">
+    <div class="shead"><span class="badge">1</span><span class="play">▶</span><span class="bpm">8k</span><span class="nm">BYTEBEAT</span></div>
+    <div class="cards">
+      <div class="card" style="--c:var(--violet)"><div class="l">t</div><div class="v" data-o="t">0</div><div class="m"></div></div>
+      <div class="card" style="--c:var(--purple)"><div class="l">BITS</div><div class="v">8</div><div class="m"></div></div>
+      <div class="card" style="--c:var(--orange)"><div class="l">RATE</div><div class="v">8000</div><div class="m"></div></div>
+      <div class="card" style="--c:var(--cream)"><div class="l">OUT</div><div class="v" data-o="out">0</div><div class="m"></div></div>
+    </div>
+    <canvas class="scope"></canvas>
+    <div class="formula"><textarea spellcheck="false" rows="1">t*(t&gt;&gt;5|t&gt;&gt;8)&gt;&gt;(t&gt;&gt;16)</textarea><button class="btn">PLAY</button></div>
+    <div class="err"></div>
+    <div class="ex"><button class="chip" data-f="t*(t&gt;&gt;5|t&gt;&gt;8)&gt;&gt;(t&gt;&gt;16)">viznut 1</button><button class="chip" data-f="t*(42&amp;t&gt;&gt;10)">42 melody</button><button class="chip" data-f="t*((t&gt;&gt;12|t&gt;&gt;8)&amp;63&amp;t&gt;&gt;4)">63</button><button class="chip" data-f="(t*5&amp;t&gt;&gt;7)|(t*3&amp;t&gt;&gt;10)">5 &amp; 3</button></div>
+  </div>
+  <p data-i="b2">Bytebeat was found and shared in 2011 by viznut (Ville-Matias Heikkilä) and the people who answered him with formulas of their own: one line of C that is a whole piece of music.</p>
+  <div class="inbyte"><b data-i="inb">IN JIANT BYTE</b><span data-i="b3">MATH › FORMULA, MODE BYTE: 48 bytebeats, CAOS to break them, and the beings on HOME that grow from their bits.</span></div>
+</section>
+
+<section class="beat" id="floatbeat" data-mode="float">
+  <h2><small>02</small>Floatbeat</h2>
+  <p data-i="f1">Fractions instead of bytes. The result is a number from −1 to 1, at full rate (44100 a second here), so the formula can hold sines, phases, envelopes and filters: tones, bells, pads and basses, clean or as dirty as you write them. Here <code>t</code> is in seconds and Math's functions are at hand (<code>sin</code>, <code>exp</code>, <code>tanh</code>, <code>PI</code>).</p>
+  <div class="screen">
+    <div class="shead"><span class="badge">2</span><span class="play">▶</span><span class="bpm">44k</span><span class="nm">FLOATBEAT</span></div>
+    <div class="cards">
+      <div class="card" style="--c:var(--violet)"><div class="l">t (s)</div><div class="v" data-o="t">0</div><div class="m"></div></div>
+      <div class="card" style="--c:var(--purple)"><div class="l">RANGE</div><div class="v">±1</div><div class="m"></div></div>
+      <div class="card" style="--c:var(--orange)"><div class="l">RATE</div><div class="v">44100</div><div class="m"></div></div>
+      <div class="card" style="--c:var(--cream)"><div class="l">OUT</div><div class="v" data-o="out">0</div><div class="m"></div></div>
+    </div>
+    <canvas class="scope"></canvas>
+    <div class="formula"><textarea spellcheck="false" rows="1">sin(2*PI*110*t+3*sin(2*PI*220*t)*exp(-4*(t%0.5)))*0.6</textarea><button class="btn">PLAY</button></div>
+    <div class="err"></div>
+    <div class="ex"><button class="chip" data-f="sin(2*PI*110*t+3*sin(2*PI*220*t)*exp(-4*(t%0.5)))*0.6">FM bell</button><button class="chip" data-f="tanh(4*sin(2*PI*55*t)*sin(2*PI*2*t))*0.6">wobble</button><button class="chip" data-f="(sin(2*PI*220*t)+sin(2*PI*277.18*t)+sin(2*PI*329.63*t))/3*0.6">chord</button><button class="chip" data-f="sin(2*PI*(45+120*exp(-30*(t%0.5)))*(t%0.5))*exp(-6*(t%0.5))">kick</button></div>
+  </div>
+  <p data-i="f2">Floatbeat is where the timbres are: the same idea as bytebeat, with the room of real numbers.</p>
+  <div class="inbyte"><b data-i="inb">IN JIANT BYTE</b><span data-i="f3">MATH › MODE FLOAT (48 floatbeats), WAVE (two formulas as a wavetable, POS between them) and DRUM-W (each pad's tables are formulas).</span></div>
+</section>
+
+<section class="beat" id="funcbeat" data-mode="func">
+  <h2><small>03</small>Funcbeat</h2>
+  <p data-i="u1">A function of time that knows the tempo. Besides <code>t</code> (seconds) it gets <code>b</code>, the beats, so a formula can write steps, chords and envelopes in musical time; with several lines, <code>return</code> gives the sample. Helpers here: <code>step(n)</code> the step (n a beat), <code>ph(n)</code> where you are inside it (0..1), <code>note(k)</code> the frequency k semitones over A 110.</p>
+  <div class="screen">
+    <div class="shead"><span class="badge">3</span><span class="play">▶</span><span class="bpm">120</span><span class="nm">FUNCBEAT</span></div>
+    <div class="cards">
+      <div class="card" style="--c:var(--violet)"><div class="l">BEAT</div><div class="v" data-o="b">0</div><div class="m"></div></div>
+      <div class="card" style="--c:var(--purple)"><div class="l">STEP</div><div class="v" data-o="s">0</div><div class="m"></div></div>
+      <div class="card" style="--c:var(--orange)"><div class="l">BPM</div><div class="v">120</div><div class="m"></div></div>
+      <div class="card" style="--c:var(--cream)"><div class="l">OUT</div><div class="v" data-o="out">0</div><div class="m"></div></div>
+    </div>
+    <canvas class="scope"></canvas>
+    <div class="formula"><textarea spellcheck="false" rows="3">let k=[0,3,7,10,12,10,7,3][step(4)%8];
+return sin(2*PI*note(k)*t+2*sin(2*PI*note(k)*2*t)*(1-ph(4)))*exp(-4*ph(4))*0.6</textarea><button class="btn">PLAY</button></div>
+    <div class="err"></div>
+    <div class="ex"><button class="chip" data-f="let k=[0,3,7,10,12,10,7,3][step(4)%8];&#10;return sin(2*PI*note(k)*t+2*sin(2*PI*note(k)*2*t)*(1-ph(4)))*exp(-4*ph(4))*0.6">arp</button><button class="chip" data-f="let r=[0,5,7,3][floor(b/4)%4];&#10;return (sin(2*PI*note(r)*t)+sin(2*PI*note(r+3)*t)+sin(2*PI*note(r+7)*t))/3*(0.4+0.2*sin(2*PI*b/2))">chords</button><button class="chip" data-f="let p=ph(1),k=sin(2*PI*(45+120*exp(-30*p/2))*p/2)*exp(-5*p);&#10;let n=step(4)%2?0:sin(2*PI*note([0,0,12,7][step(2)%4]-12)*t)*0.4*(1-ph(2));&#10;return tanh(1.6*(k+n))*0.6">beat</button><button class="chip" data-f="return sin(2*PI*note(0)*t*(1+0.5*sin(2*PI*b/8)))*0.5">slow</button></div>
+  </div>
+  <p data-i="u2">Funcbeat is the formula as a musician: the clock is the song's, so the same line can be a sound and a part.</p>
+  <div class="inbyte"><b data-i="inb">IN JIANT BYTE</b><span data-i="u3">FORM: two funcbeat states A and B, MORPH from one to the other by timbre, chords by the scale's degrees, RATE to 4 bars a step, and DRUMS fused into the formula. MATH's FUNC mode too.</span></div>
+</section>
+
+<footer data-i="foot">JIANT BYTE · free software (GPL-3.0) for the M-VAVE FM-1 · <a href="./">home</a> · <a href="emu/">try it in the browser</a></footer>
+</div>
+
+<script>
+/* the three modes: a formula compiled to a function, run in an AudioWorklet (one sample at a time), drawn on its scope */
+const I18N={es:{kick:"Una página sobre fórmulas",lede:"Una fórmula lee el tiempo y devuelve una muestra. Tres maneras de escribirla, tres maneras de sonar: bytebeat, floatbeat y funcbeat. Cada una suena acá, en el navegador: editala y escuchá.",
+b1:"Números enteros, de a ocho bits. <code>t</code> cuenta muestras (8000 por segundo); el resultado se corta a 0..255 y ese byte es la posición del parlante. Los desplazamientos (<code>&gt;&gt;</code>) frenan <code>t</code> hasta volverlo ritmo; <code>&amp;</code> <code>|</code> <code>^</code> mezclan los bits en melodía: la aspereza es la aritmética misma.",
+b2:"El bytebeat lo encontró y compartió en 2011 viznut (Ville-Matias Heikkilä), junto a quienes le respondieron con fórmulas propias: una línea de C que es una pieza de música entera.",
+inb:"EN JIANT BYTE",b3:"MATH › FORMULA, modo BYTE: 48 bytebeats, CAOS para romperlos, y los seres de HOME que nacen de sus bits.",
+f1:"Fracciones en lugar de bytes. El resultado es un número de −1 a 1, a frecuencia completa (44100 por segundo acá), así que la fórmula puede tener senos, fases, envolventes y filtros: tonos, campanas, pads y bajos, limpios o tan sucios como los escribas. Acá <code>t</code> está en segundos y las funciones de Math están a mano (<code>sin</code>, <code>exp</code>, <code>tanh</code>, <code>PI</code>).",
+f2:"En el floatbeat están los timbres: la misma idea que el bytebeat, con el espacio de los números reales.",
+f3:"MATH › modo FLOAT (48 floatbeats), WAVE (dos fórmulas como wavetable, POS entre ellas) y DRUM-W (las tablas de cada pad son fórmulas).",
+u1:"Una función del tiempo que conoce el tempo. Además de <code>t</code> (segundos) recibe <code>b</code>, los beats, así una fórmula puede escribir pasos, acordes y envolventes en tiempo musical; con varias líneas, <code>return</code> da la muestra. Ayudas acá: <code>step(n)</code> el paso (n por beat), <code>ph(n)</code> dónde estás dentro de él (0..1), <code>note(k)</code> la frecuencia k semitonos sobre A 110.",
+u2:"El funcbeat es la fórmula como músico: el reloj es el de la canción, así la misma línea puede ser un sonido y una parte.",
+u3:"FORM: dos estados funcbeat A y B, MORPH de uno al otro por timbre, acordes por grados de la escala, RATE hasta 4 compases por paso y DRUMS fundida en la fórmula. También el modo FUNC de MATH.",
+foot:"JIANT BYTE · software libre (GPL-3.0) para el M-VAVE FM-1 · <a href=\"./\">inicio</a> · <a href=\"emu/\">probalo en el navegador</a>"}};
+const EN={};document.querySelectorAll("[data-i]").forEach(e=>EN[e.dataset.i]=e.innerHTML);
+function lang(l){document.documentElement.lang=l;document.querySelectorAll("[data-i]").forEach(e=>{const d=l==="es"?I18N.es:EN;if(d[e.dataset.i])e.innerHTML=d[e.dataset.i];});
+ document.querySelectorAll(".langs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===l));try{localStorage.setItem("jb-lang",l)}catch(e){}}
+document.querySelectorAll(".langs button").forEach(b=>b.onclick=()=>lang(b.dataset.l));
+try{const l=localStorage.getItem("jb-lang")||((navigator.language||"").startsWith("es")?"es":"en");if(l==="es")lang("es")}catch(e){}
+
+const PRE="const {sin,cos,tan,abs,floor,ceil,round,exp,log,pow,sqrt,tanh,min,max,random,PI,sign,atan,atan2}=Math;";
+function compile(mode,src){
+  const body=/\breturn\b/.test(src)?src:"return ("+src+");";
+  if(mode==="func")return new Function("t","b",PRE+"const step=n=>floor(b*n),ph=n=>(b*n)%1,note=k=>110*pow(2,k/12);"+body);
+  return new Function("t",PRE+body);
+}
+function sample(mode,f,i,sr){            /* the i-th output sample at rate sr, in -1..1 */
+  if(mode==="byte"){const t=Math.floor(i*8000/sr);return ((f(t)&255)/127.5)-1;}
+  const t=i/sr;let y=mode==="func"?f(t,t*2):f(t);
+  return Number.isFinite(y)?Math.max(-1,Math.min(1,y)):0;
+}
+const WORKLET=`class B extends AudioWorkletProcessor{constructor(){super();this.f=null;this.i=0;this.port.onmessage=e=>{try{this.mode=e.data.mode;this.f=(${compile.toString()})(e.data.mode,e.data.src);this.i=0;}catch(x){this.f=null}};}
+process(_,o){const out=o[0][0],f=this.f;const PREX=0;for(let k=0;k<out.length;k++){let y=0;if(f){try{y=(${sample.toString()})(this.mode,f,this.i,sampleRate)}catch(x){y=0}}out[k]=y*0.35;this.i++;}
+if(this.i%4096<out.length)this.port.postMessage(this.i);return true}}registerProcessor("beat",B);`.replace("const PREX=0;","").replace(/PRE\+/g,JSON.stringify(PRE)+"+");
+let ctx=null,cur=null;
+async function audio(){if(ctx)return ctx;ctx=new AudioContext();const url=URL.createObjectURL(new Blob([WORKLET],{type:"application/javascript"}));await ctx.audioWorklet.addModule(url);return ctx;}
+const THERM=(c,w)=>{const g=c.createLinearGradient(0,0,w,0);[["#5b2bff",0],["#b45cff",.3],["#ff5a6a",.62],["#ff9a2a",.82],["#ffe9c2",1]].forEach(([k,p])=>g.addColorStop(p,k));return g;};
+document.querySelectorAll("section.beat").forEach(sec=>{
+  const mode=sec.dataset.mode,ta=sec.querySelector("textarea"),btn=sec.querySelector(".btn"),err=sec.querySelector(".err"),cv=sec.querySelector("canvas"),o={};
+  sec.querySelectorAll("[data-o]").forEach(e=>o[e.dataset.o]=e);
+  let node=null,an=null,f=null,raf=0;
+  function check(){try{f=compile(mode,ta.value);sample(mode,f,1000,44100);err.textContent="";return true}catch(e){err.textContent=e.message;f=null;return false}}
+  function draw(buf){const r=cv.getBoundingClientRect(),w=cv.width=Math.round(r.width*devicePixelRatio),h=cv.height=Math.round(r.height*devicePixelRatio),c=cv.getContext("2d");
+    c.clearRect(0,0,w,h);c.strokeStyle="#24242e";c.lineWidth=1;c.beginPath();c.moveTo(0,h/2);c.lineTo(w,h/2);c.stroke();
+    let s=0;for(let k=1;k<buf.length/2;k++)if(buf[k-1]<0&&buf[k]>=0){s=k;break}
+    const n=Math.min(buf.length-s,mode==="byte"?768:1024);c.strokeStyle=THERM(c,w);c.lineWidth=2*devicePixelRatio;c.beginPath();
+    for(let k=0;k<n;k++){const x=k/(n-1)*w,y=h/2-buf[s+k]*h*0.44;k?c.lineTo(x,y):c.moveTo(x,y)}c.stroke();}
+  function still(at){if(!f)return;const sr=44100,b=new Float32Array(2048);for(let k=0;k<2048;k++)b[k]=sample(mode,f,at+k,sr);draw(b);
+    const t=at/sr;if(o.t)o.t.textContent=mode==="byte"?Math.floor(t*8000):t.toFixed(2);if(o.b)o.b.textContent=(t*2).toFixed(1);if(o.s)o.s.textContent=Math.floor(t*2*4)%16;if(o.out)o.out.textContent=(mode==="byte"?Math.round((b[0]+1)*127.5):b[0].toFixed(2));}
+  function loop(){if(!an)return;const b=new Float32Array(an.fftSize);an.getFloatTimeDomainData(b);for(let k=0;k<b.length;k++)b[k]/=0.35;draw(b);
+    const t=ctx.currentTime-node.t0;if(o.t)o.t.textContent=mode==="byte"?Math.floor(t*8000):t.toFixed(2);if(o.b)o.b.textContent=(t*2).toFixed(1);if(o.s)o.s.textContent=Math.floor(t*8)%16;if(o.out)o.out.textContent=mode==="byte"?Math.round((b[0]+1)*127.5):b[0].toFixed(2);raf=requestAnimationFrame(loop);}
+  async function play(){if(!check())return;await audio();if(ctx.state!=="running")await ctx.resume();if(cur&&cur!==stop)cur();
+    node=new AudioWorkletNode(ctx,"beat");node.t0=ctx.currentTime;an=new AnalyserNode(ctx,{fftSize:2048});node.connect(an);an.connect(ctx.destination);
+    node.port.postMessage({mode,src:ta.value});btn.textContent="STOP";btn.classList.add("on");cur=stop;loop();}
+  function stop(){if(node){node.disconnect();an.disconnect();node=an=null}cancelAnimationFrame(raf);btn.textContent="PLAY";btn.classList.remove("on");if(cur===stop)cur=null;still(44100);}
+  btn.onclick=()=>node?stop():play();
+  ta.addEventListener("input",()=>{if(check()){if(node)node.port.postMessage({mode,src:ta.value});else still(44100)}});
+  sec.querySelectorAll(".chip").forEach(ch=>ch.onclick=()=>{ta.value=ch.dataset.f;sec.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===ch));ta.dispatchEvent(new Event("input"));});
+  check();still(44100);addEventListener("resize",()=>{if(!node)still(44100)});
+});
+const tabs=[...document.querySelectorAll("nav.tabs a")];
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)tabs.forEach(a=>a.classList.toggle("on",a.getAttribute("href")==="#"+e.target.id))}),{rootMargin:"-40% 0px -55% 0px"});
+document.querySelectorAll("section.beat").forEach(s=>io.observe(s));
+</script>
+</body>
+</html>
