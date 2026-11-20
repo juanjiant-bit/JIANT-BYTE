@@ -174,9 +174,25 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
         for (u = 0; u < nu; u++) {
             uint32_t ph = v->ph[u], ui = u == 0u ? inc : u == 1u ? inc + (inc >> 16) * det * 3u : inc - (inc >> 16) * det * 3u;
             uint32_t o;
-            for (i = 0; i < n; i++) {
-                W[i] = (wave_warp(ph >> 16, warp == WW_FM ? WW_OFF : warp, amt)) & 0xFFFFu;
-                ph += ui;
+            if (warp == WW_OFF || warp == WW_FM) {       /* (BYTE 0.16, CPU) no warp: the phase as it is */
+                for (i = 0; i < n; i++, ph += ui)
+                    W[i] = ph >> 16;
+            } else if (warp == WW_BEND || warp == WW_MIRROR) {   /* (the two sides' slopes once a block: no division
+                                                         * a sample; Q16 reciprocals, a 64-bit product) */
+                uint32_t mb = warp == WW_BEND ? 32768u - amt * 29491u / 127u : 65535u - amt * 32767u / 127u;
+                uint32_t top = warp == WW_BEND ? 32768u : 65535u;
+                uint32_t r0 = (top << 16) / mb, r1 = (top << 16) / (65536u - mb);   /* (32-bit: no 64-bit divide on the FM-1) */
+                for (i = 0; i < n; i++, ph += ui) {
+                    uint32_t w = ph >> 16;
+                    W[i] = (w < mb ? (uint32_t)(((uint64_t)w * r0) >> 16)
+                            : warp == WW_BEND ? 32768u + (uint32_t)(((uint64_t)(w - mb) * r1) >> 16)
+                            : (uint32_t)(((uint64_t)(65535u - w) * r1) >> 16)) & 0xFFFFu;
+                }
+            } else {
+                for (i = 0; i < n; i++) {
+                    W[i] = (wave_warp(ph >> 16, warp, amt)) & 0xFFFFu;
+                    ph += ui;
+                }
             }
             for (o = 0; o < n; o += FVM_BLK) {
                 uint32_t c = n - o < FVM_BLK ? n - o : FVM_BLK, k;
@@ -196,13 +212,14 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
             }
             for (i = 0; i < n; i++) {
                 int32_t a = (int32_t)ya[i], b = pb ? (int32_t)yb[i] : 0;
-                acc[i] += a + (int32_t)(((int64_t)(b - a) * (int32_t)mix) >> 7);   /* (Q16: A .. B) */
+                acc[i] += mix ? a + (int32_t)(((int64_t)(b - a) * (int32_t)mix) >> 7) : a;   /* (Q16: A .. B) */
             }
             v->ph[u] = ph;
         }
     }
     for (i = 0; i < n; i++) {
-        int32_t s = acc[i] / (int32_t)nu >> 1;       /* (Q16 -> Q15, the unison's mean) */
+        int32_t s = nu == 1u ? acc[i] >> 1 : (int32_t)(((int64_t)acc[i] * 21845) >> 16);   /* (Q16 -> Q15, the unison's
+                                                      * mean: a third and a half as a product, not a division a sample) */
         if (sub) {
             uint32_t sp = (uint32_t)v->s[3];
             s += sine_i(sp) * (int32_t)sub >> 8;

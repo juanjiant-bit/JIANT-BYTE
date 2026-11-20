@@ -1874,6 +1874,7 @@ static void part_limit(uint32_t ti, int32_t *b, uint32_t n)
         if (a > pk) pk = a;
     }
     g1 = g0 + ((32767 - g0) >> 7);                      /* (the release: 1/128 a block, ~100 ms) */
+    if (32767 - g1 < 128) g1 = 32767;                   /* (back at unity: the gain's loop off again; the >> 7 never got there) */
     if (pk > PL_TH) {
         int32_t gd = (int32_t)(((uint32_t)PL_TH << 15) / (uint32_t)pk);
         if (gd < g1) g1 = gd;
