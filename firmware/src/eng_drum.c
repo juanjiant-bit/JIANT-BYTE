@@ -576,6 +576,12 @@ static void drum_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
            p[P_E3] - 64 + DXO_DEC[L->dm & 3u] + ((hitfx&DXF_LONG)?36:0),
            p[P_E2] - 64 + DXO_TON[L->dm & 3u], p[P_E4] - 64 + DXO_TON[L->dm & 3u] + ((hitfx&DXF_NOISE)?32:0),
            (hitfx&DXF_FOLD)&&p[P_E6]<80 ? 80 : p[P_E6], p[P_E5], y, n, (hitfx&DXF_FB)?6u:0u);
+    if (p[P_E1] > 0) {                                   /* (BYTE 0.16) ATTACK: the hit's rise, linear over T half-rate samples */
+        uint32_t T = (uint32_t)p[P_E1] * (uint32_t)p[P_E1] / 4u + 8u, a0 = L->x.dwage >= n ? L->x.dwage - n : 0u, i;
+        uint32_t r = (1u << 30) / T;                     /* (one division a block: the ramp's step, Q30) */
+        for (i = 0; i < n && a0 + i < T; i++)
+            y[i] = (int32_t)(((int64_t)y[i] * (int32_t)(((a0 + i) * r) >> 15)) >> 15);
+    }
     {                                                    /* PUNCH: the boost before the knee (driven into it, as
                                                           * Drum Buss), the tail's cut on the amplitude ramp */
         int32_t pu = pnch_eff;
@@ -622,36 +628,26 @@ static int32_t glue_g[NTRK];                            /* .. a DRUM track's gai
 static __attribute__((noinline)) void drum_glue(uint32_t ti, int32_t *out, uint32_t n, uint32_t side);
 /* (JIANT 0.6.16) the kit's sum, once a block (voice.c track_render): DRV x1..x4 into the soft clip, its level kept,
  * and the knee (were each hit's: eight lanes, two curves a sample each; now the bus's, a glue) */
-static int32_t at_f[NTRK], at_s[NTRK];                 /* (BYTE 0.16) ATTACK's followers: fast, slow */
 static __attribute__((noinline)) void drum_bus(const track_t *t, int32_t *out, uint32_t n)
 {
-    /* (BYTE 0.16, the owner) GAIN (EDIT 8, was DRIVE): clean, x1 .. x4 (+12 dB) into the knee; ATTACK (EDIT 2, was TUNE):
-     * the kit's transients, a fast follower over a slow one, their difference (an onset +, a tail -) over their sum the
-     * gain's swing, 64 none, 127 the hits twice as sharp, 0 as soft. Then the knee; IMAGE's sides scaled as the sum */
-    uint32_t ti = (uint32_t)(t - trk) % NTRK, i, side = (dx_xon & 1u) != 0u;
+    /* (BYTE 0.16, the owner) GAIN (EDIT 8, was DRIVE): clean, x1 .. x4 (+12 dB) into the knee; IMAGE's sides scaled as
+     * the sum */
+    uint32_t i, side = (dx_xon & 1u) != 0u;
     int32_t gk = 4096 + clamp(t->p[P_KEY], 0, 127) * 3 * 4096 / 127, ge = 4096 + clamp(t->p[P_E7], 0, 127) * 3 * 4096 / 127;
-    int32_t gn = (int32_t)(((int64_t)gk * ge) >> 12), at = clamp(t->p[P_E1], 0, 127) - 64, ef = at_f[ti], es = at_s[ti], gq = 4096, k = 4096;
+    int32_t gn = (int32_t)(((int64_t)gk * ge) >> 12), k = 4096;
     int32_t *sl = dx_sl, *sr = dx_sr;
     if (gn > 16384) gn = 16384;
     for (i = 0; i < n; i++) {
         int32_t s0 = out[i] >> 1, s = gn == 4096 ? s0 : ((clamp(s0, -131071, 131071) >> 2) * gn) >> 10, y;
-        if (at) {
-            int32_t x = s < 0 ? -s : s;
-            ef += (x - ef) >> 3; es += (x - es) >> 8;
-            if (!(i & 3u))                               /* (the gain every 4th sample: a divide's cost) */
-                gq = clamp(4096 + (int32_t)(((int64_t)(ef - es) * at << 6) / (ef + es + 512)), 1024, 12288);
-            s = (int32_t)(((int64_t)s * gq) >> 12);
-        }
         y = soft_knee(clamp(s, -131071, 131071), 24000);
         out[i] = y << 1;
         if (side && y != s0) {
             if ((s0 > 256 || s0 < -256) && !(i & 3u))
-                k = clamp((int32_t)(((int64_t)y << 12) / s0), 0, 16384);
+                k = clamp((y << 12) / s0, 0, 16384);   /* (y within +-41000: y << 12 fits 32 bits) */
             sl[i] = ((sl[i] >> 2) * k) >> 10;
             sr[i] = ((sr[i] >> 2) * k) >> 10;
         }
     }
-    at_f[ti] = ef; at_s[ti] = es;
     if (dx_glue)                                        /* (0.9.9-snd1) GLUE, on */
         drum_glue((uint32_t)(t - trk) % NTRK, out, n, side);
     else
@@ -713,20 +709,20 @@ static int32_t drum_keys(const track_t *t, uint32_t k)
  * it): no RAND -> PAN (one pan for the kit: every hit would throw the kick about too) */
 static const preset_t DRUM_PRESETS[] = {                /* (0.7.2) one a factory kit: drumx_voice.c DX_KITS, this order */
     {"DRUM-W", DRUM_KIT_E, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 20), PAT(12)},   /* (core.h: SAMPLE PERC's too) */
-    {"909 CLUB", {60, 64, 78, 64, 64, 0, 0, 10}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 16), PAT(12)},
-    {"808 BOOM", {58, 60, 54, 76, 59, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 24), PAT(12)},
-    {"LOFI DUST", {70, 64, 46, 54, 78, 0, 0, 20}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(8, 0, 0, 18), PAT(12),
+    {"909 CLUB", {60, 0, 78, 64, 64, 0, 0, 10}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 16), PAT(12)},
+    {"808 BOOM", {58, 0, 54, 76, 59, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 24), PAT(12)},
+    {"LOFI DUST", {70, 0, 46, 54, 78, 0, 0, 20}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(8, 0, 0, 18), PAT(12),
      MODS(MLFO(LW_DRIFT, -3, 0, 0), P_LPHASE, -1, P_LD_SHP, 8)},                 /* MORPH wanders, a worn tape */
-    {"INDUSTRIAL", {72, 66, 99, 70, 75, 20, 0, 40}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(16, 0, 10, 30), PAT(12),
+    {"INDUSTRIAL", {72, 0, 99, 70, 75, 20, 0, 40}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(16, 0, 10, 30), PAT(12),
      MODS(MLFO(LW_SH, -10, 0, 0), P_LPHASE, -1, MMOD(1, PS_LFO, PD_E(6), 16))},   /* FOLD at random on the 16ths */
-    {"ACOUSTIC", {56, 64, 56, 62, 64, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 34), PAT(12)},
-    {"DUB ROOTS", {60, 60, 50, 70, 59, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 18, 36), PAT(12),
+    {"ACOUSTIC", {56, 0, 56, 62, 64, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 34), PAT(12)},
+    {"DUB ROOTS", {60, 0, 50, 70, 59, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 18, 36), PAT(12),
      MODS(MMOD(1, PS_RAND, PD_DLY, 20))},                                       /* each hit its own throw into the echo */
-    {"TECHNO RAW", {66, 64, 83, 62, 66, 10, 0, 30}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(10, 0, 0, 14), PAT(12),
+    {"TECHNO RAW", {66, 0, 83, 62, 66, 10, 0, 30}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(10, 0, 0, 14), PAT(12),
      MODS(MLFO(LW_TRI, -1, 0, 0), P_LPHASE, -1, MMOD(1, PS_LFO, PD_E(2), 10))},   /* TONE opens and closes over 4 bars */
-    {"BREAKS", {62, 66, 74, 62, 71, 0, 0, 10}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(4, 0, 0, 22), PAT(12)},
-    {"HIP HOP", {58, 62, 56, 64, 67, 0, 0, 18}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(6, 0, 0, 20), PAT(14)},   /* (V10.34) */
-    {"LATIN PERC", {60, 64, 64, 64, 64, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 22), PAT(12)},   /* (V10.7.8) */
+    {"BREAKS", {62, 0, 74, 62, 71, 0, 0, 10}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(4, 0, 0, 22), PAT(12)},
+    {"HIP HOP", {58, 0, 56, 64, 67, 0, 0, 18}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(6, 0, 0, 20), PAT(14)},   /* (V10.34) */
+    {"LATIN PERC", {60, 0, 64, 64, 64, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 22), PAT(12)},   /* (V10.7.8) */
     {"FLOAT KIT", DRUM_KIT_E, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 20), PAT(12)},
 };
 _Static_assert(sizeof DRUM_PRESETS / sizeof DRUM_PRESETS[0] == 1u + sizeof DX_KITS / sizeof DX_KITS[0], "a DRUM preset a kit");
@@ -752,8 +748,8 @@ static const engine_t ENG_DRUM = {
     .page_title = {"KIT", "KIT 2"},                     /* (0.6.54: both the whole kit's, was HIT) */
     .edit = {
         {"MORPH", F_PCT, 0, 127, 64, 0},
-        {"ATTACK", F_PCT, 0, 127, 64, 0},           /* (BYTE 0.16, the owner: "a global TUNE makes no sense; ATTACK there"):
-                                                         * the kit's transients, 64 as struck (was TUNE: a pad's own PITCH) */
+        {"ATTACK", F_PCT, 0, 127, 0, 0},            /* (BYTE 0.16, the owner: "ATTACK as an ADSR's"): every hit's rise, 0 struck
+                                                         * at once .. 127 ~0.2 s (was TUNE: a pad's own PITCH) */
         {"WAVE", F_PCT, 0, 127, 64, 0},             /* (DRUM-W: every pad's place in its tables, and the noise's cutoff; was TONE) */
         {"DECAY", F_PCT, 0, 127, 64, 0},
         {"NOISE", F_PCT, 0, 127, 64, 0},

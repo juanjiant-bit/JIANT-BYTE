@@ -449,7 +449,7 @@ static __attribute__((noinline)) void west_from_noise(int16_t *e)
  * ENGI_DRUM now); user presets (upreset.c up_migrate), factory preset 4 and
  * favourites (ui.c, settings_persist.c). Idempotent */
 #define SMP_SET_PERC 4u
-#define DRUM_KIT_E {64, 64, 70, 64, 64, 0, 0, 0}   /* {MRPH, TUNE, TONE, DECY, NOIS, FM, WARP, DRV} (eng_drum.c) */
+#define DRUM_KIT_E {64, 0, 70, 64, 64, 0, 0, 0}   /* {MRPH, ATTACK, TONE, DECY, NOIS, FM, WARP, GAIN} (eng_drum.c; BYTE 0.16: ATTACK 0, struck at once) */
 static int drum_from_perc(uint32_t engine, int16_t *e)
 {
     static const int16_t KIT[8] = DRUM_KIT_E;

@@ -829,7 +829,7 @@ static const page_t PAGES[] = {
     {"HARMONY", FAM_EDIT, SC_FORM, GR_NONE, {P_AGATE,P_ARATE,P_CHRD,P_CVOI}},   /* (FORM 3) PROG LENGTH CHORD VOICING */
     {"MOTION", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,P_APROB,P_AORDER}},   /* (FORM 3) MOD A, MOD B: an equation moving each
                                                          * DEF; DEPTH, SPEED */
-    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_SDIV,P_SLEN,P_KEY,0xFF}},   /* (BYTE 0.16) RATE A, RATE B, HITS */
+    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_SDIV,P_SLEN,P_KEY,ID_CRU}},   /* (BYTE 0.16) RATE A, RATE B, HITS, CRUSH (TONE's, the owner) */
     {"DRUMS", FAM_EDIT, SC_FORM, GR_NONE, {P_DETUNE,P_MORPH,P_CSTR,P_DXIMG}},   /* (BYTE 0.16) LEVEL FUSION KIT GROOVE (FORM's: MORPH and STRUM unused on it) */   /* (FORM 3) RATE A, RATE B, HITS, SWING */   /* (FORM 3) RATE A, RATE B, the EUCLID gate's HITS ROTATE */   /* (FORM 3) PROGRESS CHORD RATE NOTES OCTAVE (ROOT,
                                                          * SCALE: SCL's, the song's) */
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS

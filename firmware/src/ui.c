@@ -645,6 +645,9 @@ static int page_visible(uint32_t i)
     if (PAGES[i].graph == GR_LYRIC || PAGES[i].graph == GR_LYRSTEP)
         return trk_engp(TSEL) == &ENG_VOX_GONE;
     if(PAGES[i].scope==SC_FORM)return te==ENGI_FORM;
+    if (te == ENGI_FORM && PAGES[i].fam == FAM_EDIT && (PAGES[i].id[0] == P_VOICE || PAGES[i].id[0] == P_FKEY))
+        return 0;                                       /* (BYTE 0.16, the owner) FORM: no PLAY (its voices), no TONE (its CRUSH
+                                                         * on PULSE) */
     if(PAGES[i].fam==FAM_ARP&&te==ENGI_FORM)return 0;    /* (FORM 2) no arpeggio on FORM: its ARP slots are its GENES */
     if (PAGES[i].graph == GR_PATS_ || PAGES[i].graph == GR_CHANCE_)   /* (0.6.37) PHRASES, a step's CHANCE: out of the */
         return FELUCCA_PHRASES && !ui.home && ui.page == i;   /* SEQ pages' cycle (only where code put the screen;

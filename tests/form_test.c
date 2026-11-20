@@ -50,6 +50,8 @@ int main(void)
             setup(0); TSEL->p[C[k].id] = C[k].v; play(yb);
             OK(dlt(ya, yb) > 0.1, "%s changes the sound (%.3f)", C[k].nm, dlt(ya, yb));
         }
+        setup(0); play(ya); setup(0); cru_v[0] = 100; play(yb); cru_v[0] = 0;   /* (BYTE 0.16) CRUSH, on PULSE */
+        OK(dlt(ya, yb) > 0.1, "CRUSH changes the sound (%.3f)", dlt(ya, yb));
         static const struct { const char *nm; unsigned id; int16_t v; } CB[] = {{"DEF B", P_E5, 0}, {"OCT B", P_E7, 3}, {"RATE B", P_SLEN, 3}};
         for (unsigned k = 0; k < NELEM(CB); k++) {
             setup(0); TSEL->p[P_E2] = 127; play(ya);
