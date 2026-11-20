@@ -446,7 +446,9 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
  /* (byte-cpu-light) The overload guard tripped (voice.c load_tight): one state, the nearer, not both. A SONG's FORM is
   * one held voice the guard never sheds, and A to B is twice its work: a jump to the nearer state, not a reset. */
  if(load_tight){if(morph<64u)bm=a;else am=b;}
- uint32_t masks[2][4],cached_cycle=~0u,rateq=A->rate*(127u-morph)+B->rate*morph;
+ uint32_t masks[2][4],cached_cycle=~0u,rateq=(morph<64u?A->rate:B->rate)*127u;   /* (BYTE 0.16, the owner: "FORM out of time")
+                                                         * the nearer state's rate, whole: A at 4 and B at 1 made 2.5 steps a
+                                                         * beat at the middle, off the grid */
  if(rate>=10u){static const uint16_t RQ[7]={8128,4064,2032,1016,508,254,127};rateq=RQ[rate-10u];rate=7;}   /* (BYTE 0.16) RATE
                                                          * absolute: 4 .. 1/16 steps a beat (127 x 16 a step a beat at 1/16) */
  int32_t dxq=(int32_t)f1_dx[MC_CPU()&1u]*192,fus=(int32_t)f1_dx[MC_CPU()&1u];   /* (FUSION: the formula's share in the drums, to

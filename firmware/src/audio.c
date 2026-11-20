@@ -124,6 +124,19 @@ static __attribute__((noinline)) void shed_voice(void)
     if (best) {
         voice_kill(best);
         shed_count++;
+        return;
+    }
+    for (p = NPART; p-- > 0;) {                         /* (BYTE 0.16) nothing to shed (each part one held voice, MATH,
+                                                         * FORM) and the audio still late: the last part sounding paused a
+                                                         * second (mix_part: its voices faded), else the ISR never lets
+                                                         * the main loop run and the watchdog resets the device */
+        for (i = 0; i < NVOICE && !trk[p].v[i].active; i++) {}
+        if (i < NVOICE && !((cpu_pause >> p) & 1u)) {
+            cpu_pause |= (uint8_t)(1u << p);
+            cpu_pause_until = audio_halves + (uint32_t)FS / HALF_FRAMES;
+            shed_count++;
+            return;
+        }
     }
 }
 
@@ -160,6 +173,8 @@ void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) 
         uac_render_end();                               /* (0.8.9) the half's 48 kHz resampling: to core 1, off the render */
 #endif
         audio_halves++;
+        if (cpu_pause && (int32_t)(audio_halves - cpu_pause_until) >= 0)
+            cpu_pause = 0;                              /* (BYTE 0.16) a second on: the paused part back */
         us = shed_check(fm1_ticks() - t0);
         if (us > audio_max_us)
             audio_max_us = us;

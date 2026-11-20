@@ -824,6 +824,9 @@ enum { VH_OFF, VH_IN, VH_RE, VH_ON, VH_OUT };           /* a voice's rate: full;
                                                          * state a sample on first, RE: as it is); half; back to full */
 static uint8_t rel_hurry[NTRK];                         /* (eng_fm6.c reads it) */
 static uint8_t vh_wait, vh_held;                        /* blocks tripped; bit p: part p's held voices at half */
+static volatile uint8_t cpu_pause;                     /* (BYTE 0.16) bit p: part p paused, the audio late and no voice to
+                                                         * shed (audio.c shed_voice): silent a second, not the device reset */
+static volatile uint32_t cpu_pause_until;
 static uint8_t vh_quart;                                /* (V10.7.56) bit p: part p's FM6 voices at a quarter of the rate
                                                          * (every part's held voices already at half and still over) */
 static int32_t vh_c[NTRK * NVOICE] __attribute__((section(".pool")));   /* a voice: VH_* (bits 0..2), its last sample at
@@ -1162,7 +1165,8 @@ static __attribute__((noinline)) void voice_soft(void)
     else if (VPOL_ON() && load_tight && dear == NPART && ++vh_wait >= HALF_WAIT / 8u) {   /* (V10.7.56) every held voice that
                                                          * can at half, still over: FM6 down to a quarter, part by part */
         for (p = 0; p < NPART; p++)
-            if (0 && !((vh_quart >> p) & 1u)) {           /* (JIANT BYTE: FM6 retired: its synthesis out of the image) */
+            if (!((vh_quart >> p) & 1u) && ENGINES[trk[p].engine % NENGINES]->half == 2u && trk[p].v[0].active) {   /* (BYTE 0.16: FORM, its
+                                                         * own quarter rate; FM6 retired) */
                 vh_quart |= (uint8_t)(1u << p);
                 break;
             }

@@ -2703,7 +2703,8 @@ static inline __attribute__((always_inline)) void mix_part(track_t *t, uint32_t 
 {
     uint32_t i, c1 = MC_CPU() & 1u;                     /* (0.6.71) on the second core: its own buffers */
     int32_t *b = c1 ? c1_buf : part_buf;
-    if ((uint32_t)(t - trk) >= trk_live) {              /* (0.6.18) TRACKS 4: asleep, nothing rendered. (0.6.19) Its
+    if ((uint32_t)(t - trk) >= trk_live || ((cpu_pause >> ((uint32_t)(t - trk) % NTRK)) & 1u)) {   /* (BYTE 0.16: or paused, the
+                                                         * CPU full) (0.6.18) TRACKS 4: asleep, nothing rendered. (0.6.19) Its
                                                          * voices first fade out over a block (voice_kill: they were
                                                          * cut at once, a click), its mute let go (perform.c) */
         uint32_t k, on = 0;

@@ -2628,6 +2628,16 @@ static void scale_link(void)
 static void ui_input_frame(void);
 static void ui_input(void)
 {
+    static uint8_t cpu_seen;                            /* (BYTE 0.16) the CPU full, a part paused: said once */
+    if (cpu_pause != cpu_seen) {
+        uint32_t p;
+        for (p = 0; p < NPART && !(((cpu_pause & ~cpu_seen) >> p) & 1u); p++) {}
+        if (p < NPART) {
+            char b[4] = {'T', (char)('1' + p), 0, 0};
+            ui_say("CPU FULL: PAUSED ", b);
+        }
+        cpu_seen = cpu_pause;
+    }
     ui_input_frame();
     eu_tick();                                          /* (V10.16) EUCLID's MUTATE, on the bar */
     scale_link();                                       /* (JIANT 0.4) one scale for every melodic track (after the
