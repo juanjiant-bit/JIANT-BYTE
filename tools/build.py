@@ -194,7 +194,10 @@ def build_loader():
 HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0", "perf_begin", "perf_pre", "perf_block", "perf_master", "slicer_bus",
            "dly_lo", "dly_grain", "dly_grain_adv", "dly_wow_adv", "dly_line_clear", "dly_rate", "fx_rest",
            "rev_run", "rev_idle", "rev_room", "rev_spring", "rev_cloud", "rev_shimmer",   # (as JIANT FM V10.7.56: rev_spring_side and rev_room_mod from flash, fx.c calls them through a register: the room)
-           "rev_reso", "cho_admit", "dist_shape", "dist_amp")
+           "rev_reso", "cho_admit", "dist_shape", "dist_amp",
+           # (BYTE 0.16, CPU) master_out, run a sample, out of flash (the FM-1's cache misses, not the host's). Tried
+           # with voice_half, f1_drum, fvm_music_env too: past the region or under the 2 KiB headroom
+           "master_out")
 
 
 def share_strings(ir, keep=()):
