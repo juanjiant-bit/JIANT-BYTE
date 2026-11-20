@@ -126,7 +126,18 @@ static void wave_note_on(track_t *t, voice_t *v)
     v->s[6] = v->s[7] = 0;
 }
 
-static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
+static __attribute__((noinline)) void wave_fm_read(const int16_t *ta, const fvm_prog_t *pa, const fvm_env_t *ea,
+                                                   fvm_scratch_t *sc, uint32_t c, uint32_t *y, int post)
+{
+    uint32_t k = MC_CPU() & 1u, *Wm = fl_wt[k][0], *Tm = fl_wt[k][1];   /* (formula_life.c: a core's, not the stack's) */
+    fvm_env_t em = *ea;                              /* (its LIFE after: on the moved phase too) */
+    if (fl.on && fl.link_amt && c <= FVM_BLK && fl_fm(ea, c, Wm, Tm)) { em.arr[FA_W] = Wm; if (ea->arr[FA_T]) em.arr[FA_T] = Tm; }
+    wt_read(ta, em.arr[FA_W], c, y);
+    if (post) fl_post(pa, &em, sc, c, y);
+}
+#define WAVE_CH FVM_BLK                               /* (BYTE 0.16) a part's samples: the block in two, its arrays half
+                                                         * the stack (the audio's interrupt overflowed its 8 KB on the FM-1) */
+static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m, uint32_t o0)
 {
     const int16_t *p = t->p;
     uint32_t tr = (uint32_t)(t - trk) % NTRK, i, u;
@@ -139,11 +150,11 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     uint32_t inc = pitch_inc(clamp(m->pitch16, 0, 2047)), nu = det ? 3u : 1u, need_b = mix || warp == WW_FM;
     const fvm_prog_t *pa, *pb;
     const int16_t *ta, *tb;
-    uint32_t W[LOFI_N], T[LOFI_N], ya[LOFI_N], yb[LOFI_N];
-    int32_t acc[LOFI_N];
+    uint32_t W[WAVE_CH], T[WAVE_CH], ya[WAVE_CH], yb[WAVE_CH];
+    int32_t acc[WAVE_CH];
     fvm_env_t ea = {{T, W, 0, 0, 0}, {0}, &v->s[6]}, eb = {{T, W, 0, 0, 0}, {0}, &v->s[7]};
-    if (n > LOFI_N)
-        n = LOFI_N;
+    if (n > WAVE_CH)
+        n = WAVE_CH;
     if (!wave_prg_b[tr].ins)
         fvm_prog_init(&wave_prg_b[tr], wave_ins_b[tr], 32u);
     pa = wave_prog(lofi_slot(tr), &lofi_prg_id[tr], fa, wk);
@@ -170,7 +181,7 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
         tb = 0;                                      /* (B exact: its table would need the pool's headroom) */
     }
     {
-        uint32_t posa[LOFI_N];                       /* POS per sample (CAOS moves it): the formula reads A a block,
+        uint32_t posa[WAVE_CH];                       /* POS per sample (CAOS moves it): the formula reads A a block,
                                                       * so a CAOS block splits in runs of FVM_BLK at its first value */
         for (i = 0; i < n; i++)
             posa[i] = (uint32_t)acc[i], acc[i] = 0;
@@ -211,10 +222,8 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
                             W[o + k] = (W[o + k] + (uint32_t)(((int32_t)yb[o + k] * (int32_t)amt) >> 7)) & 0xFFFFu;
                 }
                 if (ta) {
-                    uint32_t Wm[FVM_BLK], Tm[FVM_BLK];       /* (BYTE 0.16) LIFE LINK's cross-FM on the table's read too */
-                    fvm_env_t em = ea;                       /* (its LIFE after: on the moved phase too) */
-                    if (fl.on && fl.link_amt && c <= FVM_BLK && fl_fm(&ea, c, Wm, Tm)) { em.arr[FA_W] = Wm; if (ea.arr[FA_T]) em.arr[FA_T] = Tm; }
-                    wt_read(ta, em.arr[FA_W], c, ya + o); if (!u) fl_post(pa, &em, &wk->s, c, ya + o);
+                    wave_fm_read(ta, pa, &ea, &wk->s, c, ya + o, !u);   /* (BYTE 0.16) LIFE LINK's cross-FM on the
+                                                     * table's read too, out of line: its copies off this frame */
                 }
                 else (u ? fvm_run : formula_run)(pa, &ea, &wk->s, c, ya + o);
             }
@@ -233,7 +242,7 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
             s += sine_i(sp) * (int32_t)sub >> 8;
             v->s[3] = (int32_t)(sp + (inc >> 1));
         }
-        out[i] += voice_amp(soft_knee(s >> 1, 16000) << 1, m, i);
+        out[i] += voice_amp(soft_knee(s >> 1, 16000) << 1, m, i + o0);
     }
     v->s[2] = (int32_t)((uint32_t)v->s[2] + n);
 }
@@ -259,6 +268,11 @@ static const preset_t WAVE_PRESETS[] = {
 static const uint8_t WAVE_ORDER[] = {1, 2, 3, 4, 6, 7, 5, 0};
 _Static_assert(sizeof WAVE_ORDER == NELEM(WAVE_PRESETS), "WAVE's browsing order: every preset once");
 
+static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
+{
+    for (uint32_t o = 0; o < n; o += WAVE_CH)
+        wave_part(t, v, out + o, n - o < WAVE_CH ? n - o : WAVE_CH, m, o);
+}
 static const engine_t ENG_WAVE = {
     .name = "WAVE",
     .page_title = {"WAVE", "OSC B"},

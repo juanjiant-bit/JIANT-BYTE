@@ -190,6 +190,7 @@ static __attribute__((noinline)) int32_t f1_drop_bass(uint32_t id, uint32_t beat
  * taking a little of it, coherent") a state its own family and tuning (not its domain's four), and src, the funcbeat's
  * sample now, in each drum by dx (Q15): the kick's phase bent by it, the snare's and the hat's noise the formula with
  * random signs (its loudness, the noise's brightness) */
+static int32_t f1_rh[NTRK],f1_rl[NTRK];   /* (BYTE 0.16) the formulas' last sample, held; the one before (the line) */
 static uint8_t f1_dx[2],f1_kit[2],f1_grv[2];            /* (DRUMS page: FUSION Q7, KIT, GROOVE; a core's; FORM 3's f1_view) */
 /* (BYTE 0.16) KIT BIT: the first drums, 8-bit, a state's family and tuning */
 static __attribute__((noinline)) int32_t f1_drum_bit(uint32_t state,uint32_t lane,uint32_t age,uint32_t tick,uint32_t samples,int32_t color,uint32_t seed,int32_t src,int32_t dx){
@@ -479,7 +480,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
  uint32_t mrest=0,cacc=0,cslide=0,cbt=0,clr=32;
  /* (BYTE 0.16, CPU) a side's constants out of the sample loop; its bass and chords every other sample (their next
   * value a sample ahead, the one between the two's mean: a linear half rate, no state across blocks), the lead full */
- uint32_t sdom[2],svo[2],scnt[2];int32_t slc[2],bpe[2]={0},bne[2]={0},cpe[2]={0},cne[2]={0};
+ uint32_t sdom[2],svo[2],scnt[2],ti=(uint32_t)(t-trk)%NTRK;int32_t slc[2];
  for(uint32_t side=0;side<2u;side++){uint32_t id=side?bm:am;sdom[side]=f1_dom(domain,F1_STATE[id].domain);slc[side]=clamp(color+fc+(int32_t)F1_STATE[id].color-64,0,127);
   svo[side]=F1_STATE[id].voices;scnt[side]=F1P(P_CHRD)?(uint32_t)clamp((int32_t)svo[side],1,4):1u;}
  for(uint32_t i=0;i<n;i++,tick+=hs){
@@ -509,11 +510,15 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
   uint32_t dstep=beat>>14,dfrac=(beat&16383u)<<2;
   if(step!=event_step){event_age=f1_event(masks[0][0],masks[1][0],step,0,morph,density,seed,&event_level);event_step=step;}
   int32_t age=(int32_t)(((uint64_t)((uint32_t)event_age+frac)*rag)>>16),env=fvm_music_env(age,65536u);env=mrest?0:mulq15(env,event_level);
+  int32_t raw;
+  if(!(i&1u)){   /* (BYTE 0.16, the FM-1's measure: FORM alone 830 us of a 2.9 ms half) the formulas every other sample, the
+                  * one between their line (after the loop's own: a sample late), the drums every sample (the hats' top) */
+  uint32_t hs2=hs<<1;
   int32_t cb=0;
   if(cdom>=F1D_WOBBLE){                                   /* (FORM 2) the character bass, once a sample */
    int32_t ce=32767-(int32_t)(frac>>1);
-   if(cslide)v->ph[2]+=(uint32_t)(((int32_t)(cbt-v->ph[2]))>>5);
-   cb=f1_cbass(v,cdom,tick,(beat*clr)<<12,step,ce,tone,cacc,hs);
+   if(cslide)v->ph[2]+=(uint32_t)(((int32_t)(cbt-v->ph[2]))>>4);
+   cb=f1_cbass(v,cdom,tick,(beat*clr)<<12,step,ce,tone,cacc,hs2);
    cb=cdom==F1D_ACID?(mrest?0:mulq15(cb,8192+(ce*3>>2))):mulq15(cb,32767-(int32_t)(frac>>4));
   }
   int32_t sources[2]={0};uint32_t ids[2]={am,bm};
@@ -530,10 +535,8 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
    int32_t localcolor=slc[side];
    uint32_t voices=svo[side],count=scnt[side];
    int32_t lead=f1_wave(id,mt,ii,(uint32_t)age,localcolor,seed),bass,ch;
-   if(i&1u||!i){uint32_t m2=i?mt+hs:mt;int32_t b2=id>=18&&id<F1_N1?f1_drop_bass(id,beat,m2*(bi/2u),localcolor):f1_wave(id,m2,bi,beat&65535u,localcolor/2,seed),c2=0;
-    if(voices>1){for(uint32_t k=0;k<count;k++)c2+=f1_wave(id,m2,cd[k],beat&0x3ffffu,localcolor,seed);c2=(c2*RCOUNT[count])>>14;}
-    if(i){bne[side]=b2;cne[side]=c2;bass=(bpe[side]+b2)>>1;ch=(cpe[side]+c2)>>1;}else{bpe[side]=bass=b2;cpe[side]=ch=c2;}}
-   else{bpe[side]=bass=bne[side];cpe[side]=ch=cne[side];}
+   bass=id>=18&&id<F1_N1?f1_drop_bass(id,beat,mt*(bi/2u),localcolor):f1_wave(id,mt,bi,beat&65535u,localcolor/2,seed);ch=0;
+   if(voices>1){for(uint32_t k=0;k<count;k++)ch+=f1_wave(id,mt,cd[k],beat&0x3ffffu,localcolor,seed);ch=(ch*RCOUNT[count])>>14;}
    int32_t x=mulq15(mulq15(lead,env),sec0)/2+mulq15(mulq15(ch,chenv),sec1)/2;
    if(voices>1&&(id<18||id>=F1_N1)&&dom<F1D_WOBBLE)x+=mulq15(bass,32767-(int32_t)(beat&65535u)/2)/3;
    if(dom==1){uint32_t mask=255u-(uint32_t)localcolor;int32_t bits=((x+32768)>>8)&255;x=((bits^(int32_t)((step+seed)&mask))*256-32768);}
@@ -541,12 +544,15 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
    else if(dom==4){int32_t bits=(int32_t)(((tick*(mi>>16))^(tick>>5))&255u)*256-32768;x=(x*3+mulq15(bits,lead))/4;}
    if(id>=18&&id<F1_N1)x=x/2+bass;else if(dom>=F1D_WOBBLE)x=x/2+cb;
    x=soft_knee(x,26000);uint32_t slot=side;
-   if(dom==3||id==4||id==12||id==17){int32_t fb=v->s[2+slot]/4;int32_t u=soft_knee(x+fb,26000),coef=clamp((2500+localcolor*120)*(int32_t)hs,0,32000);v->s[slot]+=mulq15(u-v->s[slot],coef);v->s[2+slot]=v->s[slot];x=id==12?(x-v->s[slot])/2:v->s[slot];}
+   if(dom==3||id==4||id==12||id==17){int32_t fb=v->s[2+slot]/4;int32_t u=soft_knee(x+fb,26000),coef=clamp((2500+localcolor*120)*(int32_t)hs2,0,32000);v->s[slot]+=mulq15(u-v->s[slot],coef);v->s[2+slot]=v->s[slot];x=id==12?(x-v->s[slot])/2:v->s[slot];}
    sources[side]=x;
   }
   if(am==bm)sources[1]=sources[0];
   {int32_t w=(int32_t)morph,e=w*(127-w)/48;                 /* (the mix: equal power, ~+3 dB at the middle, no dip) */
-   tonal[i]=(f1_mix(sources[0],sources[1],morph)*(127+e))>>7;}   /* (no clamp: soft_knee below; its bound folded was a ROM-looking constant) */
+   raw=(f1_mix(sources[0],sources[1],morph)*(127+e))>>7;}   /* (no clamp: soft_knee below; its bound folded was a ROM-looking constant) */
+  f1_rh[ti]=raw;
+  } else raw=f1_rh[ti];
+  tonal[i]=(raw+f1_rl[ti])>>1;f1_rl[ti]=raw;   /* (held a sample, then the two's mean: a line between the formulas' samples) */
   if(drive)tonal[i]=softclip((tonal[i]*(16+(int32_t)drive*2))>>4);
   if(fus&&v->kenv)tonal[i]=mulq15(tonal[i],32767-((v->kenv*fus*155)>>15));   /* (FUSION: the kick pumps it) */
   if(soft){v->lp+=((tonal[i]-v->lp)*(256-soft))>>8;tonal[i]=v->lp;}   /* (BYTE 0.16) SOFT */   /* (FORM 2) DRIVE: the sum (the sub inside it) */

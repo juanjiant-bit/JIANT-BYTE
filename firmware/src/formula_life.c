@@ -327,13 +327,20 @@ static __attribute__((noinline)) int fl_fm(const fvm_env_t*e,uint32_t n,uint32_t
     }
     return 1;
 }
+/* (BYTE 0.16) LINK's moved phase and time, a core's: not on the audio's stack (in the interrupt's, 8 KB: the FM-1
+ * crashed past it with two 128 B arrays more a call deep) */
+static uint32_t fl_wt[2][2][FVM_BLK];
+static __attribute__((noinline)) void fl_run_fm(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,uint32_t n,uint32_t*out,uint32_t*W,uint32_t*T)
+{
+    fvm_env_t en=*e;en.arr[FA_W]=W;if(e->arr[FA_T])en.arr[FA_T]=T;
+    fvm_run(p,&en,sc,n,out);
+    fl_post(p,&en,sc,n,out);
+}
 static __attribute__((noinline)) void fl_run(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,uint32_t n,uint32_t*out)
 {
-    uint32_t W[FVM_BLK],T[FVM_BLK];
+    uint32_t c=MC_CPU()&1u,*W=fl_wt[c][0],*T=fl_wt[c][1];
     if(fl.on&&fl.link_amt&&n<=FVM_BLK&&fl_fm(e,n,W,T)){   /* (the caller's arrays untouched: its own copy moved) */
-        fvm_env_t en=*e;en.arr[FA_W]=W;if(e->arr[FA_T])en.arr[FA_T]=T;
-        fvm_run(p,&en,sc,n,out);
-        fl_post(p,&en,sc,n,out);
+        fl_run_fm(p,e,sc,n,out,W,T);
         return;
     }
     fvm_run(p,e,sc,n,out);
