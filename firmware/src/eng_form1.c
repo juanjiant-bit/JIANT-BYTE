@@ -192,7 +192,7 @@ static uint8_t f1_dx[2],f1_kit[2],f1_grv[2];            /* (DRUMS page: FUSION Q
 /* (BYTE 0.16) KIT BIT: the first drums, 8-bit, a state's family and tuning */
 static __attribute__((noinline)) int32_t f1_drum_bit(uint32_t state,uint32_t lane,uint32_t age,uint32_t tick,uint32_t samples,int32_t color,uint32_t seed,int32_t src,int32_t dx){
  uint32_t dom=F1_STATE[state].domain,family=((dom==1u?3u:dom==2u?2u:dom==3u?0u:1u)+state*3u)&3u,tun=(state*5u)%7u;
- uint32_t duration=lane==0?32768u:lane==1?24576u:4096u+(uint32_t)color*48u;
+ uint32_t duration=lane==0?20480u:lane==1?24576u:4096u+(uint32_t)color*48u;
  int32_t env=fvm_music_env((int32_t)age,duration);if(!env)return 0;
  uint32_t ns=(uint32_t)(umul64(age,samples)>>16),phase;
  int32_t noise=(int32_t)(fvm_hash(tick+seed*977u+state*1297u)>>16)-32768,y,fx=mulq15(src,dx);
@@ -227,7 +227,7 @@ static __attribute__((noinline)) int32_t f1_drum_bit(uint32_t state,uint32_t lan
  * time from the hit in samples, each envelope (T/(ns+T))^2: no division but one a drum. The formula in them by dx
  * (FUSION): the kick's phase bent by it, the noise made of it. A state its tuning (tun) */
 typedef struct{uint16_t fe,q,tau,td,dr;} f1_kick_t;   /* end Hz, sweep turns Q14, its tau, decay T, drive Q4 */
-static const f1_kick_t F1_KICK[3]={{46,53000,1300,9000,22},{55,40000,500,5200,30},{41,62000,1500,12000,40}};
+static const f1_kick_t F1_KICK[3]={{46,53000,1300,2600,22},{55,40000,500,1500,30},{41,62000,1500,3500,40}};   /* (BYTE 0.16: decay T a quarter, its envelope ^4: over by the next step, ~250 ms 808, 150 909) */
 static __attribute__((noinline)) int32_t f1_drum(uint32_t kit,uint32_t state,uint32_t lane,uint32_t age,uint32_t tick,uint32_t samples,int32_t color,uint32_t seed,int32_t src,int32_t dx){
  if(kit>=3u)return f1_drum_bit(state,lane,age,tick,samples,color,seed,src,dx);
  uint32_t ns=(uint32_t)(umul64(age,samples)>>16),tun=(state*5u)%7u;
@@ -236,12 +236,12 @@ static __attribute__((noinline)) int32_t f1_drum(uint32_t kit,uint32_t state,uin
  if(ns>65535u)return 0;
  if(lane==0){
   const f1_kick_t*K=&F1_KICK[kit];
-  uint32_t T=K->td+(uint32_t)color*24u;if(ns>T*10u)return 0;
-  uint32_t r=(T<<15)/(ns+T);e=(int32_t)((r*r)>>15);
+  uint32_t T=K->td+(uint32_t)color*8u;if(ns>T*6u)return 0;
+  uint32_t r=(T<<15)/(ns+T);e=(int32_t)((r*r)>>15);e=(int32_t)(((int64_t)e*e)>>15);
   uint32_t ph=ns*((uint32_t)(K->fe+tun*2u)*97391u)+((ns*K->q/(ns+K->tau))<<18)+(uint32_t)(fx<<14);
   y=sine_i(ph);
   if(kit==1u&&ns<120u)y+=(int32_t)(120u-ns)*noise/160;   /* (909: the click) */
-  y=softclip((y*K->dr)>>4);
+  y=softclip((y*K->dr*45/32)>>4);   /* (BYTE 0.16: +3 dB into its drive, the shorter kick's punch) */
  }else if(lane==1){
   uint32_t T=kit==1u?2600u:kit==2u?4200u:3400u,r=(T<<15)/(ns+T),rb=(1100u<<15)/(ns+1100u);
   if(ns>T*10u)return 0;
@@ -554,7 +554,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
    int32_t ha=dl?f1_drum(kit,kit<3u&&morph>=64u?bm:am,lane,(uint32_t)da,tick,samples,color,seed,tonal[i],dxq):0;
    int32_t hb=am==bm||kit<3u?ha:dl?f1_drum(kit,bm,lane,(uint32_t)da,tick,samples,color,seed,tonal[i],dxq):0;
    int32_t hit=f1_mix(ha,hb,morph);
-   ds+=mulq15(hit,dl)>>(lane==2);
+   ds+=lane==0?mulq15(hit,dl):lane==1?mulq15(hit,dl)*13/8:mulq15(hit,dl);   /* (BYTE 0.16: snare +4 dB, hats +6: the three heard) */
    if(fus&&lane<2u){int32_t ev=dl&&da<32768?mulq15(32767-da,dl):0;if(lane)v->senv=(int16_t)ev;else v->kenv=(int16_t)ev;}   /* (FUSION: the hit's envelope, ~a half beat) */
   }
   drum_step=dstep;

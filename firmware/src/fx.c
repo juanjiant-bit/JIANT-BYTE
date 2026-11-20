@@ -1861,6 +1861,31 @@ static void rev_clear(void)
     rev_line_clear(CL_LEN);
 }
 
+/* (BYTE 0.16) a light limiter on every part, the engine's output before its LEVEL and effects: no part louder than
+ * -3 dB of full scale, whatever its engine. The block's peak sets the gain (one division a block, not a sample), the
+ * gain ramped across the block from the last one (no step, no click); it falls at once and rises back in ~100 ms */
+#define PL_TH 23197                                     /* (-3 dBFS) */
+static int32_t pl_g[NTRK];                              /* Q15; 0 = never limited (full) */
+static void part_limit(uint32_t ti, int32_t *b, uint32_t n)
+{
+    int32_t pk = 0, g0 = pl_g[ti] ? pl_g[ti] : 32767, g1;
+    for (uint32_t i = 0; i < n; i++) {
+        int32_t a = b[i] < 0 ? -b[i] : b[i];
+        if (a > pk) pk = a;
+    }
+    g1 = g0 + ((32767 - g0) >> 7);                      /* (the release: 1/128 a block, ~100 ms) */
+    if (pk > PL_TH) {
+        int32_t gd = (int32_t)(((uint32_t)PL_TH << 15) / (uint32_t)pk);
+        if (gd < g1) g1 = gd;
+    }
+    pl_g[ti] = g1;
+    if (g0 >= 32767 && g1 >= 32767) return;              /* (under the threshold: nothing to do) */
+    int32_t dg = (g1 - g0) / (int32_t)(n ? n : 1u), g = g0;
+    for (uint32_t i = 0; i < n; i++) {
+        g += dg;
+        b[i] = (int32_t)(((int64_t)b[i] * g) >> 15);
+    }
+}
 static int32_t part_buf[CTL];                            /* a part's block (mix_part); the fade of a model change */
 static int32_t c1_buf[CTL];                              /* (0.6.71) the second core's part_buf (mix_part) */
 
@@ -2726,6 +2751,7 @@ static inline __attribute__((always_inline)) void mix_part(track_t *t, uint32_t 
      * input is heard where an INPUT track takes it (eng_input.c) */
     int uin = uin_on && fx_stems == 2u && !ain_any && (uint32_t)(t - trk) + 1u == trk_live;
     if (track_render(t, b, n)) {
+        part_limit((uint32_t)(t - trk) % NTRK, b, n);
         t->tail = (uint8_t)(512u / CTL);
         xm_put((uint32_t)(t - trk), b, n);              /* (JIANT BYTE) its output for the formulas' O1 .. O6 */
     }                                                   /* (tail: blocks of DIST state to run out after the last voice) */

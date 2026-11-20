@@ -732,7 +732,7 @@ static int vh_always(const track_t *t)               /* (a formula with state, U
 }
 #define VH_ALWAYS(t) vh_always(t)
 #ifndef FORM_QUART
-#define FORM_QUART 1u
+#define FORM_QUART 0u                                  /* (11 kHz dulled the hats 5x: FORM at 22 kHz, its quarter the guard's) */
 #endif
 #ifndef FORM_HALF
 #define FORM_HALF 1u
