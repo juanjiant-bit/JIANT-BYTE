@@ -164,9 +164,10 @@ int main(void)
         }
     }
     /* (JIANT BYTE) ANIMAL, WEST and VOICE retired: their sections gone */
-    for (i = 0; i < 5u; i++) {                          /* (JIANT BYTE) FORM playing (its song: the transport's voice):
+    for (i = 0; i < 6u; i++) {                          /* (JIANT BYTE) FORM playing (its song: the transport's voice):
                                                          * A alone, A to B (MORPH 64), DENSITY 127, a chord; LIFE 100 too */
-        static const char *const FN[5] = {"eng/FORM.A", "eng/FORM.AB", "eng/FORM.A.life", "eng/FORM.AB.life", "eng/FORM.AB.tight"};
+        static const char *const FN[6] = {"eng/FORM.A", "eng/FORM.AB", "eng/FORM.A.life", "eng/FORM.AB.life", "eng/FORM.AB.tight",
+                                          "eng/FORM.AB.drums"};   /* (BYTE 0.16: DRUMS LEVEL FUSION 127, KIT BIT: two drums a lane) */
         uint32_t k;
         int16_t l0 = life_v[0];
         vg_quiet();
@@ -174,6 +175,7 @@ int main(void)
         trk[0].p[P_E0] = 2; trk[0].p[P_E1] = 7; trk[0].p[P_E2] = (int16_t)(i & 1u ? 64 : 0);
         trk[0].p[P_E5] = 1; trk[0].p[P_E7] = 1;   /* (FORM 3: RATE x1, RUN SONG) */
         if (i == 4u) trk[0].p[P_E2] = 64;
+        if (i == 5u) { trk[0].p[P_E2] = 64; trk[0].p[P_DETUNE] = 127; trk[0].p[P_MORPH] = 127; trk[0].p[P_CSTR] = 3; trk[0].p[P_DXIMG] = 2; }
         if (i == 2u || i == 3u) life_v[0] = 100;
         load_tight = i == 4u;                       /* (the overload guard tripped: one state) */
         transport_req = 1; ui_input();

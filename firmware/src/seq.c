@@ -3198,7 +3198,7 @@ static __attribute__((noinline)) int func_song_tick(track_t*t)
             if(t->seq_n&&t->seq_notes[0]!=root)seq_release(t);
             for(uint32_t k=0;k<NVOICE;k++)active|=t->v[k].active&&t->v[k].gate&&t->v[k].note==root;
             if(!active&&!t->xp_n&&!t->p[P_MUTE]&&trk_index(t)<trk_live){seq_note_on(t,root,110);t->seq_notes[0]=(uint8_t)root;t->seq_n=1;t->seq_hold=1;}
-            func_song_mask|=(uint8_t)bit;t->seq_idx=(uint16_t)((lofi_sync(&active)>>11)%(uint32_t)t->p[P_SLEN]);
+            func_song_mask|=(uint8_t)bit;t->seq_idx=(uint16_t)((lofi_sync(&active)>>11)%(t->eng_req==ENGI_FORM?16u:(uint32_t)clamp(t->p[P_SLEN],1,256)));   /* (FORM: P_SLEN its RATE B, 0 AUTO) */
         }
         return 1;
     }

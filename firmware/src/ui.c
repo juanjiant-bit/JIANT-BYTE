@@ -1709,6 +1709,11 @@ static void set_engine_of(track_t *t, uint32_t ei)
     fm1_irq_off();
     if (e == &ENG_DRUM)                               /* (V10.6r) DRUM-X: the EXTENDED key map (a kit's load keeps it) */
         t->p[P_DKEYMODE] = 1;
+    if (t->eng_req == ENGI_FORM && e != &ENG_FORM)     /* (BYTE 0.16) out of FORM: the slots it owned (RATE B in the
+                                                         * pattern's LEN, DRUMS in UNISON ..) back to their own defaults */
+        for (i = 0; i < P_COUNT; i++)
+            if (form_owned_param(i) && TP[i].label)
+                t->p[i] = TP[i].def;
     t->eng_req = (uint8_t)(ei % NENGINES);
     for (i = 0; i < 8u; i++)
         t->p[P_E0 + i] = e->edit[i].def;

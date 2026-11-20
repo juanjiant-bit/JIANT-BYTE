@@ -31,7 +31,8 @@ static const char *const FORM_PROGN[]={"STATE","AXIS","VAMP IV","ANDALUZ","II-V-
 static const char *const FORM_CRATE[]={"1/4","1/2","1","2","4",0};      /* a chord's length in bars (P_ARATE) */
 static const char *const FORM_NOTES[]={"ROOT","UP","DOWN","PEND","RANDOM","WALK","BASS",0};   /* what w is (P_AORDER) */
 static const char *const FORM_OCT[]={"-1","0","+1","+2",0};             /* (OCT A, OCT B: P_E6, P_E7) */
-static const char *const FORM_RATE[]={"1/2","1","2","4",0};             /* the formulas' time (P_E5) */
+static const char *const FORM_RATE[]={"AUTO","1/16","1/8","1/4","1/2","1 BAR","2 BAR","4 BAR",0};   /* (BYTE 0.16) a step's
+                                                         * length: AUTO the state's own, then absolute, to FORM 1's slowest */
 static const char *const FORM_RUN[]={"NOTE","SONG",0};
 typedef struct{int8_t d[12];int32_t n;} form_scale_t;
 static void form_scale(const track_t*t,form_scale_t*sc)  /* the part's scale as degrees (chromatic or few: natural minor) */
@@ -53,12 +54,13 @@ static void form_roman(const form_scale_t*sc,int32_t d,char*b)
  if(fi<7)str_cpy(b+str_len(b),"o",8-str_len(b));
 }
 /* ---- the engine's pages: FORM (FORMULA A, FORMULA B, MORPH, DEFORM A), DEFORM (DEFORM B, RATE, SWING, RUN), HARMONY ---- */
-static int form_owned_param(uint32_t id){return id==P_AGATE||id==P_ARATE||id==P_AORDER||id==P_LRTRG||id==P_SDIV||id==P_SLEN||id==P_KEY||id==P_DETUNE||id==P_CHRD||id==P_CVOI||id==P_CAOS||id==P_ASWING||id==P_APROB;}
+static int form_owned_param(uint32_t id){return id==P_MORPH||id==P_CSTR||id==P_DXIMG||id==P_AGATE||id==P_ARATE||id==P_AORDER||id==P_LRTRG||id==P_SDIV||id==P_SLEN||id==P_KEY||id==P_DETUNE||id==P_CHRD||id==P_CVOI||id==P_CAOS||id==P_ASWING||id==P_APROB;}
 /* MOTION: an equation a side moving its DEF (DEPTH how far, SPEED its time x1/2 .. x4), drawn as written */
 static const char *const FORM_MOTION[]={"OFF","sin(P/4)","tri(P/2)","P/4%1","1-T","(t>>11)&7","(t>>9^t>>12)&15","rnd(s)","sin(P)*sin(P/3)","abs(sin(P*3))","sqr(P/2)","s*5%7",0};
 #define FORM_NMOT 12u
 static const char *const FORM_STYLE[]={"FUNC","WOBBLE","REESE","GROWL","RING","SCREECH","ACID",0};   /* (funcbeat alone) */
 static const uint8_t FORM_STYLE_DOM[7]={0,5,6,7,8,9,10};
+static const char *const FORM_KIT[]={"808","909","FLOAT","BIT",0},*const FORM_GROOVE[]={"STATE","FOUR","BREAK","SPARSE",0};   /* (BYTE 0.16) DRUMS */
 static const char *const FORM_SPEED[]={"1/2","1","2","4",0};
 /* a MOTION's value (Q15, -1 .. 1) at the beats pq (Q16), the step s, its age T (Q16) */
 static int32_t form_motion(uint32_t k,uint32_t pq,uint32_t s,uint32_t T)
@@ -81,11 +83,11 @@ static int32_t form_motion(uint32_t k,uint32_t pq,uint32_t s,uint32_t T)
 }
 static const param_desc_t *form_common_desc(uint32_t id){
  static const param_desc_t prog={"PROG",F_ENUM,0,FORM_NPROG-1,0,FORM_PROGN},crate={"LENGTH",F_ENUM,0,4,2,FORM_CRATE},
-  notes={"NOTES",F_ENUM,0,6,0,FORM_NOTES},run={"RUN",F_ENUM,0,1,1,FORM_RUN},ra={"RATE A",F_ENUM,0,3,1,FORM_RATE},rb={"RATE B",F_ENUM,0,3,1,FORM_RATE},
+  notes={"NOTES",F_ENUM,0,6,0,FORM_NOTES},run={"RUN",F_ENUM,0,1,1,FORM_RUN},ra={"RATE A",F_ENUM,0,7,0,FORM_RATE},rb={"RATE B",F_ENUM,0,7,0,FORM_RATE},
   hits={"HITS",F_INT,1,16,16,0},rot={"ROTATE",F_INT,0,15,0,0},voi={"VOICING",F_ENUM,0,7,0,F1_VOICE};
  static const param_desc_t ma={"MOD A",F_ENUM,0,FORM_NMOT-1,1,FORM_MOTION},mb={"MOD B",F_ENUM,0,FORM_NMOT-1,0,FORM_MOTION},dep={"DEPTH",F_PCT,0,127,24,0},
-  spd={"SPEED",F_ENUM,0,3,1,FORM_SPEED},swg={"SWING",F_PCT,0,100,0,0};
- return id==P_AGATE?&prog:id==P_ARATE?&crate:id==P_LRTRG?&run:id==P_SDIV?&ra:id==P_SLEN?&rb:id==P_KEY?&hits:id==P_DETUNE?&swg:id==P_CVOI?&voi:
+  spd={"SPEED",F_ENUM,0,3,1,FORM_SPEED},swg={"LEVEL",F_PCT,0,127,0,0},fus={"FUSION",F_PCT,0,127,0,0},kit={"KIT",F_ENUM,0,3,0,FORM_KIT},grv={"GROOVE",F_ENUM,0,3,0,FORM_GROOVE};
+ return id==P_AGATE?&prog:id==P_ARATE?&crate:id==P_LRTRG?&run:id==P_SDIV?&ra:id==P_SLEN?&rb:id==P_KEY?&hits:id==P_DETUNE?&swg:id==P_MORPH?&fus:id==P_CSTR?&kit:id==P_DXIMG?&grv:id==P_CVOI?&voi:
         id==P_CAOS?&ma:id==P_ASWING?&mb:id==P_APROB?&dep:id==P_AORDER?&spd:0;
 }
 /* the presets: A B MORPH SWING, DEF A DEF B OCT A OCT B; the PROG, LENGTH, NOTES; RATE A RATE B HITS ROTATE (FP: the
@@ -94,8 +96,8 @@ static const param_desc_t *form_common_desc(uint32_t id){
   MODS(P_AGATE,(prog)+1,P_ARATE,cr,P_AORDER,nt,P_LRTRG,1,P_SDIV,ra,P_SLEN,rb,P_KEY,hi,P_DETUNE,ro)}
 /* FORM 1's: its state to the next, its sends, its own progression (STATE) */
 #define FSTATE(label,a,b,echo,space,ch,vo) {label,{a,b,0,0,64,64,1,1},{0,0,127,24},0,TAG(FX),FX(0,24,echo,space),0,\
-  MODS(P_AGATE,0,P_ARATE,2,P_AORDER,1,P_LRTRG,1,P_SDIV,1,P_SLEN,1,P_KEY,16,P_DETUNE,0,P_CHRD,ch,P_CVOI,vo,P_CAOS,1,P_ASWING,0,P_APROB,24)}
-#define FP(label,tag,a,b,m,da,db,sw,prog,cr,nt,oc) FQ(label,tag,a,b,m,da,db,sw,prog,cr,nt,oc,oc,1,1,16,0)
+  MODS(P_AGATE,0,P_ARATE,2,P_AORDER,1,P_LRTRG,1,P_SDIV,0,P_SLEN,0,P_KEY,16,P_DETUNE,0,P_MORPH,0,P_CSTR,0,P_DXIMG,0,P_CHRD,ch,P_CVOI,vo,P_CAOS,1,P_ASWING,0,P_APROB,24)}
+#define FP(label,tag,a,b,m,da,db,sw,prog,cr,nt,oc) FQ(label,tag,a,b,m,da,db,sw,prog,cr,nt,oc,oc,0,0,16,0)
 static const preset_t FORM_PRESETS[]={
  FSTATE("01 SCORE",0,1,10,20,1,0), FSTATE("02 TIME RULE",1,2,0,5,1,0), FSTATE("03 COUNTER",2,3,72,45,1,0),
  FSTATE("04 FIVE PART",3,4,40,25,1,0), FSTATE("05 TUNED MEM",4,5,100,60,1,0), FSTATE("06 SWITCH",5,6,0,8,1,0),
@@ -123,7 +125,7 @@ static void form_dice(track_t*t,uint32_t comp_only)
  if(!comp_only){
   p[P_E0]=form_rnd(F1_N);p[P_E1]=form_rnd(3u)?form_rnd(F1_N):p[P_E0];
   p[P_E3]=form_rnd(2u)?0:(int16_t)(1+form_rnd(6u));p[P_DETUNE]=form_rnd(3u)?0:form_rnd(50u);p[P_E6]=(int16_t)(form_rnd(3u));p[P_E7]=(int16_t)(form_rnd(3u));
-  p[P_SDIV]=form_rnd(4u)?1:form_rnd(4u);p[P_SLEN]=form_rnd(4u)?1:form_rnd(4u);p[P_LRTRG]=1;
+  p[P_SDIV]=form_rnd(3u)?0:(int16_t)form_rnd(8u);p[P_SLEN]=form_rnd(3u)?0:(int16_t)form_rnd(8u);p[P_LRTRG]=1;
  }
  p[P_AGATE]=form_rnd(FORM_NPROG);p[P_ARATE]=(int16_t)(1+form_rnd(4u));p[P_AORDER]=form_rnd(7u);
  p[P_KEY]=form_rnd(2u)?16:(int16_t)(3+form_rnd(11u));p[P_CAOS]=form_rnd(FORM_NMOT);p[P_ASWING]=form_rnd(FORM_NMOT);p[P_APROB]=form_rnd(80u);p[P_AORDER]=form_rnd(4u);p[P_CHRD]=(int16_t)(1+form_rnd(11u));p[P_CVOI]=form_rnd(8u);
@@ -139,14 +141,15 @@ static void form_note_on(track_t*t,voice_t*v){
  * its DIV, LENGTH its CYCLE, PROG its family (STATE: its own), the state's own DRIVE WOBBLE TONE CHORD VOICING */
 static void f1_view(const track_t*t,int16_t*q,uint32_t a,uint32_t b,uint32_t morph,uint32_t def,uint32_t oct,uint32_t rate)
 {
- static const uint8_t PR[]={0,1,3,4,2,7,2,6,3,0,0,5,8,0},DV[4]={1,2,3,3},CY[5]={8,16,32,64,64};
+ static const uint8_t PR[]={0,1,3,4,2,7,2,6,3,0,0,5,8,0},CY[5]={8,16,32,64,64},CX[8]={1,1,1,2,4,8,16,32};
  const uint8_t*x=F1_XTRA[a%36u];
  uint32_t pr=(uint32_t)clamp(t->p[P_AGATE],0,FORM_NPROG-1);
  memcpy(q,t->p,P_COUNT*sizeof *q);
  q[P_E0]=(int16_t)a;q[P_E1]=(int16_t)b;q[P_E2]=(int16_t)morph;q[P_E3]=(int16_t)def;q[P_E4]=0;q[P_E5]=100;q[P_E6]=0;q[P_E7]=64;
- q[P_CAOS]=FORM_STYLE_DOM[clamp(t->p[P_E3],0,6)];q[P_ASWING]=x[0];q[P_ARATE]=x[1];q[P_APROB]=x[2];q[P_KEY]=100;q[P_DETUNE]=24;   /* (CHORD, VOICING: the part's own, P_CHRD P_CVOI) */
- q[P_AORDER]=pr==FORM_NPROG-1u?5:0;q[P_AGATE]=PR[pr<sizeof PR?pr:0];q[P_AOCT]=(int16_t)oct;q[P_SDIV]=DV[rate&3u];
- q[P_SLEN]=CY[clamp(t->p[P_ARATE],0,4)];q[P_SSWING]=t->p[P_DETUNE];
+ q[P_CAOS]=FORM_STYLE_DOM[clamp(t->p[P_E3],0,6)];q[P_ASWING]=x[0];q[P_ARATE]=x[1];q[P_APROB]=x[2];q[P_KEY]=(int16_t)clamp(t->p[P_DETUNE],0,127);q[P_DETUNE]=24;f1_dx[MC_CPU()&1u]=(uint8_t)clamp(t->p[P_MORPH],0,127);f1_kit[MC_CPU()&1u]=(uint8_t)clamp(t->p[P_CSTR],0,3);f1_grv[MC_CPU()&1u]=(uint8_t)clamp(t->p[P_DXIMG],0,3);   /* (BYTE 0.16)
+                                                         * DRUMS: their level, and the formula in them */   /* (CHORD, VOICING: the part's own, P_CHRD P_CVOI) */
+ q[P_AORDER]=pr==FORM_NPROG-1u?5:0;q[P_AGATE]=PR[pr<sizeof PR?pr:0];q[P_AOCT]=(int16_t)oct;q[P_SDIV]=(int16_t)(rate&7u?9u+(rate&7u):2u);
+ q[P_SLEN]=(int16_t)clamp(CY[clamp(t->p[P_ARATE],0,4)]*CX[rate&7u],8,64);q[P_SSWING]=0;   /* (slow: the cycle as long, to 64 beats) */
 }
 /* a formula's program: A in the part's own slot (lofi_slot: MATH's), B in its second (WAVE's B); compiled when it changes */
 static const uint8_t FORM_CRB[5]={1,2,4,8,16};          /* CHORD RATE in beats */
@@ -196,17 +199,18 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  if(n>CTL)n=CTL;if(!n)return;
  /* the song's step (16ths, SWING's pair split: the gate's, the panel's) */
  pos=func_song(t)?func_clock_begin:(uint32_t)(((uint64_t)v->ph[0]<<16)/bl);
- uint32_t q0=pos<<2,pair=q0&0x1FFFFu,split=65536u+(uint32_t)clamp(t->p[P_DETUNE],0,100)*218u,sb=((q0>>17)<<1)+(pair<split?0u:1u);
+ uint32_t q0=pos<<2,pair=q0&0x1FFFFu,split=65536u,sb=((q0>>17)<<1)+(pair<split?0u:1u);
  /* the states: one (MORPH at an end, or A = B) or both, by FORM 1's own MORPH, the one that composes; DEF its COLOR, OCT
   * its melody's octave, RATE its DIV (B's at MORPH 127) */
  {
   uint32_t one=morph==0u||a==b?1u:morph==127u?2u:0u,f=one==2u?b:a,sd=one==2u;
   int16_t q[P_COUNT];const int16_t*keep=f1_p[MC_CPU()&1u];
-  uint32_t pm=(pos<<(uint32_t)clamp(t->p[P_AORDER],0,3))>>1,T=(pair<split?pair*65536u/split:(pair-split)*65536u/(131072u-split))&0xFFFFu,dep=(uint32_t)clamp(t->p[P_APROB],0,127);
+  static const uint8_t MSH[8]={0,0,0,0,1,2,3,4};          /* (a slow RATE: MOTION as slow) */
+  uint32_t pm=(pos<<(uint32_t)clamp(t->p[P_AORDER],0,3))>>(1u+MSH[clamp(t->p[sd?P_SLEN:P_SDIV],0,7)]),T=(pair<split?pair*65536u/split:(pair-split)*65536u/(131072u-split))&0xFFFFu,dep=(uint32_t)clamp(t->p[P_APROB],0,127);
   int32_t da=clamp(t->p[P_E4]+(int32_t)((form_motion((uint32_t)clamp(t->p[P_CAOS],0,FORM_NMOT-1),pm,sb,T)*(int32_t)dep)>>15),0,127);
   int32_t db=clamp(t->p[P_E5]+(int32_t)((form_motion((uint32_t)clamp(t->p[P_ASWING],0,FORM_NMOT-1),pm,sb,T)*(int32_t)dep)>>15),0,127);
   form_mot[0]=(uint8_t)da;form_mot[1]=(uint8_t)db;          /* (the panel's) */
-  f1_view(t,q,f,one?f:b,one?0u:morph,(uint32_t)(one==2u?db:one?da:da+((db-da)*(int32_t)morph)/127),(uint32_t)clamp(t->p[sd?P_E7:P_E6],0,3),(uint32_t)clamp(t->p[sd?P_SLEN:P_SDIV],0,3));
+  f1_view(t,q,f,one?f:b,one?0u:morph,(uint32_t)(one==2u?db:one?da:da+((db-da)*(int32_t)morph)/127),(uint32_t)clamp(t->p[sd?P_E7:P_E6],0,3),(uint32_t)clamp(t->p[sd?P_SLEN:P_SDIV],0,7));
   f1_p[MC_CPU()&1u]=q;f1_st[tr].note=v->note;f1_render(t,&f1_st[tr],YA,n,m);f1_p[MC_CPU()&1u]=keep;
   for(i=0;i<n;i++)YB[i]=YA[i];
  }

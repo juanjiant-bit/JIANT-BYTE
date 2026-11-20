@@ -4,7 +4,8 @@
  * whole composition (melody, roots, drums, its equation's timbre, its arrangement), FORM A / FORM B's first 36. Its
  * parameters read from the view f1_p (FORM 3's controls mapped onto FORM 1's: eng_form.c f1_view), its state its own
  * (f1_vs_t, a part's: not the voice's, FORM 3's) */
-typedef struct{int32_t s[8];uint32_t ph[3];int16_t xo[2];uint8_t note;} f1_vs_t;   /* (xo: each side's last sample, the other's modulator) */
+typedef struct{int32_t s[8];uint32_t ph[3];int32_t lp;int16_t kenv,senv;uint8_t note;} f1_vs_t;   /* (lp: SOFT's low-pass; kenv senv:
+                                                         * the kick's and the snare's hit, FUSION's, a block late) */
 static const int16_t *f1_p[2];                           /* (a core's view of the part's parameters, its render's) */
 #define F1P(x) (f1_p[MC_CPU()&1u][x])
 /* STYLE FUNC: every state as funcbeat (its character bass its own); a character chosen: that one */
@@ -183,23 +184,30 @@ static __attribute__((noinline)) int32_t f1_drop_bass(uint32_t id, uint32_t beat
 }
 /* Four percussion equation families share a bounded event age, but not a fixed
  * recorded hit or a single common drum timbre. Morph evaluates only A/B. */
-static __attribute__((noinline)) int32_t f1_drum(uint32_t state,uint32_t lane,uint32_t age,uint32_t tick,uint32_t samples,int32_t color,uint32_t seed){
- uint32_t dom=F1_STATE[state].domain,family=dom==1u?3u:dom==2u?2u:dom==3u?0u:1u;
+/* (BYTE 0.16, the owner: "the drums not always the same; DRUMS an amount whose formula meets the funcbeat's, each drum
+ * taking a little of it, coherent") a state its own family and tuning (not its domain's four), and src, the funcbeat's
+ * sample now, in each drum by dx (Q15): the kick's phase bent by it, the snare's and the hat's noise the formula with
+ * random signs (its loudness, the noise's brightness) */
+static uint8_t f1_dx[2],f1_kit[2],f1_grv[2];            /* (DRUMS page: FUSION Q7, KIT, GROOVE; a core's; FORM 3's f1_view) */
+/* (BYTE 0.16) KIT BIT: the first drums, 8-bit, a state's family and tuning */
+static __attribute__((noinline)) int32_t f1_drum_bit(uint32_t state,uint32_t lane,uint32_t age,uint32_t tick,uint32_t samples,int32_t color,uint32_t seed,int32_t src,int32_t dx){
+ uint32_t dom=F1_STATE[state].domain,family=((dom==1u?3u:dom==2u?2u:dom==3u?0u:1u)+state*3u)&3u,tun=(state*5u)%7u;
  uint32_t duration=lane==0?32768u:lane==1?24576u:4096u+(uint32_t)color*48u;
  int32_t env=fvm_music_env((int32_t)age,duration);if(!env)return 0;
  uint32_t ns=(uint32_t)(umul64(age,samples)>>16),phase;
- int32_t noise=(int32_t)(fvm_hash(tick+seed*977u+state*1297u)>>16)-32768,y;
+ int32_t noise=(int32_t)(fvm_hash(tick+seed*977u+state*1297u)>>16)-32768,y,fx=mulq15(src,dx);
+ noise+=mulq15((noise<0?-fx:fx)-noise,dx);               /* (the noise: the formula's, its signs at random) */
  if(lane==0){
   /* 12-turn reciprocal sweep: 32-bit division, bounded to <1/16384 turn
    * quantization, replacing the costly 64-bit division in a generic helper. */
   uint32_t sweep=(ns*49152u/(ns+900u))<<18;
-  phase=ns*pitch_inc((uint32_t)(31+color/32)*16u)+sweep;
+  phase=ns*pitch_inc((uint32_t)(29+(int32_t)tun+color/32)*16u)+sweep+(uint32_t)(fx<<14);   /* (its phase bent by the formula) */
   if(family==0)y=sine_i(phase);
   else if(family==1)y=sine_i(phase+(uint32_t)(sine_i(phase*3u)*(color+8)*96));
   else if(family==2)y=(sine_i(phase)*3+f1_tri(phase))/4;
   else y=softclip(f1_tri(phase)*(1+color/32));
  }else if(lane==1){
-  phase=ns*pitch_inc((uint32_t)(50+color/16)*16u);
+  phase=ns*pitch_inc((uint32_t)(47+(int32_t)tun*2+color/16)*16u);
   if(family==0)y=noise*3/5+sine_i(phase)/3;
   else if(family==1){int32_t clap=age<8192u?32767-(int32_t)(age&2047u)*16:32767-(int32_t)(age-8192u);y=mulq15(noise,clap)*3/4+sine_i(phase)/5;}
   else if(family==2)y=(mulq15(sine_i(phase*7u),sine_i(phase*11u))+noise)/2;
@@ -209,8 +217,52 @@ static __attribute__((noinline)) int32_t f1_drum(uint32_t state,uint32_t lane,ui
   else if(family==1)y=(noise+mulq15(sine_i(tick*193827485u),sine_i(tick*317829103u)))/3;
   else if(family==2)y=(sine_i(tick*193827485u)+sine_i(tick*317829103u)+sine_i(tick*231847011u))/4;
   else y=((int32_t)(((ns*31u)^(ns>>2)^(ns*17u))&255u)-128)*128;
+  y+=mulq15(noise-y,dx>>1);                              /* (the formula's noise: its signs at random, bright) */
  }
  return mulq15(clamp(y,-32767,32767),env);
+}
+/* (BYTE 0.16, the owner: "the drums lack power, very 8-bit; floatbeat can do much more") the kits 808 909 FLOAT, full
+ * resolution: the kick a sine falling (a reciprocal sweep, 32-bit) to its sub, saturated, 909's click; the snare two
+ * sines and the noise (FLOAT: a clap, three bursts and the tail); the hats six squares (the metal) and the noise. Their
+ * time from the hit in samples, each envelope (T/(ns+T))^2: no division but one a drum. The formula in them by dx
+ * (FUSION): the kick's phase bent by it, the noise made of it. A state its tuning (tun) */
+typedef struct{uint16_t fe,q,tau,td,dr;} f1_kick_t;   /* end Hz, sweep turns Q14, its tau, decay T, drive Q4 */
+static const f1_kick_t F1_KICK[3]={{46,53000,1300,9000,22},{55,40000,500,5200,30},{41,62000,1500,12000,40}};
+static __attribute__((noinline)) int32_t f1_drum(uint32_t kit,uint32_t state,uint32_t lane,uint32_t age,uint32_t tick,uint32_t samples,int32_t color,uint32_t seed,int32_t src,int32_t dx){
+ if(kit>=3u)return f1_drum_bit(state,lane,age,tick,samples,color,seed,src,dx);
+ uint32_t ns=(uint32_t)(umul64(age,samples)>>16),tun=(state*5u)%7u;
+ int32_t noise=(int32_t)(fvm_hash(tick+seed*977u+state*1297u)>>16)-32768,y,fx=mulq15(src,dx),e;
+ noise+=mulq15((noise<0?-fx:fx)-noise,dx);               /* (the noise: the formula's, its signs at random) */
+ if(ns>65535u)return 0;
+ if(lane==0){
+  const f1_kick_t*K=&F1_KICK[kit];
+  uint32_t T=K->td+(uint32_t)color*24u;if(ns>T*10u)return 0;
+  uint32_t r=(T<<15)/(ns+T);e=(int32_t)((r*r)>>15);
+  uint32_t ph=ns*((uint32_t)(K->fe+tun*2u)*97391u)+((ns*K->q/(ns+K->tau))<<18)+(uint32_t)(fx<<14);
+  y=sine_i(ph);
+  if(kit==1u&&ns<120u)y+=(int32_t)(120u-ns)*noise/160;   /* (909: the click) */
+  y=softclip((y*K->dr)>>4);
+ }else if(lane==1){
+  uint32_t T=kit==1u?2600u:kit==2u?4200u:3400u,r=(T<<15)/(ns+T),rb=(1100u<<15)/(ns+1100u);
+  if(ns>T*10u)return 0;
+  e=(int32_t)((r*r)>>15);int32_t eb=(int32_t)((rb*rb)>>15);
+  uint32_t f0=(kit==1u?196u:180u)+tun*6u,ph=ns*(f0*97391u)+((ns*6000u/(ns+400u))<<18);
+  int32_t body=(sine_i(ph)+sine_i(ph*11u/6u)/2)*2/3;
+  if(kit==2u){                                            /* (FLOAT: the clap: three bursts, ~10 ms apart, then the tail) */
+   uint32_t b=ns<1350u?ns%450u:ns-1350u;int32_t ce=ns<1350u?32767-(int32_t)b*60:(int32_t)((((3000u<<15)/(b+3000u))*((3000u<<15)/(b+3000u)))>>15);
+   y=mulq15(noise,clamp(ce,0,32767))+mulq15(body,eb)/4;e=32767;
+  }else y=mulq15(body,eb)*(kit==1u?2:3)/4+mulq15(noise,e)*(kit==1u?3:2)/4,e=32767;
+  y=softclip((y*24)>>4);
+ }else{
+  uint32_t T=kit==2u?2400u+(uint32_t)color*40u:900u+(uint32_t)color*12u,r=(T<<15)/(ns+T);
+  if(ns>T*10u)return 0;
+  e=(int32_t)((r*r)>>15);
+  static const uint16_t HF[6]={2053,3044,3696,5227,5400,8000};   /* (the metal: 808's six, x10 Hz) */
+  int32_t m=0;for(uint32_t k=0;k<6u;k++)m+=((int32_t)(ns*((uint32_t)HF[k]*9739u))>>31)|1;
+  y=m*3000+noise*(kit==1u?2:1)/3;
+  y=y*2/3;
+ }
+ return mulq15(clamp(y,-32767,32767),e);
 }
 
 static uint32_t f1_rot(uint32_t mask,uint32_t r){r&=15u;return ((mask<<r)|(mask>>(16u-r)))&65535u;}
@@ -218,6 +270,18 @@ static uint32_t f1_pattern(uint32_t mask,uint32_t groove,uint32_t seed,uint32_t 
  switch(groove){case 1:mask=0x4925u;break;case 2:mask^=0x0444u;break;case 3:mask|=0x1249u;break;case 4:{uint32_t r=0;for(uint32_t k=0;k<16;k++)r=(r<<1)|((mask>>k)&1u);mask=r;break;}case 5:mask&=0x5555u;break;case 6:mask|=f1_rot(mask,1);break;case 7:mask=f1_rot(mask,cycle&7u);break;}
  return f1_rot(mask,seed&15u);
 }
+/* (BYTE 0.16) a state its own groove: the common four-on-the-floor's kick a push of its own, the snare a ghost by chance,
+ * the hats one of eight figures (the downbeat kept) */
+static uint32_t f1_vary(uint32_t mask,uint32_t lane,uint32_t state){
+ static const uint16_t KADD[8]={0,0x0080u,0x0400u,0x2000u,0x0020u,0x8000u,0x0200u,0x0008u},HAT[8]={0,0xAAAAu,0xFFFFu,0xEEEEu,0xB6DBu,0x5555u,0xDDDDu,0xA5A5u};
+ uint32_t h=fvm_hash(state*7919u+lane*31u+1u)>>8;
+ if(!mask)return 0;
+ if(lane==1u)return mask|KADD[h&7u];
+ if(lane==2u)return mask|((h>>3)&1u?1u<<(((h>>4)&3u)*4u+3u):0u);
+ return HAT[(h>>6)&7u]?HAT[(h>>6)&7u]:mask;
+}
+/* (BYTE 0.16) GROOVE: the state's own (0), FOUR, BREAK, SPARSE: kick, snare, hats (a bit a step, the downbeat bit 0) */
+static const uint16_t F1_GRV[3][3]={{0x1111u,0x1010u,0xAAAAu},{0x0405u,0x9090u,0xFFFFu},{0x0101u,0x1000u,0x4444u}};
 /* Return the age and continuously weighted onset of the latest event in a bar.
  * A/B masks coexist at intermediate weights; density adds/removes events with
  * a short continuous amplitude margin, not random toggles per audio block. */
@@ -360,6 +424,9 @@ static __attribute__((noinline)) void f1_life(track_t*t,f1_vs_t*v,uint32_t a,uin
  (void)t;
 }
 static volatile uint8_t load_tight;              /* (voice.c: the overload guard tripped) */
+/* (BYTE 0.16, the owner: "a few formulas still harsh") the measured harsh states' low-pass (256 - its coefficient, Q8;
+ * 0 none): 27 BITPACK, 06 SWITCH, 16 MASK SONG (a third of their energy over 4 kHz), 11 BIT MORPH, 15 BIT GROOVE */
+static const uint8_t F1_SOFT[F1_N]={[5]=150,[10]=90,[14]=90,[15]=150,[26]=150};
 static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,uint32_t n,const vmod_t*m)
 {
  if(n>CTL)n=CTL;if(!n)return;
@@ -371,7 +438,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
  uint32_t samples=(uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300),tick=v->ph[0],pos,end;
  if(func_song(t)){pos=func_clock_begin;end=func_clock_end;}else{pos=(uint32_t)(((uint64_t)tick<<16)/samples);end=(uint32_t)(((uint64_t)(tick+n*hs)<<16)/samples);}
  uint32_t dpos=(end-pos)/n,rem=(end-pos)%n,carry=0;
- static const uint8_t RATE_N[]={1,2,4,8,3,6,1,1,1,1},RATE_D[]={4,4,4,4,4,4,8,16,32,64};uint32_t rate=(uint32_t)clamp(F1P(P_SDIV),0,9),cycle=(uint32_t)clamp(F1P(P_SLEN),1,64),last=0xffffffffu,mi=0,bi=0,ci[4]={0};
+ static const uint8_t RATE_N[]={1,2,4,8,3,6,1,1,1,1},RATE_D[]={4,4,4,4,4,4,8,16,32,64};uint32_t rate=(uint32_t)clamp(F1P(P_SDIV),0,16),cycle=(uint32_t)clamp(F1P(P_SLEN),1,64),last=0xffffffffu,mi=0,bi=0,ci[4]={0};
  int32_t tonal[CTL],drums[CTL];uint32_t lastinc=pitch_inc((uint32_t)clamp(v->note,24,96)*16u);
  v->s[5]+=(F1P(P_E2)*256-v->s[5])/4;v->s[6]+=(F1P(P_E3)*256-v->s[6])/4;
  uint32_t morph=(uint32_t)clamp(v->s[5]>>8,0,127);int32_t color=clamp((v->s[6]>>8)+(m->shape>>8)-64,0,127);
@@ -380,6 +447,15 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
   * one held voice the guard never sheds, and A to B is twice its work: a jump to the nearer state, not a reset. */
  if(load_tight){if(morph<64u)bm=a;else am=b;}
  uint32_t masks[2][4],cached_cycle=~0u,rateq=A->rate*(127u-morph)+B->rate*morph;
+ if(rate>=10u){static const uint16_t RQ[7]={8128,4064,2032,1016,508,254,127};rateq=RQ[rate-10u];rate=7;}   /* (BYTE 0.16) RATE
+                                                         * absolute: 4 .. 1/16 steps a beat (127 x 16 a step a beat at 1/16) */
+ int32_t dxq=(int32_t)f1_dx[MC_CPU()&1u]*192,fus=(int32_t)f1_dx[MC_CPU()&1u];   /* (FUSION: the formula's share in the drums, to
+                                                         * ~75 %; the drums' in the formula) */
+ uint32_t kit=f1_kit[MC_CPU()&1u]&3u,grv=f1_grv[MC_CPU()&1u]&3u,kq=0;
+ int32_t wm=(int32_t)(morph*(127u-morph))>>5,gq=0;            /* (the MORPH's depth, most at the middle) */
+ int32_t fk=0,fc=fus?(v->senv*fus)>>16:0;                      /* (FUSION, a block's: the kick's push, the snare's COLOR) */
+ if(fus){uint32_t k0=lastinc?0x7FFFFFFFu/((lastinc>>1)|1u):0u;fk=(int32_t)(((int64_t)v->kenv*fus*(int32_t)k0)>>24);}
+ int32_t soft=(int32_t)(F1_SOFT[am]*(127u-morph)+F1_SOFT[bm]*morph)/127;   /* (SOFT: the harsh states' low-pass, 0 none) */
  uint32_t event_step=~0u,drum_step=~0u;int32_t event_age=0,event_level=0,drum_age[3]={0},drum_level[3]={0};
  int32_t pitchroot=m->pitch16/16+F1P(P_ROOT)-12;
  int32_t swing=clamp(F1P(P_SSWING),0,100)*160;uint32_t split=32768u+(uint32_t)swing;
@@ -400,7 +476,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
  for(uint32_t i=0;i<n;i++,tick+=hs){
   uint32_t beat=(pm*RATE_N[rate])>>RATE_S[rate],section=(uint32_t)(((uint64_t)pm*rcy)>>32);
   uint32_t cyc=cyq,swingpos=beat&65535u;
-  if(cached_cycle!=cyc){for(uint32_t side=0;side<2;side++){const f1_state_t*st=side?B:A;uint32_t raw[4]={st->gate,st->kick,st->snare,st->hat};for(uint32_t k=0;k<4;k++)masks[side][k]=f1_pattern(raw[k],groove,seed,cyc);}cached_cycle=cyc;event_step=drum_step=~0u;}
+  if(cached_cycle!=cyc){for(uint32_t side=0;side<2;side++){const f1_state_t*st=side?B:A;uint32_t raw[4]={st->gate,st->kick,st->snare,st->hat};for(uint32_t k=0;k<4;k++)masks[side][k]=f1_pattern(!k?raw[k]:grv?F1_GRV[grv-1u][k-1u]:f1_vary(raw[k],k,side?bm:am),grv?0u:groove,grv?0u:seed,cyc);}cached_cycle=cyc;event_step=drum_step=~0u;}
   if(swingpos<split)swingpos=(swingpos*recip1)>>16;else swingpos=32768u+(((swingpos-split)*recip2)>>16);beat=(beat&0xffff0000u)|swingpos;
   uint32_t clock=(uint32_t)((beat*rateq)/127u),step=clock>>16,frac=clock&65535u,sectionn=section>>13;
   if(cyc!=mcyc||sectionn!=msec){   /* (byte-cpu-light) the mutation and the three layers' sections: once a section */
@@ -414,7 +490,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
    uint32_t hm=fvm_hash(step*2654435761u^cyc*977u^seed)>>25,hp=fvm_hash(sectionn*40503u^cyc*131u^seed)>>25;
    uint32_t sid=morph==127u||(morph&&hm<morph)?b:a,rid=morph==127u||(morph&&hp<morph)?b:a;
    f1_step_t fs;f1_step(t,sid,rid,step,sectionn,cyc,seed,mutation,pitchroot,&fs);
-   mi=fs.mi;bi=fs.bi;for(uint32_t k=0;k<4u;k++)ci[k]=fs.ci[k];
+   mi=fs.mi;bi=fs.bi;kq=mi?0x7FFFFFFFu/((mi>>1)|1u):0u;gq=(int32_t)(((int64_t)wm*(int32_t)kq)>>12);   /* (the morph's depth, a step's) */for(uint32_t k=0;k<4u;k++)ci[k]=fs.ci[k];
    for(uint32_t k=0;k<4u;k++)cd[k]=ci[k]+(ci[k]>>15)*(uint32_t)(k*F1P(P_DETUNE)/8);   /* (byte-cpu-light: once a step) */
    mrest=fs.rest;cacc=fs.acc;cslide=fs.slide;cbt=fs.cb;if(!cslide||!v->ph[2])v->ph[2]=cbt;
    clr=wob==0?8u:wob==1?16u:wob==2?32u:wob==3?48u:wob==4?64u:wob==5?(uint32_t)"\x10\x20\x40\x30"[(step^(step>>3|step>>6))&3u]:
@@ -434,11 +510,14 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
   int32_t sources[2]={0};uint32_t ids[2]={am,bm};
   /* (FORM 3) the MORPH of the formulas, not of the level: each side's phase moved by the other's last sample (B on A
    * as MORPH goes up, A on B as it comes down; half a turn at most), its equation bent into a timbre of both */
-  uint32_t kq=mi?0x7FFFFFFFu/((mi>>1)|1u):0u;
-  int32_t pmo[2]={(int32_t)(((int64_t)v->xo[1]*(int32_t)morph*(int32_t)kq)>>21),(int32_t)(((int64_t)v->xo[0]*(int32_t)(127u-morph)*(int32_t)kq)>>21)};
+  /* (BYTE 0.16, the owner: "the MORPH's middle is noise, whatever the pair") A and B each other's modulator, a sample
+   * late, fed back: chaos. Now one way: A dry, B's phase moved by A's sample now (the same note: harmonics only), most
+   * at the middle (morph (127 - morph), a quarter turn at most), none at the ends. FUSION: the kick's hit pushes both
+   * sides' phase, the snare's their COLOR */
   for(uint32_t side=0;side<(am==bm?1u:2u);side++){
-   uint32_t id=ids[side],dom=f1_dom(domain,F1_STATE[id].domain),mt=am==bm?tick:tick+(uint32_t)pmo[side],ii=mi;
-   int32_t localcolor=clamp(color+(int32_t)F1_STATE[id].color-64,0,127);
+   uint32_t id=ids[side],dom=f1_dom(domain,F1_STATE[id].domain),mt=tick+(uint32_t)fk,ii=mi;
+   if(side)mt+=(uint32_t)((sources[0]*gq)>>11);
+   int32_t localcolor=clamp(color+fc+(int32_t)F1_STATE[id].color-64,0,127);
    uint32_t voices=F1_STATE[id].voices;
    int32_t lead=f1_wave(id,mt,ii,(uint32_t)age,localcolor,seed),bass=id>=18&&id<F1_N1?f1_drop_bass(id,beat,mt*(bi/2u),localcolor):f1_wave(id,mt,bi,beat&65535u,localcolor/2,seed),ch=0;
    uint32_t count=F1P(P_CHRD)? (uint32_t)clamp(voices,1,4):1u;
@@ -452,12 +531,14 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
    if(id>=18&&id<F1_N1)x=x/2+bass;else if(dom>=F1D_WOBBLE)x=x/2+cb;
    x=soft_knee(x,26000);uint32_t slot=side;
    if(dom==3||id==4||id==12||id==17){int32_t fb=v->s[2+slot]/4;int32_t u=soft_knee(x+fb,26000),coef=clamp((2500+localcolor*120)*(int32_t)hs,0,32000);v->s[slot]+=mulq15(u-v->s[slot],coef);v->s[2+slot]=v->s[slot];x=id==12?(x-v->s[slot])/2:v->s[slot];}
-   sources[side]=x;v->xo[side]=(int16_t)clamp(x,-32767,32767);
+   sources[side]=x;
   }
   if(am==bm)sources[1]=sources[0];
   {int32_t w=(int32_t)morph,e=w*(127-w)/48;                 /* (the mix: equal power, ~+3 dB at the middle, no dip) */
    tonal[i]=(f1_mix(sources[0],sources[1],morph)*(127+e))>>7;}   /* (no clamp: soft_knee below; its bound folded was a ROM-looking constant) */
-  if(drive)tonal[i]=softclip((tonal[i]*(16+(int32_t)drive*2))>>4);   /* (FORM 2) DRIVE: the sum (the sub inside it) */
+  if(drive)tonal[i]=softclip((tonal[i]*(16+(int32_t)drive*2))>>4);
+  if(fus&&v->kenv)tonal[i]=mulq15(tonal[i],32767-((v->kenv*fus*155)>>15));   /* (FUSION: the kick pumps it) */
+  if(soft){v->lp+=((tonal[i]-v->lp)*(256-soft))>>8;tonal[i]=v->lp;}   /* (BYTE 0.16) SOFT */   /* (FORM 2) DRIVE: the sum (the sub inside it) */
   int32_t ds=0;
   for(uint32_t lane=0;lane<3;lane++){
    if(dstep!=drum_step)drum_age[lane]=f1_event(masks[0][lane+1],masks[1][lane+1],dstep,0,morph,density,seed+lane*19u,&drum_level[lane]);
@@ -467,14 +548,16 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
     if(fill&&sectionn==7u&&(dstep&15u)>=12u)dv=lane==2u?4u:lane==1u?2u:dv;
     if(dv>1u)da&=(int32_t)((16384u>>(dv==2u?1u:dv==4u?2u:3u))-1u);
    }
-   int32_t ha=dl?f1_drum(am,lane,(uint32_t)da,tick,samples,color,seed):0;
-   int32_t hb=am==bm?ha:dl?f1_drum(bm,lane,(uint32_t)da,tick,samples,color,seed):0;
+   if(!dmq&&!fus)dl=0;                                    /* (LEVEL and FUSION 0: no drum to make) */
+   int32_t ha=dl?f1_drum(kit,kit<3u&&morph>=64u?bm:am,lane,(uint32_t)da,tick,samples,color,seed,tonal[i],dxq):0;
+   int32_t hb=am==bm||kit<3u?ha:dl?f1_drum(kit,bm,lane,(uint32_t)da,tick,samples,color,seed,tonal[i],dxq):0;
    int32_t hit=f1_mix(ha,hb,morph);
    ds+=mulq15(hit,dl)>>(lane==2);
+   if(fus&&lane<2u){int32_t ev=dl&&da<32768?mulq15(32767-da,dl):0;if(lane)v->senv=(int16_t)ev;else v->kenv=(int16_t)ev;}   /* (FUSION: the hit's envelope, ~a half beat) */
   }
   drum_step=dstep;
   if(riser&&sectionn==7u){int32_t nz=(int32_t)(fvm_hash(tick)>>16)-32768;ds+=mulq15(nz,(int32_t)((section&8191u)<<2))>>1;}   /* (FORM 2, ref 7) */
-  drums[i]=mulq15(mulq15(ds,sec2),dmq);
+  drums[i]=mulq15(mulq15(ds,sec2),dmq)*3;               /* (BYTE 0.16: as loud as the formula at LEVEL 127, soft_knee's) */
   if((mixf&F1X_SIDE)&&drum_level[0]){int32_t da0=(drum_age[0]+(int32_t)dfrac)>>2;tonal[i]=mulq15(tonal[i],9830+mulq15(clamp(da0>>1,0,32767),22937));}   /* (ref 2) */
   {uint32_t d=dpos;carry+=rem;if(carry>=n){carry-=n;d++;}pos+=d;pm+=d;while(pm>=cl){pm-=cl;cyq++;}}
  }

@@ -83,7 +83,7 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                      "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
                                      "CLIP", "PNCH",   /* (JIANT: the master, FX > MASTER) */
                                      "D.TIM", "D.FB", "D.TON", "D.MIX", "R.SIZ", "R.DMP", "C.RAT", "C.DEP", "F.CUT", "LEVEL", "LIFE",
-                                     "PROG", "LENGTH", "CHORD", "DEPTH", "SPEED", "HITS", "SWING"};   /* (FORM 3: HARMONY, PULSE; mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
+                                     "PROG", "LENGTH", "CHORD", "DEPTH", "SPEED", "HITS", "DRUMS"};   /* (FORM 3: HARMONY, PULSE; mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
@@ -829,7 +829,8 @@ static const page_t PAGES[] = {
     {"HARMONY", FAM_EDIT, SC_FORM, GR_NONE, {P_AGATE,P_ARATE,P_CHRD,P_CVOI}},   /* (FORM 3) PROG LENGTH CHORD VOICING */
     {"MOTION", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,P_APROB,P_AORDER}},   /* (FORM 3) MOD A, MOD B: an equation moving each
                                                          * DEF; DEPTH, SPEED */
-    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_SDIV,P_SLEN,P_KEY,P_DETUNE}},   /* (FORM 3) RATE A, RATE B, HITS, SWING */   /* (FORM 3) RATE A, RATE B, the EUCLID gate's HITS ROTATE */   /* (FORM 3) PROGRESS CHORD RATE NOTES OCTAVE (ROOT,
+    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_SDIV,P_SLEN,P_KEY,0xFF}},   /* (BYTE 0.16) RATE A, RATE B, HITS */
+    {"DRUMS", FAM_EDIT, SC_FORM, GR_NONE, {P_DETUNE,P_MORPH,P_CSTR,P_DXIMG}},   /* (BYTE 0.16) LEVEL FUSION KIT GROOVE (FORM's: MORPH and STRUM unused on it) */   /* (FORM 3) RATE A, RATE B, HITS, SWING */   /* (FORM 3) RATE A, RATE B, the EUCLID gate's HITS ROTATE */   /* (FORM 3) PROGRESS CHORD RATE NOTES OCTAVE (ROOT,
                                                          * SCALE: SCL's, the song's) */
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
