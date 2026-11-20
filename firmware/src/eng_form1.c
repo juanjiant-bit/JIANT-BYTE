@@ -564,6 +564,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
   {uint32_t d=dpos;carry+=rem;if(carry>=n){carry-=n;d++;}pos+=d;pm+=d;while(pm>=cl){pm-=cl;cyq++;}}
  }
  f1_life(t,v,a,b,morph,color,lastinc,v->ph[0],tonal,n,hs);
- for(uint32_t i=0;i<n;i++){int32_t x=soft_knee(tonal[i]+drums[i],28000);v->s[4]+=(x-v->s[4])/(int32_t)(512u/hs);x-=v->s[4];out[i]=clamp(x,-32767,32767);}   /* (FORM 3 mixes and levels it) */
+ for(uint32_t i=0;i<n;i++){int32_t x=soft_knee((tonal[i]+drums[i])>>1,16000);v->s[4]+=(x-v->s[4])/(int32_t)(512u/hs);x-=v->s[4];out[i]=clamp(x,-32767,32767);}   /* (FORM 3 mixes and levels it; BYTE 0.16: 6 dB down and a knee that tops at
+                                                                     * 32383, the old one at 28000 went past full scale and clipped hard) */
  v->ph[0]=tick;
 }

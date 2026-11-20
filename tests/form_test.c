@@ -39,7 +39,7 @@ int main(void)
     }
     for (unsigned pr = 0; pr < NELEM(FORM_PRESETS); pr++) {   /* every preset: sounding, bounded */
         setup(pr); play(ya);
-        OK(rms(ya) > 0.02 && peak(ya) < 1.0, "%-10s sounds, bounded: rms %.3f peak %.3f", FORM_PRESETS[pr].name, rms(ya), peak(ya));
+        OK(rms(ya) > 0.01 && peak(ya) < 1.0, "%-10s sounds, bounded: rms %.3f peak %.3f", FORM_PRESETS[pr].name, rms(ya), peak(ya));   /* (BYTE 0.16: FORM 6 dB down, its hard clip gone; -40 dB still "sounds") */
     }
     {   /* each control heard */
         static const struct { const char *nm; unsigned id; int16_t v; } C[] = {
