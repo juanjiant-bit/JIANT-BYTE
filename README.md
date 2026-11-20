@@ -8,9 +8,9 @@ of time.
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 
 ![JIANT BYTE on the FM-1's screen: the power-on, HOME's beings, MATH's formula and raster, WAVE's wire terrain, the
-DRUM-X kit, the mixer](docs/byte-hero.png)
+drum kit, the mixer](docs/byte-hero.png)
 
-> **Status: beta 1, for testing.** Try it in the browser first. On a real FM-1, back up with JIANT FM's editor before
+> **Status: beta (v0.16), for testing.** Try it in the browser first. On a real FM-1, back up with JIANT FM's editor before
 > you install: JIANT BYTE keeps its projects apart from JIANT FM's.
 
 JIANT BYTE is a new synthesizer on the FM-1, built on [JIANT FM](https://github.com/juanjiant-bit/JIANT) V10.7.37
@@ -18,12 +18,19 @@ JIANT BYTE is a new synthesizer on the FM-1, built on [JIANT FM](https://github.
 [SLOOP](https://github.com/isod89/sloop-fm1)). It keeps JIANT FM's foundation (six tracks, the sequencer, songs, MIDI,
 USB, the effects, the updater) and replaces the rest with formulas, from the most tonal and playable to the wildest.
 
-**v0.14: light CPU and FORM 2.** The CPU TEST down from 3254 to 2817 instructions a sample (FORM alone -33 %, the half rate,
-the reverb at 22 kHz, LIFE shed by the guard); FORM composes by layers, from a chord progression to a whole electronic
-beat: 36 states, harmony by the scale's degrees, character basses, a MORPH that composes, a coherent dice.
-[What changed](docs/byte-v014.md) · [FORM's references](docs/FORM-REFERENCIAS.md).
+**v0.16: FORM's drums and DRUM-W.**
+- **FORM** is funcbeat only. Its MORPH moves from formula A to B by timbre: one formula bends the other, and the middle
+  stays in tune. RATE A / B go from AUTO to 4 bars a step, the slow times FORM 1 had. A new **DRUMS** page has LEVEL,
+  FUSION (the drums and the funcbeat into each other: the kick pumps and bends the formula, the formula colours each
+  hit), KIT (808, 909, FLOAT, BIT) and GROOVE (STATE, FOUR, BREAK, SPARSE). The harsh states are softened.
+- **DRUM-W** replaces DRUM-X: eight pads on wavetables, each a table A and B, a STRUCT joining them, an envelope and an
+  LFO moving the position. Its pages: PLAY, WAVE, SHAPE, MOVE, BODY, NOISE, COLOR (ATTACK, an ADSR's rise for the whole
+  kit; FOLD; GAIN, clean to +12 dB; CUTOFF) and MIX.
+- **EDIT** as JIANT FM's: tabs SOUND, TONE, FOCUS, PLAY; an engine's pages by its own names; a MORE page; a knob's
+  meaning in the header while it turns (MENU > DISPLAY > HELP); PRESETS on SEQ moves the step (fast: a bar).
 
-LIFE v0.8: recorrido audible en canciones generadas, NUM armónico y profundidad independiente del volumen del donante. [Guía y comparaciones](docs/byte-v08.md).
+Earlier: [v0.14, light CPU and FORM 2](docs/byte-v014.md) · [FORM's references](docs/FORM-REFERENCIAS.md) ·
+[LIFE v0.8](docs/byte-v08.md) · [v0.7](docs/byte-v07.md) · [v0.5](docs/byte-v05.md) · [v0.4](docs/byte-v04.md).
 
 ## The idea
 
@@ -41,8 +48,8 @@ in fixed point, a block at a time, on both of the FM-1's cores).
 |---|---|
 | **MATH** | Formulas as voices. BYTE (48 bytebeats), FLOAT (48 floatbeats) or USER (your own text, or one the generator invents) |
 | **WAVE** | A parametric wavetable of formulas: two formulas A and B, POS sweeps them, WARP bends the phase (sync, mirror, quantise, FM), three detuned voices and a sub |
-| **DRUM** | DRUM-X: eight lanes, each a drum voice or a formula |
-| **FORM** | A self-playing part: melody, bass, chords and drums from formulas. Two states A and B (36), MORPH composes between them; HARMONY by the scale's degrees (families, pedal, bits), VOICING, STYLE (WOBBLE, REESE, GROWL, RING, SCREECH, ACID), DRIVE, TONE, the dice |
+| **DRUM-W** | Eight pads on wavetables: tables A and B, a STRUCT joining them (MIX, FM, RING, SYNC, FOLD), an envelope and an LFO moving the position, its noise and tick; the kit's ATTACK, FOLD, GAIN, CUTOFF |
+| **FORM** | A self-playing funcbeat part: melody, bass and chords from formulas. Two states A and B (36), MORPH by timbre between them; DEFORM and MOTION (equations moving it); HARMONY (PROG, LENGTH, CHORD, VOICING); PULSE (RATE A / B to 4 bars, HITS, CRUSH); DRUMS (LEVEL, FUSION, KIT, GROOVE); STYLE, the dice |
 | FM-F, GLITCH, PLUCK, NOISE | Coming: one formula modulating another; granular jumps through `t`; a string excited by a formula; textures from hashes of `t` |
 
 **CAOS** takes any formula from as written (0) to broken (127): stretches of time folded, jumped, fed back.
@@ -57,13 +64,13 @@ or a random tree of operators (86-127). Each one is run and judged before it pla
 are thrown away. **MUTA** moves it: 1-63 mutates numbers, shifts and operators; 64-127 crosses it with a factory
 formula. The same knobs always give the same formula, so the project keeps the knobs, not the text.
 
-The **song generator** (HOME > GEN) now selects native MATH and WAVE presets by musical role, with DRUM-X for drums.
+The **song generator** (HOME > GEN) now selects native MATH and WAVE presets by musical role, with DRUM-W for drums.
 Bass and melodic parts keep curated tonal formulas; textures can use rhythmic bytebeats and controlled CAOS.
 The genre still supplies harmony, rhythm, envelopes and arrangement. The same seed and settings reproduce the song.
 
 ## LIFE: formula timbres
 
-HOME > LIFE has **LIFE / NUM / FRAG / LINK**. LIFE starts at 0, including every GEN form, and has a progressive depth curve. NUM exchanges bounded shape coefficients; FRAG exchanges band-limited waveform expressions at the receiving note's phase; LINK smoothly changes their character using the other active voices. WAVE, MATH BYTE/FLOAT and DRUM-X participate in both directions, including overlapping notes within a track. Original clocks and saved formulas stay intact.
+HOME > LIFE has **LIFE / NUM / FRAG / LINK**. LIFE starts at 0, including every GEN form, and has a progressive depth curve. NUM exchanges bounded shape coefficients; FRAG exchanges band-limited waveform expressions at the receiving note's phase; LINK smoothly changes their character using the other active voices. WAVE, MATH BYTE/FLOAT and DRUM-W participate in both directions, including overlapping notes within a track. Original clocks and saved formulas stay intact.
 
 See [BYTE v0.7: controls, matched-level examples and spectral checks](docs/byte-v07.md). FUGA's silent intro with four tracks is fixed.
 
@@ -131,7 +138,3 @@ Hügelton Instruments.
 
 Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments — Felucca.
 Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) — JIANT FM and JIANT BYTE.
-
-BYTE v0.4 also adds editable DRUM-X formula text, recognizable pixel drum instruments, a per-track 1–8 voice budget, and MY LOOP arrangements that preserve the original loop as section A. [Controls and verification](docs/byte-v04.md).
-
-BYTE v0.5: [controles de DrumX, distorsión, punch-in de fórmulas y GEN por roles](docs/byte-v05.md).
