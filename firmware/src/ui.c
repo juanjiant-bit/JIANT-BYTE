@@ -195,6 +195,13 @@ static void prefs_update(void)
         prefs_rev = 4u;
         settings_save();
     }
+    if (prefs_rev < 5u) {                              /* (BYTE 0.16, the owner: "start at zero") RESTORE LAST OFF once: in
+                                                        * older settings its bit meant OFF, read now as ON (the last session
+                                                        * came back at every power-on); set ON again in the MENU, it holds */
+        ui_prefs &= (uint8_t)~PREF_RESTORE_ON;
+        prefs_rev = 5u;
+        settings_save();
+    }
 }
 /* MENU > AUDIO CLICK, CLICK LEVEL, COUNT-IN (1.1, Discussion #131; click.c, seq.c): two bits each in another byte no
  * engine uses, saved with the settings: bits 0-1 CLICK (OFF REC ON), 2-3 CLICK LEVEL (stored 0 MID, 1 LOW, 2 HIGH),

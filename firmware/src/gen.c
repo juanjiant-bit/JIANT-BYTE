@@ -1882,6 +1882,17 @@ static void gfugue(void)
         load_end(t);
         pat_sig[k] = steps_sig(t);
     }
+    for (v = 0; v < 2u; v++) {                          /* (BYTE 0.16, the owner: "FUGA is silence") the subject and its
+                                                         * answer play alone in the first sections: a lead's dark cutoff (70,
+                                                         * the melodic parts' 15 % down) and a pluck's sustain left them at
+                                                         * -40 dB there. Open enough to be heard, held enough to sing */
+        uint32_t k = v ? gs.trk_of[RL_ARP] : ld;
+        track_t *t;
+        if (k >= NTRK || !gs.act[gs.role[k]]) continue;
+        t = &trk[k];
+        if (t->p[P_FCUT] < 104) t->p[P_FCUT] = 104;
+        if (t->p[P_SUS] < 56) t->p[P_SUS] = 56;
+    }
 }
 static void gen_post(void);
 /* (0.8.3) a section's harmony against A's: the loop started on its predominant (IV or VI, the same chords turned: B,
