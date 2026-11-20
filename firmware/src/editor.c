@@ -380,7 +380,15 @@ static int ed_flash_stop(void)
 
 #include "editor_preferences.c"
 #include "editor_backup.c"
+#ifndef FELUCCA_FM6_EDITOR
+#define FELUCCA_FM6_EDITOR 0                            /* (BYTE 0.16) FM6 retired: its editor commands out (1.5 KB of
+                                                         * flash for the sound's divisions as multiplies, build.py) */
+#endif
+#if FELUCCA_FM6_EDITOR
 #include "editor_fm6.c"
+#else
+static int ed_fm6_handle(uint32_t cmd, const uint8_t *a, uint32_t n) { (void)cmd; (void)a; (void)n; return 0; }
+#endif
 #include "editor_menu.c"
 
 /* MOTION's reply: the records of track k as (step, id, v14), a lock's id without its MOTION_LOCK bit (a 7-bit SysEx

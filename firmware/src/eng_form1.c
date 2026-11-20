@@ -114,7 +114,9 @@ static __attribute__((noinline)) int32_t f1_wave(uint32_t state,uint32_t tick,ui
  case 0:y=sine_i(ph+(uint32_t)(f1_sin(tick,inc,2,1)*(int32_t)(c+16)*160));break;
  case 1:y=(q+(int32_t)(((bt^(bt>>3))&255u)*256u)-32768)/2;break;
  case 2:y=(sine_i(ph+(uint32_t)(f1_sin(tick,inc,3,2)*(int32_t)c*96))+f1_sin(tick,inc,1003,1000))/2;break;
- case 3:for(uint32_t k=1;k<=9;k+=2){int32_t e=32767-(int32_t)((slow/k)&2047u)*16;y+=mulq15(f1_sin(tick,inc,k,1),e)*(int32_t)(k==1?127u:16u+c)/381;}y=soft_knee(y,24000);break;
+ case 3:for(uint32_t k=1;k<=9;k+=2){static const uint32_t RK[10]={0,0xFFFFFFFFu,0,0x55555555u,0,0x33333333u,0,0x24924924u,0,0x1C71C71Cu};
+  uint32_t sk=(uint32_t)(((uint64_t)slow*RK[k])>>32);sk+=slow-sk*k>=k;   /* (BYTE 0.16: slow / k as a multiply, exact: no divide a partial) */
+  int32_t e=32767-(int32_t)(sk&2047u)*16;y+=mulq15(f1_sin(tick,inc,k,1),e)*(int32_t)(k==1?127u:16u+c)/381;}y=soft_knee(y,24000);break;
  case 4:y=(osc_saw(ph,inc)+osc_pulse(tick*(inc/1000u*1003u),inc,0x40000000u+c*0x800000u))/2;break;
  case 5:y=(int32_t)((((bt*(3u+(slow>>4&3u)))^(bt>>(1u+(slow&3u))))&255u)*256u)-32768;break;
  case 6:y=(osc_saw(ph,inc)+osc_saw(tick*(inc/10000u*(9999u-c)),inc)+f1_sin(tick,inc,1,2))/3;break;
@@ -140,7 +142,7 @@ static __attribute__((noinline)) int32_t f1_wave(uint32_t state,uint32_t tick,ui
  case 26:{uint32_t u=ph>>21,a=slow&7u;y=(int32_t)((((u*(u>>9|1932555120u>>a))&128u)^(((u>>2)*(u>>11|58132275u>>a))&191u))*256u)-32768;break;}   /* ref 5: 8 bits */
  case 27:y=(f1_tri(ph)+f1_tri(tick*(inc+(inc>>13))))/2;break;                                  /* ref 6: two triangles phasing */
  case 28:y=(int32_t)((((bt*((slow&1u)?7u:5u))>>((slow>>1)&3u))&255u)*256u)-32768;y=(y+sine_i(ph))/2;break;   /* ref 7: the formula by section */
- case 29:y=(sine_i(ph)+sine_i(ph*3u)/3+sine_i(ph*((tick>>12&1u)?5u:7u))/(5-(int32_t)(c>>6)))*2/3;break;      /* ref 8: 5ths and 7ths */
+ case 29:y=(sine_i(ph)+sine_i(ph*3u)/3+(c>=64u?sine_i(ph*((tick>>12&1u)?5u:7u))/4:sine_i(ph*((tick>>12&1u)?5u:7u))/5))*2/3;break;   /* (a constant each: a multiply) */      /* ref 8: 5ths and 7ths */
  case 30:{int32_t x=(int32_t)(ph>>16)-32768,x2=mulq15(x,x),x4=mulq15(x2,x2),x8=mulq15(x4,x4),x9=mulq15(x8,x);   /* ref 9: the pluck (M%2-1)^9 */
   y=sine_i(((uint32_t)x9<<16)+(uint32_t)(sine_i(ph)<<15)+(uint32_t)c*0x1000000u);break;}
  case 31:y=f1_mix(f1_tri(ph),f1_tri(ph*2u),c/2u);break;                                       /* ref 10: triangles, an octave */
