@@ -647,15 +647,17 @@ static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32
     en.u[FU_BPS]=(uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300);en.arr[FA_BEAT]=P;
     if(n>LOFI_N)n=LOFI_N;
     if(!n)return;
-    uint32_t pos,step,rem,carry=0,den;
+    uint32_t pos,step,rem,carry=0,den,sh=VH_SH(),sd=(uint32_t)FS;
     if(func_song(t)){pos=func_clock_begin;den=n;step=(func_clock_end-pos)/den;rem=(func_clock_end-pos)%den;}
-    else {uint64_t ticks=(uint64_t)q<<16;den=en.u[FU_BPS];pos=(uint32_t)(ticks/den);carry=(uint32_t)(ticks%den);step=65536u/den;rem=65536u%den;}
-    /* Exact integer interpolation: no 64-bit division in the sample loop. */
-    for(uint32_t i=0;i<n;i++){T[i]=q+i;W[i]=ph>>16;S[i]=(uint32_t)(((uint64_t)(q+i)*65536u)/FS);ph+=inc;P[i]=pos&0x7fffffffu;pos+=step;carry+=rem;if(carry>=den){carry-=den;pos++;}}
+    else {uint64_t ticks=(uint64_t)q<<16;den=en.u[FU_BPS];pos=(uint32_t)(ticks/den);carry=(uint32_t)(ticks%den);step=(65536u<<sh)/den;rem=(65536u<<sh)%den;}
+    /* Exact integer interpolation: no 64-bit division in the sample loop. (BYTE 0.16) Nor S's (the seconds, Q16): once a
+     * block, then stepped; at half the rate (VH_SH: MATH always at 22 kHz) each sample two of t, its time whole */
+    uint64_t s0=(uint64_t)q*65536u;uint32_t sv=(uint32_t)(s0/sd),sr=(uint32_t)(s0%sd),ss=(65536u<<sh)/sd,srm=(65536u<<sh)%sd;
+    for(uint32_t i=0;i<n;i++){T[i]=q+(i<<sh);W[i]=ph>>16;S[i]=sv;sv+=ss;sr+=srm;if(sr>=sd){sr-=sd;sv++;}ph+=inc;P[i]=pos&0x7fffffffu;pos+=step;carry+=rem;while(carry>=den){carry-=den;pos++;}}
     lofi_run(p,&en,&lofi_work[MC_CPU()&1u],n,Y);
     int32_t y1=v->s[4],y2=v->s[5],kd=8192-(t->p[P_FRES]>50?t->p[P_FRES]:50)*7600/127;
     for(uint32_t i=0;i<n;i++){int32_t sample=fvm_sample(FT_FIX,Y[i]);out[i]+=voice_amp(soft_knee(svf_mode(flt,sample>>1,&y1,&y2,ft_voice(t->p),kd),16000)<<1,m,i);}
-    v->s[2]=(int32_t)(q+n);v->ph[0]=ph;v->s[4]=y1;v->s[5]=y2;
+    v->s[2]=(int32_t)(q+(n<<sh));v->ph[0]=ph;v->s[4]=y1;v->s[5]=y2;
 }
 
 static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)

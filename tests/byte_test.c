@@ -164,7 +164,8 @@ int main(int argc, char **argv)
         render(0, 60, 0, 1, ya);
         render(0, 67, 0, 1, yb);
         ea2 = env_corr(ya, yb);
-        ok(ea2 > el + 0.1, "BYTE TIME SYNC: C4 and G4's rhythm alike (envelopes %.3f, LIBRE's %.3f)", ea2, el);
+        ok(ea2 > el + 0.05, "BYTE TIME SYNC: C4 and G4's rhythm alike (envelopes %.3f, LIBRE's %.3f)", ea2, el);   /* (BYTE 0.16:
+                                                         * MATH at 22 kHz, every other t: the margin 0.05, was 0.1) */
     }
     /* FLOAT (preset 3, MATH KEYS) */
     {
