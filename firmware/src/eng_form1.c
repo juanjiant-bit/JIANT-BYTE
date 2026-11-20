@@ -475,6 +475,11 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
  uint32_t mixf=F1_GENE[am].mix|(am!=bm?F1_GENE[bm].mix:0u),fill=F1_GENE[am].form==F1F_FILL||F1_GENE[bm].form==F1F_FILL,riser=F1_GENE[am].form==F1F_RISER||F1_GENE[bm].form==F1F_RISER;
  uint32_t cdom=f1_dom(domain,F1_STATE[morph<64u?a:b].domain),tone=(uint32_t)clamp(F1P(P_APROB),0,127),wob=(uint32_t)clamp(F1P(P_ARATE),0,7),drive=(uint32_t)clamp(F1P(P_ASWING),0,100);
  uint32_t mrest=0,cacc=0,cslide=0,cbt=0,clr=32;
+ /* (BYTE 0.16, CPU) a side's constants out of the sample loop; its bass and chords every other sample (their next
+  * value a sample ahead, the one between the two's mean: a linear half rate, no state across blocks), the lead full */
+ uint32_t sdom[2],svo[2],scnt[2];int32_t slc[2],bpe[2]={0},bne[2]={0},cpe[2]={0},cne[2]={0};
+ for(uint32_t side=0;side<2u;side++){uint32_t id=side?bm:am;sdom[side]=f1_dom(domain,F1_STATE[id].domain);slc[side]=clamp(color+fc+(int32_t)F1_STATE[id].color-64,0,127);
+  svo[side]=F1_STATE[id].voices;scnt[side]=F1P(P_CHRD)?(uint32_t)clamp((int32_t)svo[side],1,4):1u;}
  for(uint32_t i=0;i<n;i++,tick+=hs){
   uint32_t beat=(pm*RATE_N[rate])>>RATE_S[rate],section=(uint32_t)(((uint64_t)pm*rcy)>>32);
   uint32_t cyc=cyq,swingpos=beat&65535u;
@@ -510,6 +515,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
    cb=cdom==F1D_ACID?(mrest?0:mulq15(cb,8192+(ce*3>>2))):mulq15(cb,32767-(int32_t)(frac>>4));
   }
   int32_t sources[2]={0};uint32_t ids[2]={am,bm};
+  int32_t chenv=fvm_music_env((int32_t)(beat&0x3ffffu),4u*65536u);   /* (the chords' envelope: both sides', once a sample) */
   /* (FORM 3) the MORPH of the formulas, not of the level: each side's phase moved by the other's last sample (B on A
    * as MORPH goes up, A on B as it comes down; half a turn at most), its equation bent into a timbre of both */
   /* (BYTE 0.16, the owner: "the MORPH's middle is noise, whatever the pair") A and B each other's modulator, a sample
@@ -517,14 +523,15 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
    * at the middle (morph (127 - morph), a quarter turn at most), none at the ends. FUSION: the kick's hit pushes both
    * sides' phase, the snare's their COLOR */
   for(uint32_t side=0;side<(am==bm?1u:2u);side++){
-   uint32_t id=ids[side],dom=f1_dom(domain,F1_STATE[id].domain),mt=tick+(uint32_t)fk,ii=mi;
+   uint32_t id=ids[side],dom=sdom[side],mt=tick+(uint32_t)fk,ii=mi;
    if(side)mt+=(uint32_t)((sources[0]*gq)>>11);
-   int32_t localcolor=clamp(color+fc+(int32_t)F1_STATE[id].color-64,0,127);
-   uint32_t voices=F1_STATE[id].voices;
-   int32_t lead=f1_wave(id,mt,ii,(uint32_t)age,localcolor,seed),bass=id>=18&&id<F1_N1?f1_drop_bass(id,beat,mt*(bi/2u),localcolor):f1_wave(id,mt,bi,beat&65535u,localcolor/2,seed),ch=0;
-   uint32_t count=F1P(P_CHRD)? (uint32_t)clamp(voices,1,4):1u;
-   if(voices>1){for(uint32_t k=0;k<count;k++)ch+=f1_wave(id,mt,cd[k],beat&0x3ffffu,localcolor,seed);ch=(ch*RCOUNT[count])>>14;}
-   int32_t chenv=fvm_music_env((int32_t)(beat&0x3ffffu),4u*65536u);
+   int32_t localcolor=slc[side];
+   uint32_t voices=svo[side],count=scnt[side];
+   int32_t lead=f1_wave(id,mt,ii,(uint32_t)age,localcolor,seed),bass,ch;
+   if(i&1u||!i){uint32_t m2=i?mt+hs:mt;int32_t b2=id>=18&&id<F1_N1?f1_drop_bass(id,beat,m2*(bi/2u),localcolor):f1_wave(id,m2,bi,beat&65535u,localcolor/2,seed),c2=0;
+    if(voices>1){for(uint32_t k=0;k<count;k++)c2+=f1_wave(id,m2,cd[k],beat&0x3ffffu,localcolor,seed);c2=(c2*RCOUNT[count])>>14;}
+    if(i){bne[side]=b2;cne[side]=c2;bass=(bpe[side]+b2)>>1;ch=(cpe[side]+c2)>>1;}else{bpe[side]=bass=b2;cpe[side]=ch=c2;}}
+   else{bpe[side]=bass=bne[side];cpe[side]=ch=cne[side];}
    int32_t x=mulq15(mulq15(lead,env),sec0)/2+mulq15(mulq15(ch,chenv),sec1)/2;
    if(voices>1&&(id<18||id>=F1_N1)&&dom<F1D_WOBBLE)x+=mulq15(bass,32767-(int32_t)(beat&65535u)/2)/3;
    if(dom==1){uint32_t mask=255u-(uint32_t)localcolor;int32_t bits=((x+32768)>>8)&255;x=((bits^(int32_t)((step+seed)&mask))*256-32768);}
@@ -564,7 +571,8 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
   {uint32_t d=dpos;carry+=rem;if(carry>=n){carry-=n;d++;}pos+=d;pm+=d;while(pm>=cl){pm-=cl;cyq++;}}
  }
  f1_life(t,v,a,b,morph,color,lastinc,v->ph[0],tonal,n,hs);
- for(uint32_t i=0;i<n;i++){int32_t x=soft_knee((tonal[i]+drums[i])>>1,16000);v->s[4]+=(x-v->s[4])/(int32_t)(512u/hs);x-=v->s[4];out[i]=clamp(x,-32767,32767);}   /* (FORM 3 mixes and levels it; BYTE 0.16: 6 dB down and a knee that tops at
+ uint32_t dcs=9u-(uint32_t)VH_SH();   /* (the DC cut, 512 samples at 44.1 kHz: a shift, not two divisions a sample) */
+ for(uint32_t i=0;i<n;i++){int32_t x=soft_knee((tonal[i]+drums[i])>>1,16000);v->s[4]+=(x-v->s[4])>>dcs;x-=v->s[4];out[i]=clamp(x,-32767,32767);}   /* (FORM 3 mixes and levels it; BYTE 0.16: 6 dB down and a knee that tops at
                                                                      * 32383, the old one at 28000 went past full scale and clipped hard) */
  v->ph[0]=tick;
 }
