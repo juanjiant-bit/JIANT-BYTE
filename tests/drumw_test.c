@@ -147,6 +147,20 @@ int main(void)
         dw_sane(&d);
         dw_t_ok(d.ta < 16 && d.tb < 16 && d.str < DWS_N && d.ratio < DW_NRAT && d.noise <= DWN_RESON && d.tick <= DWT_CLICK, "a stored pad kept in range");
     }
+    {   /* (BYTE 0.16) COLOR: ATTACK (the kit's transients: the hit's first 5 ms against its tail) and GAIN (clean, louder) */
+        double e0, e1, h0, h1, t0, t1;
+        uint32_t k, a5 = FS / 200u;
+        hit_lane = 0;
+        kit(); trk[0].p[P_E1] = 64; trk[0].p[P_E7] = 0; hit(ya, 0);
+        kit(); trk[0].p[P_E1] = 127; hit(yb, 0);
+        kit(); trk[0].p[P_E7] = 127; hit(yc, 0);
+        for (h0 = h1 = t0 = t1 = e0 = e1 = 0, k = 0; k < NS; k++) {
+            if (k < a5) h0 += ya[k] * ya[k], h1 += yb[k] * yb[k]; else t0 += ya[k] * ya[k], t1 += yb[k] * yb[k];
+            e0 += ya[k] * ya[k]; e1 += yc[k] * yc[k];
+        }
+        dw_t_ok(h1 / (t1 + 1e-12) > 1.2 * h0 / (t0 + 1e-12), "ATTACK 127 sharpens the hit (attack / tail %.3f -> %.3f)", h0 / (t0 + 1e-12), h1 / (t1 + 1e-12));
+        dw_t_ok(e1 > 1.5 * e0, "GAIN 127 louder (energy x%.2f)", e1 / (e0 + 1e-12));
+    }
     printf("drumw: %s\n", dw_t_fails ? "FAIL" : "all ok");
     return dw_t_fails != 0;
 }

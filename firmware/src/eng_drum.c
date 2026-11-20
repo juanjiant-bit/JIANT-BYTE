@@ -413,7 +413,7 @@ static int32_t dx_img_pan(uint32_t l, int32_t img)
 /* how wide the image plays, Q8: all of it, less with DRV, DIST and the COMB (they shape the mono sum only) */
 static int32_t dx_img_k(const track_t *t)
 {
-    int32_t k = 256 - clamp(t->p[P_E7], 0, 127) * 160 / 127, d = clamp(t->p[P_DIST], 0, 64);
+    int32_t k = 256, d = clamp(t->p[P_DIST], 0, 64);   /* (BYTE 0.16: GAIN clean, the image whole) */
     if (d)
         k = k * (256 - d * 3) >> 8;
     if (FT_POST(ft_of(t->p)))                          /* (0.6.81: the other filters shape the sides too, voice.c
@@ -572,7 +572,7 @@ static void drum_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     const dx_lane_t *patch=&dx_kit[(uint32_t)v->s[0] & (DV_NLANE-1u)];
     uint32_t hitfx=drum_hit_fx(L);
     dx_run_fx(patch, &L->x, p[P_E0] + dx_mot_v + L->rm + lfo_shp,
-           L->st * 16 + L->rt + L->bc + (p[P_E1] - 64) * 3 + t->pfx_pit + lfo_pit,
+           L->st * 16 + L->rt + L->bc + t->pfx_pit + lfo_pit,
            p[P_E3] - 64 + DXO_DEC[L->dm & 3u] + ((hitfx&DXF_LONG)?36:0),
            p[P_E2] - 64 + DXO_TON[L->dm & 3u], p[P_E4] - 64 + DXO_TON[L->dm & 3u] + ((hitfx&DXF_NOISE)?32:0),
            (hitfx&DXF_FOLD)&&p[P_E6]<80 ? 80 : p[P_E6], p[P_E5], y, n, (hitfx&DXF_FB)?6u:0u);
@@ -622,33 +622,36 @@ static int32_t glue_g[NTRK];                            /* .. a DRUM track's gai
 static __attribute__((noinline)) void drum_glue(uint32_t ti, int32_t *out, uint32_t n, uint32_t side);
 /* (JIANT 0.6.16) the kit's sum, once a block (voice.c track_render): DRV x1..x4 into the soft clip, its level kept,
  * and the knee (were each hit's: eight lanes, two curves a sample each; now the bus's, a glue) */
+static int32_t at_f[NTRK], at_s[NTRK];                 /* (BYTE 0.16) ATTACK's followers: fast, slow */
 static __attribute__((noinline)) void drum_bus(const track_t *t, int32_t *out, uint32_t n)
 {
-    int32_t drv = t->p[P_E7], g = 0, mk = 0, k = 4096, *sl = dx_sl, *sr = dx_sr;
-    int32_t gn = 4096 + clamp(t->p[P_KEY], 0, 127) * 3 * 4096 / 127;   /* (JIANT BYTE) GAIN: x1 .. x4 into the knee */
-    uint32_t i, side = (dx_xon & 1u) != 0u;
-    if (drv > 0) {
-        g = 4096 + drv * 3 * 4096 / 127;
-        mk = (int32_t)((19661u << 15) / (uint32_t)softclip((19661 * g) >> 12));
-        k = (g * mk) >> 15;                              /* (the curve's slope at 0: a quiet sum's gain) */
-    }
+    /* (BYTE 0.16, the owner) GAIN (EDIT 8, was DRIVE): clean, x1 .. x4 (+12 dB) into the knee; ATTACK (EDIT 2, was TUNE):
+     * the kit's transients, a fast follower over a slow one, their difference (an onset +, a tail -) over their sum the
+     * gain's swing, 64 none, 127 the hits twice as sharp, 0 as soft. Then the knee; IMAGE's sides scaled as the sum */
+    uint32_t ti = (uint32_t)(t - trk) % NTRK, i, side = (dx_xon & 1u) != 0u;
+    int32_t gk = 4096 + clamp(t->p[P_KEY], 0, 127) * 3 * 4096 / 127, ge = 4096 + clamp(t->p[P_E7], 0, 127) * 3 * 4096 / 127;
+    int32_t gn = (int32_t)(((int64_t)gk * ge) >> 12), at = clamp(t->p[P_E1], 0, 127) - 64, ef = at_f[ti], es = at_s[ti], gq = 4096, k = 4096;
+    int32_t *sl = dx_sl, *sr = dx_sr;
+    if (gn > 16384) gn = 16384;
     for (i = 0; i < n; i++) {
-        int32_t s = gn == 4096 ? out[i] >> 1 : ((clamp(out[i] >> 1, -131071, 131071) >> 2) * gn) >> 10, y = s;   /* (GAIN: 32 bits) */
-        if (g)                                           /* (0.6.19: s held to +-131071: s * g fits; several loud hits
-                                                         * at once with DRV high wrapped it: a full-scale click) */
-            y = (softclip((clamp(s, -131071, 131071) * g) >> 12) * mk) >> 15;
-        y = soft_knee(y, 24000);
+        int32_t s0 = out[i] >> 1, s = gn == 4096 ? s0 : ((clamp(s0, -131071, 131071) >> 2) * gn) >> 10, y;
+        if (at) {
+            int32_t x = s < 0 ? -s : s;
+            ef += (x - ef) >> 3; es += (x - es) >> 8;
+            if (!(i & 3u))                               /* (the gain every 4th sample: a divide's cost) */
+                gq = clamp(4096 + (int32_t)(((int64_t)(ef - es) * at << 6) / (ef + es + 512)), 1024, 12288);
+            s = (int32_t)(((int64_t)s * gq) >> 12);
+        }
+        y = soft_knee(clamp(s, -131071, 131071), 24000);
         out[i] = y << 1;
-        if (side && (g || y != s)) {                     /* (0.7.9: the curve flat here, nothing to scale) */                                      /* (0.7.8) IMAGE: what each side gives up through the same
-                                                         * gain the curve gave the sum here (it was taken raw from the
-                                                         * squashed sum: a loud hit's side over-taken, clicks and grit
-                                                         * on the side it leaned to), so L and R are the curve's exactly */
-            if ((s > 256 || s < -256) && !(i & 3u))      /* (0.7.9: the gain every 4th sample: a divide's cost) */
-                k = clamp((y << 12) / s, 0, 16384);   /* (y within +-41000: y << 12 fits 32 bits) */
+        if (side && y != s0) {
+            if ((s0 > 256 || s0 < -256) && !(i & 3u))
+                k = clamp((int32_t)(((int64_t)y << 12) / s0), 0, 16384);
             sl[i] = ((sl[i] >> 2) * k) >> 10;
             sr[i] = ((sr[i] >> 2) * k) >> 10;
         }
     }
+    at_f[ti] = ef; at_s[ti] = es;
     if (dx_glue)                                        /* (0.9.9-snd1) GLUE, on */
         drum_glue((uint32_t)(t - trk) % NTRK, out, n, side);
     else
@@ -749,14 +752,16 @@ static const engine_t ENG_DRUM = {
     .page_title = {"KIT", "KIT 2"},                     /* (0.6.54: both the whole kit's, was HIT) */
     .edit = {
         {"MORPH", F_PCT, 0, 127, 64, 0},
-        {"TUNE", F_PCT, 0, 127, 64, 0},
+        {"ATTACK", F_PCT, 0, 127, 64, 0},           /* (BYTE 0.16, the owner: "a global TUNE makes no sense; ATTACK there"):
+                                                         * the kit's transients, 64 as struck (was TUNE: a pad's own PITCH) */
         {"WAVE", F_PCT, 0, 127, 64, 0},             /* (DRUM-W: every pad's place in its tables, and the noise's cutoff; was TONE) */
         {"DECAY", F_PCT, 0, 127, 64, 0},
         {"NOISE", F_PCT, 0, 127, 64, 0},
         {"STRIKE", F_PCT, 0, 127, 0, 0},            /* (DRUM-W: the hit struck further into the tables; was MOD ENV) */             /* (JIANT: was ACC; 0.6.36: was FM, a fixed FM: the FM struck
                                                          * with the hit, gone with the pitch envelope) */
         {"FOLD", F_PCT, 0, 127, 0, 0},              /* (JIANT 0.5: a wavefolder, was WARP) */
-        {"DRIVE", F_PCT, 0, 127, 0, 0},
+        {"GAIN", F_PCT, 0, 127, 0, 0},              /* (BYTE 0.16: clean, 0 .. +12 dB before the knee; was DRIVE: DIST is
+                                                         * on FX > SENDS) */
     },
     .presets = DRUM_PRESETS,
     .npresets = NELEM(DRUM_PRESETS),

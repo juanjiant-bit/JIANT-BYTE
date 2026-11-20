@@ -871,7 +871,7 @@ static const page_t PAGES[] = {
     {"MOVE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},    /* .. PAD ENV DECAY LFO */
     {"BODY", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},    /* .. PAD PITCH SWEEP DECAY (the patch sounding) */
     {"NOISE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. PAD NOISE CUTOFF TYPE */
-    {"COLOR", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. the kit: TUNE FOLD DRIVE CUTOFF */
+    {"COLOR", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. the kit: ATTACK FOLD GAIN CUTOFF (BYTE 0.16) */
     {"MIX", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},     /* .. PAD LEVEL STEREO METAL */
     {"SOUND 3", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (JIANT 0.4) MODE, the pitch modulation, DRIVE */
     {"SOUND 4", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (JIANT 0.6.54) LAYER, FEEDBK, SEND */

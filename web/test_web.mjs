@@ -437,11 +437,11 @@ function mockTables() {
     m0.stop();
     ok(ph.name === "-" && ph.presets.length === 0,
        "editor: engine 9 reserved (PHYS retired in TONIC), no presets");
-    ok((dr.name === "DRUM" || dr.name === "DRUM-W") && dr.edit.map((d) => d.label).join() === "MORPH,TUNE,WAVE,DECAY,NOISE,STRIKE,FOLD,DRIVE" &&
+    ok((dr.name === "DRUM" || dr.name === "DRUM-W") && dr.edit.map((d) => d.label).join() === "MORPH,ATTACK,WAVE,DECAY,NOISE,STRIKE,FOLD,GAIN" &&
        dr.presets.length === 12 && dr.presets.slice(0, 9).every((p) => p.pat === 12) && dr.presets[1].name === "909 CLUB" &&
        dr.presets[9].name === "HIP HOP" && dr.presets[9].pat === 14 && dr.presets[10].name === "LATIN PERC" && dr.presets[10].pat === 12 &&
        dr.presets[11].name === "FLOAT KIT",
-       "editor: DRUM engine 10 (DRUM-W: MORPH TUNE WAVE DECAY NOISE STRIKE FOLD DRIVE), nine kits suggesting BEAT (0.7.2), HIP HOP its BOOM BAP (V10.34), LATIN PERC (V10.7.8), FLOAT KIT");
+       "editor: DRUM engine 10 (DRUM-W: MORPH ATTACK WAVE DECAY NOISE STRIKE FOLD GAIN), nine kits suggesting BEAT (0.7.2), HIP HOP its BOOM BAP (V10.34), LATIN PERC (V10.7.8), FLOAT KIT");
   }
   const dj = DESC;
   if (!existsSync(dj)) { console.log("editor: mock tables == firmware (no build/host/desc.json)        skip"); return; }

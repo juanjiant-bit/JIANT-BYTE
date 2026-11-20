@@ -242,7 +242,7 @@ static void dw_panel(void)
 /* ---- (DRUM-W, its own UI) eight pages, four knobs each, the pad by its key or KNOB 1:
  *   PLAY   WAVE MORPH DECAY STRIKE (the kit, to play)     BODY   PAD PITCH SWEEP DECAY
  *   WAVE   PAD TABLE A POS TABLE B                        NOISE  PAD NOISE CUTOFF TYPE
- *   SHAPE  PAD STRUCT AMOUNT RATIO                        COLOR  TUNE FOLD DRIVE CUTOFF (the kit's)
+ *   SHAPE  PAD STRUCT AMOUNT RATIO                        COLOR  ATTACK FOLD GAIN CUTOFF (the kit's)
  *   MOVE   PAD ENV DECAY LFO                              MIX    PAD LEVEL STEREO METAL
  * BODY and NOISE edit the patch sounding: A with MORPH under the middle, B over it */
 enum { DWP_PLAY = 20, DWP_WAVE, DWP_SHAPE, DWP_MOVE, DWP_BODY, DWP_NOISE, DWP_COLOR, DWP_MIX };
@@ -309,7 +309,7 @@ static void dw_cards(uint32_t pn)
     char val[12], ln[8];
     uint32_t sd = (pn == DWP_BODY || pn == DWP_NOISE);
     if (pn == DWP_PLAY || pn == DWP_COLOR) {
-        static const char *const LP[4] = {"WAVE", "MORPH", "DECAY", "STRIKE"}, *const LC[4] = {"TUNE", "FOLD", "DRIVE", "CUTOFF"};
+        static const char *const LP[4] = {"WAVE", "MORPH", "DECAY", "STRIKE"}, *const LC[4] = {"ATTACK", "FOLD", "GAIN", "CUTOFF"};
         static const uint8_t PL[4] = {P_E2, P_E0, P_E3, P_E5}, CO[4] = {P_E1, P_E6, P_E7, P_FCUT};
         uint32_t c;
         for (c = 0; c < 4u; c++) {
@@ -436,17 +436,17 @@ static void dw_noise_panel(const dx_lane_t *L, const dw_lane_t *D, const uint8_t
     }
     cv_line(7 + c, 18, 7 + c, 98, heat_col(200));
 }
-/* COLOR: the kit's FOLD and DRIVE as the curve a hit goes through (in -> out) */
+/* COLOR: the kit's FOLD and GAIN (into the bus's knee) as the curve a hit goes through (in -> out) */
 static void dw_color_panel(void)
 {
     int32_t i, px = 0, py = 0, fold = TSEL->p[P_E6], drv = TSEL->p[P_E7];
-    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, "FOLD > DRIVE", heat_col(220));
+    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, "FOLD > GAIN", heat_col(220));
     cv_rect(62, 14, 116, 88, T_SURF);
     cv_line(62, 58, 178, 58, ux_mix(T_SURF, T_DIM, 60));
     for (i = 0; i <= 112; i++) {
         int32_t x = (i - 56) * 585, g = 16 + ((fold * fold * 5) >> 10), z = clamp((x * g) >> 4, -5 * 16384, 5 * 16384), a;
         for (a = 0; a < 3; a++) z = z > 16384 ? 32768 - z : z < -16384 ? -32768 - z : z;
-        if (drv) z = softclip(z * (16 + drv / 4) >> 4);
+        if (drv) z = softclip(z * (128 + drv * 3) >> 7);   /* (x1 .. x4 into the knee) */
         { int32_t nx = 64 + i, ny = 58 - z * 40 / 32768; if (i) cv_line_t(px, py, nx, ny, heat_col(100 + fold + drv / 2), 2); px = nx; py = ny; }
     }
 }
