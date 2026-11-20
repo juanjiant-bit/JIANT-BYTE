@@ -1539,27 +1539,27 @@ soltar, salen.
 | **F3 · G3 · A3** | **RPT 1/8 · RPT 1/16 · RPT 1/32**: lo último en loop |
 | **B3** | **REVERSE**: cada semicorchea, la anterior al revés |
 | **C4** | **TAPESTOP**: la mezcla frena hasta pararse |
-| **D4 … F5** | los punch-in **entre fórmulas** (abajo) |
-| **G5** | **ENSEMBLE**: los tres intercambios, con énfasis en fase |
+| **D4 … F5** | los punch-in **de las fórmulas** (abajo) |
+| **G5** | **COMB**: un filtro peine grave (A1 en la tónica C, hasta ~104 Hz en B) que se mece solo |
 
-**Los punch-in entre fórmulas (D4 … F5).** Con dos voces superpuestas, la voz conserva su altura y toma algo de la otra.
-Funcionan con LIFE en 0, entran y salen suavemente y no reescriben nada.
+**Los punch-in de las fórmulas (D4 … F5).** Transforman el tiempo `t` de las fórmulas de MATH, WAVE y FORM mientras
+los mantenés (o mientras los toca la pista de punch-in). OCT − y OCT + mueven la altura de todos los motores. Se pueden
+combinar.
 
-| Tecla | Nombre | Qué toma de la otra voz |
+| Tecla | Nombre | Qué hace |
 | --- | --- | --- |
-| D4 | **NUMBER** | sus números |
-| E4 | **FRAGMENT** | su perfil armónico |
-| F4 | **PHASE** | una deformación de fase ligada a ella |
-| G4 | **OVERTONE** | números y armónicos |
-| A4 | **GRAFT** | fragmentos con influencia de los números |
-| B4 | **CONTOUR** | fragmentos y fase |
-| C5 | **INFLECT** | números y fase |
-| D5 | **BODY** | perfil armónico con movimiento de fase |
-| E5 | **BLEND** | los tres intercambios en proporciones parecidas |
-| F5 | **WEAVE** | más números y fragmentos |
+| D4 | **OCT −** | todo una octava abajo (cualquier motor) |
+| E4 | **OCT +** | todo una octava arriba (cualquier motor) |
+| F4 | **HALF** | el ritmo de la fórmula a la mitad, la altura igual |
+| G4 | **WOBBLE** | el tiempo se mece, unas dos veces por segundo |
+| A4 | **REPEAT** | el primer octavo de cada compás, una y otra vez |
+| B4 | **STEP 8** | el ritmo congelado de a corcheas, el tono sigue |
+| C5 | **STEP 16** | lo mismo, de a semicorcheas |
+| D5 | **BITS** | el tiempo mezclado consigo mismo (xor): otro patrón |
+| E5 | **MIRROR** | hacia adelante y hacia atrás, medio segundo cada vez |
+| F5 | **SCRAMBLE** | los tiempos del compás desordenados |
 
-Probalo: sostené una nota de WAVE mientras toca FORM, mantené FX y apretá E4. Muteá la pista donante para escuchar qué
-aportaba. Una voz sola conserva su sonido.
+Probalo: hacé sonar un bytebeat de MATH, mantené FX y apretá B4 o E5.
 
 **Teclas negras**
 

@@ -153,16 +153,19 @@ static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
         xm_env(&eb, pb);
     for (i = 0; i < n; i++) {
         uint32_t tt = (uint32_t)v->s[2] + i, ps = (uint32_t)pos;
-        T[i] = tt >> 2;                              /* (t: ~11 kHz from the note's start) */
+        T[i] = pt_time(tt >> 2, 0u);                 /* (t: ~11 kHz from the note's start; the white punch-ins') */
         if (caos)                                    /* CAOS: POS moved by the time's bits, more and faster up */
             ps = (ps + (((tt >> (13u - caos / 16u)) * (tt >> 9) & 127u) * caos >> 7)) & 127u;
+        if (pt_ops & PT_TIME_OPS)                    /* (BYTE 0.16) the white punch-ins: a wave has no time of its own,
+                                                      * so POS walks by the transformed time's bits (each its rhythm) */
+            ps = (ps + ((T[i] >> 9) * 37u & 63u)) & 127u;
         acc[i] = (int32_t)(ps * 516u);               /* (POS in FIX, 0 .. 65532: kept here a moment) */
     }
     ea.u[FU_AF] = eb.u[FU_AF] = (uint32_t)acc[0];
     ea.u[FU_NOTE] = eb.u[FU_NOTE] = v->note;
     ea.u[FU_VEL] = eb.u[FU_VEL] = v->vel;
     {   /* (byte-cpu-light) the parts' tables, CAOS off (POS still in the block) */
-        uint32_t many = nu > 1u || trk_nvoice(t) > 1u, exact = caos || warp == WW_QUANT;   /* (QUANT's steps land on the edges) */
+        uint32_t many = nu > 1u || trk_nvoice(t) > 1u, exact = caos || warp == WW_QUANT || (pt_ops & PT_TIME_OPS);   /* (the white punch-ins move t: the formula itself) */   /* (QUANT's steps land on the edges) */
         ta = exact ? 0 : wt_get(tr, 0, pa, fa, (uint32_t)pos, many, &ea, wk);
         tb = 0;                                      /* (B exact: its table would need the pool's headroom) */
     }

@@ -182,9 +182,10 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
         }
     }
     pfx_lnow = lane;
-    formula_punch = ((held | lane) & PF_FORMULA) >> PF_OCTD;
-    if(held & PF_BIT(PF_COMB))formula_punch |= 1u<<10;
-    held &= ~(PF_FORMULA|PF_BIT(PF_COMB)); lane &= ~PF_FORMULA;
+    pt_ops = ((held | lane) & PF_FORMULA) >> PF_OCTD;    /* (BYTE 0.16) the white keys: the formulas' time (formula_perf.c) */
+    formula_punch = 0;
+    held &= ~(PF_FORMULA & ~(PF_BIT(PF_OCTD) | PF_BIT(PF_OCTU)));   /* (G5: COMB again, perform.c's, not the exchange) */
+    lane &= PF_BIT(PF_OCTD) | PF_BIT(PF_OCTU);            /* (OCT- OCT+ on, below: the pitch, every track) */
 
     if (!held && !pfx_any && !lane && !nw)
         return;
@@ -241,6 +242,7 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
 static __attribute__((noinline)) void pfx_end(void)
 {
     formula_punch = 0;
+    pt_ops = 0;
     uint32_t k;
     if (pfx_life.on) {
         for (k = 0; k < 4u; k++)

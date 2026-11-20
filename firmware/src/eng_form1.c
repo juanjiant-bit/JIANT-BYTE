@@ -523,7 +523,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
    * at the middle (morph (127 - morph), a quarter turn at most), none at the ends. FUSION: the kick's hit pushes both
    * sides' phase, the snare's their COLOR */
   for(uint32_t side=0;side<(am==bm?1u:2u);side++){
-   uint32_t id=ids[side],dom=sdom[side],mt=tick+(uint32_t)fk,ii=mi;
+   uint32_t id=ids[side],dom=sdom[side],mt=pt_time(tick,2u)+(uint32_t)fk,ii=mi;   /* (the white punch-ins: its time) */
    if(side)mt+=(uint32_t)((sources[0]*gq)>>11);
    int32_t localcolor=slc[side];
    uint32_t voices=svo[side],count=scnt[side];

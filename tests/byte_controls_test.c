@@ -34,17 +34,17 @@ int main(void){
  ui_power_on();go_title("DIST");int16_t*amount=0;page_desc(cur_page(),3,&amount);OK(amount==&trk[song.sel].p[P_DIST],"DIST knob four directly controls its amount");song.playing=0;static project_t before,after;project_capture(&before);
  for(unsigned k=0;k<10;k++){
   perf_latch_on=1;perf_press(PF_OCTD+k,1);pfx_block(CTL,perf_held&PF_NOTES);
-  OK(formula_punch==(1u<<k)&&!trk[0].pfx_pit&&!trk[0].pfx,"punch-in reaches formula operator without changing sequencer or pitch state");
+  OK(pt_ops==(1u<<k)&&trk[0].pfx_pit==(k==0?-192:k==1?192:0)&&!trk[0].pfx,"punch-in reaches its time transform (OCT -/+ the pitch), the sequencer untouched");   /* (BYTE 0.16: the white keys transform t) */
   project_capture(&after);OK(!memcmp(&before,&after,sizeof before),"SAVE while held sees exactly the unchanged patch/project");
-  pfx_end();perf_press(PF_OCTD+k,0);pfx_block(CTL,perf_held&PF_NOTES);OK(!formula_punch&&!perf_latched,"release clears formula effect even with FX LATCH enabled");pfx_end();
+  pfx_end();perf_press(PF_OCTD+k,0);pfx_block(CTL,perf_held&PF_NOTES);OK(!pt_ops&&!formula_punch&&!perf_latched,"release clears formula effect even with FX LATCH enabled");pfx_end();
  }
  seq_stop();song_poll();memset(pfx_lane,0,sizeof pfx_lane);pfx_lane_put(0,10);pfx_lph=0;song.playing=1;pfx_rec_held=0;
- pfx_block(CTL,0);OK(formula_punch==512u,"recorded punch lane applies the same formula operator");pfx_end();
- song.playing=0;pfx_block(CTL,0);OK(!formula_punch,"stopping playback clears recorded formula operator");pfx_end();
- perf_latch_on=1;
+ pfx_block(CTL,0);OK(pt_ops==512u,"recorded punch lane applies the same formula operator");pfx_end();
+ song.playing=0;pfx_block(CTL,0);OK(!pt_ops,"stopping playback clears recorded formula operator");pfx_end();
+ perf_latch_on=0;
  perf_press(PF_COMB,1);pfx_block(CTL,perf_held&PF_NOTES);
- OK(formula_punch==1024u && perf_pick(perf_held)==PF_N,"ensemble reaches the exchange bus only");
+ OK(!formula_punch && perf_pick(perf_held)==PF_COMB,"G5 plays the COMB (a buffer effect), not the exchange");
  perf_press(PF_COMB,0);pfx_block(CTL,perf_held&PF_NOTES);
- OK(!formula_punch&&!perf_latched,"ensemble is momentary even with latch enabled");
+ OK(!formula_punch,"COMB let go: no exchange left");
  printf("byte_controls: %s\n",bad?"FAIL":"all ok");return !!bad;
 }

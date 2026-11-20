@@ -970,9 +970,9 @@ static uint32_t layer_leds(uint32_t *br)
  * colours over the layer's keys (the keycaps' words); STATE what is on, as chips. (Until 0.8.8: cells with note names,
  * the Felucca map.) The keys and knobs do what they did: only the drawing is new */
 static const char *const PF_NAME[PF_N] = {"RPT 1/8", "RPT 1/16", "RPT 1/32", "REVERSE", "TAPESTOP",   /* (perform.c PF_*) */
-    "NUMBER", "FRAGMENT", "PHASE", "OVERTONE", "GRAFT", "CONTOUR", "INFLECT", "BODY", "BLEND", "WEAVE",   /* the MIDI ones (pfx.c) */
+    "OCT -", "OCT +", "HALF", "WOBBLE", "REPEAT", "STEP 8", "STEP 16", "BITS", "MIRROR", "SCRAMBLE",   /* (BYTE 0.16) the formulas' time (formula_perf.c pt_time; pfx.c) */
     "PITCH UP", "PITCH DN", "FREEZE", "REV ALL", "DLY ALL", "CAOS MAX", "GLITCH", "LOOP 3", "LOOP 5", "LOOP 7", "LIFE MAX",
-    "ENSEMBLE"};
+    "COMB"};
 static const char W_NOTE[16] = {'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G'};
 static const char B_NOTE[11] = {'F', 'G', 'A', 'C', 'D', 'F', 'G', 'A', 'C', 'D', 'F'};   /* black keys 1..11: F# G# .. F#5 */
 static const uint8_t PK_BLK[11] = {1, 2, 3, 5, 6, 8, 9, 10, 12, 13, 15};   /* a black key: left of white key n */

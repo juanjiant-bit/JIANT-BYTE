@@ -463,7 +463,7 @@ static __attribute__((noinline)) void lofi_byte_render(track_t *t, voice_t *v, i
                     uint32_t te, tl, c1 = ctt + h;
                     te = (c1 & 255u) | ((cts >> 8) & ~255u);   /* (MOTN: the slow bits at
                                                          * their own speed; 64: t as written) */
-                    te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
+                    te = pt_time(lofi_key(key, te, qb + ((i * qr) >> 16), qm), 0u);
                     tl = lofi_mut((te & lm) + t0, var);  /* (VAR: mutated) */
                     tws[ne + h * LOFI_N] = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
                 }
@@ -565,7 +565,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
             if (sy)
                 cts = (sb + ((i * sr) >> 16)) * mul;
             te = (ctt & 255u) | ((cts >> 8) & ~255u);
-            te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
+            te = pt_time(lofi_key(key, te, qb + ((i * qr) >> 16), qm), 0u);
             tl = lofi_mut(te & lm, var);
             tw = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
             T[i] = tw;
@@ -586,7 +586,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
         if (fbk) {                                        /* (BYTE 0.16, CPU: the time only here; without FBK the block's
                                                          * loop above made it) */
             te = (tt & 255u) | ((ts >> 8) & ~255u);
-            te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
+            te = pt_time(lofi_key(key, te, qb + ((i * qr) >> 16), qm), 0u);
             tl = lofi_mut(te & lm, var);
             tw = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);                                        /* FBK: the last output moves t, up to +-16 t (half a turn of
                                                          * the sines, Q8): the formula modulates itself, FM-like; the

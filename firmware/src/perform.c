@@ -62,11 +62,11 @@ static const uint8_t PF_BK[11] = {PF_PUP, PF_PDN, PF_FRZ, PF_RVA, PF_DLA, PF_RIN
 #define PF_REPEAT 0x7u                                         /* the three REPEAT rates */
 #define PF_PITCH (PF_BIT(PF_PUP) | PF_BIT(PF_PDN))
 #define PF_Q (PF_REPEAT | PF_BIT(PF_REV) | PF_BIT(PF_TAPE) | PF_BIT(PF_GLT))   /* start on the 1/16 */
-#define PF_BUF (PF_Q | PF_PITCH | PF_BIT(PF_FRZ))   /* the buffer effects (the last pressed plays) */
+#define PF_BUF (PF_Q | PF_PITCH | PF_BIT(PF_FRZ) | PF_BIT(PF_COMB))   /* the buffer effects (the last pressed plays; BYTE 0.16: COMB back) */
 #define PF_LOOPS (PF_BIT(PF_LP3) | PF_BIT(PF_LP5) | PF_BIT(PF_LP7))             /* (snd2) on the sequencer (pfx.c), as the MIDI ones */
 #define PF_FORMULA (((1u << (PF_RND+1u))-1u) & ~((1u << PF_OCTD)-1u))
 #define PF_MIDI PF_FORMULA /* retained lane bits; now formula operators */
-#define PF_NOTES (PF_MIDI | PF_BIT(PF_COMB) | PF_LOOPS | PF_BIT(PF_LMAX) | PF_BIT(PF_RING))   /* pfx.c's, not perform's (JIANT BYTE: F#4,
+#define PF_NOTES (PF_MIDI | PF_LOOPS | PF_BIT(PF_LMAX) | PF_BIT(PF_RING))   /* pfx.c's, not perform's (JIANT BYTE: F#4,
                                                          * RING's key, is CAOS MAX: pfx.c) */
 _Static_assert(PF_N <= 32 && PF_OCTD == 5 && PF_RND == 14 && PF_GLT == 21 && PF_LP7 == 24, "PF bits: the lane, the scenes, the PUNCH push");
 #define PB_FRAMES SL_FR                       /* stereo frames in sl_buf (a power of 2: the mask), 371 ms at 22.05 kHz */
@@ -195,7 +195,7 @@ static void perf_press(uint32_t e, int down)
 {
     if (e >= PF_N)
         return;
-    if (perf_latch_on && !((PF_FORMULA | PF_BIT(PF_COMB)) & PF_BIT(e))) {                  /* FX LATCH: a press turns it on or off, letting go does nothing */
+    if (perf_latch_on && !(PF_FORMULA & PF_BIT(e))) {                  /* FX LATCH: a press turns it on or off, letting go does nothing */
         if (down) {
             perf_latched ^= PF_BIT(e);
             perf_ord[e] = ++perf_seq;
@@ -814,7 +814,9 @@ static __attribute__((noinline)) void perf_wobble(int32_t *bl, int32_t *br, uint
  * loop a little darker each pass (lp: a one-pole); D swaying a quarter tone up and down over 2 bars, g swaying over
  * a bar (0.86 .. 0.96, never 1: bounded, |y| <= the input's peak); out 1.5 y and an eighth of the dry (<= 1.625 x the
  * input's peak). 1 = it plays (pf.yl yr) */
-#define COMB_C3 22093949u                   /* 44100 / 130.81 Hz in samples, Q16 */
+#define COMB_C3 52551214u                   /* (BYTE 0.16, the owner: "thin, lower it near the bottom") 44100 / 55 Hz in
+                                             * samples, Q16: A1 at the root C (the line's 1024 frames: ~43 Hz the least),
+                                             * up to ~104 Hz at B; was C3, 130.81 Hz */
 static __attribute__((noinline)) int perf_comb(int32_t l, int32_t r)
 {
     uint32_t t = pf.u.c.t++, P = pf.P ? pf.P : 1u, D;
