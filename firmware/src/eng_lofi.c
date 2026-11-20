@@ -583,11 +583,12 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
         int32_t s;
         if (sy)                                          /* (p6 SYNC: the slow bits at the bar's position) */
             ts = (sb + ((i * sr) >> 16)) * mul;
-        te = (tt & 255u) | ((ts >> 8) & ~255u);
-        te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
-        tl = lofi_mut(te & lm, var);
-        tw = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);
-        if (fbk) {                                        /* FBK: the last output moves t, up to +-16 t (half a turn of
+        if (fbk) {                                        /* (BYTE 0.16, CPU: the time only here; without FBK the block's
+                                                         * loop above made it) */
+            te = (tt & 255u) | ((ts >> 8) & ~255u);
+            te = lofi_key(key, te, qb + ((i * qr) >> 16), qm);
+            tl = lofi_mut(te & lm, var);
+            tw = lofi_caos(bs ? tl ^ (tl >> bs) : tl, caos, fb0);                                        /* FBK: the last output moves t, up to +-16 t (half a turn of
                                                          * the sines, Q8): the formula modulates itself, FM-like; the
                                                          * output of a sample feeds the next: one sample a run */
             int32_t d = (fb * fbk) >> 10;

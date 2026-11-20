@@ -16,7 +16,7 @@ eng/FORM.AB.drums 1972
 eng/FORM.AB.life 1690
 eng/FORM.AB.tight 1262
 eng/MATH 1802
-eng/MATH.FLOAT 2281
+eng/MATH.FLOAT 2141
 eng/WAVE 2220
 mix/full 2135
 mix/full.glitch 2296
