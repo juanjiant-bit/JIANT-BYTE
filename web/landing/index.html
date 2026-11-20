@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>JIANT BYTE</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="JIANT BYTE: a free, open bytebeat and floatbeat firmware for the M-VAVE FM-1, where every sound is a formula of time. Try it in the browser emulator, install it from the browser. Beta v0.14.">
+<meta name="description" content="JIANT BYTE: a free, open bytebeat, floatbeat and funcbeat firmware for the M-VAVE FM-1, where every sound is a formula of time. Try it in the browser emulator, install it from the browser. Beta v0.14.">
 <meta property="og:title" content="JIANT BYTE">
-<meta property="og:description" content="Bytebeat and floatbeat firmware for the M-VAVE FM-1: four engines of formulas (FORM, DRUM-X, WAVE, MATH), built on JIANT FM. Beta, for testing.">
+<meta property="og:description" content="Bytebeat, floatbeat and funcbeat firmware for the M-VAVE FM-1: four engines of formulas (FORM, DRUM-W, WAVE, MATH), built on JIANT FM. Beta, for testing.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=VT323&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=VT323&family=Chakra+Petch:wght@500;600&family=Inter+Tight:wght@400;500;600&display=swap">
 <style>
 /* Layout: a fixed field of the firmware's own creatures behind everything (canvas). First a cover that is mostly that
    field, the name at its foot; then the FM-1 drawn with its controls where they are and HOME live on its screen; then
@@ -208,10 +208,34 @@ footer .tm{flex-basis:100%;letter-spacing:0}
   #zoo{aspect-ratio:1/1}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+/* (BYTE 0.16, the owner: "the site with the project's look") the FM-1's screen: black, the thermal palette (violet,
+   orange, cream), cards outlined in their colour with rounded corners as the firmware draws them, Chakra Petch labels,
+   Inter Tight text, Michroma titles, VT323 formulas; no neon field, no scanlines: a live scope of a formula on the cover */
+:root{--void:#000;--glass:#0b0b10;--line:#ffe9c2;--text:#e9e6f2;--dim:#8f8aa3;--rule:#24242e;--cyan:#8b5cff;--violet:#b45cff;
+  --red:#ff7a1a;--orange:#ff7a1a;--yellow:#ff9a2a;--mag:#b45cff;
+  --body:"Inter Tight",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"Chakra Petch",ui-monospace,Menlo,monospace;
+  --heat:linear-gradient(90deg,#5b2bff,#b45cff 30%,#ff5a6a 62%,#ff9a2a 82%,#ffe9c2)}
+#bg,.veil,.scan{display:none}
+.brk{background:var(--glass)!important;border:1.5px solid var(--bc);border-radius:10px}
+.plate{background:transparent;border-left:3px solid var(--orange);padding:4px 0 4px 16px}
+.top{border-radius:10px}
+.lang button[aria-pressed="true"]{background:var(--violet);color:#fff}
+.btn{border-radius:6px;font-weight:600}
+.btn.hot{background:var(--violet);border-color:var(--violet);color:#fff}
+.btn.hot:hover{background:var(--orange);border-color:var(--orange);color:#000}
+h1 .fm{filter:none}
+.cover{min-height:auto;padding-top:28px}
+.cover .scope{position:relative;margin:0 0 28px}
+.cover .shd{display:flex;align-items:center;gap:10px;font:600 15px/1 var(--mono);letter-spacing:.06em;margin-bottom:10px;color:var(--text)}
+.cover .shd .bd{background:var(--orange);color:#000;border-radius:3px;padding:2px 6px;font-size:13px}
+.cover .shd .pl{color:var(--violet)}.cover .shd .fx{font:400 22px/1 var(--term);color:var(--line);text-transform:none;letter-spacing:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#cscope{display:block;width:100%;height:clamp(150px,30vw,260px);background:#000;border-radius:6px}
+.cover .bar{height:6px;border-radius:3px;background:var(--heat);margin-top:10px}
+.need{border-radius:6px}
 </style>
 </head>
 <body>
-<canvas id="bg" aria-hidden="true"></canvas>
+<canvas id="bg" aria-hidden="true" data-off="1"></canvas>
 <div class="veil" id="veil" aria-hidden="true"></div>
 <div class="scan" aria-hidden="true"></div>
 
@@ -226,7 +250,8 @@ footer .tm{flex-basis:100%;letter-spacing:0}
   </header>
 
   <section class="cover">
-    <p class="kicker"><span class="circ" style="text-transform:none">t</span><span data-i18n="kicker">bytebeat and floatbeat firmware for the M-VAVE FM-1</span></p>
+    <div class="scope brk" style="--bc:var(--violet);padding:12px"><div class="shd"><span class="bd">1</span><span class="pl">▶</span><span class="fx" id="cfx">t*(t&gt;&gt;5|t&gt;&gt;8)&gt;&gt;(t&gt;&gt;16)</span></div><canvas id="cscope" aria-hidden="true"></canvas><div class="bar"></div></div>
+    <p class="kicker"><span class="circ" style="text-transform:none">t</span><span data-i18n="kicker">bytebeat, floatbeat and funcbeat firmware for the M-VAVE FM-1</span></p>
     <h1>JIANT<span class="fm">BYTE</span></h1>
     <p class="tag" data-i18n="tag">every sound is a formula of time</p>
     <a class="down" href="#enter"><span data-i18n="down">enter the formula</span> <span class="arr">↓</span></a>
@@ -240,7 +265,7 @@ footer .tm{flex-basis:100%;letter-spacing:0}
         <a class="btn" href="https://juanjiant-bit.github.io/JIANT-BYTE/emu/" data-i18n="cta_emu">Try it in the browser</a>
         <a class="btn" href="https://juanjiant-bit.github.io/JIANT-BYTE/webapp/editor/" data-i18n="cta_editor">Open the editor</a>
       </div>
-      <p class="ver"><span data-i18n="ver">Current version:</span> <b id="ver">v0.14</b> · <span data-i18n="ver_st">beta, for testing</span></p>
+      <p class="ver"><span data-i18n="ver">Current version:</span> <b id="ver">v0.16</b> · <span data-i18n="ver_st">beta, for testing</span></p>
       <p class="warn" data-i18n="warn">Beta: try it in the browser first. On a real FM-1, back up with JIANT FM's editor before you install: JIANT BYTE keeps its projects apart from JIANT FM's.</p>
     </div>
     <figure class="device brk" style="margin:0">
@@ -289,15 +314,15 @@ footer .tm{flex-basis:100%;letter-spacing:0}
     </div>
     <div class="species brk">
       <p class="k" data-i18n="zoo_k">The four engines, swelling with their sound</p>
-      <canvas id="zoo" role="img" aria-label="The four engines as creatures: FORM, DRUM-X, WAVE and MATH"></canvas>
+      <canvas id="zoo" role="img" aria-label="The four engines as creatures: FORM, DRUM-W, WAVE and MATH"></canvas>
     </div>
     <div class="organs">
-      <div class="org brk"><div class="hd"><span class="circ">1</span><span data-i18n="a_o">a part that plays itself</span></div><h3>FORM</h3><p data-i18n="a_p">Melody, bass, chords and drums from formulas. 36 states, two at a time (A and B), and a MORPH that composes between them: each step's melody and each section's progression from one or the other. Harmony by the scale's degrees, voicings, character basses (WOBBLE, REESE, GROWL, RING, SCREECH, ACID), DRIVE and TONE, and a dice that throws all of FORM at once, coherent.</p></div>
-      <div class="org brk"><div class="hd"><span class="circ">2</span><span data-i18n="b_o">the kit</span></div><h3>DRUM-X</h3><p data-i18n="b_p">Eight lanes, each a drum voice or a formula you can write. Every sound has two sides, A and B: MORPH moves the whole kit from one to the other, live.</p></div>
+      <div class="org brk"><div class="hd"><span class="circ">1</span><span data-i18n="a_o">a part that plays itself</span></div><h3>FORM</h3><p data-i18n="a_p">A funcbeat part that plays itself: melody, bass and chords from formulas. 36 states, two at a time (A and B), and a MORPH by timbre between them, one formula bending the other. Chords by the scale's degrees, equations moving its DEFORM, RATE down to 4 bars a step, and DRUMS (808, 909, FLOAT, BIT) fused into the formula.</p></div>
+      <div class="org brk"><div class="hd"><span class="circ">2</span><span data-i18n="b_o">the kit</span></div><h3>DRUM-W</h3><p data-i18n="b_p">Eight pads on wavetables of formulas: tables A and B, a STRUCT joining them (MIX, FM, RING, SYNC, FOLD), an envelope and an LFO moving the position. The kit's ATTACK, GAIN and MORPH, live.</p></div>
       <div class="org brk"><div class="hd"><span class="circ">3</span><span data-i18n="c_o">wavetable</span></div><h3>WAVE</h3><p data-i18n="c_p">A parametric wavetable of formulas: two formulas A and B, POS sweeps between them, WARP bends the phase (sync, mirror, quantise, FM), three detuned voices and a sub.</p></div>
       <div class="org brk"><div class="hd"><span class="circ">4</span><span data-i18n="d_o">formulas as voices</span></div><h3>MATH</h3><p data-i18n="d_p">BYTE: 48 bytebeats. FLOAT: 48 floatbeats. USER: your own text, or one the generator invents (SEED invents it, MUTA moves it). FUNC: the formula is the arrangement. CAOS takes any formula from as written to broken; TIME decides who owns the time.</p></div>
       <div class="org brk"><div class="hd"><span class="circ">L</span><span data-i18n="e_o">HOME › LIFE</span></div><h3>LIFE</h3><p data-i18n="e_p">The formulas talk to each other: the tracks exchange numbers, waveform fragments and character with the other voices that sound, in both directions. The saved formulas stay intact; at 0, nothing changes.</p></div>
-      <div class="org brk"><div class="hd"><span class="circ">G</span><span data-i18n="f_o">HOME › GEN</span></div><h3 data-i18n="f_h">The generator</h3><p data-i18n="f_p">Writes a whole song idea from a genre (43, or EXPLORE, every rule broken), a seed and an energy: MATH and WAVE sounds chosen by musical role, DRUM-X for the drums. The same seed and settings give the same song.</p></div>
+      <div class="org brk"><div class="hd"><span class="circ">G</span><span data-i18n="f_o">HOME › GEN</span></div><h3 data-i18n="f_h">The generator</h3><p data-i18n="f_p">Writes a whole song idea from a genre (43, or EXPLORE, every rule broken), a seed and an energy: MATH and WAVE sounds chosen by musical role, DRUM-W for the drums. The same seed and settings give the same song.</p></div>
     </div>
   </section>
 
@@ -309,7 +334,7 @@ footer .tm{flex-basis:100%;letter-spacing:0}
     </div>
     <figure class="navfig brk">
       <a id="navmap-link" href="docs/navigation-map.svg" target="_blank" rel="noopener"><img id="navmap" src="docs/navigation-map.png" width="1500" height="2747" loading="lazy" alt="JIANT BYTE navigation map: every section, its groups and its pages in the order SELECT walks them, the six rules, the held layers and the combos"></a>
-      <figcaption><span data-i18n="nv_cap">The navigation map · click to open it full size (SVG, zoomable)</span><span>firmware v0.14</span></figcaption>
+      <figcaption><span data-i18n="nv_cap">The navigation map · click to open it full size (SVG, zoomable)</span><span>firmware v0.16</span></figcaption>
     </figure>
     <div class="organs">
       <div class="org brk"><div class="hd"><span class="circ">1</span><span>SELECT</span></div><h3 data-i18n="nv1_h">SELECT walks the pages</h3><p data-i18n="nv1_p">One chain per section, a page a detent; it stops at the first and the last page.</p></div>
@@ -322,10 +347,10 @@ footer .tm{flex-basis:100%;letter-spacing:0}
   </section>
 
   <section id="nature">
-    <a class="nat brk" href="frecuencia.html">
-      <span class="k" data-i18n="nat_k">From JIANT FM · frequency</span>
-      <div><h3 data-i18n="nat_h">Frequency in nature</h3><p data-i18n="nat_p">Matter is light, colour is frequency: a ladder from the solar cycle to gamma rays, and four sounding examples of how a synth already lives in it.</p></div>
-      <span class="go" data-i18n="nat_go">Climb the ladder →</span>
+    <a class="nat brk" href="formulas.html">
+      <span class="k" data-i18n="nat_k">A page about formulas</span>
+      <div><h3 data-i18n="nat_h">Bytebeat, floatbeat, funcbeat</h3><p data-i18n="nat_p">What each one is, why it sounds as it does, and where it lives in JIANT BYTE: edit the formulas and play them in the browser.</p></div>
+      <span class="go" data-i18n="nat_go">Play the formulas →</span>
     </a>
   </section>
 
@@ -407,7 +432,7 @@ footer .tm{flex-basis:100%;letter-spacing:0}
 
   <footer>
     <span>JIANT BYTE · Juan Jiant · Buenos Aires</span>
-    <span><a href="frecuencia.html" data-i18n="f_nat">Frequency in nature</a> · <a href="https://github.com/juanjiant-bit/JIANT-BYTE" target="_blank" rel="noopener">GitHub</a> · <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GPL-3.0</a></span>
+    <span><a href="formulas.html" data-i18n="f_nat">Formulas</a> · <a href="https://github.com/juanjiant-bit/JIANT-BYTE" target="_blank" rel="noopener">GitHub</a> · <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GPL-3.0</a></span>
     <span class="tm" data-i18n="tm">Built on JIANT FM (github.com/juanjiant-bit/JIANT), itself built on Felucca by Hügelton Instruments, with the song system of SLOOP. M-VAVE and FM-1 are trademarks of their respective owners; JIANT BYTE is not affiliated with or endorsed by them, nor with Hügelton Instruments.</span>
   </footer>
 </div>
@@ -422,7 +447,7 @@ const H=[[0,208,255],[90,60,255],[181,48,230],[247,40,49],[255,121,0],[255,212,0
 function heat(v,a){v=clamp(v,0,256);const k=Math.min(5,Math.floor(v*6/257)),m=(v*6-k*256)/256,p=H[k],q=H[k+1];const c=p.map((x,j)=>Math.round(x+(q[j]-x)*m));return a!==undefined&&a<1?`rgba(${c},${a})`:`rgb(${c})`;}
 const G={lar:[14,8,7,6,26,1,9],rad:[6,18,16,3,22,0,6],amo:[3,5,14,2,26,3,2],dia:[4,6,10,4,18,0,1],cil:[10,30,8,5,20,1,10],spo:[5,9,12,3,19,2,4],pol:[8,12,12,6,17,0,8],hyd:[3,7,15,3,21,4,5],drm:[12,0,10,3,18,0,6]};
 /* JIANT BYTE's four engines, each given one of the creature shapes (the subtitle, English and Spanish: what the engine is) */
-const SP=[['FORM',['plays itself','se toca sola'],G.hyd,{spikes:6,len:160,wob:90,lob:3,nuc:2,sep:120}],['DRUM-X',['8 lanes · A/B','8 líneas · A/B'],G.drm,{spikes:12,len:120,wob:60,lob:3,nuc:1}],
+const SP=[['FORM',['plays itself','se toca sola'],G.hyd,{spikes:6,len:160,wob:90,lob:3,nuc:2,sep:120}],['DRUM-W',['8 pads · wavetables','8 pads · wavetables'],G.drm,{spikes:12,len:120,wob:60,lob:3,nuc:1}],
   ['WAVE',['wavetable','wavetable'],G.pol,{spikes:14,len:110,wob:80,lob:6,nuc:3,sep:90}],['MATH',['formulas as voices','fórmulas como voces'],G.rad,{spikes:24,len:98,wob:66,lob:3,nuc:2,ripple:160}]];
 const gen=a=>({ax:a[4],tw:a[5],sh:a[6]});
 function iso(g,f,cx,cy,r,outer,t,nv){const pts=[];for(let i=0;i<=nv;i++){const th=(i%nv)/nv*TAU;const w=0.28*Math.sin(f.lob*th+t)+0.12*Math.sin((f.lob+2)*th-2*t);let rr=r+(r*f.wob/256)*w;
@@ -445,6 +470,7 @@ const energy=(k,t)=>reduce?.35:Math.exp(-(((t/BEAT)*DIV[k%9]/4)%1)*5);
 /* the background: the species drifting, slow, far */
 (function(){
   const c=document.getElementById('bg'),veil=document.getElementById('veil');let W,H,x,o=[],mx=0,my=0;
+  if(c.dataset.off)return;                               /* (BYTE 0.16: the field off; the cover's scope instead) */
   function init(){const f=fit(c);W=f.w;H=f.h;x=f.x;o=[];let s=7;const R=()=>{s=(s*16807)%2147483647;return s/2147483647;};
     const n=Math.max(8,Math.min(18,Math.round(W*H/60000)));
     for(let i=0;i<n;i++){const z=.45+R()*.8;o.push({k:i%SP.length,x:R()*W,y:R()*H,r:(12+R()*26)*z,z:z,vx:(R()-.5)*.14*z,vy:(-.04-R()*.1)*z,ph:R()*9});}}
@@ -472,7 +498,7 @@ const energy=(k,t)=>reduce?.35:Math.exp(-(((t/BEAT)*DIV[k%9]/4)%1)*5);
   const KN=[['MASTER',67,80],['SELECT',157,80],['PRESETS',67,168],['ALGORITHM',157,168],
     ['KNOB1',473,80],['KNOB2',568,80],['KNOB3',663,80],['KNOB4',758,80]];
   const BT=[['FX','SEL','ENV','LFO','EDIT','GLO'],['HOME','SAVE','ARP','SEQ','PLAY','REC']],BX=[485,538,590,643,696,749],BY=[172,224];
-  const HOME=[0,1,2,3,3,2];   /* the six tracks' engines: FORM, DRUM-X, WAVE, MATH, MATH, WAVE */
+  const HOME=[0,1,2,3,3,2];   /* the six tracks' engines: FORM, DRUM-W, WAVE, MATH, MATH, WAVE */
   /* the 27 keys by semitone from F3: 16 below (white), 11 above at the black keys' places */
   const UP=['OP1','OP2','OP3','OP4','OP5','OP6','PIT','GLO','MONO','POLY',''],KEYS=[];
   for(let n=0,w=0,b=0;n<27;n++){if([1,3,6,8,10].includes((n+5)%12))KEYS.push({n,up:1,x:64+(w-.5)*47.6,lab:UP[b++]});else KEYS.push({n,up:0,x:64+(w++)*47.6});}
@@ -560,7 +586,7 @@ const energy=(k,t)=>reduce?.35:Math.exp(-(((t/BEAT)*DIV[k%9]/4)%1)*5);
 /* languages: EN (the page's own text) and ES (Rioplatense); the browser's language at first, then the choice (when storage allows) */
 (function(){
   const ES={doc_title:'JIANT BYTE · fórmulas para el M-VAVE FM-1',
-    live:'beta · gratis · código abierto · GPL-3.0',kicker:'firmware de bytebeat y floatbeat para el M-VAVE FM-1',tag:'cada sonido es una fórmula del tiempo',down:'entrar a la fórmula',
+    live:'beta · gratis · código abierto · GPL-3.0',kicker:'firmware de bytebeat, floatbeat y funcbeat para el M-VAVE FM-1',tag:'cada sonido es una fórmula del tiempo',down:'entrar a la fórmula',
     lede:'Un firmware gratis que convierte al FM-1 en un sintetizador de fórmulas: cada sonido, cada golpe, cada ser, cada punch-in y cada animación es una fórmula del tiempo. Una fórmula lee el tiempo t y devuelve una muestra: bytebeat en números enteros y bits, floatbeat en senos, fases y filtros. Cuatro motores, de lo más tonal y tocable a lo más salvaje, sobre las seis pistas, el secuenciador, las canciones y los efectos de JIANT FM, el firmware sobre el que está hecho.',
     cta_install:'Instalar en tu FM-1',cta_emu:'Probarlo en el navegador',cta_editor:'Abrir el editor',ver:'Versión actual:',ver_st:'beta, para probar',
     warn:'Beta: probalo primero en el navegador. En un FM-1 real, hacé backup con el editor de JIANT FM antes de instalar: JIANT BYTE guarda sus proyectos aparte de los de JIANT FM.',
@@ -572,12 +598,12 @@ const energy=(k,t)=>reduce?.35:Math.exp(-(((t/BEAT)*DIV[k%9]/4)%1)*5);
     need:'Necesitás: Chrome o Edge en una computadora (WebUSB y Web MIDI) · un cable USB que pase datos, no solo carga.',
     i_eb:'Qué tiene adentro',i_h2:'Cuatro motores, todo fórmulas',i_in:'JIANT BYTE se queda con la base de JIANT FM (seis pistas, el secuenciador de 64 pasos, las canciones, los efectos, MIDI y USB) y reemplaza el sonido por fórmulas, compiladas en el instrumento y corridas en los dos núcleos del FM-1. En HOME cada fórmula se vuelve un ser: un bytebeat, un sprite espejado; un floatbeat, un retrato de fase con tentáculos de onda.',
     zoo_k:'Los cuatro motores, hinchándose con su sonido',
-    a_o:'una parte que se toca sola',a_p:'Melodía, bajo, acordes y batería hechos de fórmulas. 36 estados, de a dos (A y B), y un MORPH que compone entre ellos: la melodía de cada paso y la progresión de cada sección salen de uno o del otro. Armonía por los grados de la escala, voicings, bajos de carácter (WOBBLE, REESE, GROWL, RING, SCREECH, ACID), DRIVE y TONE, y un dado que tira todo FORM de una, coherente.',
-    b_o:'la batería',b_p:'Ocho líneas, cada una una voz de batería o una fórmula que podés escribir. Cada sonido tiene dos caras, A y B: MORPH lleva todo el kit de una a la otra, en vivo.',
+    a_o:'una parte que se toca sola',a_p:'Una parte funcbeat que se toca sola: melodía, bajo y acordes hechos de fórmulas. 36 estados, de a dos (A y B), y un MORPH por timbre entre ellos, una fórmula doblando a la otra. Acordes por grados de la escala, ecuaciones que mueven su DEFORM, RATE hasta 4 compases por paso, y DRUMS (808, 909, FLOAT, BIT) fundida en la fórmula.',
+    b_o:'la batería',b_p:'Ocho pads sobre wavetables de fórmulas: tablas A y B, un STRUCT que las une (MIX, FM, RING, SYNC, FOLD), una envolvente y un LFO que mueven la posición. ATTACK, GAIN y MORPH del kit, en vivo.',
     c_o:'wavetable',c_p:'Un wavetable paramétrico de fórmulas: dos fórmulas A y B, POS barre entre ellas, WARP dobla la fase (sync, espejo, cuantizado, FM), tres voces desafinadas y un sub.',
     d_o:'fórmulas como voces',d_p:'BYTE: 48 bytebeats. FLOAT: 48 floatbeats. USER: tu propio texto, o uno que inventa el generador (SEED lo inventa, MUTA lo mueve). FUNC: la fórmula es el arreglo. CAOS lleva cualquier fórmula de como está escrita a rota; TIME decide de quién es el tiempo.',
     e_o:'HOME › LIFE',e_p:'Las fórmulas se hablan entre ellas: las pistas intercambian números, fragmentos de onda y carácter con las otras voces que suenan, en los dos sentidos. Las fórmulas guardadas quedan intactas; en 0 no cambia nada.',
-    f_o:'HOME › GEN',f_h:'El generador',f_p:'Escribe una idea de canción entera desde un género (43, o EXPLORE, rompiendo todas las reglas), una semilla y una energía: sonidos de MATH y WAVE elegidos por rol musical, DRUM-X para la batería. La misma semilla y los mismos ajustes dan la misma canción.',
+    f_o:'HOME › GEN',f_h:'El generador',f_p:'Escribe una idea de canción entera desde un género (43, o EXPLORE, rompiendo todas las reglas), una semilla y una energía: sonidos de MATH y WAVE elegidos por rol musical, DRUM-W para la batería. La misma semilla y los mismos ajustes dan la misma canción.',
     nv_eb:'Orientarse',nv_h2:'Seis reglas, un mapa',nv_in:'Todas las secciones se manejan igual: aprendés seis reglas una vez y conocés todo el sinte. El mapa muestra los grupos y las páginas de cada botón en el orden en que los recorre SELECT.',nv_cap:'El mapa de navegación · hacé clic para verlo grande (SVG, con zoom)',
     nv1_h:'SELECT recorre las páginas',nv1_p:'Una cadena por sección, una página por paso; frena en la primera y en la última.',
     nv2_o:'botón',nv2_h:'El botón: entrar o saltar',nv2_p:'Desde otra sección, la página donde la dejaste. Adentro, la primera página del grupo siguiente, en ronda.',
@@ -585,7 +611,7 @@ const energy=(k,t)=>reduce?.35:Math.exp(-(((t/BEAT)*DIV[k%9]/4)%1)*5);
     nv4_h:'KNOB 1 elige',nv4_p:'El paso, el compás, el slot, la etapa, el sonido del kit. La pista, siempre ALGORITHM.',
     nv5_o:'mantener',nv5_h:'Mantener = la capa',nv5_p:'Un botón mantenido pone sus atajos en las teclas: SEQ + G5 borra un paso, SAVE + C5 nombra. Mantenido + SELECT: HOME el generador, EDIT, SEQ, LFO y FX sus dados, GLO el tempo.',
     nv6_o:'pantalla',nv6_h:'La pantalla dice dónde',nv6_p:'Arriba las pestañas son los grupos de la sección, un punto por página; abajo, SECCIÓN · GRUPO · página y n/N.',
-    nat_k:'De JIANT FM · frecuencia',nat_h:'La frecuencia en la naturaleza',nat_p:'La materia es luz, el color es frecuencia: una escalera del ciclo solar a los rayos gamma, y cuatro ejemplos que suenan de cómo un sintetizador ya vive ahí.',nat_go:'Subir la escalera →',f_nat:'La frecuencia en la naturaleza',
+    nat_k:'Una página sobre fórmulas',nat_h:'Bytebeat, floatbeat, funcbeat',nat_p:'Qué es cada uno, por qué suena como suena y dónde vive en JIANT BYTE: editá las fórmulas y tocalas en el navegador.',nat_go:'Tocar las fórmulas →',f_nat:'Fórmulas',
     m_eb:'Aprender',m_h2:'Manual y cheat sheets',m_in:'El manual explica cada página y cada perilla de BYTE; por ahora está en castellano, el de inglés está en camino. Las cheat sheets resumen los controles y las páginas de sonido en una hoja cada una, para tener al lado del FM-1.',
     m1_h:'Manual (castellano)',m1_p:'Cada página, capa y motor de JIANT BYTE. En inglés, pronto.',m2_h:'Qué cambió en la v0.14',m2_p:'CPU liviana y FORM 2.',m3_h:'Cheat sheet de controles',m3_p:'Botones, capas y combinaciones en una página.',m4_h:'Cheat sheet de sonido',m4_p:'Los cuatro motores, efectos y modulación en una página.',
     n_eb:'Lo que viene',n_h2:'Los próximos pasos de BYTE',n_in:'Lo que se está construyendo ahora. Las fechas dependen de las pruebas en FM-1 reales.',
@@ -618,6 +644,30 @@ const energy=(k,t)=>reduce?.35:Math.exp(-(((t/BEAT)*DIV[k%9]/4)%1)*5);
     const s=Array.isArray(v)&&v[0]&&v[0].version?String(v[0].version).replace(/^\s*BYTE\s*/i,'').replace(/^v/i,'').split('-')[0]:'';
     if(/^\d+(\.\d+)*$/.test(s))document.getElementById('ver').textContent='v'+s;
   }).catch(()=>{});
+})();
+</script>
+<script>
+/* (BYTE 0.16) the cover's scope: a bytebeat, a floatbeat and a funcbeat in turn, drawn as the FM-1 draws FORM's (triggered,
+   the thermal line), silent; the formula's text over it */
+(function(){
+  const c=document.getElementById('cscope'),fx=document.getElementById('cfx');if(!c)return;
+  const {sin,exp,tanh,PI,floor,pow}=Math,F=[
+    ['t*(t>>5|t>>8)>>(t>>16)',(i)=>{const t=floor(i*8000/44100)+80000;return ((t*(t>>5|t>>8)>>(t>>16))&255)/127.5-1}],
+    ['sin(2*PI*110*t+3*sin(2*PI*220*t)*exp(-4*(t%0.5)))',(i)=>{const t=i/44100;return sin(2*PI*110*t+3*sin(2*PI*220*t)*exp(-4*(t%0.5)))}],
+    ['t*(42&t>>10)',(i)=>{const t=floor(i*8000/44100)+40000;return ((t*(42&t>>10))&255)/127.5-1}],
+    ['tanh(4*sin(2*PI*55*t)*sin(2*PI*2*t))',(i)=>{const t=i/44100;return tanh(4*sin(2*PI*55*t)*sin(2*PI*2*t))}],
+    ['sin(2*PI*note(k)*t+2*sin(4*PI*note(k)*t)*(1-ph(4)))',(i)=>{const t=i/44100,b=t*2,k=[0,3,7,10,12,10,7,3][floor(b*4)%8],f=110*pow(2,k/12);return sin(2*PI*f*t+2*sin(4*PI*f*t)*(1-(b*4)%1))}]];
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;let k=0,t0=performance.now();
+  function draw(ms){const r=c.getBoundingClientRect(),w=c.width=Math.round(r.width*devicePixelRatio),h=c.height=Math.round(r.height*devicePixelRatio),x=c.getContext('2d');
+    const e=(ms-t0)/1000;if(e>6){k=(k+1)%F.length;t0=ms;fx.textContent=F[k][0];}
+    const f=F[k][1],at=Math.floor(e*44100),N=2048,b=new Float32Array(N);for(let i=0;i<N;i++)b[i]=f(at+i)||0;
+    let s=0;for(let i=1;i<N/2;i++)if(b[i-1]<0&&b[i]>=0){s=i;break}
+    x.strokeStyle='#24242e';x.lineWidth=1;x.beginPath();x.moveTo(0,h/2);x.lineTo(w,h/2);x.stroke();
+    const g=x.createLinearGradient(0,0,w,0);[['#5b2bff',0],['#b45cff',.3],['#ff5a6a',.62],['#ff9a2a',.82],['#ffe9c2',1]].forEach(([q,p])=>g.addColorStop(p,q));
+    const n=Math.min(N-s,900);x.strokeStyle=g;x.lineWidth=2*devicePixelRatio;x.beginPath();
+    for(let i=0;i<n;i++){const X=i/(n-1)*w,Y=h/2-Math.max(-1,Math.min(1,b[s+i]))*h*.44;i?x.lineTo(X,Y):x.moveTo(X,Y)}x.stroke();}
+  if(reduce){draw(performance.now());addEventListener('resize',()=>draw(performance.now()));return;}
+  const loop=ms=>{draw(ms);requestAnimationFrame(loop)};requestAnimationFrame(loop);
 })();
 </script>
 </body>
