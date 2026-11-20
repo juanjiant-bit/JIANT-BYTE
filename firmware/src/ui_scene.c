@@ -19,6 +19,10 @@ static const param_desc_t *sc_desc(uint32_t k, int16_t **valp)
     static const char *const ONOFF[2] = {"OFF", "ON"};
     static const char *const TN[NTRK] = {"T1", "T2", "T3", "T4", "T5", "T6"};
     static const char *const KR[2] = {"KEEP", "DRUM"};
+    uint32_t live = trk_live && trk_live <= NTRK ? trk_live : NTRK;   /* (BYTE 0.16, as JIANT FM V10.7.63: only the active
+                                                         * tracks: T6 asleep with 4 tracks, a role there never sounded) */
+    if (sc_trk >= live)
+        sc_trk = (uint8_t)(live - 1u);
     track_t *t = &trk[sc_trk % NTRK];
     uint32_t r = scn_role[sc_trk % NTRK], dr = drum_track(t);
     k &= 3u;
@@ -28,7 +32,7 @@ static const param_desc_t *sc_desc(uint32_t k, int16_t **valp)
     }
     sc_d.fmt = F_ENUM; sc_d.min = 0; sc_d.def = 0;
     if (k == 0u) { sc_d.label = "SCENE"; sc_d.max = 1; sc_d.names = ONOFF; sc_v[0] = scn_on; }
-    else if (k == 1u) { sc_d.label = "TRACK"; sc_d.max = NTRK - 1; sc_d.names = TN; sc_v[1] = sc_trk; }
+    else if (k == 1u) { sc_d.label = "TRACK"; sc_d.max = (int16_t)(live - 1u); sc_d.names = TN; sc_v[1] = sc_trk; }
     else if (k == 2u && dr) { sc_d.label = "ROLE"; sc_d.max = 1; sc_d.names = KR; sc_v[2] = r == SC_DRUM; }   /* (V10.6j) a kit: KEEP, DRUM */
     else if (k == 2u) { sc_d.label = "ROLE"; sc_d.max = SC_DRUM - 1; sc_d.names = SC_ROLE; sc_v[2] = r < SC_DRUM ? r : SC_KEEP; }
     else { sc_d.label = r == SC_DRUM ? "STYLE" : "PATTERN"; sc_d.max = r == SC_DRUM ? SC_DGEN : SC_GEN;
@@ -95,7 +99,7 @@ static __attribute__((noinline)) void sc_put(uint32_t k, int32_t v)
         }
         ui_message(!scn_on ? "SCENE OFF: KEYS PLAY ONE TRACK" : need ? "SCENE: T5 T6 ASLEEP (MENU > 6 TRACKS)" : "SCENE: KEYS PLAY THE ROLES");
     } else if (k == 1u)
-        sc_trk = (uint8_t)clamp(v, 0, NTRK - 1);
+        sc_trk = (uint8_t)clamp(v, 0, (trk_live && trk_live <= NTRK ? (int32_t)trk_live : NTRK) - 1);
     else if (k == 3u) {                                  /* (V10.6j) BASS LEAD: the pattern; DRUM: the style */
         scn_pat[sc_trk % NTRK] = (uint8_t)clamp(v, 0, SC_GEN);
         sc_setup(sc_trk);

@@ -25,7 +25,7 @@ int main(void){
  block(&trk[0],1);OK(busy(&trk[0])<=2,"DRUM-X simultaneous hits obey the voice budget");
  static project_t a,b;static project_store_t st;project_capture(&a);
  OK(proj_pack(&st,&a)&&proj_import(&b,st.raw,sizeof st.raw)&&b.voice_limit[0]==2,"voice limit persists with the project");
- init(ENGI_WAVE);song.sel=0;go_title("VOICES");int16_t*v=0;const param_desc_t*d=page_desc(cur_page(),1,&v);
- OK(d && v==&voice_limit[0] && d->min==1 && d->max==8,"VOICES page exposes the real 1–8 limit on knob two");
+ init(ENGI_WAVE);song.sel=0;go_title("MORE");int16_t*v=0;const param_desc_t*d=page_desc(cur_page(),0,&v);   /* (BYTE 0.16: MORE's knob one) */
+ OK(d && v==&voice_limit[0] && d->min==1 && d->max==8,"MORE exposes the real 1–8 voice limit on knob one");
  return !!bad;
 }

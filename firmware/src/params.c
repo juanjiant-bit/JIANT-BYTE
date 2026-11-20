@@ -853,9 +853,10 @@ static const page_t PAGES[] = {
     {"OP ENV", FAM_EDIT, SC_TRACK, GR_FMENV, {0xFF, 0xFF, 0xFF, 0xFF}},     /* bytes of the track's patch (ui_fm6op.c): */
     {"OPERATOR 2", FAM_EDIT, SC_TRACK, GR_FMOP2, {0xFF, 0xFF, 0xFF, 0xFF}}, /* CRS FINE LEVEL / STG RATE LEVEL / MODE DTUN VEL */
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E6}},   /* (JIANT 0.5) ANALOG: TYPE CUT RES DRV */
-    {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_FCUT, P_FRES, P_DIST}},   /* .. a kit's, EXT's (on the part;
+    {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_FCUT, P_FRES, P_SIMG}},   /* (BYTE 0.16: IMAGE; DIST on SENDS) */   /* .. a kit's, EXT's (on the part;
                                                          * DRV: the part's DIST, after it) */
-    {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_FCUT, P_FRES, P_FDRV}},   /* (filters2) every other engine's:
+    {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_FCUT, P_FRES, P_SIMG}},   /* (BYTE 0.16, as JIANT FM V10.7.63: TYPE
+                                                         * CUT RES IMAGE; the DRIVE off the panel, still heard) */   /* (filters2) every other engine's:
                                                          * DRIVE into the filter (DIST: FX > DIST) */
     {"FILTER 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_FNZ, P_FNRT, P_FNMD, P_FDST}},   /* (filter2-mod) NOISE RATE MODE DEST, ui.c
                                                          * page_visible: VOICE's without DEST (its CONS's slot); KEY on
@@ -882,7 +883,8 @@ static const page_t PAGES[] = {
     {"OP3 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM3_ATK, P_FM3_DEC, P_FM3_SUS, P_FM3_REL}},
     {"OP4 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM4_ATK, P_FM4_DEC, P_FM4_SUS, P_FM4_REL}},
     {"OP LEVEL", FAM_EDIT, SC_TRACK, GR_NONE, {P_FM1_LEVEL, P_FM2_LEVEL, P_FM3_LEVEL, P_FM4_LEVEL}},
-    {"VOICES", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, ID_VMAX, P_GLIDE, P_SIMG}},   /* (JIANT FM V10.7.60: IMAGE at hand, PRIO to VOICES 2) */   /* (codex/coherence: was VOICE) POLY GLIDE
+    {"VOICES", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, P_GLIDE, P_DETUNE, P_TVEL}},   /* (BYTE 0.16, as JIANT FM V10.7.63) PLAY:
+                                                         * POLY GLIDE UNISON VEL (IMAGE on FILTER, VOICES off the panel) */   /* (JIANT FM V10.7.60: IMAGE at hand, PRIO to VOICES 2) */   /* (codex/coherence: was VOICE) POLY GLIDE
                                                          * GL MODE PRIO */
     {"GLOBAL", FAM_GLO, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, G_TUNE}},
     {"SYSTEM", FAM_GLO, SC_GLOBAL, GR_NONE, {G_TRKS, G_LOADP, G_ROUTE, G_INFO}},   /* (0.6.18) TRACKS 4 / 6; (0.6.30)
@@ -932,7 +934,8 @@ static const page_t PAGES[] = {
     {"EUCLID", FAM_SEQ, SC_TRACK, GR_EUCLID, {ID_EU0, ID_EU0 + 1u, ID_EU0 + 2u, ID_EU0 + 3u}},   /* (V10.6, MUTATE's place)
                                                          * HITS STEPS ROTATE, LANE / VARY (ui_euclid.c) */
     /* (0.8.5) LENTE everywhere (ui_lens.c): pages the mock-up added, appended (the table's order is no one's index) */
-    {"MORE", FAM_EDIT, SC_TRACK, GR_NONE, {P_GLMODE, P_DETUNE, P_TVEL, 0xFF}},   /* (JIANT FM V10.7.60, normalized: was VOICES 2;
+    {"MORE", FAM_EDIT, SC_TRACK, GR_NONE, {ID_VMAX, 0xFF, 0xFF, 0xFF}},   /* (BYTE 0.16: UNISON VEL on PLAY, GL MODE off the
+                                                         * panel, as JIANT FM V10.7.63; VOICES, the CPU's own limit, kept here) */   /* (JIANT FM V10.7.60, normalized: was VOICES 2;
                                                          * ALLOC and PRIO off the panel, kept for the editor, NRPN, projects) */   /* ALLOC, UNISON's detune (in TP since
                                                          * Felucca, on no page until 0.8.5), (after V10.7.2) VEL,
                                                          * (codex/coherence) IMAGE, the voices across (POLY; V10.49's STEREO

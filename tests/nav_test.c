@@ -16,7 +16,7 @@ int main(void)
     go_title("VOICES"); frames(20);
     OK(str_eq(nav_page_name(), "PLAY"), "VOICES shown as PLAY (%s)", nav_page_name());
     go_title("MORE"); frames(20);
-    OK(str_eq(cur_page()->title, "MORE") && cur_page()->id[0] == P_GLMODE, "a synth's MORE: GLIDE TYPE UNISON VEL");
+    OK(str_eq(cur_page()->title, "MORE") && cur_page()->id[0] == ID_VMAX, "a synth's MORE: VOICES (UNISON VEL on PLAY)");
     eng(ENGI_LOFI); TSEL->p[P_E1] = RW_BYTE; frame(); ui.home = 1; press(B_EDIT); go_title("MORE"); frames(20);
     OK(str_eq(cur_page()->title, "MORE") && cur_page()->id[0] == P_LRTRG, "MATH BYTE's MORE: RESTART first");
     {   /* the meaning in the header */

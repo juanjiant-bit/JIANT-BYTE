@@ -672,8 +672,8 @@ static int page_visible(uint32_t i)
                !(FELUCCA_FM4 && te == ENGI_DIGITAL);
     if (PAGES[i].id[0] == ID_CRU)                       /* (V10.7.35) VOICES 3: a kit's and EXT's MORE (a synth's CRUSH on TONE) */
         return te == ENGI_DRUM || te == ENGI_INPUT;
-    if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_GLMODE)   /* (JIANT FM V10.7.60) MORE: a synth's, MATH BYTE / FLOAT
-                                                         * its own (RESTART) */
+    if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == ID_VMAX)   /* (JIANT FM V10.7.60) MORE: a synth's (BYTE 0.16: VOICES
+                                                         * alone), MATH BYTE / FLOAT its own (RESTART) */
         return te != ENGI_DRUM && te != ENGI_INPUT && te != ENGI_FORM && !(trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE);
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)   /* (0.6.10) OPERATOR, OP ENV, OPERATOR 2: FM6's
                                                          * (JIANT BYTE: retired) */
