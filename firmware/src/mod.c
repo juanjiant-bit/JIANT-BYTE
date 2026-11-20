@@ -467,8 +467,10 @@ static __attribute__((noinline)) void macro_master(void)
     uint32_t i, k, any = 0, sw1 = 0;
     mns_clk++;
     DLY_REV_SET();
+#if FELUCCA_SWARM
     if (ain_sw)                                         /* (SWARM: a track's SOURCE; its own block, a USB input too) */
         AIN_SWARM(CTL);
+#endif
     ain_follow();
     for (i = 0; i < NTRK; i++) {
         track_env[i] = (int16_t)follow_step(track_env[i], track_pk[i]);

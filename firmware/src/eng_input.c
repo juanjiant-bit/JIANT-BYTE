@@ -519,7 +519,12 @@ static __attribute__((noinline)) void ain_swarm(uint32_t n)
     }
     sm.nr = nr;
 }
+#ifndef FELUCCA_SWARM
+#define FELUCCA_SWARM 0                                 /* (BYTE 0.16) INPUT retired (it plays as MATH): SWARM's synth out, ~4.5 KB of flash */
+#endif
+#if FELUCCA_SWARM
 static void (*const volatile AIN_SWARM)(uint32_t) = ain_swarm;   /* (mod.c macro_master: RAM code) */
+#endif
 /* SWARM's knobs on the INPUT pages (the stored values the same slots, 0..127; PLAY as it is) */
 static const param_desc_t SW_DESC[8] = {
     {"SOURCE", F_ENUM, 0, AIN_N - 1, AIN_IN1, N_AIN_SRC}, {"PLUCK", F_PCT, 0, 127, 0, 0}, {"FM", F_PCT, 0, 127, 0, 0},

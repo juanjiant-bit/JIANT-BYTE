@@ -239,7 +239,8 @@ def share_strings(ir, keep=()):
 # instruction) by floor((2^32-1)/d) and one correction: exact for every input (the estimate is at most one low)
 DIV_FNS = ("f1_wave", "f1_render", "f1_cbass", "f1_drum", "f1_drum_bit", "f1_drop_bass", "f1_step", "f1_event",
            "f1_life", "fvm_music_env", "fl_post", "fl_fm", "fl_run", "fvm_exec", "drum_render",
-           )   # (not the RAM code's, mix_part_m0 ..: its room; nor MATH's or DRUM-W's pads, voice_block: the flash)
+           "wave_render", "dw_body", "dw_mods", "lofi_float_render", "lofi_byte_render", "lofi_float", "voice_block",
+           "voice_half", "track_render", "drum_bus", "dx_run_fx")   # (not the RAM code's, mix_part_m0 ..: its room)
 
 
 def const_divs(ir, names=DIV_FNS):
