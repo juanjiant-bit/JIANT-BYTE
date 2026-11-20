@@ -1100,6 +1100,9 @@ static int32_t voice_lvl(const track_t *t, const voice_t *v)   /* (codex/voices)
 /* (codex/voices) before a block's events (seq.c events_block: core 0, the other core idle), every fourth block (5.8 ms:
  * one pass over the voices, ~1 % of what the sequencer's block takes): the soft measures (see VSOFT) from here on. What
  * a pass decides goes by the count and the load the pass before found */
+#ifndef VT_CAP
+#define VT_CAP 8u                                       /* (BYTE 0.16) voices sounding before the tails go */
+#endif
 static __attribute__((noinline)) void voice_soft(void)
 {
     static uint8_t div, near;
@@ -1110,6 +1113,23 @@ static __attribute__((noinline)) void voice_soft(void)
         return;
     if (VPOL && !scan++)
         vpol_scan();
+    {   /* (BYTE 0.16, the idea of JIANT FM's V10.6c cap: its CPU 7-9 % down) past VT_CAP voices sounding, the quietest
+         * of the released tails and of the drum hits already under -18 dB faded out, one a pass; a held note never */
+        uint32_t n = 0, bp = NPART, bi = 0;
+        int32_t q = 0x7FFFFFFF;
+        for (p = 0; p < NPART && p < trk_live; p++)
+            for (i = 0; i < NVOICE; i++) {
+                const voice_t *v = &trk[p].v[i];
+                int drum;
+                if (!v->active || v->stage == 4u) continue;
+                n++;
+                drum = voice_core_drum(&trk[p], v) || trk[p].engine == ENGI_DRUM;
+                if (drum ? v->env_out >= 4125 : voice_held(&trk[p], v)) continue;   /* (-18 dB: 4125 of 32767) */
+                if (v->env_out < q) { q = v->env_out; bp = p; bi = i; }
+            }
+        if (n > VT_CAP && bp < NPART)
+            voice_kill(&trk[bp].v[bi]);
+    }
     cap = voice_cap();
     for (p = 0; p < NPART; p++) {
         track_t *t = &trk[p];
