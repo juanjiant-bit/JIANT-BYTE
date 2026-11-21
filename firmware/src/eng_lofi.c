@@ -626,6 +626,13 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
 
 static const char MATH_FUNC_DEFAULT[] = "func{let bt=P%64;let r=bt*(1+int(D*3));return sat(chord(n-12+\"0573\"[int(bt/8)]-48,bt%8,A)*.5+note(n+\"0247\"[int(r)]-48,r%1,A)*.5+(bt>8&&bt<48)*(kick(bt%1)*.75+snare((bt+1)%(2-B))*.5+hat(bt*(2+int(C*3)*2)%1)*.75));}";
 static const char MATH_FUNC_BEAT[] = "func{let bt=P%32;let st=int(bt*4);return sat(note(n-24+(st^(st>>2))%5*3,bt*4%1,A)*.8+(bt<24)*(kick(bt%(1.5+D*.5))*.8+snare((bt+1)%(2-B))*.4+hat(bt*(2+int(C*3)*2)%1)*.6));}";
+/* (BYTE 0.16, FORM 4's first recipes, the owner's references 12 and 4, docs/FORM-REFERENCIAS.md) GROWL: two formants by
+ * sync on the note's cycle, a trapezoid wobble moving the vowel (A the vowel, B the wobble 1/4 .. 1/16, C the drive),
+ * the notes from a table fused by the seed (D) and the section, its action eu(): two euclidean rhythms drawn and joined.
+ * HALFTIME: the wobble's speed by bits fused with the seed, a ring (B), the sub inside the saturation, kick and snare
+ * at half time (A the wobble's depth, C the drive, D the seed). No state: they run by blocks */
+static const char MATH_FUNC_GROWL[] = "func{let k=int(P*4);let y=w*(\"44464348\"[k*3+rnd(k>>5^d)&7]-48)*.25;let f=y%1;let l=sin(P*(1+int(B*3))*.5)*.5+.5;return sat((sin(f*(3+l*6*A))*.6+sin(f*(9+l*25))*.4)*(1+C*6)*eu(k,d)+sin(y*.5)*.6);}";
+static const char MATH_FUNC_HALF[] = "func{let g=P%4;let k=int(P*4);let q=sin(P*(\"1248\"[(k>>2^k>>5^d)&3]-48)*.25)*.5+.5;return sat(sat(sin(w*.5%1*(2+q*q*12*A))*sin(w*(3+B*4))*(3+C*12)*eu(k,d)+sin(w*.5)*2)*.6+kick(g)+snare((g+2)%4)*.7);}";
 static uint32_t func_clock_begin,func_clock_end;
 static uint8_t func_song_mask;
 /* (BYTE 0.16, the owner: "that PLAY starts the formula: set it explicitly; by default a key sounds it") RUN: NOTE (the
@@ -634,7 +641,7 @@ static uint8_t func_song_mask;
 static int func_song(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]==1:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==5;}
 static int func_free(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]==2:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==6;}
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
-static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
+static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:t->p[P_E7]==3?MATH_FUNC_GROWL:t->p[P_E7]==4?MATH_FUNC_HALF:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
 static uint32_t math_music_cost(const track_t*t){
     if(t->p[P_E1]!=RW_FUNC)return 2u;
     const fvm_prog_t*p=lofi_slot((uint32_t)(t-trk)%NTRK);uint32_t cost=2;
@@ -669,8 +676,8 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
     if(t->p[P_E1]==RW_FUNC){
         static const param_desc_t control[4]={{"A",F_PCT,0,127,64,0},{"B",F_PCT,0,127,32,0},{"C",F_PCT,0,127,16,0},{"D",F_PCT,0,127,0,0}};
-        static const char*const runs[]={"-","-","-","-","NOTE","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT"};
-        static const param_desc_t run={"RUN",F_ENUM,4,6,4,runs},form={"FORM",F_ENUM,0,2,1,forms},root={"ROOT",F_INT,-24,24,0,0};
+        static const char*const runs[]={"-","-","-","-","NOTE","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME"};
+        static const param_desc_t run={"RUN",F_ENUM,4,6,4,runs},form={"FORM",F_ENUM,0,4,1,forms},root={"ROOT",F_INT,-24,24,0,0};
         return k==0u?&run:k>=2u&&k<=5u?&control[k-2u]:k==6u?&root:k==7u?&form:0;
     }
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */
