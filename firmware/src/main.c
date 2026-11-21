@@ -376,6 +376,8 @@ static void fm1_main(void)
     }
 #endif
     autosave_boot(boot_clean);                /* (1.2) the last session's music, under the splash */
+    if (!(ui_prefs & PREF_RESTORE_ON))
+        song_boot_blank();                    /* (BYTE 0.17) RESTORE LAST OFF: a new project, not song 1 */
     session_dice(fm1_ticks() ^ (uint32_t)fm1_adc_read(FM1_ADC_BATT) << 16);   /* (JIANT 0.4) this session's macros */
     boot_splash();                            /* (p1: out of line, fm1_main's room is pinned) */
     kb_boot_hold = 0;

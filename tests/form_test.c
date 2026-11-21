@@ -110,6 +110,13 @@ int main(int argc, char **argv)
         TSEL->p[P_SLEN] = 64; frame();
         OK(TSEL->p[P_SLEN] == 64, "PATTERN: 64 steps");
     }
+    {   /* (BYTE 0.17, the owner: "start at zero") power-on with RESTORE LAST OFF: a new project, not song 1's rows */
+        ui_power_on(); chain_config.row[0].slot = 2; chain_config.count = 3; proj_cur = 0; ui_prefs &= (uint8_t)~PREF_RESTORE_ON;
+        song_boot_blank();
+        chain_config_t empty; chain_defaults(&empty);
+        OK(song_draft && proj_cur == PROJ_NO_SLOT && !memcmp(&chain_config, &empty, sizeof empty), "POWER-ON: a new project (draft), the saved songs untouched");
+        song_draft = 0;
+    }
     printf("form: %s\n", ft_bad ? "FAIL" : "all ok");
     return ft_bad != 0;
 }

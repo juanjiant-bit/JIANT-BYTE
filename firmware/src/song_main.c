@@ -553,6 +553,21 @@ static int song_index_save(void)
 
 /* Commit the old project before borrowing its four RAM buffers. All later
  * generations are drafts until an explicit SAVE; no new audio storage. */
+/* (BYTE 0.17, the owner: "the firmware should start at zero", not the first saved song playing) power-on with RESTORE
+ * LAST OFF: the music a new project's, a draft as after CLEAR PROJECT (the rows empty, sections A-D none, no name):
+ * nothing written, the saved songs untouched (SONG / PROJECTS > LOAD bring them) */
+static void song_boot_blank(void)
+{
+    if (ui_prefs & PREF_RESTORE_ON)
+        return;
+    song_draft = 1;
+    song_save_target = song_cur;
+    live.dirty = 0; live.cur = live.req = -1; sec_stage.ready = 0;
+    proj_cur = PROJ_NO_SLOT; proj_name[0] = 0;
+    memset(proj_slot, 0, sizeof proj_slot);
+    proj_wire_gen++;
+    chain_defaults(&chain_config);
+}
 static int song_draft_begin(void)
 {
     if (!bt_hw_seg()) { seg_missing(); return 1; }
