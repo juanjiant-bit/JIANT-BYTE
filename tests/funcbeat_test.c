@@ -30,5 +30,7 @@ int main(void){
  unsigned crossings=0;int32_t previous=0;for(unsigned j=0;j<FS;j+=32){unsigned count=FS-j<32?FS-j:32;fvm_run(&code.p,&e,&scratch,count,out);for(unsigned k=0;k<count;k++){int32_t now=(int32_t)out[k];crossings+=previous<=0&&now>0;previous=now;}}
  assert(crossings>=439&&crossings<=441);
  reject("func{return - - - - - - - - - - - - - - - - - - - - 1.0;}");
+ { const char*const fixed[]={MATH_FUNC_DEFAULT,MATH_FUNC_BEAT,MATH_FUNC_GROWL,MATH_FUNC_HALF}; /* every recipe in the FORM list compiles, and stateless (they run by blocks) */
+   for(unsigned i=0;i<NELEM(fixed)+NELEM(MATH_FUNC_R);i++){compile(i<NELEM(fixed)?fixed[i]:MATH_FUNC_R[i-NELEM(fixed)]);assert(i<2||!code.p.nstate);} }
  puts("funcbeat: ordered state, chunk invariance, voice isolation, helpers, controls, sample rate and rejection PASS");return 0;
 }

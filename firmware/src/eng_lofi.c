@@ -638,12 +638,18 @@ static const char MATH_FUNC_HALF[] = "func{let g=P%4;let k=int(P*4);let q=sin(P*
 static const char MATH_FUNC_R_ACID[] = "func{let k=int(P*4);let e=1-P*4%1;let y=w*(\"44464348\"[k*5+rnd(k>>4^d)&7]-48)*.25;let f=y%1;return sat((saw(y)*.4+sin(f*(2+e*e*16*A))*(1-f)*(.5+B))*(1+C*5)*(.3+eu(k,d)*.7)*e);}";
 static const char MATH_FUNC_R_REESE[] = "func{let k=int(P*2);let y=w*(\"4434\"[k+rnd(k>>3^d)&3]-48)*.25;let z=saw(y)+saw(y*(1.003+A*.01))+saw(y*.5)*.6;return sat(tri(z*(.25+B*.5))*(1+C*4))*(.6+eu(k,d)*.4);}";
 static const char MATH_FUNC_R_HOUSE[] = "func{let g=P%1;let k=int(P*4);let r=\"0573\"[(k>>3)+rnd(k>>5^d)&3]-48;return sat(chord(n+r+12,P%2,A)*g*.7+sin(w*.25+sin(w*.5)*B*.3)*eu(k,d)*.6*(1-g*.5)+kick(g)*C);}";
-static const char MATH_FUNC_R_STRUM[] = "func{let k=int(P*4);let g=(k%8>5?k%8-6:k%8%3)*.25+P%.25;let r=n+\"0375\"[(k>>4)+rnd(k>>6^d)STRUM	func{let k=int(P*4);let g=(k%8>5?k%8-6:k%8%3)+P*4%1;let r=\"0375\"[(k>>4)+rnd(k>>6^d)&3]-48;return sat((note(n+r,g/4,A)+note(n+r+3+int(B*2)*1,g/4-.06,A)+note(n+r+7,g/4-.12,A))*(1+C*3)*.5+kick(P%1)*.5);}3]-48;return sat((note(r,g,A)+note(r+3+B*2,g-.06,A)+note(r+7,g-.12,A))*(1+C*3)*.5);}";
+static const char MATH_FUNC_R_STRUM[] = "func{let k=int(P*4);let g=((k%8>5?k%8-6:k%8%3)+P*4%1)/4;let r=n+\"0375\"[(k>>4)+rnd(k>>6^d)&3]-48;return sat((note(r,g,A)+note(r+3+int(B*2),g-.06,A)+note(r+7,g-.12,A))*(1+C*3)*.5);}";
 static const char MATH_FUNC_R_JUST[] = "func{let k=int(P);let y=w*(\"44564454\"[k+rnd(k>>3^d)&7]-48)*.25;let f=y%1;let e=1-P%1;return sat(sin(f*f*(2+A*12)+sin(y*2)*B*.3)*e*(.4+eu(k*4,d)*.6)*(1+C*3)+sin(w*(1+e*e*e*8))*e*e*e*.5);}";
 static const char MATH_FUNC_R_PLUCK[] = "func{let k=int(P*4);let y=w*(\"44464348\"[k*5+rnd(k>>4^d)&7]-48)*.25;let u=y%1*2-1;let z=u*u*u;let e=1-P*4%1;return sat(sin(z*z*z*(1+A*3)+y+sin(y*2)*B)*e*e*(.3+eu(k,d)*.7)*(1+C*3));}";
 static const char MATH_FUNC_R_NIBBLE[] = "func{let k=int(P*4);let y=w*(\"4568<068\"[(k^k>>2)+rnd(k>>5^d)&7]-48)*.25;let h=.5+sin(P*.125)*A*.45;return sat(((y%1<h)*2-1)*(y>0)*(.3+eu(k,d)*.7)*(1-P*4%1)*(1+C*2)+sin(w*.5)*B*.5);}";
 static const char MATH_FUNC_R_BITS[] = "func{let k=int(P*4);let m=int(t/(4+int(A*4)));let y=fix((m*(3+(k>>2^d)%5)&(m>>5|m>>8))%256)/128-1;return sat(y*(.3+eu(k,d)*.7)*(1+C*3)+kick(P%1)*B+hat(P*4%1)*.3);}";
-static const char *const MATH_FUNC_R[] = {MATH_FUNC_R_ACID,MATH_FUNC_R_REESE,MATH_FUNC_R_HOUSE,MATH_FUNC_R_STRUM,MATH_FUNC_R_JUST,MATH_FUNC_R_PLUCK,MATH_FUNC_R_NIBBLE,MATH_FUNC_R_BITS};
+/* (BYTE 0.16, the owner: "more extreme timbres in the palette") DRUMS: drums from the formula, no 808: a kick by a
+ * folded falling sine (C its fold), a noise snare ringing (B its pitch) and square hats (A), each lane its own eu()
+ * fused from the seed. SCREECH: cross-FM whose index falls each step (A), the ratio (B), folded (C) and crushed to
+ * 3..15 levels (D), its action eu() */
+static const char MATH_FUNC_R_BEATS[] = "func{let k=int(P*4);let g=P*4%1;let q=(1-g)*(1-g);let z=rnd(T);return sat(tri(sin(g*(2+q*9))*(1+C*7))*q*eu(k,d)*1.5+z*q*(sin(g*(20+B*80))*eu(k+2,d+5)*.5+sqr(w*7)*q*eu(k*3,d+9)*A*.4));}";
+static const char MATH_FUNC_R_SCREECH[] = "func{let k=int(P*4);let g=P*4%1;let i=(1-g)*(2+A*14);let y=tri(sin(w*(1+int(B*6))+sin(w*3.01)*i)*(1+C*8));let m=3+D*12;return floor(y*m)/m*(.3+eu(k,d)*.7);}";
+static const char *const MATH_FUNC_R[] = {MATH_FUNC_R_ACID,MATH_FUNC_R_REESE,MATH_FUNC_R_HOUSE,MATH_FUNC_R_STRUM,MATH_FUNC_R_JUST,MATH_FUNC_R_PLUCK,MATH_FUNC_R_NIBBLE,MATH_FUNC_R_BITS,MATH_FUNC_R_BEATS,MATH_FUNC_R_SCREECH};
 static uint32_t func_clock_begin,func_clock_end;
 static uint8_t func_song_mask;
 /* (BYTE 0.16, the owner: "that PLAY starts the formula: set it explicitly; by default a key sounds it") RUN: NOTE (the
@@ -687,8 +693,8 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
     if(t->p[P_E1]==RW_FUNC){
         static const param_desc_t control[4]={{"A",F_PCT,0,127,64,0},{"B",F_PCT,0,127,32,0},{"C",F_PCT,0,127,16,0},{"D",F_PCT,0,127,0,0}};
-        static const char*const runs[]={"-","-","-","-","NOTE","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK","NIBBLE","BITS"};
-        static const param_desc_t run={"RUN",F_ENUM,4,6,4,runs},form={"FORM",F_ENUM,0,12,1,forms},root={"ROOT",F_INT,-24,24,0,0};
+        static const char*const runs[]={"-","-","-","-","NOTE","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK","NIBBLE","BITS","DRUMS","SCREECH"};
+        static const param_desc_t run={"RUN",F_ENUM,4,6,4,runs},form={"FORM",F_ENUM,0,14,1,forms},root={"ROOT",F_INT,-24,24,0,0};
         return k==0u?&run:k>=2u&&k<=5u?&control[k-2u]:k==6u?&root:k==7u?&form:0;
     }
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */
