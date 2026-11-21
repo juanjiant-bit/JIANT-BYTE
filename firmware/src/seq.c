@@ -3217,7 +3217,7 @@ static void seq_tick(track_t *t, uint32_t n)
     seq_tick_body(t,n);
     if(own)func_seq_end(t);
 }
-static void seq_tick_body(track_t *t, uint32_t n)
+static __attribute__((noinline)) void seq_tick_body(track_t *t, uint32_t n)
 {
     uint32_t period, len, lon, nf;
     if (n > blk_n)

@@ -39,7 +39,7 @@ import size_fns  # noqa: E402
 APP_XIP = 0x02000120                # app.bin offset 0 in the XIP map; the SPL jumps here
 APP_SLOT = fm1pkg_make.APP_SLOT
 LOADER_LOAD = 0x01C0A800
-POOL_END = 0x01C6D800            # (JIANT 0.6.78) app.ld: POOL's end, RAMTEXT's start (0.6.97, 0.7.0: up 4 KiB each; 0.9.9-beta4: 9 KiB lower;
+POOL_END = 0x01C6DCC0            # (JIANT 0.6.78) app.ld: POOL's end, RAMTEXT's start (0.6.97, 0.7.0: up 4 KiB each; 0.9.9-beta4: 9 KiB lower;
                                  # 0.9.9-stab: 1 KiB lower, the 320 MHz switch's RAM code)
 RAMTEXT_END = 0x01C76000         # .. RAMTEXT's end (the user stack's guard band)
 LOADER_NAME = b"usb_hid_ota.bin"    # the file name the SPL looks for
@@ -192,7 +192,7 @@ def build_loader():
 # line (dly_lo and its helpers), the reverb models and their dispatch, the chorus's admission, the DIST's shapers; the
 # I-cache (32 KiB, shared by both cores and the UI) kept for the engines (Kirill's audit, LOOM-8)
 HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0", "perf_begin", "perf_pre", "perf_block", "perf_master", "slicer_bus",
-           "dly_lo", "dly_grain", "dly_grain_adv", "dly_wow_adv", "dly_line_clear", "dly_rate", "fx_rest",
+           "dly_lo", "dly_grain", "dly_grain_adv", "dly_wow_adv", "dly_rate", "fx_rest",
            "rev_run", "rev_idle", "rev_room", "rev_spring", "rev_cloud", "rev_shimmer",   # (as JIANT FM V10.7.56: rev_spring_side and rev_room_mod from flash, fx.c calls them through a register: the room)
            "rev_reso", "cho_admit", "dist_shape", "dist_amp",
            # (BYTE 0.16, CPU) master_out, run a sample, out of flash (the FM-1's cache misses, not the host's). Tried
@@ -237,8 +237,8 @@ def share_strings(ir, keep=()):
 # slow), never to a multiply: FORM alone filled the FM-1 (its oscillator 51 of them, called ~10 times a sample). In the
 # audio's hottest functions each i32 udiv / urem / sdiv / srem by a constant becomes the multiply (one 32x32->64
 # instruction) by floor((2^32-1)/d) and one correction: exact for every input (the estimate is at most one low)
-DIV_FNS = ("f1_wave", "f1_render", "f1_cbass", "f1_drum",
-           "f1_life", "fvm_music_env", "fl_post", "fl_fm", "fl_run", "fvm_exec",
+DIV_FNS = ("form_render",
+           "fvm_music_env", "fl_post", "fl_fm", "fl_run", "fvm_exec",
            "lofi_float_render", "lofi_byte_render", "voice_block")   # (DRUM-W's pads and bus, voice_half,
                                                          # track_render: their few out, the flash for FORM 4's recipes)   # (not the RAM code's, mix_part_m0 ..: its room)
 

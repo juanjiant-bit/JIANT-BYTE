@@ -83,7 +83,7 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                      "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
                                      "CLIP", "PNCH",   /* (JIANT: the master, FX > MASTER) */
                                      "D.TIM", "D.FB", "D.TON", "D.MIX", "R.SIZ", "R.DMP", "C.RAT", "C.DEP", "F.CUT", "LEVEL", "LIFE",
-                                     "PROG", "LENGTH", "CHORD", "DEPTH", "SPEED", "HITS", "DRUMS"};   /* (FORM 3: HARMONY, PULSE; mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
+                                     "DEPTH", "SPEED", "MOD", "D.LEV", "DENS"};   /* (BYTE 0.17: MOTION, PULSE; mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
@@ -826,16 +826,11 @@ static const page_t PAGES[] = {
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     /* (FORM 2, the owner: by importance, no DELAY) after STATES and RULES (the engine's): the timbre (STYLE DRIVE TONE
      * WOBBLE, in its ARP slots), the harmony, the layers, the clock */
-    {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_E0,P_E1,P_E2}},   /* (BYTE 0.16, the owner: "the mode first") RUN (TRIG
-                                                         * played as a synth, PLAY the transport's, FREE), FORM A, FORM B,
-                                                         * MORPH: FORM's EDIT 1, its STYLE on a page of its own */
-    {"STYLE", FAM_EDIT, SC_FORM, GR_NONE, {P_E3,0xFF,0xFF,0xFF}},
-    {"HARMONY", FAM_EDIT, SC_FORM, GR_NONE, {P_AGATE,P_ARATE,P_CHRD,P_CVOI}},   /* (FORM 3) PROG LENGTH CHORD VOICING */
-    {"MOTION", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,P_APROB,P_AORDER}},   /* (FORM 3) MOD A, MOD B: an equation moving each
-                                                         * DEF; DEPTH, SPEED */
-    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_FRA,P_FRB,P_KEY,ID_CRU}},   /* (BYTE 0.16) RATE A, RATE B, HITS, CRUSH (TONE's, the owner) */
-    {"DRUMS", FAM_EDIT, SC_FORM, GR_NONE, {P_DETUNE,P_MORPH,P_CSTR,P_DXIMG}},   /* (BYTE 0.16) LEVEL FUSION KIT GROOVE (FORM's: MORPH and STRUM unused on it) */   /* (FORM 3) RATE A, RATE B, HITS, SWING */   /* (FORM 3) RATE A, RATE B, the EUCLID gate's HITS ROTATE */   /* (FORM 3) PROGRESS CHORD RATE NOTES OCTAVE (ROOT,
-                                                         * SCALE: SCL's, the song's) */
+    /* (BYTE 0.17, the owner: "one engine, whole") FORM: RUN ROOT FORM A FORM B; SHAPE its EDIT 2 (A B C D); MOTION
+     * MORPH and the curve moving it and the stages (MOD SPEED DEPTH); PULSE the drums (DRUMS LEVEL DENSITY) */
+    {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_E3,P_E0,P_E1}},
+    {"MOTION", FAM_EDIT, SC_FORM, GR_NONE, {P_E2,P_CAOS,P_ASWING,P_APROB}},
+    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_CSTR,P_DETUNE,P_DXIMG,0xFF}},
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */

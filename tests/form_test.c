@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
-/* FORM 3 (eng_form.c): every formula of the bank compiled in FORMULA B's 32 instructions; every preset sounding and
- * bounded; each control heard (MORPH, DEFORM A, DEFORM B, RATE, SWING, PROGRESS, CHORD RATE, NOTES, OCTAVE); the
- * progression's chords changing in time; its pages; the dice in range; the panel drawn; the part stored and read back */
+/* FORM (BYTE 0.17, eng_form.c): every recipe compiled as A and as B; every preset sounding and bounded; MORPH at equal
+ * power; each macro's stage heard above its middle; MOTION moving the sound; the drums on the 16ths; ROOT; TRIG; its
+ * pages; the dice in range; the panel drawn; the part stored and read back; the sequencer's 64 steps */
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
 static int ft_bad;
@@ -13,102 +13,109 @@ static void setup(unsigned pr)
 {
     ui_power_on(); song.sel = 0; select_engine(ENGI_FORM); frame();
     for (unsigned k = 1; k < NTRK; k++) trk[k].p[P_MUTE] = 1;
-    apply_preset_to(TSEL, pr); TSEL->p[P_LRTRG] = 1; frame(); song.master_q12 = 4096;   /* (BYTE 0.16: RUN PLAY, the transport's; NOTE the default) */
+    apply_preset_to(TSEL, pr); TSEL->p[P_LRTRG] = 1; frames(64); song.master_q12 = 4096;   /* (RUN PLAY, the transport's) */
 }
 static void play(double *y)
 {
     int32_t b[CTL * 2];
     unsigned n = 0;
-    press(B_PLAY);
+    transport_req = 1;
     while (n < NS) { mix_block(b, CTL); for (unsigned i = 0; i < CTL && n < NS; i++) y[n++] = (b[2 * i] + b[2 * i + 1]) / 65536.0; }
-    press(B_PLAY);
+    transport_req = 2; for (unsigned j = 0; j < FS / 4u / CTL; j++) mix_block(b, CTL);
 }
 static double rms(const double *y) { double e = 0; for (unsigned i = 0; i < NS; i++) e += y[i] * y[i]; return sqrt(e / NS); }
 static double peak(const double *y) { double p = 0; for (unsigned i = 0; i < NS; i++) if (fabs(y[i]) > p) p = fabs(y[i]); return p; }
 static double dlt(const double *a, const double *b) { double d = 0, e = 0; for (unsigned i = 0; i < NS; i++) d += (a[i] - b[i]) * (a[i] - b[i]), e += a[i] * a[i]; return sqrt(d / (e + 1e-12)); }
 int main(void)
 {
-    {   /* the bank */
-        static fvm_cc_t cc; static fvm_ins_t ins[32]; static fvm_prog_t p;
-        unsigned bad = 0;
-        for (unsigned f = 0; f < FORM_N; f++) {
-            fvm_prog_init(&p, ins, 32); fvm_err_t e = {0};
-            if (fvm_compile(&cc, &p, FORM_BANK[f], (uint32_t)strlen(FORM_BANK[f]), &e) || p.nstate > 2u) { printf("form: %s: error %u at %u\n", FORM_NAMES[f], e.code, e.pos); bad++; }
+    {   /* every recipe compiles, stateless (B's slot runs none), 64 instructions at most */
+        int bad = 0;
+        for (unsigned f = 1; f < FORM_NT; f++) {
+            static fvm_cc_t cc; static fvm_ins_t ins[FVM_MAXINS]; static fvm_prog_t p; fvm_err_t e;
+            const char *s = form_recipe(f, "");
+            fvm_prog_init(&p, ins, FVM_MAXINS);
+            if (fvm_compile(&cc, &p, s, (uint32_t)strlen(s), &e) || (f > 2u && p.nstate)) { printf("form: %s: error %u at %u\n", FORM_NAMES[f], e.code, e.pos); bad++; }
         }
-        OK(!bad, "the %u formulas compile in 32 instructions, 2 states at most (and FORM 1's %u states)", (unsigned)FORM_N, (unsigned)F1_N);
+        OK(!bad, "the %u recipes compile", FORM_NT - 1u);
     }
-    for (unsigned pr = 0; pr < NELEM(FORM_PRESETS); pr++) {   /* every preset: sounding, bounded */
-        setup(pr); play(ya);
-        OK(rms(ya) > 0.01 && peak(ya) < 1.0, "%-10s sounds, bounded: rms %.3f peak %.3f", FORM_PRESETS[pr].name, rms(ya), peak(ya));   /* (BYTE 0.16: FORM 6 dB down, its hard clip gone; -40 dB still "sounds") */
-    }
-    {   /* each control heard */
-        static const struct { const char *nm; unsigned id; int16_t v; } C[] = {
-            {"MORPH", P_E2, 127}, {"STYLE", P_E3, 3}, {"LEVEL", P_DETUNE, 110}, {"MOD A", P_CAOS, 9}, {"DEPTH", P_APROB, 120}, {"DEF A", P_E4, 127}, {"OCT A", P_E6, 3}, {"RATE A", P_FRA, 2},
-            {"PROG", P_AGATE, 4}, {"LENGTH", P_ARATE, 0}, {"CHORD", P_CHRD, 7}, {"VOICING", P_CVOI, 5}, {"HITS", P_KEY, 5}};
-        for (unsigned k = 0; k < NELEM(C); k++) {
-            setup(0); play(ya);
-            setup(0); TSEL->p[C[k].id] = C[k].v; play(yb);
-            OK(dlt(ya, yb) > 0.1, "%s changes the sound (%.3f)", C[k].nm, dlt(ya, yb));
+    {   /* every preset sounds, bounded */
+        int ok = 1;
+        for (unsigned pr = 0; pr < NELEM(FORM_PRESETS); pr++) {
+            setup(pr); play(ya);
+            double r = rms(ya), pk = peak(ya);
+            if (!(r > 0.01 && pk < 1.0)) { printf("form: preset %s rms %.3f peak %.3f\n", FORM_PRESETS[pr].name, r, pk); ok = 0; }
         }
-        setup(0); play(ya); setup(0); cru_v[0] = 100; play(yb); cru_v[0] = 0;   /* (BYTE 0.16) CRUSH, on PULSE */
-        OK(dlt(ya, yb) > 0.1, "CRUSH changes the sound (%.3f)", dlt(ya, yb));
-        static const struct { const char *nm; unsigned id; int16_t v; } CB[] = {{"DEF B", P_E5, 0}, {"OCT B", P_E7, 3}, {"RATE B", P_FRB, 3}};
-        for (unsigned k = 0; k < NELEM(CB); k++) {
-            setup(0); TSEL->p[P_E2] = 127; play(ya);
-            setup(0); TSEL->p[P_E2] = 127; TSEL->p[CB[k].id] = CB[k].v; play(yb);
-            OK(dlt(ya, yb) > 0.1, "%s changes B (%.3f)", CB[k].nm, dlt(ya, yb));
-        }
-        static const struct { const char *nm; unsigned id; int16_t v; } CD[] = {{"FUSION", P_MORPH, 127}, {"KIT", P_CSTR, 2}, {"GROOVE", P_DXIMG, 2}};
-        for (unsigned k = 0; k < NELEM(CD); k++) {      /* (BYTE 0.16) DRUMS: heard with the drums on */
-            setup(0); TSEL->p[P_DETUNE] = 110; play(ya);
-            setup(0); TSEL->p[P_DETUNE] = 110; TSEL->p[CD[k].id] = CD[k].v; play(yb);
-            OK(dlt(ya, yb) > 0.1, "%s changes the drums (%.3f)", CD[k].nm, dlt(ya, yb));
-        }
-
+        OK(ok, "the %u presets sound, bounded", (unsigned)NELEM(FORM_PRESETS));
     }
-    {   /* the chords change in time: the progression's first and second chord differ in pitch */
-        form_note_t a, b;
-        setup(3); TSEL->p[P_AGATE] = 0; TSEL->p[P_ARATE] = 2;
-        form_harmony(TSEL, 0u, 0u, &a); form_harmony(TSEL, 4u << 16, 16u, &b);
-        OK(a.chord == 0u && b.chord == 1u && a.note != b.note, "a bar on, the next chord (%d -> %d)", a.note, b.note);
-        char r[8]; form_scale_t sc; form_scale(TSEL, &sc); form_roman(&sc, 0, r);
-        OK(r[0] == 'i' || r[0] == 'I', "the first chord's numeral %s", r);
+    {   /* MORPH: A, B, between them at equal power */
+        setup(1); TSEL->p[P_E0] = 3; TSEL->p[P_E1] = 6; TSEL->p[P_E2] = 0; TSEL->p[P_APROB] = 0; TSEL->p[P_CSTR] = 0; frames(64); play(ya);
+        double ra = rms(ya); TSEL->p[P_E2] = 127; play(yb); double rb = rms(yb), d = dlt(ya, yb);
+        TSEL->p[P_E2] = 64; play(yb); double rm = rms(yb);
+        OK(d > 0.3 && rm > 0.5 * (ra < rb ? ra : rb), "MORPH: A %.3f, B %.3f apart (%.2f), between %.3f", ra, rb, d, rm);
     }
-    {   /* the pages */
+    {   /* the macros: above the middle each its stage */
+        static const char *const NM[4] = {"A FOLD", "B RING", "C ACID", "D CRUSH"};
+        for (unsigned k = 0; k < 4u; k++) {
+            setup(1); TSEL->p[P_E0] = 3; TSEL->p[P_E2] = 0; TSEL->p[P_APROB] = 0; TSEL->p[P_CSTR] = 0;
+            for (unsigned j = 0; j < 4u; j++) TSEL->p[P_E4 + j] = 64;
+            frames(64); play(ya); TSEL->p[P_E4 + k] = 127; play(yb);
+            double d = dlt(ya, yb);
+            OK(d > 0.2 && peak(yb) < 1.0, "%s: heard above the middle (%.2f)", NM[k], d);
+        }
+    }
+    {   /* MOTION moves it */
+        setup(1); TSEL->p[P_E0] = 3; TSEL->p[P_APROB] = 0; TSEL->p[P_CSTR] = 0; frames(64); play(ya);
+        TSEL->p[P_APROB] = 120; TSEL->p[P_ASWING] = 0; play(yb);
+        OK(dlt(ya, yb) > 0.2, "MOTION: the curve moves the sound (%.2f)", dlt(ya, yb));
+    }
+    {   /* the drums: on, the 16ths' energy; off, none */
+        setup(11); TSEL->p[P_CSTR] = 0; frames(64); play(ya); double r0 = rms(ya);
+        TSEL->p[P_CSTR] = 1; TSEL->p[P_DETUNE] = 127; TSEL->p[P_DXIMG] = 100; play(yb); double r1 = rms(yb);
+        OK(r1 > r0 * 1.05 && dlt(ya, yb) > 0.2, "DRUMS: heard (%.3f -> %.3f)", r0, r1);
+    }
+    {   /* ROOT transposes; TRIG: a key sounds it stopped */
+        setup(1); TSEL->p[P_E0] = 6; TSEL->p[P_CSTR] = 0; TSEL->p[P_APROB] = 0; frames(64); play(ya);
+        TSEL->p[P_E3] = 7; play(yb);
+        OK(dlt(ya, yb) > 0.3, "ROOT: transposed (%.2f)", dlt(ya, yb));
+        int32_t b[CTL * 2]; double e = 0;
+        TSEL->p[P_LRTRG] = 0; frames(48); trk_note_on(TSEL, 60, 100);
+        for (unsigned j = 0; j < 200u; j++) { mix_block(b, CTL); for (unsigned i = 0; i < CTL * 2u; i++) e += (double)b[i] * b[i]; }
+        trk_note_off(TSEL, 60);
+        OK(e > 1e10, "TRIG: a key sounds it, stopped (%.2g)", e);
+    }
+    {   /* the pages: FORM (RUN first), SHAPE, MOTION, PULSE */
         setup(0); ui.home = 1; press(B_EDIT);
-        int ok = cur_page()->scope == SC_FORM && cur_page()->id[0] == P_LRTRG && cur_page()->id[1] == P_E0;   /* RUN first */
+        int ok = cur_page()->scope == SC_FORM && cur_page()->id[0] == P_LRTRG && cur_page()->id[1] == P_E3 && cur_page()->id[2] == P_E0;
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_E4;
-        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_CAOS;
-        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_AGATE;
-        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_FRA;
-        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_DETUNE && cur_page()->id[1] == P_MORPH;
-        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_E3;
+        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_E2 && cur_page()->id[1] == P_CAOS;
+        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_CSTR;
         frames(20);
-        OK(ok, "EDIT: FORM (RUN first), DEFORM, MOTION, HARMONY, PULSE, DRUMS, STYLE");
+        OK(ok, "EDIT: FORM (RUN ROOT A B), SHAPE, MOTION, PULSE");
     }
     {   /* the dice in range */
         int ok = 1;
         for (unsigned k = 0; k < 40u; k++) {
             setup(0); form_dice(TSEL, k & 1u);
             ok &= TSEL->p[P_E0] >= 0 && TSEL->p[P_E0] < (int)FORM_NT && TSEL->p[P_E1] >= 0 && TSEL->p[P_E1] < (int)FORM_NT &&
-                  TSEL->p[P_AGATE] < (int)FORM_NPROG && TSEL->p[P_ARATE] <= 4 && TSEL->p[P_AORDER] <= 6 && TSEL->p[P_KEY] >= 1 && TSEL->p[P_KEY] <= 16 && TSEL->p[P_DETUNE] <= 100 && TSEL->p[P_CAOS] < (int)FORM_NMOT && TSEL->p[P_E3] <= 6 && TSEL->p[P_CHRD] <= 11 && TSEL->p[P_CVOI] <= 7;
+                  TSEL->p[P_CAOS] <= 3 && TSEL->p[P_ASWING] <= 5 && TSEL->p[P_APROB] <= 127 && TSEL->p[P_CSTR] <= 2 && TSEL->p[P_DXIMG] <= 127;
+            for (unsigned j = 0; j < 4u; j++) ok &= TSEL->p[P_E4 + j] >= 0 && TSEL->p[P_E4 + j] <= 127;
         }
         OK(ok, "40 throws of the dice in range");
     }
     {   /* stored and read back */
         static project_t q, r; static project_store_t st;
-        static const unsigned ID[] = {P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7, P_AGATE, P_ARATE, P_AORDER, P_LRTRG, P_FRA, P_FRB, P_KEY, P_DETUNE, P_CHRD, P_CVOI, P_MORPH, P_CSTR, P_DXIMG};
-        setup(5); TSEL->p[P_AGATE] = 7; TSEL->p[P_E4] = 99; TSEL->p[P_KEY] = 7; TSEL->p[P_CHRD] = 4; TSEL->p[P_MORPH] = 90; TSEL->p[P_CSTR] = 2; TSEL->p[P_DXIMG] = 3;
+        static const unsigned ID[] = {P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7, P_LRTRG, P_CAOS, P_ASWING, P_APROB, P_CSTR, P_DETUNE, P_DXIMG};
+        setup(5); TSEL->p[P_E4] = 99; TSEL->p[P_E3] = -5; TSEL->p[P_CAOS] = 2; TSEL->p[P_CSTR] = 2; TSEL->p[P_DXIMG] = 3;
         project_capture(&q);
         int ok = proj_pack(&st, &q) && proj_import(&r, st.raw, (int)sizeof st.raw);
         for (unsigned k = 0; ok && k < NELEM(ID); k++) ok &= r.t[0].p[ID[k]] == q.t[0].p[ID[k]];
         OK(ok, "the part stored and read back");
     }
-    {   /* (BYTE 0.16, the owner) the pattern's LEN and RATE the sequencer's again: 64 steps, its own resolution */
-        setup(0); int16_t ra = TSEL->p[P_FRA], rb = TSEL->p[P_FRB];
+    {   /* the pattern's LEN and RATE the sequencer's: 64 steps, its own resolution */
+        setup(0);
         OK(TSEL->p[P_SLEN] == TP[P_SLEN].def && param_desc_of(ENGI_FORM, P_SLEN) == &TP[P_SLEN], "PATTERN: LEN the sequencer's (%d)", TSEL->p[P_SLEN]);
         TSEL->p[P_SLEN] = 64; TSEL->p[P_SDIV] = 4; frame();
-        OK(TSEL->p[P_SLEN] == 64 && TSEL->p[P_FRA] == ra && TSEL->p[P_FRB] == rb, "PATTERN: 64 steps, RATE apart from FORM's RATE A, B");
+        OK(TSEL->p[P_SLEN] == 64, "PATTERN: 64 steps");
     }
     printf("form: %s\n", ft_bad ? "FAIL" : "all ok");
     return ft_bad != 0;

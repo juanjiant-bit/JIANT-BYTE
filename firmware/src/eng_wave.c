@@ -156,7 +156,7 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
     if (n > WAVE_CH)
         n = WAVE_CH;
     if (!wave_prg_b[tr].ins)
-        fvm_prog_init(&wave_prg_b[tr], wave_ins_b[tr], 32u);
+        fvm_prog_init(&wave_prg_b[tr], wave_ins_b[tr], FVM_MAXINS);
     pa = wave_prog(lofi_slot(tr), &lofi_prg_id[tr], fa, wk);
     pb = need_b ? wave_prog(&wave_prg_b[tr], &wave_id_b[tr], fb, wk) : 0;
     xm_env(&ea, pa);                                 /* (cross-mod: O1 .. O6) */

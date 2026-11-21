@@ -20,8 +20,8 @@ MEMORY
     XIP    (rx)  : ORIGIN = 0x02000120, LENGTH = 0x8EA90   /* = tools/fm1pkg_make.py APP_SLOT (0.9.13: the region ends at 0x92FFE) */
     LOWBUF (rw)  : ORIGIN = 0x01C00000, LENGTH = 0x8000
     RAM    (rwx) : ORIGIN = 0x01C08000, LENGTH = 96K
-    POOL   (rw)  : ORIGIN = 0x01C20000, LENGTH = 0x4D800
-    RAMTEXT (rwx): ORIGIN = 0x01C6D800, LENGTH = 0x8800   /* (0.6.97, 0.7.0: up 4 KiB each, the image grew: a call from here must
+    POOL   (rw)  : ORIGIN = 0x01C20000, LENGTH = 0x4DCC0
+    RAMTEXT (rwx): ORIGIN = 0x01C6DCC0, LENGTH = 0x8340   /* (BYTE 0.17: 1216 B up, the sequencer out of the RAM code, the pool its FORM B programs) (0.6.97, 0.7.0: up 4 KiB each, the image grew: a call from here must
                                                            * reach its end; the user stack 4 KiB shorter each time, 15.75 KiB;
                                                            * 0.9.9-stab, as 0.9.12: 1 KiB lower, from the pool: the 320 MHz switch;
                                                            * 0.9.9-beta4: 9 KiB lower, from the pool (8 KiB of its main-loop
