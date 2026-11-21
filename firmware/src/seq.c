@@ -1800,7 +1800,8 @@ static void gl_reset(void);                         /* (seq2f: the global lane) 
 static void seq_release(track_t*);
 static void seq_start(void)
 {
-    for(uint32_t k=0;k<NTRK;k++)if((func_song_mask&(1u<<k))&&!func_free(&trk[k])){seq_release(&trk[k]);func_song_mask&=(uint8_t)~(1u<<k);}   /* (FREE runs on) */
+    for(uint32_t k=0;k<NTRK;k++){if((func_song_mask&(1u<<k))&&!func_free(&trk[k])){seq_release(&trk[k]);func_song_mask&=(uint8_t)~(1u<<k);}   /* (FREE runs on) */
+        if(func_song(&trk[k])){trk_all_off(&trk[k]);func_pitch[k]=0;}}   /* PLAY: the keys played stopped let go, the formula at its root */
     func_clock_begin=func_clock_end=0;
     memset(shift_valid, 0, sizeof shift_valid);
     uint32_t i;
@@ -3188,6 +3189,8 @@ static void seq_due(track_t *t, uint32_t n)
     }
 }
 
+static uint8_t fs_sn,fs_sh,fs_s0;
+static __attribute__((noinline)) void func_seq_end(track_t*t){func_seq=0;t->seq_n=fs_sn;t->seq_hold=fs_sh;t->seq_notes[0]=fs_s0;t->ss_n=t->ss_i;}
 static __attribute__((noinline)) int func_song_tick(track_t*t)
 {
     uint32_t bit=1u<<trk_index(t);
@@ -3195,19 +3198,27 @@ static __attribute__((noinline)) int func_song_tick(track_t*t)
     if((func_song_mask&bit)&&!func_song(t)&&!fr){seq_release(t);func_song_mask&=(uint8_t)~bit;}
     if(func_song(t)||fr){
         if(song.playing||fr){                           /* (FREE: always, its own clock) */
-            uint32_t root=(uint32_t)clamp(60+(t->eng_req==ENGI_FORM?0:t->p[P_E6]),36,84),active=0;
+            uint32_t fp=func_pitch[trk_index(t)%NTRK],root=(uint32_t)clamp((fp?(int32_t)fp:60)+(t->eng_req==ENGI_FORM?0:t->p[P_E6]),24,96),active=0;
             if(t->seq_n&&t->seq_notes[0]!=root)seq_release(t);
             for(uint32_t k=0;k<NVOICE;k++)active|=t->v[k].active&&t->v[k].gate&&t->v[k].note==root;
-            if(!active&&!t->xp_n&&!t->p[P_MUTE]&&trk_index(t)<trk_live){seq_note_on(t,root,110);t->seq_notes[0]=(uint8_t)root;t->seq_n=1;t->seq_hold=1;}
-            func_song_mask|=(uint8_t)bit;t->seq_idx=(uint16_t)((lofi_sync(&active)>>11)%(t->eng_req==ENGI_FORM?16u:(uint32_t)clamp(t->p[P_SLEN],1,256)));   /* (FORM: P_SLEN its RATE B, 0 AUTO) */
+            if(!active&&!t->xp_n&&!t->p[P_MUTE]&&trk_index(t)<trk_live){func_seq=2;seq_note_on(t,root,110);func_seq=0;t->seq_notes[0]=(uint8_t)root;t->seq_n=1;t->seq_hold=1;}
+            func_song_mask|=(uint8_t)bit;if(fr)t->seq_idx=(uint16_t)((lofi_sync(&active)>>11)%(t->eng_req==ENGI_FORM?16u:(uint32_t)clamp(t->p[P_SLEN],1,256)));   /* (FORM: P_SLEN its RATE B, 0 AUTO) */
+            if(!fr){fs_sn=t->seq_n;fs_sh=t->seq_hold;fs_s0=t->seq_notes[0];t->seq_n=0;t->seq_hold=0;func_seq=1;return 2;}   /* PLAY: the steps, the formula's pitch; its voice's notes kept */
         }
         return 1;
     }
     return 0;
 }
+static void seq_tick_body(track_t *t, uint32_t n);
 static void seq_tick(track_t *t, uint32_t n)
 {
-    if(((func_song_mask&(1u<<trk_index(t)))||func_song(t)||func_free(t))&&func_song_tick(t))return;
+    int own=0;
+    if(((func_song_mask&(1u<<trk_index(t)))||func_song(t)||func_free(t))&&(own=func_song_tick(t))==1)return;
+    seq_tick_body(t,n);
+    if(own)func_seq_end(t);
+}
+static void seq_tick_body(track_t *t, uint32_t n)
+{
     uint32_t period, len, lon, nf;
     if (n > blk_n)
         blk_n = n;                                    /* (ctl64: ticked on its own, by a test, with more than a block) */

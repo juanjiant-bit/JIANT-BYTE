@@ -657,10 +657,10 @@ static uint8_t func_song_mask;
  * runs on its own: a voice always, its own clock, at the root) */
 static int func_song(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]==1:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==5;}
 static int func_free(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]==2:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==6;}
-/* (BYTE 0.16, the owner: "the whole formula is never heard") the formula's clock: the transport's in PLAY, and in NOTE
+/* (BYTE 0.16, the owner: "the whole formula is never heard") the formula's clock: the transport's in PLAY and NOTE
  * while the song plays (the key its pitch and gate, the formula where the song is: a 1/16 step a sixteenth of it, in
  * place); stopped, NOTE from the key, FREE its own */
-#define func_bar(t) (func_song(t)||(song.playing&&!func_free(t)))
+#define func_bar(t) (song.playing&&!func_free(t))
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
 static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:t->p[P_E7]==3?MATH_FUNC_GROWL:t->p[P_E7]==4?MATH_FUNC_HALF:t->p[P_E7]>=5&&t->p[P_E7]<5+(int)NELEM(MATH_FUNC_R)?MATH_FUNC_R[t->p[P_E7]-5]:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
 static uint32_t math_music_cost(const track_t*t){
@@ -698,7 +698,7 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
     if(t->p[P_E1]==RW_FUNC){
         static const param_desc_t control[4]={{"A",F_PCT,0,127,64,0},{"B",F_PCT,0,127,32,0},{"C",F_PCT,0,127,16,0},{"D",F_PCT,0,127,0,0}};
         static const char*const runs[]={"-","-","-","-","NOTE","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK","NIBBLE","BITS","DRUMS","SCREECH"};
-        static const param_desc_t run={"RUN",F_ENUM,4,6,4,runs},form={"FORM",F_ENUM,0,14,1,forms},root={"ROOT",F_INT,-24,24,0,0};
+        static const param_desc_t run={"RUN",F_ENUM,4,6,5,runs},form={"FORM",F_ENUM,0,14,1,forms},root={"ROOT",F_INT,-24,24,0,0};
         return k==0u?&run:k>=2u&&k<=5u?&control[k-2u]:k==6u?&root:k==7u?&form:0;
     }
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */

@@ -1799,9 +1799,13 @@ static volatile uint8_t asleep_hit;                     /* (0.6.28) a note went 
                                                          * their sounds and steps kept (fx.c mix_part) */                                /* (0.6.15) bit k: track k muted by GLO's solo / the FX layer's
                                                          * black key (perform.c): no new notes, as MUTE (a MIDI mute: a
                                                          * silenced track's voices end, it costs nothing) */
+/* (BYTE 0.16, the owner: "PLAY no longer starts the formula, no long patterns, no recording") PLAY and FREE: one voice
+ * the formula's own (seq.c func_song_tick), stopped a key sounds it as NOTE; the keys and the track's steps (func_seq: seq_tick's, recorded as ever) its
+ * pitch, the voice struck anew at each, the formula on where the song is; only the formula's own (func_seq 2) a voice */
+static uint8_t func_pitch[NTRK],func_seq;
 static void trk_note_on(track_t *t, uint32_t note, uint32_t vel)
 {
-    if((func_song(t)||func_free(t))&&!t->dr_seq)return; /* SONG has one transport-owned voice. */
+    if(((func_song(t)&&song.playing)||func_free(t))&&func_seq!=2u){func_pitch[(uint32_t)(t-trk)%NTRK]=(uint8_t)note;return;}
     uint32_t any = 0, i, mode = trk_vmode(t);
     if ((uint32_t)(t - trk) >= trk_live && !t->p[P_MUTE]) {
         asleep_hit = 1;                                 /* (0.6.28) a note for a track asleep: the UI says so */
@@ -1861,7 +1865,7 @@ static void trk_note_on(track_t *t, uint32_t note, uint32_t vel)
 
 static void trk_note_off(track_t *t, uint32_t note)
 {
-    if((func_song(t)||func_free(t))&&!t->dr_seq)return;
+    if(((func_song(t)&&song.playing)||func_free(t))&&(!t->dr_seq||func_seq))return;
     uint32_t i, k = 0, mode = trk_vmode(t);
     for (i = 0; i < t->xp_n; i++)                       /* not sounding yet (engine switch): forget it */
         if (t->xp_note[i] != note) {
