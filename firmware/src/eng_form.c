@@ -22,33 +22,39 @@ static const uint8_t FORM_EUK[24][2]={{0,0},{1,4},{2,4},{3,4},{1,8},{2,8},{3,8},
  {5,12},{7,12},{4,11},{5,13},{3,16},{5,16},{7,16},{9,16}};
 #define FORM_NEU 24u
 static const char *const FORM_RATE[]={"1/4","1/8","1/16","1/32",0};
+/* (the owner: "the drone by default under audio rate: a rhythm, an LFO locked to a resolution; from there up stretched to
+ * every timbre") FREQ: a cycle every 4 BAR .. 1/128, its phase the transport's, then the audio's: semitones on the note */
+static const char *const FORM_FREQ[]={"4BAR","2BAR","1BAR","1/2","1/4","1/8","1/16","1/32","1/64","1/128",
+ "-24","-19","-12","-7","-5","0","+5","+7","+12","+19","+24","+36",0};
+static const int8_t FORM_FOFS[12]={-24,-19,-12,-7,-5,0,5,7,12,19,24,36};
+#define FORM_NF 22u
 /* the modulators' four fields each: DEST EUCLID AMOUNT DECAY (MOD 1's DEST EUCLID in EDIT's E6 E7, the rest FORM's slots) */
 static const uint8_t FORM_MF[4][4]={{P_E6,P_E7,P_CAOS,P_ASWING},{P_APROB,P_ARATE,P_AORDER,P_AGATE},{P_AOCT,P_DETUNE,P_CVOI,P_CSTR},{P_DXIMG,P_MORPH,P_FRB,P_KEY}};
 static int form_owned_param(uint32_t id){return id==P_LRTRG||id==P_ROOT||id==P_CAOS||id==P_ASWING||id==P_APROB||id==P_ARATE||id==P_AORDER||id==P_AGATE||
  id==P_AOCT||id==P_DETUNE||id==P_CVOI||id==P_CSTR||id==P_DXIMG||id==P_MORPH||id==P_FRB||id==P_KEY;}
 static const param_desc_t FORM_MD[4]={{"DEST",F_ENUM,0,FD_N-1,0,FORM_DEST},{"EUCLID",F_ENUM,0,FORM_NEU-1,0,FORM_EU},{"AMOUNT",F_PCT,0,127,0,0},{"DECAY",F_PCT,0,127,40,0}};
 static const param_desc_t *form_common_desc(uint32_t id){
- static const param_desc_t run={"RUN",F_ENUM,0,2,1,FORM_RUN},root={"ROOT",F_INT,-24,24,0,0};
+ static const param_desc_t run={"RUN",F_ENUM,0,2,1,FORM_RUN},root={"FREQ",F_ENUM,0,FORM_NF-1,6,FORM_FREQ};
  if(id==P_LRTRG)return &run;
  if(id==P_ROOT)return &root;
  for(uint32_t m=0;m<4u;m++)for(uint32_t f=0;f<4u;f++)if(FORM_MF[m][f]==id)return &FORM_MD[f];
  return 0;
 }
 /* the states (presets): RATE SEED SHAPE FM FOLD CRUSH, then each modulator's DEST EUCLID AMOUNT DECAY */
-#define FP(label,ra,se,sh,fm,fo,cr,d1,e1,a1,k1,d2,e2,a2,k2,d3,e3,a3,k3,d4,e4,a4,k4) {label,{ra,se,sh,fm,fo,cr,d1,e1},{0,0,127,24},0,TAG(FX),FX(0,10,30,30),0,\
-  MODS(P_LRTRG,1,P_ROOT,0,P_CAOS,a1,P_ASWING,k1,P_APROB,d2,P_ARATE,e2,P_AORDER,a2,P_AGATE,k2,P_AOCT,d3,P_DETUNE,e3,P_CVOI,a3,P_CSTR,k3,P_DXIMG,d4,P_MORPH,e4,P_FRB,a4,P_KEY,k4)}
+#define FP(label,fr,ra,se,sh,fm,fo,cr,d1,e1,a1,k1,d2,e2,a2,k2,d3,e3,a3,k3,d4,e4,a4,k4) {label,{ra,se,sh,fm,fo,cr,d1,e1},{0,0,127,24},0,TAG(FX),FX(0,10,30,30),0,\
+  MODS(P_LRTRG,1,P_ROOT,fr,P_CAOS,a1,P_ASWING,k1,P_APROB,d2,P_ARATE,e2,P_AORDER,a2,P_AGATE,k2,P_AOCT,d3,P_DETUNE,e3,P_CVOI,a3,P_CSTR,k3,P_DXIMG,d4,P_MORPH,e4,P_FRB,a4,P_KEY,k4)}
 static const preset_t FORM_PRESETS[]={
- /*            RATE SEED SHAPE FM  FOLD CRUSH   MOD 1: DEST EU AMT DEC      MOD 2               MOD 3               MOD 4 */
- FP("01 PULSE",    2,  7,  30, 20,  10,  0,     FD_UP,1,110,12,       FD_NOISE,11,70,8,    FD_JUMP,9,60,90,      FD_FM,13,60,40),
- FP("02 CRITTER",  2, 11,  70, 50,  40, 30,     FD_UP,7,90,10,        FD_NOISE,12,80,6,    FD_FOLD,16,100,30,    FD_JUMP,15,80,70),
- FP("03 DRONE",    2,  3,  20, 30,  20,  0,     FD_DIVE,4,60,110,     FD_FM,9,60,90,       FD_CHORD,13,90,120,   FD_SHAPE,18,70,100),
- FP("04 BITSWARM", 3, 21, 110, 20,  20, 90,     FD_NOISE,22,90,6,     FD_UP,7,100,8,       FD_CRUSH,0,100,20,    FD_JUMP,21,90,40),
- FP("05 WOBBLE",   2,  5,  80, 70,  60, 20,     FD_UP,1,100,14,       FD_FOLD,5,110,60,    FD_DIVE,14,70,50,     FD_FM,0,90,80),
- FP("06 GLASS",    2, 17,   0, 70,   0,  0,     FD_FM,11,110,50,      FD_JUMP,15,90,100,   FD_CHORD,9,80,90,     FD_NOISE,23,40,4),
- FP("07 BREAK",    2,  9,  60, 40,  70, 50,     FD_UP,7,120,10,       FD_NOISE,12,110,10,  FD_DIVE,22,90,20,     FD_CRUSH,16,90,30),
- FP("08 AMBIENT",  1, 13,  15, 25,  10,  0,     FD_CHORD,9,100,127,   FD_JUMP,13,80,120,   FD_FM,18,60,110,      FD_DIVE,4,40,127),
- FP("09 SILENCE",  2, 29,  50, 40,  30, 10,     FD_DIVE,0,127,60,     FD_UP,7,110,9,       FD_NOISE,11,90,7,     FD_FOLD,13,100,40),
- FP("10 MACHINE",  2, 31,  90, 60,  50, 60,     FD_UP,3,127,8,        FD_NOISE,20,100,5,   FD_SHAPE,12,127,30,   FD_JUMP,0,100,60),
+ /*           FREQ RATE SEED SHAPE FM  FOLD CRUSH   MOD 1: DEST EU AMT DEC      MOD 2               MOD 3               MOD 4 */
+ FP("01 PULSE",  6,    2,  7,  30, 20,  10,  0,     FD_UP,1,110,12,       FD_NOISE,11,70,8,    FD_JUMP,9,60,90,      FD_FM,13,60,40),
+ FP("02 CRITTER",  7,  2, 11,  70, 50,  40, 30,     FD_UP,7,90,10,        FD_NOISE,12,80,6,    FD_FOLD,16,100,30,    FD_JUMP,15,80,70),
+ FP("03 DRONE", 10,    2,  3,  20, 30,  20,  0,     FD_DIVE,4,60,110,     FD_FM,9,60,90,       FD_CHORD,13,90,120,   FD_SHAPE,18,70,100),
+ FP("04 BITSWARM",  8, 3, 21, 110, 20,  20, 90,     FD_NOISE,22,90,6,     FD_UP,7,100,8,       FD_CRUSH,0,100,20,    FD_JUMP,21,90,40),
+ FP("05 WOBBLE",  5,   2,  5,  80, 70,  60, 20,     FD_UP,1,100,14,       FD_FOLD,5,110,60,    FD_DIVE,14,70,50,     FD_FM,0,90,80),
+ FP("06 GLASS", 15,    2, 17,   0, 70,   0,  0,     FD_FM,11,110,50,      FD_JUMP,15,90,100,   FD_CHORD,9,80,90,     FD_NOISE,23,40,4),
+ FP("07 BREAK",  6,    2,  9,  60, 40,  70, 50,     FD_UP,7,120,10,       FD_NOISE,12,110,10,  FD_DIVE,22,90,20,     FD_CRUSH,16,90,30),
+ FP("08 AMBIENT", 12,  1, 13,  15, 25,  10,  0,     FD_CHORD,9,100,127,   FD_JUMP,13,80,120,   FD_FM,18,60,110,      FD_DIVE,4,40,127),
+ FP("09 SILENCE",  4,  2, 29,  50, 40,  30, 10,     FD_DIVE,0,127,60,     FD_UP,7,110,9,       FD_NOISE,11,90,7,     FD_FOLD,13,100,40),
+ FP("10 MACHINE",  7,  2, 31,  90, 60,  50, 60,     FD_UP,3,127,8,        FD_NOISE,20,100,5,   FD_SHAPE,12,127,30,   FD_JUMP,0,100,60),
 };
 #undef FP
 #define FORM_N ((uint32_t)NELEM(FORM_PRESETS))
@@ -108,12 +114,18 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
   st->e[k]-=(int32_t)(((int64_t)st->e[k]*rate)>>10);if(st->e[k]<16)st->e[k]=0;
  }
  for(k=1;k<FD_N;k++)if(ev[k]>32767)ev[k]=32767;
- /* the pitch: the key's two octaves down (the drone low, the modulators taking it up), ROOT; UP thrown up four octaves and falling, DIVE down eight (the silence), JUMP held */
- int32_t p16=m->pitch16+(clamp(p[P_ROOT],-24,24)-24)*16+(ev[FD_JUMP]?st->jump*16:0)+(int32_t)((int64_t)ev[FD_UP]*768>>15);
+ /* the frequency: FREQ's (a tempo's cycle, its phase the transport's while nothing moves it; or the note's, shifted); UP
+ * thrown up four octaves and falling, JUMP held, both as octaves on it; DIVE down eight (the silence) */
+ uint32_t fq=(uint32_t)clamp(p[P_ROOT],0,FORM_NF-1),inc,locked=0;
+ int32_t up16=(ev[FD_JUMP]?st->jump*16:0)+(int32_t)((int64_t)ev[FD_UP]*768>>15);
  if(!ev[FD_JUMP])st->jump=0;
- uint32_t inc=pitch_inc((uint32_t)clamp(p16,0,2047));
+ if(fq<10u){uint32_t sb=(bps>>sh)?(bps>>sh):1u,i1=0xFFFFFFFFu/sb;inc=fq>=4u?i1<<(fq-4u):i1>>(4u-fq);locked=!up16&&!ev[FD_DIVE]&&func_bar(t);}
+ else inc=pitch_inc((uint32_t)clamp(m->pitch16+FORM_FOFS[fq-10u]*16,0,2047));
+ if(up16){int32_t o=up16/192,f=up16-o*192;if(f<0){f+=192;o--;}
+  uint32_t r=(pitch_inc((uint32_t)f)*16u)/((pitch_inc(0)>>12)?(pitch_inc(0)>>12):1u);inc=(uint32_t)(((uint64_t)inc*r)>>16);
+  if(o>=0){while(o-->0&&inc<0x20000000u)inc<<=1;}else inc>>=(uint32_t)(-o>31?31:-o);}
  {uint32_t dv=(uint32_t)ev[FD_DIVE]*8u,oc=dv>>15,fr=(dv&32767u)>>3;inc=(inc>>oc)-(uint32_t)(((uint64_t)(inc>>oc)*fr)>>13);}   /* DIVE: down to 8 octaves under the note (no floor: the silence) */
- uint32_t ph=v->ph[0],mph=v->ph[1],cph=v->ph[2],c5=(uint32_t)v->s[3];
+ uint32_t ph=locked?func_clock_begin<<(12u+fq):v->ph[0],mph=v->ph[1],cph=v->ph[2],c5=(uint32_t)v->s[3];   /* (locked: the cycle on the beat) */
  /* the timbre now: its knobs and the modulators' */
  int32_t shp=clamp(p[P_E2]*258+(ev[FD_SHAPE]>>1),0,32767),fm=clamp(p[P_E3]*258+ev[FD_FM],0,32767),fo=clamp(p[P_E4]*258+ev[FD_FOLD],0,32767);
  int32_t cr=clamp(p[P_E5]*258+ev[FD_CRUSH],0,32767),nzv=ev[FD_NOISE],chv=ev[FD_CHORD];
