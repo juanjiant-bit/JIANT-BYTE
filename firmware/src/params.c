@@ -83,7 +83,7 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                      "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
                                      "CLIP", "PNCH",   /* (JIANT: the master, FX > MASTER) */
                                      "D.TIM", "D.FB", "D.TON", "D.MIX", "R.SIZ", "R.DMP", "C.RAT", "C.DEP", "F.CUT", "LEVEL", "LIFE",
-                                     "DEPTH", "SPEED", "MOD", "D.LEV", "DENS"};   /* (BYTE 0.17: MOTION, PULSE; mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
+                                     "DEPTH", "SPEED", "FOLD", "RING", "DENS"};   /* (BYTE 0.17: MOTION, PULSE; mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
@@ -827,10 +827,11 @@ static const page_t PAGES[] = {
     /* (FORM 2, the owner: by importance, no DELAY) after STATES and RULES (the engine's): the timbre (STYLE DRIVE TONE
      * WOBBLE, in its ARP slots), the harmony, the layers, the clock */
     /* (BYTE 0.17, the owner: "one engine, whole") FORM: RUN ROOT FORM A FORM B; SHAPE its EDIT 2 (A B C D); MOTION
-     * MORPH and the curve moving it and the stages (MOD SPEED DEPTH); PULSE the drums and the GATE (DRUMS LEVEL DENSITY GATE) */
+     * MORPH and the curve moving it and the stages (MOD SPEED DEPTH); TIMBRE (FOLD RING CRUSH); PULSE: RATE DENSITY GATE DRUMS */
     {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_E3,P_E0,P_E1}},
     {"MOTION", FAM_EDIT, SC_FORM, GR_NONE, {P_E2,P_CAOS,P_ASWING,P_APROB}},
-    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_CSTR,P_DETUNE,P_DXIMG,P_KEY}},
+    {"TIMBRE", FAM_EDIT, SC_FORM, GR_NONE, {P_AGATE,P_ARATE,P_AORDER,0xFF}},
+    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_MORPH,P_DXIMG,P_KEY,P_DETUNE}},
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */

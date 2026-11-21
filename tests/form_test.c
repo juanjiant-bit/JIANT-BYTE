@@ -48,33 +48,40 @@ int main(void)
         OK(ok, "the %u presets sound, bounded", (unsigned)NELEM(FORM_PRESETS));
     }
     {   /* MORPH: A, B, between them at equal power */
-        setup(1); TSEL->p[P_E0] = 3; TSEL->p[P_E1] = 6; TSEL->p[P_E2] = 0; TSEL->p[P_APROB] = 0; TSEL->p[P_CSTR] = 0; frames(64); play(ya);
+        setup(1); TSEL->p[P_E0] = 3; TSEL->p[P_E1] = 6; TSEL->p[P_E2] = 0; TSEL->p[P_APROB] = 0; TSEL->p[P_DETUNE] = 0; frames(64); play(ya);
         double ra = rms(ya); TSEL->p[P_E2] = 127; play(yb); double rb = rms(yb), d = dlt(ya, yb);
         TSEL->p[P_E2] = 64; play(yb); double rm = rms(yb);
         OK(d > 0.3 && rm > 0.5 * (ra < rb ? ra : rb), "MORPH: A %.3f, B %.3f apart (%.2f), between %.3f", ra, rb, d, rm);
     }
-    {   /* the macros: above the middle each its stage */
-        static const char *const NM[4] = {"A FOLD", "B RING", "C ACID", "D CRUSH"};
-        for (unsigned k = 0; k < 4u; k++) {
-            setup(1); TSEL->p[P_E0] = 3; TSEL->p[P_E2] = 0; TSEL->p[P_APROB] = 0; TSEL->p[P_CSTR] = 0;
-            for (unsigned j = 0; j < 4u; j++) TSEL->p[P_E4 + j] = 64;
-            frames(64); play(ya); TSEL->p[P_E4 + k] = 127; play(yb);
-            double d = dlt(ya, yb);
-            OK(d > 0.2 && peak(yb) < 1.0, "%s: heard above the middle (%.2f)", NM[k], d);
+    {   /* TIMBRE: each stage 0 out, heard turned up; SHAPE's knobs the recipe's, named by it; RATE the formula's time */
+        static const unsigned ID[3] = {P_AGATE, P_ARATE, P_AORDER};
+        static const char *const NM[3] = {"FOLD", "RING", "CRUSH"};
+        for (unsigned k = 0; k < 3u; k++) {
+            setup(1); TSEL->p[P_E0] = 3; TSEL->p[P_E2] = 0; TSEL->p[P_APROB] = 0; TSEL->p[P_DETUNE] = 0; TSEL->p[P_KEY] = 0;
+            frames(64); play(ya); TSEL->p[ID[k]] = 127; play(yb);
+            OK(dlt(ya, yb) > 0.2 && peak(yb) < 1.0, "%s: heard (%.2f)", NM[k], dlt(ya, yb));
         }
+        setup(1); TSEL->p[P_E0] = 3; frames(64);
+        OK(!strcmp(track_desc(TSEL, P_E4)->label, "VOWEL") && !strcmp(track_desc(TSEL, P_E7)->label, "SEED"), "SHAPE: GROWL's A B C D named (%s)", track_desc(TSEL, P_E4)->label);
+        setup(1); TSEL->p[P_E0] = 10; TSEL->p[P_KEY] = 0; TSEL->p[P_DETUNE] = 0; TSEL->p[P_APROB] = 0; frames(64); play(ya);
+        TSEL->p[P_MORPH] = 0; play(yb);
+        OK(dlt(ya, yb) > 0.3, "RATE: x1/4 another time (%.2f)", dlt(ya, yb));
+        setup(1); TSEL->p[P_E0] = 3; TSEL->p[P_KEY] = 0; TSEL->p[P_DETUNE] = 0; TSEL->p[P_FCUT] = 127; TSEL->p[P_FRES] = 0; frames(64); play(ya);
+        TSEL->p[P_FCUT] = 40; play(yb);
+        OK(rms(yb) < rms(ya) * 0.9, "FILTER: the part's own (%.3f -> %.3f)", rms(ya), rms(yb));
     }
     {   /* MOTION moves it */
-        setup(1); TSEL->p[P_E0] = 3; TSEL->p[P_APROB] = 0; TSEL->p[P_CSTR] = 0; frames(64); play(ya);
+        setup(1); TSEL->p[P_E0] = 3; TSEL->p[P_APROB] = 0; TSEL->p[P_DETUNE] = 0; frames(64); play(ya);
         TSEL->p[P_APROB] = 120; TSEL->p[P_ASWING] = 0; play(yb);
         OK(dlt(ya, yb) > 0.2, "MOTION: the curve moves the sound (%.2f)", dlt(ya, yb));
     }
     {   /* the drums: on, the 16ths' energy; off, none */
-        setup(11); TSEL->p[P_CSTR] = 0; frames(64); play(ya); double r0 = rms(ya);
-        TSEL->p[P_CSTR] = 1; TSEL->p[P_DETUNE] = 127; TSEL->p[P_DXIMG] = 100; play(yb); double r1 = rms(yb);
+        setup(11); TSEL->p[P_DETUNE] = 0; frames(64); play(ya); double r0 = rms(ya);
+        TSEL->p[P_DETUNE] = 127; TSEL->p[P_DXIMG] = 100; play(yb); double r1 = rms(yb);
         OK(r1 > r0 * 1.05 && dlt(ya, yb) > 0.2, "DRUMS: heard (%.3f -> %.3f)", r0, r1);
     }
     {   /* GATE: struck on euclids, rests between (the envelope's spread); 0 the formula as it is */
-        setup(1); TSEL->p[P_E0] = 10; TSEL->p[P_CSTR] = 0; TSEL->p[P_APROB] = 0; TSEL->p[P_KEY] = 0; frames(64); play(ya);
+        setup(1); TSEL->p[P_E0] = 10; TSEL->p[P_DETUNE] = 0; TSEL->p[P_APROB] = 0; TSEL->p[P_KEY] = 0; frames(64); play(ya);
         TSEL->p[P_KEY] = 127; TSEL->p[P_DXIMG] = 40; play(yb);
         double ea[32] = {0}, eb[32] = {0}; unsigned seg = NS / 32u, quiet = 0;
         for (unsigned i = 0; i < NS; i++) { ea[i / seg % 32u] += ya[i] * ya[i]; eb[i / seg % 32u] += yb[i] * yb[i]; }
@@ -82,7 +89,7 @@ int main(void)
         OK(quiet >= 4u && rms(yb) > 0.005, "GATE: rests between the hits (%u of 32 slices quiet)", quiet);
     }
     {   /* ROOT transposes; TRIG: a key sounds it stopped */
-        setup(1); TSEL->p[P_E0] = 6; TSEL->p[P_CSTR] = 0; TSEL->p[P_APROB] = 0; frames(64); play(ya);
+        setup(1); TSEL->p[P_E0] = 6; TSEL->p[P_DETUNE] = 0; TSEL->p[P_APROB] = 0; frames(64); play(ya);
         TSEL->p[P_E3] = 7; play(yb);
         OK(dlt(ya, yb) > 0.3, "ROOT: transposed (%.2f)", dlt(ya, yb));
         int32_t b[CTL * 2]; double e = 0;
@@ -95,25 +102,26 @@ int main(void)
         setup(0); ui.home = 1; press(B_EDIT);
         int ok = cur_page()->scope == SC_FORM && cur_page()->id[0] == P_LRTRG && cur_page()->id[1] == P_E3 && cur_page()->id[2] == P_E0;
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_E4;
+        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_AGATE;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_E2 && cur_page()->id[1] == P_CAOS;
-        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_CSTR && cur_page()->id[3] == P_KEY;
+        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_MORPH && cur_page()->id[2] == P_KEY && cur_page()->id[3] == P_DETUNE;
         frames(20);
-        OK(ok, "EDIT: FORM (RUN ROOT A B), SHAPE, MOTION, PULSE (+GATE)");
+        OK(ok, "EDIT: FORM (RUN ROOT A B), SHAPE, TIMBRE, MOTION, PULSE");
     }
     {   /* the dice in range */
         int ok = 1;
         for (unsigned k = 0; k < 40u; k++) {
             setup(0); form_dice(TSEL, k & 1u);
             ok &= TSEL->p[P_E0] >= 0 && TSEL->p[P_E0] < (int)FORM_NT && TSEL->p[P_E1] >= 0 && TSEL->p[P_E1] < (int)FORM_NT &&
-                  TSEL->p[P_CAOS] <= 3 && TSEL->p[P_ASWING] <= 5 && TSEL->p[P_APROB] <= 127 && TSEL->p[P_CSTR] <= 2 && TSEL->p[P_DXIMG] <= 127;
+                  TSEL->p[P_CAOS] <= 3 && TSEL->p[P_ASWING] <= 5 && TSEL->p[P_APROB] <= 127 && TSEL->p[P_DETUNE] <= 127 && TSEL->p[P_DXIMG] <= 127 && TSEL->p[P_AGATE] <= 127 && TSEL->p[P_AORDER] <= 127;
             for (unsigned j = 0; j < 4u; j++) ok &= TSEL->p[P_E4 + j] >= 0 && TSEL->p[P_E4 + j] <= 127;
         }
         OK(ok, "40 throws of the dice in range");
     }
     {   /* stored and read back */
         static project_t q, r; static project_store_t st;
-        static const unsigned ID[] = {P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7, P_LRTRG, P_CAOS, P_ASWING, P_APROB, P_CSTR, P_DETUNE, P_DXIMG, P_KEY};
-        setup(5); TSEL->p[P_E4] = 99; TSEL->p[P_E3] = -5; TSEL->p[P_CAOS] = 2; TSEL->p[P_CSTR] = 2; TSEL->p[P_DXIMG] = 3;
+        static const unsigned ID[] = {P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7, P_LRTRG, P_CAOS, P_ASWING, P_APROB, P_DETUNE, P_DXIMG, P_KEY, P_AGATE, P_ARATE, P_AORDER, P_MORPH};
+        setup(5); TSEL->p[P_E4] = 99; TSEL->p[P_E3] = -5; TSEL->p[P_CAOS] = 2; TSEL->p[P_AGATE] = 50; TSEL->p[P_MORPH] = 4; TSEL->p[P_DXIMG] = 3;
         project_capture(&q);
         int ok = proj_pack(&st, &q) && proj_import(&r, st.raw, (int)sizeof st.raw);
         for (unsigned k = 0; ok && k < NELEM(ID); k++) ok &= r.t[0].p[ID[k]] == q.t[0].p[ID[k]];
