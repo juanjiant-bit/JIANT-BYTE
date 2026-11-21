@@ -633,6 +633,17 @@ static const char MATH_FUNC_BEAT[] = "func{let bt=P%32;let st=int(bt*4);return s
  * at half time (A the wobble's depth, C the drive, D the seed). No state: they run by blocks */
 static const char MATH_FUNC_GROWL[] = "func{let k=int(P*4);let y=w*(\"44464348\"[k*3+rnd(k>>5^d)&7]-48)*.25;let f=y%1;let l=sin(P*(1+int(B*3))*.5)*.5+.5;return sat((sin(f*(3+l*6*A))*.6+sin(f*(9+l*25))*.4)*(1+C*6)*eu(k,d)+sin(y*.5)*.6);}";
 static const char MATH_FUNC_HALF[] = "func{let g=P%4;let k=int(P*4);let q=sin(P*(\"1248\"[(k>>2^k>>5^d)&3]-48)*.25)*.5+.5;return sat(sat(sin(w*.5%1*(2+q*q*12*A))*sin(w*(3+B*4))*(3+C*12)*eu(k,d)+sin(w*.5)*2)*.6+kick(g)+snare((g+2)%4)*.7);}";
+/* (BYTE 0.16) the rest of FORM 4's first ten, the references (docs/FORM-REFERENCIAS.md): ACID (5), REESE, HOUSE (2),
+ * STRUM (1), JUST (3), PLUCK (9), NIBBLE (11), BITS (6, 8); each with the seed (D) and eu()'s action, none with state */
+static const char MATH_FUNC_R_ACID[] = "func{let k=int(P*4);let e=1-P*4%1;let y=w*(\"44464348\"[k*5+rnd(k>>4^d)&7]-48)*.25;let f=y%1;return sat((saw(y)*.4+sin(f*(2+e*e*16*A))*(1-f)*(.5+B))*(1+C*5)*(.3+eu(k,d)*.7)*e);}";
+static const char MATH_FUNC_R_REESE[] = "func{let k=int(P*2);let y=w*(\"4434\"[k+rnd(k>>3^d)&3]-48)*.25;let z=saw(y)+saw(y*(1.003+A*.01))+saw(y*.5)*.6;return sat(tri(z*(.25+B*.5))*(1+C*4))*(.6+eu(k,d)*.4);}";
+static const char MATH_FUNC_R_HOUSE[] = "func{let g=P%1;let k=int(P*4);let r=\"0573\"[(k>>3)+rnd(k>>5^d)&3]-48;return sat(chord(n+r+12,P%2,A)*g*.7+sin(w*.25+sin(w*.5)*B*.3)*eu(k,d)*.6*(1-g*.5)+kick(g)*C);}";
+static const char MATH_FUNC_R_STRUM[] = "func{let k=int(P*4);let g=(k%8>5?k%8-6:k%8%3)*.25+P%.25;let r=n+\"0375\"[(k>>4)+rnd(k>>6^d)STRUM	func{let k=int(P*4);let g=(k%8>5?k%8-6:k%8%3)+P*4%1;let r=\"0375\"[(k>>4)+rnd(k>>6^d)&3]-48;return sat((note(n+r,g/4,A)+note(n+r+3+int(B*2)*1,g/4-.06,A)+note(n+r+7,g/4-.12,A))*(1+C*3)*.5+kick(P%1)*.5);}3]-48;return sat((note(r,g,A)+note(r+3+B*2,g-.06,A)+note(r+7,g-.12,A))*(1+C*3)*.5);}";
+static const char MATH_FUNC_R_JUST[] = "func{let k=int(P);let y=w*(\"44564454\"[k+rnd(k>>3^d)&7]-48)*.25;let f=y%1;let e=1-P%1;return sat(sin(f*f*(2+A*12)+sin(y*2)*B*.3)*e*(.4+eu(k*4,d)*.6)*(1+C*3)+sin(w*(1+e*e*e*8))*e*e*e*.5);}";
+static const char MATH_FUNC_R_PLUCK[] = "func{let k=int(P*4);let y=w*(\"44464348\"[k*5+rnd(k>>4^d)&7]-48)*.25;let u=y%1*2-1;let z=u*u*u;let e=1-P*4%1;return sat(sin(z*z*z*(1+A*3)+y+sin(y*2)*B)*e*e*(.3+eu(k,d)*.7)*(1+C*3));}";
+static const char MATH_FUNC_R_NIBBLE[] = "func{let k=int(P*4);let y=w*(\"4568<068\"[(k^k>>2)+rnd(k>>5^d)&7]-48)*.25;let h=.5+sin(P*.125)*A*.45;return sat(((y%1<h)*2-1)*(y>0)*(.3+eu(k,d)*.7)*(1-P*4%1)*(1+C*2)+sin(w*.5)*B*.5);}";
+static const char MATH_FUNC_R_BITS[] = "func{let k=int(P*4);let m=int(t/(4+int(A*4)));let y=fix((m*(3+(k>>2^d)%5)&(m>>5|m>>8))%256)/128-1;return sat(y*(.3+eu(k,d)*.7)*(1+C*3)+kick(P%1)*B+hat(P*4%1)*.3);}";
+static const char *const MATH_FUNC_R[] = {MATH_FUNC_R_ACID,MATH_FUNC_R_REESE,MATH_FUNC_R_HOUSE,MATH_FUNC_R_STRUM,MATH_FUNC_R_JUST,MATH_FUNC_R_PLUCK,MATH_FUNC_R_NIBBLE,MATH_FUNC_R_BITS};
 static uint32_t func_clock_begin,func_clock_end;
 static uint8_t func_song_mask;
 /* (BYTE 0.16, the owner: "that PLAY starts the formula: set it explicitly; by default a key sounds it") RUN: NOTE (the
@@ -641,7 +652,7 @@ static uint8_t func_song_mask;
 static int func_song(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]==1:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==5;}
 static int func_free(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]==2:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==6;}
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
-static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:t->p[P_E7]==3?MATH_FUNC_GROWL:t->p[P_E7]==4?MATH_FUNC_HALF:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
+static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:t->p[P_E7]==3?MATH_FUNC_GROWL:t->p[P_E7]==4?MATH_FUNC_HALF:t->p[P_E7]>=5&&t->p[P_E7]<5+(int)NELEM(MATH_FUNC_R)?MATH_FUNC_R[t->p[P_E7]-5]:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
 static uint32_t math_music_cost(const track_t*t){
     if(t->p[P_E1]!=RW_FUNC)return 2u;
     const fvm_prog_t*p=lofi_slot((uint32_t)(t-trk)%NTRK);uint32_t cost=2;
@@ -676,8 +687,8 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
     if(t->p[P_E1]==RW_FUNC){
         static const param_desc_t control[4]={{"A",F_PCT,0,127,64,0},{"B",F_PCT,0,127,32,0},{"C",F_PCT,0,127,16,0},{"D",F_PCT,0,127,0,0}};
-        static const char*const runs[]={"-","-","-","-","NOTE","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME"};
-        static const param_desc_t run={"RUN",F_ENUM,4,6,4,runs},form={"FORM",F_ENUM,0,4,1,forms},root={"ROOT",F_INT,-24,24,0,0};
+        static const char*const runs[]={"-","-","-","-","NOTE","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK","NIBBLE","BITS"};
+        static const param_desc_t run={"RUN",F_ENUM,4,6,4,runs},form={"FORM",F_ENUM,0,12,1,forms},root={"ROOT",F_INT,-24,24,0,0};
         return k==0u?&run:k>=2u&&k<=5u?&control[k-2u]:k==6u?&root:k==7u?&form:0;
     }
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */
