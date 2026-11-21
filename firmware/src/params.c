@@ -827,10 +827,10 @@ static const page_t PAGES[] = {
     /* (FORM 2, the owner: by importance, no DELAY) after STATES and RULES (the engine's): the timbre (STYLE DRIVE TONE
      * WOBBLE, in its ARP slots), the harmony, the layers, the clock */
     /* (BYTE 0.17, the owner: "one engine, whole") FORM: RUN ROOT FORM A FORM B; SHAPE its EDIT 2 (A B C D); MOTION
-     * MORPH and the curve moving it and the stages (MOD SPEED DEPTH); PULSE the drums (DRUMS LEVEL DENSITY) */
+     * MORPH and the curve moving it and the stages (MOD SPEED DEPTH); PULSE the drums and the GATE (DRUMS LEVEL DENSITY GATE) */
     {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_E3,P_E0,P_E1}},
     {"MOTION", FAM_EDIT, SC_FORM, GR_NONE, {P_E2,P_CAOS,P_ASWING,P_APROB}},
-    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_CSTR,P_DETUNE,P_DXIMG,0xFF}},
+    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_CSTR,P_DETUNE,P_DXIMG,P_KEY}},
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */

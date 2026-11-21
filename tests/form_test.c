@@ -73,6 +73,14 @@ int main(void)
         TSEL->p[P_CSTR] = 1; TSEL->p[P_DETUNE] = 127; TSEL->p[P_DXIMG] = 100; play(yb); double r1 = rms(yb);
         OK(r1 > r0 * 1.05 && dlt(ya, yb) > 0.2, "DRUMS: heard (%.3f -> %.3f)", r0, r1);
     }
+    {   /* GATE: struck on euclids, rests between (the envelope's spread); 0 the formula as it is */
+        setup(1); TSEL->p[P_E0] = 10; TSEL->p[P_CSTR] = 0; TSEL->p[P_APROB] = 0; TSEL->p[P_KEY] = 0; frames(64); play(ya);
+        TSEL->p[P_KEY] = 127; TSEL->p[P_DXIMG] = 40; play(yb);
+        double ea[32] = {0}, eb[32] = {0}; unsigned seg = NS / 32u, quiet = 0;
+        for (unsigned i = 0; i < NS; i++) { ea[i / seg % 32u] += ya[i] * ya[i]; eb[i / seg % 32u] += yb[i] * yb[i]; }
+        for (unsigned k = 0; k < 32u; k++) quiet += eb[k] < ea[k] * 0.1;
+        OK(quiet >= 4u && rms(yb) > 0.005, "GATE: rests between the hits (%u of 32 slices quiet)", quiet);
+    }
     {   /* ROOT transposes; TRIG: a key sounds it stopped */
         setup(1); TSEL->p[P_E0] = 6; TSEL->p[P_CSTR] = 0; TSEL->p[P_APROB] = 0; frames(64); play(ya);
         TSEL->p[P_E3] = 7; play(yb);
@@ -88,9 +96,9 @@ int main(void)
         int ok = cur_page()->scope == SC_FORM && cur_page()->id[0] == P_LRTRG && cur_page()->id[1] == P_E3 && cur_page()->id[2] == P_E0;
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_E4;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_E2 && cur_page()->id[1] == P_CAOS;
-        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_CSTR;
+        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_CSTR && cur_page()->id[3] == P_KEY;
         frames(20);
-        OK(ok, "EDIT: FORM (RUN ROOT A B), SHAPE, MOTION, PULSE");
+        OK(ok, "EDIT: FORM (RUN ROOT A B), SHAPE, MOTION, PULSE (+GATE)");
     }
     {   /* the dice in range */
         int ok = 1;
@@ -104,7 +112,7 @@ int main(void)
     }
     {   /* stored and read back */
         static project_t q, r; static project_store_t st;
-        static const unsigned ID[] = {P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7, P_LRTRG, P_CAOS, P_ASWING, P_APROB, P_CSTR, P_DETUNE, P_DXIMG};
+        static const unsigned ID[] = {P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7, P_LRTRG, P_CAOS, P_ASWING, P_APROB, P_CSTR, P_DETUNE, P_DXIMG, P_KEY};
         setup(5); TSEL->p[P_E4] = 99; TSEL->p[P_E3] = -5; TSEL->p[P_CAOS] = 2; TSEL->p[P_CSTR] = 2; TSEL->p[P_DXIMG] = 3;
         project_capture(&q);
         int ok = proj_pack(&st, &q) && proj_import(&r, st.raw, (int)sizeof st.raw);

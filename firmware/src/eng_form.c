@@ -6,7 +6,10 @@
  * formulas, in C: A folds, B rings at a ratio of the note, C an acid filter closing on the note, D crushes (D is the
  * recipes' seed too). MOTION a curve of the song's (SINE TRI S&H RAMP, 1/4 bar .. 8 bars) moving MORPH and the four
  * stages, each at its quarter; PULSE the drums, native (a kick, a snare, hats on euclids fused from D), the song's
- * 16ths. RUN TRIG (played as a synth), PLAY (the transport's: keys and steps its pitch), FREE; ROOT transposes.
+ * 16ths. GATE (the owner: "euclidean sequences with dynamics, not constant arpeggios"): the formulas struck on the
+ * 16ths by a euclid fused from D (the kick's hits in it, accented), each hit its velocity and length (a staccato .. a
+ * half bar), rests between: a block resting computes no formula. RUN TRIG (played as a synth: no GATE), PLAY (the
+ * transport's: keys and steps its pitch), FREE; ROOT transposes.
  * The formulas run by blocks (fvm_func_block: no state), at half the rate; one while MORPH is at an end, both between. */
 static const char *const FORM_RUN[]={"TRIG","PLAY","FREE",0};
 static const char *const FORM_NAMES[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK","NIBBLE","BITS","DRUMS","SCREECH",0};
@@ -20,14 +23,14 @@ static const char *form_recipe(uint32_t i,const char*custom){
  static const char *const R[4]={MATH_FUNC_DEFAULT,MATH_FUNC_BEAT,MATH_FUNC_GROWL,MATH_FUNC_HALF};
  return i>=1u&&i<=4u?R[i-1u]:i>=5u&&i<5u+NELEM(MATH_FUNC_R)?MATH_FUNC_R[i-5u]:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
 /* the slots FORM takes from the common pages (the others' again when the part leaves it: ui.c) */
-static int form_owned_param(uint32_t id){return id==P_LRTRG||id==P_CAOS||id==P_ASWING||id==P_APROB||id==P_CSTR||id==P_DETUNE||id==P_DXIMG;}
+static int form_owned_param(uint32_t id){return id==P_LRTRG||id==P_CAOS||id==P_ASWING||id==P_APROB||id==P_CSTR||id==P_DETUNE||id==P_DXIMG||id==P_KEY;}
 static const param_desc_t *form_common_desc(uint32_t id){
  static const param_desc_t run={"RUN",F_ENUM,0,2,1,FORM_RUN},mod={"MOD",F_ENUM,0,3,0,FORM_MOD},spd={"SPEED",F_ENUM,0,5,3,FORM_SPD},
-  dep={"DEPTH",F_PCT,0,127,0,0},kit={"DRUMS",F_ENUM,0,2,0,FORM_KIT},lev={"LEVEL",F_PCT,0,127,90,0},den={"DENSITY",F_PCT,0,127,64,0};
- return id==P_LRTRG?&run:id==P_CAOS?&mod:id==P_ASWING?&spd:id==P_APROB?&dep:id==P_CSTR?&kit:id==P_DETUNE?&lev:id==P_DXIMG?&den:0;
+  dep={"DEPTH",F_PCT,0,127,0,0},kit={"DRUMS",F_ENUM,0,2,0,FORM_KIT},lev={"LEVEL",F_PCT,0,127,90,0},den={"DENSITY",F_PCT,0,127,64,0},gat={"GATE",F_PCT,0,127,110,0};
+ return id==P_LRTRG?&run:id==P_CAOS?&mod:id==P_ASWING?&spd:id==P_APROB?&dep:id==P_CSTR?&kit:id==P_DETUNE?&lev:id==P_DXIMG?&den:id==P_KEY?&gat:0;
 }
 #define FP(label,a,b,mo,ka,kb,kc,kd,md,sp,dp,kit,lv,dn) {label,{a,b,mo,0,ka,kb,kc,kd},{0,0,127,24},0,TAG(FX),FX(0,10,30,30),0,\
-  MODS(P_LRTRG,1,P_CAOS,md,P_ASWING,sp,P_APROB,dp,P_CSTR,kit,P_DETUNE,lv,P_DXIMG,dn)}
+  MODS(P_LRTRG,1,P_CAOS,md,P_ASWING,sp,P_APROB,dp,P_CSTR,kit,P_DETUNE,lv,P_DXIMG,dn,P_KEY,110)}
 static const preset_t FORM_PRESETS[]={
  FP("01 SONG",1,2,0,64,32,16,0,0,3,0,0,90,64),        FP("02 GROWL",3,6,0,70,50,40,17,0,2,40,1,90,50),
  FP("03 HALFTIME",4,3,0,60,60,50,9,0,3,30,0,90,64),   FP("04 ACID",5,5,0,90,40,100,33,1,2,60,1,80,60),
@@ -54,12 +57,22 @@ static uint8_t form_ok[NTRK];                            /* bit 0 A's program pu
 static int16_t form_scope[2][64];                        /* (the panel: the sound playing, half-rate samples) */
 static volatile uint8_t form_scope_tr=0xFF;
 static uint8_t form_sc_i;
-static void form_note_on(track_t*t,voice_t*v){(void)t;memset(v->s,0,sizeof v->s);v->ph[0]=v->ph[1]=0;}
+static void form_note_on(track_t*t,voice_t*v){(void)t;memset(v->s,0,sizeof v->s);v->ph[0]=v->ph[1]=v->ph[2]=0;}
 /* the drums: a part's, by its first voice (one a part in PLAY and FREE; TRIG's while a key sounds) */
 typedef struct{uint32_t kph,sph;int32_t ka,kp,sa,ha,hp,last;uint32_t nz;} form_dr_t;
 static form_dr_t form_dr[NTRK];
 static const uint16_t FORM_RAT[8]={2048,4096,6144,8192,12288,16384,20480,28672};   /* B's ring: 1/2 .. 7 the note, Q12 */
 static int32_t form_fold(int32_t x){uint32_t q=((uint32_t)(x+32768)<<15)>>16;int32_t d=(int32_t)q-32768;return 32767-2*(d<0?-d:d);}
+/* GATE's hit at 16th s: the kick's (accented) or the part's own euclid (D fused, kept to DENSITY); its velocity (Q15)
+ * and its length (a decay a sample, 2^-dsh: ~6 ms .. ~190 ms), drawn by the half bar */
+static int form_hit(uint32_t s,uint32_t seed,uint32_t dens,int32_t*vel,uint32_t*dsh)
+{
+ static const uint8_t DS[4]={8,9,11,12};
+ uint32_t kick=fvm_eu(s,seed)&&(!(s&3u)||dens>64u),h=fvm_hash(s*0x9E3779B1u^seed*977u);
+ uint32_t hit=kick||(fvm_eu(s,seed+3u)&&(h&127u)<dens+24u);
+ if(hit&&vel){*vel=kick?32000:12000+(int32_t)((h>>8)&0x3FFFu);*dsh=DS[fvm_hash((s>>3)*0x85EBCA77u^seed)&3u];}
+ return (int)hit;
+}
 static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*out,uint32_t n,const vmod_t*m)
 {
  uint32_t tr=(uint32_t)(t-trk)%NTRK,i,k,rate,sh=VH_SH();
@@ -94,6 +107,11 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  /* the formulas: one at an end, both between, at equal power ((128-x)(128+x), x(256-x)) */
  uint32_t useb=mo>0&&(form_ok[tr]&2u)&&wave_id_b[tr]==0x800u&&pb->n&&!pb->nstate,usea=mo<127||!useb;
  int32_t ga=usea?(useb?(128-mo)*(128+mo)>>7:128):0,gb=useb?(usea?mo*(256-mo)>>7:128):0;
+ /* GATE: the hits of this block (at most one new 16th in it), and whether the formulas sound at all */
+ uint32_t seed=(uint32_t)clamp(p[P_E7],0,127),dens=(uint32_t)clamp(p[P_DXIMG],0,127),gs=v->ph[2];
+ int32_t gm=p[P_LRTRG]?clamp(p[P_KEY],0,127)*258:0,env=v->s[4];
+ if(gm){uint32_t s1=P[n-1]>>14;if((s1&0xFFFFu)==(gs&0xFFFFu)&&!((gs>>20)&1u)&&env<400&&gm>=32766){usea=useb=0;}
+  else if((s1&0xFFFFu)!=(gs&0xFFFFu)&&!form_hit(s1,seed,dens,0,0)&&env<400&&gm>=32766&&(P[0]>>14)==s1){usea=useb=0;gs=(gs&~0xFFFFu)|(s1&0xFFFFu);}}
  if(usea)lofi_run(pa,&en,&lofi_work[MC_CPU()&1u],n,Y);
  if(useb){int32_t*st=en.state;en.state=0;lofi_run(pb,&en,&lofi_work[MC_CPU()&1u],n,Z);en.state=st;}
  /* the chain's coefficients a block */
@@ -104,7 +122,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
   int32_t kq=62259-57344*am[2]/127;a1=(1<<30)/(32768+(G*(G+kq)>>15));ga1=(int32_t)(((int64_t)G*a1)>>15);}
  if(am[3]){cs=am[3]*13/127;hn=1+am[3]*am[3]*14/16129;}
  /* the drums' place: the part's first voice sounding */
- form_dr_t*dr=&form_dr[tr];uint32_t kit=(uint32_t)clamp(p[P_CSTR],0,2),drums=0,seed=(uint32_t)clamp(p[P_E7],0,127),dens=(uint32_t)clamp(p[P_DXIMG],0,127);
+ form_dr_t*dr=&form_dr[tr];uint32_t kit=(uint32_t)clamp(p[P_CSTR],0,2),drums=0;
  int32_t lev=clamp(p[P_DETUNE],0,127)*258;
  if(kit){for(k=0;k<NVOICE;k++)if(t->v[k].active){drums=&t->v[k]==v;break;}}
  int sc=form_scope_tr==tr&&v==&t->v[0];
@@ -115,6 +133,11 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
   if(am[2]){int32_t v3=x-lp,v1=(int32_t)(((int64_t)a1*bp+(int64_t)ga1*v3)>>15),v2=lp+(int32_t)(((int64_t)G*v1)>>15);
    bp=clamp(2*v1-bp,-(1<<20),1<<20);lp=clamp(2*v2-lp,-(1<<20),1<<20);x+=(v2*45/32-x)*am[2]>>7;}   /* C: the acid filter */
   if(cs){if(++hc>=hn){hc=0;hold=(x>>cs)<<cs;}x=hold;}                                   /* D: crushed */
+  if(gm){uint32_t st=P[i]>>14;int32_t vel;uint32_t dsh;                                  /* GATE: struck, decaying */
+   if((st&0xFFFFu)!=(gs&0xFFFFu)){gs=(gs&~0xFFFFu)|(st&0xFFFFu);if(form_hit(st,seed,dens,&vel,&dsh))gs=(gs&0xFFFFu)|dsh<<16|1u<<20|(uint32_t)(vel>>4)<<21;}
+   if((gs>>20)&1u){int32_t tg=(int32_t)(gs>>21)<<4;env+=(tg-env)>>4;if(env>=tg-512)gs&=~(1u<<20);}
+   else{env-=env>>((gs>>16)&15u);if(env<300)env=0;}
+   x=(int32_t)(((int64_t)x*(32768-gm+(int32_t)(((int64_t)gm*env)>>15)))>>15);}
   if(drums){uint32_t st=P[i]>>14;int32_t d=0;
    if((int32_t)st!=dr->last){dr->last=(int32_t)st;
     if(fvm_eu(st,seed)&&(!(st&3u)||dens>64u)){dr->ka=32767;dr->kp=32767;dr->kph=0;}
@@ -130,7 +153,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
   out[i]+=voice_amp(soft_knee(x,16000)<<1,m,i);
  }
  if(sc&&form_sc_i>=64u)form_sc_i=0;
- v->s[0]=lp;v->s[1]=bp;v->s[2]=(int32_t)(q+(n<<sh));v->s[3]=hold;v->s[5]=hc;v->ph[0]=ph;v->ph[1]=rph;
+ v->s[0]=lp;v->s[1]=bp;v->s[2]=(int32_t)(q+(n<<sh));v->s[3]=hold;v->s[4]=env;v->s[5]=hc;v->ph[0]=ph;v->ph[1]=rph;v->ph[2]=gs;
 }
 static const engine_t ENG_FORM={.name="FORM",.page_title={"FORM","SHAPE"},
  .edit={{"FORM A",F_ENUM,0,FORM_NT-1,3,FORM_NAMES},{"FORM B",F_ENUM,0,FORM_NT-1,6,FORM_NAMES},{"MORPH",F_PCT,0,127,0,0},{"ROOT",F_INT,-24,24,0,0},
