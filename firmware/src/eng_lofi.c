@@ -628,7 +628,11 @@ static const char MATH_FUNC_DEFAULT[] = "func{let bt=P%64;let r=bt*(1+int(D*3));
 static const char MATH_FUNC_BEAT[] = "func{let bt=P%32;let st=int(bt*4);return sat(note(n-24+(st^(st>>2))%5*3,bt*4%1,A)*.8+(bt<24)*(kick(bt%(1.5+D*.5))*.8+snare((bt+1)%(2-B))*.4+hat(bt*(2+int(C*3)*2)%1)*.6));}";
 static uint32_t func_clock_begin,func_clock_end;
 static uint8_t func_song_mask;
-static int func_song(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]!=0:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==5;}
+/* (BYTE 0.16, the owner: "that PLAY starts the formula: set it explicitly; by default a key sounds it") RUN: NOTE (the
+ * key pressed sounds it, at its pitch; the default), PLAY (the transport's: its voice and clock, as SONG was), FREE (it
+ * runs on its own: a voice always, its own clock, at the root) */
+static int func_song(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]==1:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==5;}
+static int func_free(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]==2:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==6;}
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
 static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
 static uint32_t math_music_cost(const track_t*t){
@@ -665,8 +669,8 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
     if(t->p[P_E1]==RW_FUNC){
         static const param_desc_t control[4]={{"A",F_PCT,0,127,64,0},{"B",F_PCT,0,127,32,0},{"C",F_PCT,0,127,16,0},{"D",F_PCT,0,127,0,0}};
-        static const char*const runs[]={"-","-","-","-","NOTE","SONG"},*const forms[]={"CUSTOM","SONG","BEAT"};
-        static const param_desc_t run={"RUN",F_ENUM,4,5,5,runs},form={"FORM",F_ENUM,0,2,1,forms},root={"ROOT",F_INT,-24,24,0,0};
+        static const char*const runs[]={"-","-","-","-","NOTE","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT"};
+        static const param_desc_t run={"RUN",F_ENUM,4,6,4,runs},form={"FORM",F_ENUM,0,2,1,forms},root={"ROOT",F_INT,-24,24,0,0};
         return k==0u?&run:k>=2u&&k<=5u?&control[k-2u]:k==6u?&root:k==7u?&form:0;
     }
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */

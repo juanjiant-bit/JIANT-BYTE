@@ -1800,8 +1800,8 @@ static void gl_reset(void);                         /* (seq2f: the global lane) 
 static void seq_release(track_t*);
 static void seq_start(void)
 {
-    for(uint32_t k=0;k<NTRK;k++)if(func_song_mask&(1u<<k))seq_release(&trk[k]);
-    func_song_mask=0;func_clock_begin=func_clock_end=0;
+    for(uint32_t k=0;k<NTRK;k++)if((func_song_mask&(1u<<k))&&!func_free(&trk[k])){seq_release(&trk[k]);func_song_mask&=(uint8_t)~(1u<<k);}   /* (FREE runs on) */
+    func_clock_begin=func_clock_end=0;
     memset(shift_valid, 0, sizeof shift_valid);
     uint32_t i;
     ms_clock = 0;                                  /* (JIANT) the modulation sequences from their step 0 */
@@ -3191,9 +3191,10 @@ static void seq_due(track_t *t, uint32_t n)
 static __attribute__((noinline)) int func_song_tick(track_t*t)
 {
     uint32_t bit=1u<<trk_index(t);
-    if((func_song_mask&bit)&&!func_song(t)){seq_release(t);func_song_mask&=(uint8_t)~bit;}
-    if(func_song(t)){
-        if(song.playing){
+    int fr=func_free(t);
+    if((func_song_mask&bit)&&!func_song(t)&&!fr){seq_release(t);func_song_mask&=(uint8_t)~bit;}
+    if(func_song(t)||fr){
+        if(song.playing||fr){                           /* (FREE: always, its own clock) */
             uint32_t root=(uint32_t)clamp(60+(t->eng_req==ENGI_FORM?0:t->p[P_E6]),36,84),active=0;
             if(t->seq_n&&t->seq_notes[0]!=root)seq_release(t);
             for(uint32_t k=0;k<NVOICE;k++)active|=t->v[k].active&&t->v[k].gate&&t->v[k].note==root;
@@ -3206,7 +3207,7 @@ static __attribute__((noinline)) int func_song_tick(track_t*t)
 }
 static void seq_tick(track_t *t, uint32_t n)
 {
-    if(((func_song_mask&(1u<<trk_index(t)))||func_song(t))&&func_song_tick(t))return;
+    if(((func_song_mask&(1u<<trk_index(t)))||func_song(t)||func_free(t))&&func_song_tick(t))return;
     uint32_t period, len, lon, nf;
     if (n > blk_n)
         blk_n = n;                                    /* (ctl64: ticked on its own, by a test, with more than a block) */

@@ -4,8 +4,10 @@ Seleccionar **MATH → FUNC SONG** o **FUNC BEAT** con PRESET y pulsar **PLAY**.
 
 En las páginas del motor:
 
-- **RUN: SONG** sigue PLAY/STOP y usa una voz de transporte por pista. El teclado no duplica la pieza; usar ROOT para transponerla.
-- **RUN: NOTE** ejecuta la función desde cada nota del teclado, útil para instrumentos y texturas con estado.
+- **RUN: NOTE** (por defecto) ejecuta la función desde cada nota del teclado: la tecla la hace sonar y le da la altura.
+- **RUN: PLAY** sigue PLAY/STOP y usa una voz de transporte por pista (era SONG). El teclado no duplica la pieza; usar ROOT para transponerla.
+- **RUN: FREE** corre siempre, sin teclas ni transporte, con su propio reloj, en la tónica (ROOT).
+- FORM tiene el mismo RUN (NOTE, PLAY, FREE). Los proyectos guardados conservan el modo que tenían.
 - **FORM: SONG / BEAT / CUSTOM** permite explorar las dos composiciones y regresar al código propio. Cambiar FORM o preset no borra el texto CUSTOM.
 - **OCT+** abre el editor; OCT+ aplica, OCT− cancela. Editar una plantilla y aplicarla la convierte en CUSTOM. El emulador tiene además editor de texto y selector SONG/NOTE debajo del instrumento.
 - **Guardar el proyecto** conserva código, controles y secciones. El formato corto de sonidos USER no contiene el programa y muestra un aviso para guardar el proyecto.

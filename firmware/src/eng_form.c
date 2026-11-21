@@ -33,7 +33,7 @@ static const char *const FORM_NOTES[]={"ROOT","UP","DOWN","PEND","RANDOM","WALK"
 static const char *const FORM_OCT[]={"-1","0","+1","+2",0};             /* (OCT A, OCT B: P_E6, P_E7) */
 static const char *const FORM_RATE[]={"AUTO","1/16","1/8","1/4","1/2","1 BAR","2 BAR","4 BAR",0};   /* (BYTE 0.16) a step's
                                                          * length: AUTO the state's own, then absolute, to FORM 1's slowest */
-static const char *const FORM_RUN[]={"NOTE","SONG",0};
+static const char *const FORM_RUN[]={"NOTE","PLAY","FREE",0};
 typedef struct{int8_t d[12];int32_t n;} form_scale_t;
 static void form_scale(const track_t*t,form_scale_t*sc)  /* the part's scale as degrees (chromatic or few: natural minor) */
 {
@@ -83,7 +83,7 @@ static int32_t form_motion(uint32_t k,uint32_t pq,uint32_t s,uint32_t T)
 }
 static const param_desc_t *form_common_desc(uint32_t id){
  static const param_desc_t prog={"PROG",F_ENUM,0,FORM_NPROG-1,0,FORM_PROGN},crate={"LENGTH",F_ENUM,0,4,2,FORM_CRATE},
-  notes={"NOTES",F_ENUM,0,6,0,FORM_NOTES},run={"RUN",F_ENUM,0,1,1,FORM_RUN},ra={"RATE A",F_ENUM,0,7,0,FORM_RATE},rb={"RATE B",F_ENUM,0,7,0,FORM_RATE},
+  notes={"NOTES",F_ENUM,0,6,0,FORM_NOTES},run={"RUN",F_ENUM,0,2,0,FORM_RUN},ra={"RATE A",F_ENUM,0,7,0,FORM_RATE},rb={"RATE B",F_ENUM,0,7,0,FORM_RATE},
   hits={"HITS",F_INT,1,16,16,0},rot={"ROTATE",F_INT,0,15,0,0},voi={"VOICING",F_ENUM,0,7,0,F1_VOICE};
  static const param_desc_t ma={"MOD A",F_ENUM,0,FORM_NMOT-1,1,FORM_MOTION},mb={"MOD B",F_ENUM,0,FORM_NMOT-1,0,FORM_MOTION},dep={"DEPTH",F_PCT,0,127,24,0},
   spd={"SPEED",F_ENUM,0,3,1,FORM_SPEED},swg={"LEVEL",F_PCT,0,127,0,0},fus={"FUSION",F_PCT,0,127,0,0},kit={"KIT",F_ENUM,0,3,0,FORM_KIT},grv={"GROOVE",F_ENUM,0,3,0,FORM_GROOVE};
@@ -93,10 +93,10 @@ static const param_desc_t *form_common_desc(uint32_t id){
 /* the presets: A B MORPH SWING, DEF A DEF B OCT A OCT B; the PROG, LENGTH, NOTES; RATE A RATE B HITS ROTATE (FP: the
  * rates x1, every step; FQ: its own) */
 #define FQ(label,tag,a,b,m,da,db,sw,prog,cr,nt,oa,ob,ra,rb,hi,ro) {label,{(a)+F1_N,(b)+F1_N,m,sw,da,db,oa,ob},{0,0,127,24},0,TAG(tag),FX(0,0,30,30),0,\
-  MODS(P_AGATE,(prog)+1,P_ARATE,cr,P_AORDER,nt,P_LRTRG,1,P_SDIV,ra,P_SLEN,rb,P_KEY,hi,P_DETUNE,ro)}
+  MODS(P_AGATE,(prog)+1,P_ARATE,cr,P_AORDER,nt,P_LRTRG,0,P_SDIV,ra,P_SLEN,rb,P_KEY,hi,P_DETUNE,ro)}
 /* FORM 1's: its state to the next, its sends, its own progression (STATE) */
 #define FSTATE(label,a,b,echo,space,ch,vo) {label,{a,b,0,0,64,64,1,1},{0,0,127,24},0,TAG(FX),FX(0,24,echo,space),0,\
-  MODS(P_AGATE,0,P_ARATE,2,P_AORDER,1,P_LRTRG,1,P_SDIV,0,P_SLEN,0,P_KEY,16,P_DETUNE,0,P_MORPH,0,P_CSTR,0,P_DXIMG,0,P_CHRD,ch,P_CVOI,vo,P_CAOS,1,P_ASWING,0,P_APROB,24)}
+  MODS(P_AGATE,0,P_ARATE,2,P_AORDER,1,P_LRTRG,0,P_SDIV,0,P_SLEN,0,P_KEY,16,P_DETUNE,0,P_MORPH,0,P_CSTR,0,P_DXIMG,0,P_CHRD,ch,P_CVOI,vo,P_CAOS,1,P_ASWING,0,P_APROB,24)}
 #define FP(label,tag,a,b,m,da,db,sw,prog,cr,nt,oc) FQ(label,tag,a,b,m,da,db,sw,prog,cr,nt,oc,oc,0,0,16,0)
 static const preset_t FORM_PRESETS[]={
  FSTATE("01 SCORE",0,1,10,20,1,0), FSTATE("02 TIME RULE",1,2,0,5,1,0), FSTATE("03 COUNTER",2,3,72,45,1,0),

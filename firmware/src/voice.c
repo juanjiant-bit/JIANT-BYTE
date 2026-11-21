@@ -1801,7 +1801,7 @@ static volatile uint8_t asleep_hit;                     /* (0.6.28) a note went 
                                                          * silenced track's voices end, it costs nothing) */
 static void trk_note_on(track_t *t, uint32_t note, uint32_t vel)
 {
-    if(func_song(t)&&!t->dr_seq)return; /* SONG has one transport-owned voice. */
+    if((func_song(t)||func_free(t))&&!t->dr_seq)return; /* SONG has one transport-owned voice. */
     uint32_t any = 0, i, mode = trk_vmode(t);
     if ((uint32_t)(t - trk) >= trk_live && !t->p[P_MUTE]) {
         asleep_hit = 1;                                 /* (0.6.28) a note for a track asleep: the UI says so */
@@ -1861,7 +1861,7 @@ static void trk_note_on(track_t *t, uint32_t note, uint32_t vel)
 
 static void trk_note_off(track_t *t, uint32_t note)
 {
-    if(func_song(t)&&!t->dr_seq)return;
+    if((func_song(t)||func_free(t))&&!t->dr_seq)return;
     uint32_t i, k = 0, mode = trk_vmode(t);
     for (i = 0; i < t->xp_n; i++)                       /* not sounding yet (engine switch): forget it */
         if (t->xp_note[i] != note) {

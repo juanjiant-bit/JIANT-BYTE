@@ -13,7 +13,7 @@ static void setup(unsigned pr)
 {
     ui_power_on(); song.sel = 0; select_engine(ENGI_FORM); frame();
     for (unsigned k = 1; k < NTRK; k++) trk[k].p[P_MUTE] = 1;
-    apply_preset_to(TSEL, pr); frame(); song.master_q12 = 4096;
+    apply_preset_to(TSEL, pr); TSEL->p[P_LRTRG] = 1; frame(); song.master_q12 = 4096;   /* (BYTE 0.16: RUN PLAY, the transport's; NOTE the default) */
 }
 static void play(double *y)
 {
