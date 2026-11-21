@@ -3,11 +3,11 @@
 Seleccionar **MATH → FUNC SONG** o **FUNC BEAT** con PRESET y pulsar **PLAY**. Una función produce la pieza completa; STOP libera su voz. El patrón del secuenciador no reinicia la función en cada paso. El tempo controla el reloj musical y ROOT transpone la composición.
 
 En las páginas del motor:
-- **RUN: PLAY** (por defecto) arranca la fórmula con PLAY, en una voz por pista, al reloj del transporte. Las teclas y los pasos del secuenciador (hasta 64, con su RATE, grabables) le cambian la altura; cada nota la vuelve a golpear sin cortar la fórmula. Parado, una tecla la hace sonar como en NOTE.
-- **RUN: NOTE** cada nota del teclado o del secuenciador hace sonar la fórmula a su altura y con su gate. Con PLAY corriendo, el reloj es el del transporte (la fórmula sigue donde va la canción); parado, arranca desde la nota.
+- **RUN: PLAY** (por defecto) arranca la fórmula con PLAY, en una voz por pista, al reloj del transporte. Las teclas y los pasos del secuenciador (hasta 64, con su RATE, grabables) le cambian la altura; cada nota la vuelve a golpear sin cortar la fórmula. Parado, una tecla la hace sonar como en TRIG.
+- **RUN: TRIG** cada nota del teclado o del secuenciador hace sonar la fórmula a su altura y con su gate. Con PLAY corriendo, el reloj es el del transporte (la fórmula sigue donde va la canción); parado, arranca desde la nota.
 - **RUN: PLAY** sigue PLAY/STOP y usa una voz de transporte por pista (era SONG). El teclado no duplica la pieza; usar ROOT para transponerla.
 - **RUN: FREE** corre siempre, sin teclas ni transporte, con su propio reloj, en la tónica (ROOT).
-- FORM tiene el mismo RUN (NOTE, PLAY, FREE). Los proyectos guardados conservan el modo que tenían.
+- FORM tiene el mismo RUN (TRIG, PLAY, FREE), primera perilla de su página FORM (STYLE pasó a una página propia). Los proyectos guardados conservan el modo que tenían.
 - **FORM: GROWL / HALFTIME / ACID / REESE / HOUSE / STRUM / JUST / PLUCK / NIBBLE / BITS** (las diez primeras recetas de FORM 4, de las referencias de Juan; en todas D es la semilla y el patrón de acción es eu()). Las dos primeras: GROWL, dos formantes por sincronismo con wobble trapezoidal (A la vocal, B el wobble de 1/4 a 1/16, C el drive, D la semilla); HALFTIME, wobble de velocidad cambiante con ring y el sub dentro de la saturación, bombo y caja a medio tiempo (A la profundidad, B el ring, C el drive, D la semilla). Su patrón de acción es `eu(paso, semilla)`: cada 4 compases dos ritmos euclideanos elegidos al azar de una tabla y combinados (O, Y, XOR o uno por compás); las notas, de una tabla fundida por la semilla y la sección.
 - **FORM: SONG / BEAT / CUSTOM** permite explorar las dos composiciones y regresar al código propio. Cambiar FORM o preset no borra el texto CUSTOM.
 - **OCT+** abre el editor; OCT+ aplica, OCT− cancela. Editar una plantilla y aplicarla la convierte en CUSTOM. El emulador tiene además editor de texto y selector SONG/NOTE debajo del instrumento.

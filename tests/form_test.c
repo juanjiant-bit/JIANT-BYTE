@@ -76,14 +76,15 @@ int main(void)
     }
     {   /* the pages */
         setup(0); ui.home = 1; press(B_EDIT);
-        int ok = cur_page()->id[0] == P_E0;
+        int ok = cur_page()->scope == SC_FORM && cur_page()->id[0] == P_LRTRG && cur_page()->id[1] == P_E0;   /* RUN first */
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_E4;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_CAOS;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_AGATE;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_FRA;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_DETUNE && cur_page()->id[1] == P_MORPH;
+        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_E3;
         frames(20);
-        OK(ok, "EDIT: FORM, DEFORM, MOTION, HARMONY, PULSE, DRUMS");
+        OK(ok, "EDIT: FORM (RUN first), DEFORM, MOTION, HARMONY, PULSE, DRUMS, STYLE");
     }
     {   /* the dice in range */
         int ok = 1;

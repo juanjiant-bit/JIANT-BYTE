@@ -33,7 +33,7 @@ static const char *const FORM_NOTES[]={"ROOT","UP","DOWN","PEND","RANDOM","WALK"
 static const char *const FORM_OCT[]={"-1","0","+1","+2",0};             /* (OCT A, OCT B: P_E6, P_E7) */
 static const char *const FORM_RATE[]={"AUTO","1/16","1/8","1/4","1/2","1 BAR","2 BAR","4 BAR",0};   /* (BYTE 0.16) a step's
                                                          * length: AUTO the state's own, then absolute, to FORM 1's slowest */
-static const char *const FORM_RUN[]={"NOTE","PLAY","FREE",0};
+static const char *const FORM_RUN[]={"TRIG","PLAY","FREE",0};
 typedef struct{int8_t d[12];int32_t n;} form_scale_t;
 static void form_scale(const track_t*t,form_scale_t*sc)  /* the part's scale as degrees (chromatic or few: natural minor) */
 {

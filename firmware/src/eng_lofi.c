@@ -697,7 +697,7 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
     if(t->p[P_E1]==RW_FUNC){
         static const param_desc_t control[4]={{"A",F_PCT,0,127,64,0},{"B",F_PCT,0,127,32,0},{"C",F_PCT,0,127,16,0},{"D",F_PCT,0,127,0,0}};
-        static const char*const runs[]={"-","-","-","-","NOTE","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK","NIBBLE","BITS","DRUMS","SCREECH"};
+        static const char*const runs[]={"-","-","-","-","TRIG","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK","NIBBLE","BITS","DRUMS","SCREECH"};
         static const param_desc_t run={"RUN",F_ENUM,4,6,5,runs},form={"FORM",F_ENUM,0,14,1,forms},root={"ROOT",F_INT,-24,24,0,0};
         return k==0u?&run:k>=2u&&k<=5u?&control[k-2u]:k==6u?&root:k==7u?&form:0;
     }

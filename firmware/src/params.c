@@ -826,6 +826,10 @@ static const page_t PAGES[] = {
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     /* (FORM 2, the owner: by importance, no DELAY) after STATES and RULES (the engine's): the timbre (STYLE DRIVE TONE
      * WOBBLE, in its ARP slots), the harmony, the layers, the clock */
+    {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_E0,P_E1,P_E2}},   /* (BYTE 0.16, the owner: "the mode first") RUN (TRIG
+                                                         * played as a synth, PLAY the transport's, FREE), FORM A, FORM B,
+                                                         * MORPH: FORM's EDIT 1, its STYLE on a page of its own */
+    {"STYLE", FAM_EDIT, SC_FORM, GR_NONE, {P_E3,0xFF,0xFF,0xFF}},
     {"HARMONY", FAM_EDIT, SC_FORM, GR_NONE, {P_AGATE,P_ARATE,P_CHRD,P_CVOI}},   /* (FORM 3) PROG LENGTH CHORD VOICING */
     {"MOTION", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,P_APROB,P_AORDER}},   /* (FORM 3) MOD A, MOD B: an equation moving each
                                                          * DEF; DEPTH, SPEED */
