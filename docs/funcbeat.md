@@ -7,12 +7,11 @@ En las páginas del motor:
 - **RUN: TRIG** cada nota del teclado o del secuenciador hace sonar la fórmula a su altura y con su gate. Con PLAY corriendo, el reloj es el del transporte (la fórmula sigue donde va la canción); parado, arranca desde la nota.
 - **RUN: PLAY** sigue PLAY/STOP y usa una voz de transporte por pista (era SONG). El teclado no duplica la pieza; usar ROOT para transponerla.
 - **RUN: FREE** corre siempre, sin teclas ni transporte, con su propio reloj, en la tónica (ROOT).
-- **Motor FORM (BYTE 0.17)**: vuelve FORM 2 tal cual sonaba (los 22 estados de FORM 1 y los 14 de FORM 2, su arreglo y su MORPH compositivo; renders idénticos a los de entonces). Páginas:
-  - **FORM**: RUN (TRIG / PLAY / FREE), ROOT, STATE A, STATE B.
-  - **SOUND**: MORPH, COLOR, STYLE, DRUMS.
-  - **RULES**: GROOVE (incluye EUCLID, BREAKS, POLY...), DENSITY, SEED, EVOLVE.
-  - **NOTES**: MODE (SEQ: la melodía del estado; ARP: los tonos del acorde arpegiados como en STRUM 332, el orden por SEED; EUCLID: la melodía solo en euclideanos fundidos por SEED, con acentos), OCTAVE, CHORD, VOICING.
-  - **HARMONY**: HARMONY, PROGRESS, SCALE. **TIMBRE**: DRIVE, WOBBLE, TONE, DETUNE. **CLOCK**: RATE, CYCLE, SWING (el LEN y el RATE del secuenciador quedan libres: 64 pasos).
+- **Motor FORM (BYTE 0.17)**: una entidad monofónica, "plastilina sonora". Un dron que nunca se corta (SHAPE: seno, triángulo, sierra, pulso; FM; FOLD; CRUSH) y cuatro moduladores, cada uno con su propio euclidiano, que lo transforman en cada etapa del beat. Páginas:
+  - **FORM**: RUN (TRIG / PLAY / FREE), ROOT, RATE (el paso: 1/4 a 1/32), SEED (las rotaciones y las fusiones).
+  - **DRONE**: SHAPE, FM, FOLD, CRUSH.
+  - **MOD 1 a MOD 4**: DEST, EUCLID (golpes/pasos de una tabla, o FUSE: dos euclideanos fundidos por la semilla), AMOUNT, DECAY. Destinos: UP (la altura lanzada hacia arriba y cayendo: rápido es un bombo), DIVE (la altura llevada hasta abajo: el silencio), NOISE (ruido: hats, cajas), FM, FOLD, CRUSH, SHAPE (el timbre abriéndose de golpe), CHORD (tercera y quinta en la misma voz), JUMP (otro grado, sostenido: la melodía). Donde coinciden, se suman.
+  - El dron suena dos octavas abajo de la nota; los moduladores lo llevan al agudo. Todo en C, a media tasa: el costo de una voz.
 - **FORM: GROWL / HALFTIME / ACID / REESE / HOUSE / STRUM / JUST / PLUCK / NIBBLE / BITS** (las diez primeras recetas de FORM 4, de las referencias de Juan; en todas D es la semilla y el patrón de acción es eu()). Las dos primeras: GROWL, dos formantes por sincronismo con wobble trapezoidal (A la vocal, B el wobble de 1/4 a 1/16, C el drive, D la semilla); HALFTIME, wobble de velocidad cambiante con ring y el sub dentro de la saturación, bombo y caja a medio tiempo (A la profundidad, B el ring, C el drive, D la semilla). Su patrón de acción es `eu(paso, semilla)`: cada 4 compases dos ritmos euclideanos elegidos al azar de una tabla y combinados (O, Y, XOR o uno por compás); las notas, de una tabla fundida por la semilla y la sección.
 - **FORM: SONG / BEAT / CUSTOM** permite explorar las dos composiciones y regresar al código propio. Cambiar FORM o preset no borra el texto CUSTOM.
 - **OCT+** abre el editor; OCT+ aplica, OCT− cancela. Editar una plantilla y aplicarla la convierte en CUSTOM. El emulador tiene además editor de texto y selector SONG/NOTE debajo del instrumento.

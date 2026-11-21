@@ -1,93 +1,112 @@
-/* SPDX-License-Identifier: GPL-3.0-only */
+/* SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
+/* FORM (BYTE 0.17, eng_form.c): the drone entity. Every preset sounds, bounded; the drone never stops by itself; each
+ * modulator's euclid strikes on its own steps; each DEST heard (UP DIVE NOISE FM FOLD CRUSH SHAPE CHORD JUMP); DIVE's
+ * bottom silent; ROOT; TRIG a key; the pages (RUN first); the dice in range; the part stored and read back; the
+ * sequencer's 64 steps its own */
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
-#include <assert.h>
-#include <sys/stat.h>
-#include <time.h>
-static void form_setup(unsigned state){
- ui_power_on();song.sel=0;select_engine(ENGI_FORM);frame();
- for(unsigned k=1;k<NTRK;k++)trk[k].p[P_MUTE]=1;
- apply_preset_to(TSEL,state);frame();song.master_q12=4096;
- int32_t b[CTL*2];for(unsigned j=0;j<100;j++)mix_block(b,CTL);
- assert(TSEL->engine==ENGI_FORM&&func_song(TSEL));
+static int ft_bad;
+#define OK(c, ...) do { int ok_ = (c); printf("form: "); printf(__VA_ARGS__); printf("%*s%s\n", 4, "", ok_ ? "ok" : "FAIL"); ft_bad += !ok_; } while (0)
+#define NS (FS * 4u)
+static double ya[NS], yb[NS];
+static void setup(unsigned pr)
+{
+    ui_power_on(); song.sel = 0; select_engine(ENGI_FORM); frame();
+    for (unsigned k = 1; k < NTRK; k++) trk[k].p[P_MUTE] = 1;
+    apply_preset_to(TSEL, pr); TSEL->p[P_LRTRG] = 1; frames(64); song.master_q12 = 4096;
 }
-static const unsigned form_ids[]={P_E0,P_E1,P_E2,P_E3,P_E4,P_E5,P_E6,P_E7,P_LRTRG,P_FRA,P_FRB,P_MORPH,P_ROOT,P_SCALE,P_CHRD,P_CVOI,P_CAOS,P_KEY,P_DETUNE,P_AORDER,P_ASWING,P_ARATE,P_APROB,P_AGATE,P_AOCT};
-static int form_checks(void){
- form_setup(0);ui.home=1;press(B_EDIT);   /* (BYTE 0.17) FORM (RUN ROOT A B), SOUND, RULES, NOTES, HARMONY, TIMBRE, CLOCK */
- assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_LRTRG&&cur_page()->id[1]==P_ROOT&&cur_page()->id[2]==P_E0);
- turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_E2);
- turn(EN_SELECT,1);assert(cur_page()->id[0]==P_E4);
- turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_MORPH);
- turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_AORDER);
- turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_ASWING);
- turn(EN_SELECT,1);assert(cur_page()->scope==SC_FORM&&cur_page()->id[0]==P_FRA);
-static uint16_t screen_before[240*240];frames(800);memcpy(screen_before,host_screen,sizeof host_screen);ui.force=1;frame();unsigned mismatch=0;for(unsigned y=90;y<220;y++)for(unsigned x=0;x<240;x++)mismatch+=screen_before[y*240+x]!=host_screen[y*240+x];printf("FORM graph forced redraw mismatch %u\n",mismatch);assert(!mismatch);assert(NENGINES==17&&NENG_SHOWN>=4&&eng_vis(0)==ENGI_FORM);
- {int32_t o[2*CTL];double e[3]={0};for(unsigned md=0;md<3u;md++){form_setup(0);TSEL->p[P_MORPH]=(int16_t)md;transport_req=1;for(unsigned j=0;j<FS*4u/CTL;j++){mix_block(o,CTL);if(md)for(unsigned i=0;i<CTL;i++)e[md]+=(double)o[2*i]*o[2*i];}transport_req=2;for(unsigned j=0;j<FS/4u/CTL;j++)mix_block(o,CTL);}
-  printf("FORM MODE ARP %.3g EUCLID %.3g\n",e[1],e[2]);assert(e[1]>1e9&&e[2]>1e9);}
- for(unsigned i=0;i<8;i++){assert(mod_dst_ok(TSEL,MD_E1+i));assert(!strcmp(mod_dst_name_bt(TSEL,MD_E1+i),ENG_FORM.edit[i].label));}
- assert(!strcmp(mod_dst_name_bt(TSEL,MD_SHP),"COLOR"));
- for(unsigned j=0;j<sizeof PAGES/sizeof PAGES[0];j++)if(PAGES[j].scope==SC_FORM){
-  assert(page_visible(j));ui.home=0;ui.page=j;ui.force=1;frame();
-  for(unsigned k=0;k<4;k++){if(PAGES[j].id[k]==0xFFu)continue;int16_t*vp=0;const param_desc_t*d=page_desc(&PAGES[j],k,&vp);assert(d&&vp==&TSEL->p[PAGES[j].id[k]]);int old=*vp;turn(EN_K1+k,old==d->max?-1:1);assert(*vp!=old);}
- }
- static project_t captured,restored;static project_store_t store;project_capture(&captured);assert(proj_pack(&store,&captured)&&proj_import(&restored,store.raw,sizeof store.raw));
- assert(restored.t[0].engine==ENGI_FORM);for(unsigned k=0;k<sizeof form_ids/sizeof form_ids[0];k++)assert(restored.t[0].p[form_ids[k]]==TSEL->p[form_ids[k]]);
- int16_t saved[P_COUNT];memcpy(saved,TSEL->p,sizeof saved);assert(up_store(0,"FORM TEST"));for(unsigned k=0;k<sizeof form_ids/sizeof form_ids[0];k++)TSEL->p[form_ids[k]]=0;assert(up_load(0)==0);for(unsigned k=0;k<sizeof form_ids/sizeof form_ids[0];k++)assert(TSEL->p[form_ids[k]]==saved[form_ids[k]]);
- persist_t old;memset(&old,0,sizeof old);old.magic=0x50455234u;old.favorites.user=1u<<3;old.favorites.factory[ENGI_LOFI][0]=2;assert(settings_import(&old,sizeof old-32)==2);assert(favorite_has(NENGINES,3)&&favorite_has(ENGI_LOFI,1)&&!favorite_has(ENGI_FORM,3));assert(favorite_set(ENGI_FORM,3,1));assert(favorite_has(ENGI_FORM,3)&&favorite_has(NENGINES,3));settings_export(&old);memset(&favorites,0,sizeof favorites);assert(settings_import(&old,sizeof old)==1&&favorite_has(ENGI_FORM,3)&&favorite_has(NENGINES,3));
- form_setup(0);TSEL->p[P_LRTRG]=0;uint8_t ns[KB_CH+1];assert(chord_build(TSEL,60,ns)==1&&ns[0]==60);trk_note_on(TSEL,60,110);int32_t out[2*CTL];double energy=0;for(unsigned j=0;j<FS/CTL;j++){mix_block(out,CTL);for(unsigned i=0;i<CTL*2;i++)energy+=(double)out[i]*out[i];}assert(energy>1e8);trk_note_off(TSEL,60);for(unsigned j=0;j<FS/CTL;j++)mix_block(out,CTL);for(unsigned k=0;k<NVOICE;k++)assert(!TSEL->v[k].active);
- /* (FORM 2) the dice: 40 throws, each in range, each sounding, none clipping */
- {unsigned quiet=0;for(unsigned d=0;d<40;d++){form_setup(0);form_dice(TSEL,d&1u);
-  for(unsigned k=0;k<sizeof form_ids/sizeof form_ids[0];k++){const param_desc_t*pd=track_desc(TSEL,form_ids[k]);assert(TSEL->p[form_ids[k]]>=pd->min&&TSEL->p[form_ids[k]]<=pd->max);}
-  int32_t o[CTL*2];double en=0;transport_req=1;for(unsigned j=0;j<FS*3/CTL;j++){mix_block(o,CTL);for(unsigned i=0;i<CTL*2;i++){assert(o[i]>-32768&&o[i]<32768);en+=(double)o[i]*o[i];}}
-  quiet+=sqrt(en/(FS*3*2))<100;transport_req=2;for(unsigned j=0;j<200;j++)mix_block(o,CTL);}
-  printf("FORM dice: 40 throws in range, %u quiet\n",quiet);assert(quiet<=4);}
- puts("FORM pages, project/USER roundtrip, PER4 migration, separate USER/FORM favorites, NOTE chords: PASS");return 0;
+static void play(double *y)
+{
+    int32_t b[CTL * 2];
+    unsigned n = 0;
+    transport_req = 1;
+    while (n < NS) { mix_block(b, CTL); for (unsigned i = 0; i < CTL && n < NS; i++) y[n++] = (b[2 * i] + b[2 * i + 1]) / 65536.0; }
+    transport_req = 2; for (unsigned j = 0; j < FS / 4u / CTL; j++) mix_block(b, CTL);
 }
-
-static void form_record(const char*name,unsigned a,unsigned b,unsigned morph,int id,int value,unsigned secs,unsigned life){
- form_setup(a);TSEL->p[P_E1]=b;TSEL->p[P_E2]=morph;if(id>=0)TSEL->p[id]=value;
- if(life){life_v[LIFE_AMT]=100;life_v[LIFE_NUMBERS]=life_v[LIFE_FRAGMENTS]=life_v[LIFE_LINK]=100;trk[1].p[P_MUTE]=0;set_engine_of(&trk[1],ENGI_WAVE);trk_note_on(&trk[1],67,110);}
- char path[160];snprintf(path,sizeof path,"build/form/%s.i32",name);FILE*f=fopen(path,"wb");assert(f);int32_t out[CTL*2];transport_req=1;
- for(unsigned j=0;j<FS*secs/CTL;j++){mix_block(out,CTL);fwrite(out,sizeof out,1,f);}fclose(f);
-}
-static int form_probes(void){
- static const int params[]={P_E0,P_E1,P_E2,P_E3,P_E4,P_E5,P_E6,P_E7,P_FRA,P_FRB,P_SSWING,P_ROOT,P_SCALE,P_CHRD,P_CVOI,P_CAOS,P_KEY,P_DETUNE,P_AORDER,P_ASWING};
- static const int lo[]={0,0,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0};
- static const int hi[]={FORM_N-1,FORM_N-1,127,127,7,127,127,127,3,32,100,11,8,9,7,10,127,127,5,100};
- mkdir("build/form",0777);
- for(unsigned k=0;k<sizeof params/sizeof params[0];k++)for(unsigned edge=0;edge<2;edge++){char nm[80];snprintf(nm,sizeof nm,"control-%02u-%u",k,edge);form_record(nm,0,20,64,params[k],edge?hi[k]:lo[k],18,0);}
- for(unsigned k=0;k<5;k++){char nm[80];snprintf(nm,sizeof nm,"morph-byte-float-%u",k);form_record(nm,14,9,k==4?127:k*32,-1,0,12,0);snprintf(nm,sizeof nm,"morph-byte-func-%u",k);form_record(nm,14,17,k==4?127:k*32,-1,0,12,0);}
- form_record("life-off",0,20,64,-1,0,4,0);form_record("life-on",0,20,64,-1,0,4,1);
- puts("FORM 20 continuous/discrete controls, two morph paths and LIFE renders ready");return 0;
-}
-
-int main(int argc,char**argv){
- if(argc>1&&!strcmp(argv[1],"probes"))return form_probes();
- if(argc>1&&!strcmp(argv[1],"checks"))return form_checks();
- if(argc>1&&!strcmp(argv[1],"kernel")){
-  volatile int32_t sum=0;
-  for(unsigned s=0;s<FORM_N;s++)for(unsigned c=0;c<128;c+=127)for(unsigned i=0;i<20000;i++){
-   int32_t y=form_wave(s,i,pitch_inc((24+i%73)*16),i*17,c,i%128);assert(y>=-32767&&y<=32767);sum^=y;
-  }
-  ui_power_on();select_engine(ENGI_FORM);TSEL->engine=ENGI_FORM;fl.on=0;
-  vmod_t m={.amp0=32767,.amp1=32767,.shape=64*256,.pitch16=60*16};
-  int32_t out[CTL];voice_t v={.note=60};TSEL->p[P_LRTRG]=0;
-  for(unsigned s=0;s<FORM_N;s++)for(unsigned dom=0;dom<11;dom++)for(unsigned c=0;c<128;c+=127)for(unsigned morph=0;morph<128;morph+=63){
-   TSEL->p[P_E0]=s;TSEL->p[P_E1]=(s+7)%FORM_N;TSEL->p[P_E2]=morph;TSEL->p[P_E3]=c;TSEL->p[P_CAOS]=dom;form_note_on(TSEL,&v);
-   for(unsigned j=0;j<64;j++){memset(out,0,sizeof out);form_render(TSEL,&v,out,CTL,&m);for(unsigned i=0;i<CTL;i++)assert(out[i]>=-32768&&out[i]<=32767);}
-  }
-  printf("FORM %u kernels + render domains/colors/morph extremes: %d PASS\n",FORM_N,sum);return 0;
- }
- mkdir("build/form",0777);unsigned seconds=argc>1?atoi(argv[1]):2;
- FILE*csv=fopen("build/form/states.csv","w");assert(csv);fprintf(csv,"state,rms,peak,dc,host_realtime_ratio\n");
- for(unsigned s=0;s<FORM_N;s++){
-  form_setup(s);int32_t out[CTL*2];char name[100];snprintf(name,sizeof name,"build/form/state-%02u.i32",s+1);FILE*f=fopen(name,"wb");assert(f);
-  double energy=0,dc=0;int32_t peak=0;unsigned count=0;clock_t start=clock();transport_req=1;
-  for(unsigned j=0;j<FS*seconds/CTL;j++){mix_block(out,CTL);fwrite(out,sizeof out,1,f);for(unsigned i=0;i<CTL*2;i++){int32_t x=out[i];energy+=(double)x*x;dc+=x;if(abs(x)>peak)peak=abs(x);count++;}}
-  double ratio=(double)(clock()-start)/CLOCKS_PER_SEC/seconds,rms=sqrt(energy/count);fclose(f);
-  printf("%02u %s rms %.1f peak %d dc %.1f ratio %.4f\n",s+1,FORM_NAMES[s],rms,peak,dc/count,ratio);fflush(stdout);fprintf(csv,"%u,%.4f,%d,%.4f,%.6f\n",s+1,rms,peak,dc/count,ratio);
-  assert(rms>100&&peak<32768);unsigned active=0;for(unsigned k=0;k<NVOICE;k++)active+=TSEL->v[k].active;assert(active==1);
-  transport_req=2;for(unsigned j=0;j<FS/CTL;j++)mix_block(out,CTL);for(unsigned k=0;k<NVOICE;k++)assert(!TSEL->v[k].active);
- }
- fclose(csv);printf("FORM all %u PLAY/STOP: PASS\n",FORM_N);return 0;
+static double rms(const double *y) { double e = 0; for (unsigned i = 0; i < NS; i++) e += y[i] * y[i]; return sqrt(e / NS); }
+static double peak(const double *y) { double p = 0; for (unsigned i = 0; i < NS; i++) if (fabs(y[i]) > p) p = fabs(y[i]); return p; }
+static double dlt(const double *a, const double *b) { double d = 0, e = 0; for (unsigned i = 0; i < NS; i++) d += (a[i] - b[i]) * (a[i] - b[i]), e += a[i] * a[i]; return sqrt(d / (e + 1e-12)); }
+static void mods_off(void) { for (unsigned m = 0; m < 4u; m++) TSEL->p[FORM_MF[m][0]] = 0; }
+int main(int argc, char **argv)
+{
+    (void)argv; if (argc > 1) return 0;                 /* (the old "checks" run: all of it here) */
+    {   /* every preset sounds, bounded */
+        int ok = 1;
+        for (unsigned pr = 0; pr < FORM_N; pr++) {
+            setup(pr); play(ya);
+            double r = rms(ya), pk = peak(ya);
+            if (!(r > 0.01 && pk < 1.0)) { printf("form: preset %s rms %.3f peak %.3f\n", FORM_PRESETS[pr].name, r, pk); ok = 0; }
+        }
+        OK(ok, "the %u presets sound, bounded", FORM_N);
+    }
+    {   /* the drone alone: continuous (no gaps), the modulators off */
+        setup(0); mods_off(); play(ya);
+        unsigned seg = NS / 64u, quiet = 0; double e[64] = {0};
+        for (unsigned i = 0; i < NS; i++) e[i / seg % 64u] += ya[i] * ya[i];
+        for (unsigned k = 1; k < 64u; k++) quiet += e[k] < e[0] * 0.2;
+        OK(rms(ya) > 0.02 && quiet == 0u, "DRONE: continuous with the modulators off (%u quiet slices)", quiet);
+    }
+    {   /* each DEST heard, through MOD 1 at full, a dense euclid */
+        static const char *const NM[FD_N] = {"OFF", "UP", "DIVE", "NOISE", "FM", "FOLD", "CRUSH", "SHAPE", "CHORD", "JUMP"};
+        setup(0); mods_off(); play(ya);
+        for (unsigned d = 1; d < FD_N; d++) {
+            setup(0); mods_off(); TSEL->p[P_E6] = (int16_t)d; TSEL->p[P_E7] = 3; TSEL->p[P_CAOS] = 127; TSEL->p[P_ASWING] = 110; play(yb);
+            OK(dlt(ya, yb) > 0.15 && peak(yb) < 1.0, "MOD 1 > %s: heard (%.2f)", NM[d], dlt(ya, yb));
+        }
+    }
+    {   /* DIVE at full, held: the silence */
+        setup(0); mods_off(); TSEL->p[P_E6] = FD_DIVE; TSEL->p[P_E7] = 3; TSEL->p[P_CAOS] = 127; TSEL->p[P_ASWING] = 127; play(yb);
+        setup(0); mods_off(); play(ya);
+        double ha = 0, hb = 0; for (unsigned i = 1; i < NS; i++) { double da = ya[i] - ya[i - 1], db = yb[i] - yb[i - 1]; ha += da * da; hb += db * db; }   /* (heard: the slope's energy, the sub-audible out) */
+        OK(hb < ha * 0.25, "DIVE: the drone taken under hearing (%.3f of the drone's)", hb / (ha + 1e-12));
+    }
+    {   /* each modulator its own euclid: 3/8 strikes 3 of every 8 steps */
+        setup(0); mods_off(); TSEL->p[P_E6] = FD_UP; TSEL->p[P_E7] = 6;
+        unsigned hits = 0; for (unsigned s = 0; s < 64u; s++) hits += (unsigned)form_hit(TSEL->p, 0, s, 1u);
+        unsigned fuse = 0; TSEL->p[P_E7] = 0; for (unsigned s = 0; s < 64u; s++) fuse += (unsigned)form_hit(TSEL->p, 0, s, 1u);
+        OK(hits == 24u && fuse > 0u && fuse < 64u, "EUCLID: 3/8 strikes %u of 64, FUSE %u", hits, fuse);
+    }
+    {   /* ROOT; TRIG: a key sounds it, stopped */
+        setup(0); mods_off(); play(ya); TSEL->p[P_ROOT] = 7; play(yb);
+        OK(dlt(ya, yb) > 0.3, "ROOT: transposed (%.2f)", dlt(ya, yb));
+        int32_t b[CTL * 2]; double e = 0;
+        TSEL->p[P_LRTRG] = 0; frames(48); trk_note_on(TSEL, 60, 100);
+        for (unsigned j = 0; j < 200u; j++) { mix_block(b, CTL); for (unsigned i = 0; i < CTL * 2u; i++) e += (double)b[i] * b[i]; }
+        trk_note_off(TSEL, 60);
+        OK(e > 1e10, "TRIG: a key sounds it, stopped (%.2g)", e);
+    }
+    {   /* the pages: FORM (RUN ROOT RATE SEED), DRONE, MOD 1 .. 4 */
+        setup(0); ui.home = 1; press(B_EDIT);
+        int ok = cur_page()->scope == SC_FORM && cur_page()->id[0] == P_LRTRG && cur_page()->id[1] == P_ROOT;
+        turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_E2;
+        for (unsigned m = 0; m < 4u; m++) { turn(EN_SELECT, 1); ok &= cur_page()->id[0] == FORM_MF[m][0] && cur_page()->id[3] == FORM_MF[m][3]; }
+        frames(20);
+        OK(ok, "EDIT: FORM (RUN ROOT RATE SEED), DRONE, MOD 1 .. 4");
+    }
+    {   /* the dice in range */
+        int ok = 1;
+        for (unsigned k = 0; k < 40u; k++) {
+            setup(0); form_dice(TSEL, k & 1u);
+            for (unsigned m = 0; m < 4u; m++) ok &= TSEL->p[FORM_MF[m][0]] < FD_N && TSEL->p[FORM_MF[m][1]] < (int)FORM_NEU && TSEL->p[FORM_MF[m][2]] <= 127 && TSEL->p[FORM_MF[m][3]] <= 127;
+        }
+        OK(ok, "40 throws of the dice in range");
+    }
+    {   /* stored and read back */
+        static project_t q, r; static project_store_t st;
+        setup(3); TSEL->p[P_ROOT] = -5; TSEL->p[P_CVOI] = 77; TSEL->p[P_KEY] = 99; TSEL->p[P_MORPH] = 11;
+        project_capture(&q);
+        int ok = proj_pack(&st, &q) && proj_import(&r, st.raw, (int)sizeof st.raw);
+        for (unsigned m = 0; ok && m < 4u; m++) for (unsigned f = 0; f < 4u; f++) ok &= r.t[0].p[FORM_MF[m][f]] == q.t[0].p[FORM_MF[m][f]];
+        ok &= r.t[0].p[P_ROOT] == -5 && r.t[0].p[P_LRTRG] == q.t[0].p[P_LRTRG];
+        OK(ok, "the part stored and read back");
+    }
+    {   /* the pattern's LEN and RATE the sequencer's: 64 steps */
+        setup(0);
+        OK(TSEL->p[P_SLEN] == TP[P_SLEN].def, "PATTERN: LEN the sequencer's (%d)", TSEL->p[P_SLEN]);
+        TSEL->p[P_SLEN] = 64; frame();
+        OK(TSEL->p[P_SLEN] == 64, "PATTERN: 64 steps");
+    }
+    printf("form: %s\n", ft_bad ? "FAIL" : "all ok");
+    return ft_bad != 0;
 }

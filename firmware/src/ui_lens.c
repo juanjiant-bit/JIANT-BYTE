@@ -70,7 +70,7 @@ static const ng_t CG_HOME[] = {
 #endif
                                {"MACROS", "MACRO"}, {"LIVE MIX", "LIVE"}, {"TRACKS", "TRK"}, {"TIMELINE", "TIME"},
                                {"ARRANGE", "ARR"}, {"PARTS", 0}, {"GEN", 0}};
-static const nv_t CE_SYN[] = {NV("FORM", 0, 0, 0), NV("SOUND",0,0,1), NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("NOTES",0,0,1), NV("HARMONY",0,0,1), NV("TIMBRE",0,0,1), NV("CLOCK",0,0,1),
+static const nv_t CE_SYN[] = {NV("FORM", 0, 0, 0), NV("DRONE",0,0,1), NV("MOD 1",0,0,1), NV("MOD 2",0,0,1), NV("MOD 3",0,0,1), NV("MOD 4",0,0,1), NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0),
                               NV("WORDS", 0, 0, 1), NV("SWARM", 0, 0, 1), NV("SWARM 2", 0, 0, 1),
                               NV("FILTER", 0, 1, 1), NV("FILTER 2", 0, 1, 1), NV("TONE", 0, 1, 1), NV("AUTO KNOBS", "FOCUS", 2, 2),
                               NV("VOICES", "PLAY", 3, 1), NV("MORE", 0, 3, 1), NV("VOICES 3", "MORE", 3, 1)};   /* (JIANT FM V10.7.60,
