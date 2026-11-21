@@ -195,6 +195,11 @@ enum {                          /* per-track parameters */
  * the matrix's VEL reads it too. A step's ACCENT keeps its 127, HUMAN and RATCHET's DECAY act on the scaled value;
  * the recording keeps the key's own (seq.c tvel, STEP_VEL) */
 #define P_TVEL P_FM4_LEVEL
+/* (BYTE 0.16, the owner: "FORM: no 64 steps, no step resolution") FORM's RATE A and RATE B, out of the pattern's DIV and
+ * LEN (the sequencer's again): in HUMAN's TIME and GATE, folded into P_HVEL in 0.6.92 and read by nothing since
+ * (project.c: a FORM part's stored before, moved) */
+#define P_FRA P_HTIM
+#define P_FRB P_HGAT
 #define P_MORPH P_FM3_ATK              /* (JIANT 0.6.45) EDIT > MORPH: ANALOG PHASE LOFI's wave on towards the next ones
                                          * (0: as WAVE has it; every project and preset before it), in DIGITAL's slot */
 #define P_CLEN P_FM3_DEC               /* (JIANT 0.6.47) SHIFT > C.LEN: the step components as a lane of their own, steps

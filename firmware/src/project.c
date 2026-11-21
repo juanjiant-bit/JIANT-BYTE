@@ -1782,7 +1782,15 @@ static int project_restore_runtime(const project_t *input)
             const param_desc_t *d = param_desc_of(e, i);
             t->p[i] = (int16_t)param_fit(d, s->p[i]);
         }
-        if (!FELUCCA_FM4) {   /* (0.6.92) HUMAN is one amount (P_HVEL): a project of 0.6.87 .. 0.6.91 with VEL, TIME and
+        if (e == ENGI_FORM && s->p[P_FRA] == 127 && s->p[P_FRB] == 127) {   /* (BYTE 0.16) a FORM part stored with RATE A
+                                                         * and B in the pattern's DIV and LEN: theirs moved, the pattern's
+                                                         * own back (HUMAN's 127 there: never a RATE) */
+            t->p[P_FRA] = (int16_t)clamp(s->p[P_SDIV], 0, 7);
+            t->p[P_FRB] = (int16_t)clamp(s->p[P_SLEN], 0, 7);
+            t->p[P_SDIV] = TP[P_SDIV].def;
+            t->p[P_SLEN] = TP[P_SLEN].def;
+        }
+        if (!FELUCCA_FM4 && e != ENGI_FORM) {   /* (0.6.92) HUMAN is one amount (P_HVEL): a project of 0.6.87 .. 0.6.91 with VEL, TIME and
                                * GATE apart keeps the largest of them (not DIGITAL's operator slots, FELUCCA_FM4) */
             int16_t m = t->p[P_HVEL];
             if (t->p[P_HTIM] < m) m = t->p[P_HTIM];

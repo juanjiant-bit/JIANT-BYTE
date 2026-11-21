@@ -1799,7 +1799,7 @@ static __attribute__((noinline)) void gen_mix(track_t *t, uint32_t r)
                                   r == RL_PAD ? grr(0, 30) : r == RL_DRUM ? grr(0, 10) : 0) * (40 + wet) / 100, 0, 127);
     if (r == RL_LEAD && t->p[P_REV] < 25 && t->p[P_DLY] < 20) t->p[P_DLY] = (int16_t)grr(25, 55);
     t->p[P_HVEL] = (int16_t)(127 - clamp((HV[r] + HT[r] + HG[r]) * hum / 150, 0, 127));   /* (0.6.92: one amount) */
-    t->p[P_HTIM] = t->p[P_HGAT] = 127;
+    if (t->eng_req != ENGI_FORM) t->p[P_HTIM] = t->p[P_HGAT] = 127;   /* (FORM: its RATE A, B) */
     if (g->lead == LD_EBM) {   /* (p7b, the owner's references measured: the bass's and the pads' brightness swings
          * 30 .. 38 % over 4 bars in EBM; its bass a little driven, held) */
         if ((r == RL_BASS || r == RL_PAD) && t->p[P_LD_FLT] < 3 && !t->p[P_LD_AMP]) {

@@ -43,7 +43,7 @@ int main(void)
     }
     {   /* each control heard */
         static const struct { const char *nm; unsigned id; int16_t v; } C[] = {
-            {"MORPH", P_E2, 127}, {"STYLE", P_E3, 3}, {"LEVEL", P_DETUNE, 110}, {"MOD A", P_CAOS, 9}, {"DEPTH", P_APROB, 120}, {"DEF A", P_E4, 127}, {"OCT A", P_E6, 3}, {"RATE A", P_SDIV, 2},
+            {"MORPH", P_E2, 127}, {"STYLE", P_E3, 3}, {"LEVEL", P_DETUNE, 110}, {"MOD A", P_CAOS, 9}, {"DEPTH", P_APROB, 120}, {"DEF A", P_E4, 127}, {"OCT A", P_E6, 3}, {"RATE A", P_FRA, 2},
             {"PROG", P_AGATE, 4}, {"LENGTH", P_ARATE, 0}, {"CHORD", P_CHRD, 7}, {"VOICING", P_CVOI, 5}, {"HITS", P_KEY, 5}};
         for (unsigned k = 0; k < NELEM(C); k++) {
             setup(0); play(ya);
@@ -52,7 +52,7 @@ int main(void)
         }
         setup(0); play(ya); setup(0); cru_v[0] = 100; play(yb); cru_v[0] = 0;   /* (BYTE 0.16) CRUSH, on PULSE */
         OK(dlt(ya, yb) > 0.1, "CRUSH changes the sound (%.3f)", dlt(ya, yb));
-        static const struct { const char *nm; unsigned id; int16_t v; } CB[] = {{"DEF B", P_E5, 0}, {"OCT B", P_E7, 3}, {"RATE B", P_SLEN, 3}};
+        static const struct { const char *nm; unsigned id; int16_t v; } CB[] = {{"DEF B", P_E5, 0}, {"OCT B", P_E7, 3}, {"RATE B", P_FRB, 3}};
         for (unsigned k = 0; k < NELEM(CB); k++) {
             setup(0); TSEL->p[P_E2] = 127; play(ya);
             setup(0); TSEL->p[P_E2] = 127; TSEL->p[CB[k].id] = CB[k].v; play(yb);
@@ -80,7 +80,7 @@ int main(void)
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_E4;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_CAOS;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_AGATE;
-        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_SDIV;
+        turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_FRA;
         turn(EN_SELECT, 1); ok &= cur_page()->scope == SC_FORM && cur_page()->id[0] == P_DETUNE && cur_page()->id[1] == P_MORPH;
         frames(20);
         OK(ok, "EDIT: FORM, DEFORM, MOTION, HARMONY, PULSE, DRUMS");
@@ -96,12 +96,18 @@ int main(void)
     }
     {   /* stored and read back */
         static project_t q, r; static project_store_t st;
-        static const unsigned ID[] = {P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7, P_AGATE, P_ARATE, P_AORDER, P_LRTRG, P_SDIV, P_SLEN, P_KEY, P_DETUNE, P_CHRD, P_CVOI, P_MORPH, P_CSTR, P_DXIMG};
+        static const unsigned ID[] = {P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7, P_AGATE, P_ARATE, P_AORDER, P_LRTRG, P_FRA, P_FRB, P_KEY, P_DETUNE, P_CHRD, P_CVOI, P_MORPH, P_CSTR, P_DXIMG};
         setup(5); TSEL->p[P_AGATE] = 7; TSEL->p[P_E4] = 99; TSEL->p[P_KEY] = 7; TSEL->p[P_CHRD] = 4; TSEL->p[P_MORPH] = 90; TSEL->p[P_CSTR] = 2; TSEL->p[P_DXIMG] = 3;
         project_capture(&q);
         int ok = proj_pack(&st, &q) && proj_import(&r, st.raw, (int)sizeof st.raw);
         for (unsigned k = 0; ok && k < NELEM(ID); k++) ok &= r.t[0].p[ID[k]] == q.t[0].p[ID[k]];
         OK(ok, "the part stored and read back");
+    }
+    {   /* (BYTE 0.16, the owner) the pattern's LEN and RATE the sequencer's again: 64 steps, its own resolution */
+        setup(0); int16_t ra = TSEL->p[P_FRA], rb = TSEL->p[P_FRB];
+        OK(TSEL->p[P_SLEN] == TP[P_SLEN].def && param_desc_of(ENGI_FORM, P_SLEN) == &TP[P_SLEN], "PATTERN: LEN the sequencer's (%d)", TSEL->p[P_SLEN]);
+        TSEL->p[P_SLEN] = 64; TSEL->p[P_SDIV] = 4; frame();
+        OK(TSEL->p[P_SLEN] == 64 && TSEL->p[P_FRA] == ra && TSEL->p[P_FRB] == rb, "PATTERN: 64 steps, RATE apart from FORM's RATE A, B");
     }
     printf("form: %s\n", ft_bad ? "FAIL" : "all ok");
     return ft_bad != 0;
