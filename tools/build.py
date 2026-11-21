@@ -237,7 +237,7 @@ def share_strings(ir, keep=()):
 # slow), never to a multiply: FORM alone filled the FM-1 (its oscillator 51 of them, called ~10 times a sample). In the
 # audio's hottest functions each i32 udiv / urem / sdiv / srem by a constant becomes the multiply (one 32x32->64
 # instruction) by floor((2^32-1)/d) and one correction: exact for every input (the estimate is at most one low)
-DIV_FNS = ("form_render",
+DIV_FNS = ("form_render", "form_wave", "form_cbass", "form_drum", "form_drop_bass", "form_life",
            "fvm_music_env", "fl_post", "fl_fm", "fl_run", "fvm_exec",
            "lofi_float_render", "lofi_byte_render", "voice_block")   # (DRUM-W's pads and bus, voice_half,
                                                          # track_render: their few out, the flash for FORM 4's recipes)   # (not the RAM code's, mix_part_m0 ..: its room)

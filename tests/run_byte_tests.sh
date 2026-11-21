@@ -18,6 +18,9 @@ for test in fvm funcbeat funcbeat_ui func_music funcsong byte wave life_byte lif
         exit 1
     fi
     tail -n 1 "$OUT/$test.log"
+    if [ "$test" = form ] && ! FVM_NO_COST=1 "$OUT/$test" checks > "$OUT/form-checks.log" 2>&1; then
+        cat "$OUT/form-checks.log"; exit 1
+    fi
 done
 mkdir -p "$OUT/fx_demo"                     # (byte-cpu-light) REVERB TYPE: ROOM and CLOUD at half the rate, as their reference
 "${CC:-cc}" -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/reverb" tests/reverb_test.c -lm

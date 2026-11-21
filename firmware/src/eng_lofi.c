@@ -298,7 +298,7 @@ static fvm_prog_t *lofi_slot(uint32_t tr)            /* a part's program, its st
 #include "fvm_bank.c"
 /* (FORM 3) a part's second program: WAVE's B, FORM's FORMULA B (a part is one engine at a time) */
 static fvm_prog_t wave_prg_b[NTRK];                  /* B's program a part (A's: lofi_prg) */
-static fvm_ins_t wave_ins_b[NTRK][FVM_MAXINS] __attribute__((section(".pool")));      /* (its instructions: FORM's B a recipe, 64) */
+static fvm_ins_t wave_ins_b[NTRK][32] __attribute__((section(".pool")));               /* (its instructions: the bank's longest fits in 32) */
 static uint16_t wave_id_b[NTRK];
 /* (JIANT BYTE, phase 6) cross-mod: each part's output (its dry sum, FIX: full scale 1.0) of the block before, what a
  * formula reads as O1 .. O6; written as the parts render (fx.c xm_put), turned over at each block's start (xm_turn) */

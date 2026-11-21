@@ -217,33 +217,6 @@ static uint32_t math_hash[NTRK];
 #define MATH_PUBLISH_LOCK() ((void)0)
 #define MATH_PUBLISH_UNLOCK() ((void)0)
 #endif
-/* (BYTE 0.17) FORM's two recipes, compiled here as MATH's, published into MATH's slot (A) and WAVE's B (a part is one
- * engine): their ids FORM's (0x800), so MATH or WAVE compile theirs anew when the part is theirs again */
-static uint32_t form_hash[NTRK][2];
-static void form_poll(gq_work_t *w, uint32_t tr)
-{
-    track_t *t = &trk[tr];
-    for (uint32_t s = 0; s < 2u; s++) {
-        const char *tx = form_recipe((uint32_t)clamp(t->p[P_E0 + s], 0, FORM_NT - 1), lyr_txt[tr]);
-        uint32_t h = 1, k, mine = s ? wave_id_b[tr] == 0x800u : lofi_prg_id[tr] == 0x800u;
-        for (k = 0; tx[k] && k < 255u; k++) h = h * 31u + (uint8_t)tx[k];
-        if (form_hash[tr][s] == h && mine) continue;
-        form_hash[tr][s] = h;
-        if (fvm_compile(&w->cc, FVM_FULL(&w->pg), tx, k, 0) || w->pg.p.nstate > (s ? 0u : LOFI_NSTATE)) {
-            form_ok[tr] &= (uint8_t)~(1u << s);
-            continue;
-        }
-        MATH_PUBLISH_LOCK();
-        fvm_prog_t *d = s ? &wave_prg_b[tr] : lofi_slot(tr);
-        if (!d->ins) fvm_prog_init(d, wave_ins_b[tr], FVM_MAXINS);
-        fvm_ins_t *ins = d->ins;
-        memcpy(ins, w->pg.ins, w->pg.p.n * sizeof *ins);
-        *d = w->pg.p; d->ins = ins; d->cap = FVM_MAXINS;
-        if (s) wave_id_b[tr] = 0x800u; else lofi_prg_id[tr] = 0x800u;
-        form_ok[tr] |= (uint8_t)(1u << s);
-        MATH_PUBLISH_UNLOCK();
-    }
-}
 static void math_poll_ws(gq_work_t *w)
 {
     static uint8_t cursor;
@@ -252,7 +225,6 @@ static void math_poll_ws(gq_work_t *w)
     for(uint32_t offset=0;offset<NTRK;offset++){
         uint32_t tr=(cursor+offset)%NTRK;
         track_t*t=&trk[tr];const char*lt=lyr_txt[tr];
-        if(eng_idx(t->eng_req)==ENGI_FORM){form_poll(w,tr);continue;}
         uint32_t seed,band,h=0,k,var,request=math_request[tr],func=t->p[P_E1]==RW_FUNC;char text[256];
         if(eng_idx(t->eng_req)!=ENGI_LOFI||(t->p[P_E1]!=RW_USER&&!func))continue;
         if(func){if(t->p[P_E0]<4){t->p[P_E0]=5;t->p[P_SUS]=127;}lt=math_func_text(t,lt);}

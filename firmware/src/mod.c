@@ -55,9 +55,10 @@ static uint32_t ms_clock;        /* (JIANT) samples since PLAY on the transport'
                                   * 0): MS_STEP's place */
 enum { MD_OFF, MD_PITCH, MD_CUT, MD_SHP, MD_AMP, MD_PAN, MD_DIST, MD_CHO, MD_DLY, MD_REV, MD_RATE, MD_VIB, MD_E1,
        MD_CLIP = MD_E1 + 8, MD_PNCH, MD_DTIME, MD_DFDBK, MD_DCOL, MD_DMIX, MD_RSIZE, MD_RDAMP, MD_CRATE, MD_CDEPTH, MD_MASTER_END,
-       MD_FCUT = MD_MASTER_END, MD_LEVEL, MD_LIFE, MD_X1, MD_N = MD_X1 + 5 };
+       MD_FCUT = MD_MASTER_END, MD_LEVEL, MD_LIFE, MD_X1, MD_N = MD_X1 + 14 };
 /* (FORM 2) MD_X1..: FORM's own beyond its eight (a FORM part's only, per block): every one of its pages' values */
-static const uint8_t FORM_XDST[MD_N - MD_X1] = {P_APROB, P_ASWING, P_AGATE, P_ARATE, P_DXIMG};   /* (BYTE 0.17) MOTION, PULSE */
+static const uint8_t FORM_XDST[MD_N - MD_X1] = {P_CAOS, P_ASWING, P_APROB, P_ARATE, P_AORDER, P_AGATE, P_AOCT, P_CHRD,
+                                                P_CVOI, P_KEY, P_DETUNE, P_SSWING, P_FRA, P_FRB};   /* (FORM 2, its RATE and CYCLE in P_FRA P_FRB) */
 /* (V10.7.34) LIFE (life.c), appended: the sources LIFE (the track's breath: its being's pulse, bipolar) and BEING (its being's
  * height in HOME > LIFE's water, bipolar, up +), the destination LIFE (per block: the track's LIFE, AMT 64 at a full source
  * = 100 %, on top of EDIT > VOICES 3's) */

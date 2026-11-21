@@ -83,7 +83,8 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                      "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
                                      "CLIP", "PNCH",   /* (JIANT: the master, FX > MASTER) */
                                      "D.TIM", "D.FB", "D.TON", "D.MIX", "R.SIZ", "R.DMP", "C.RAT", "C.DEP", "F.CUT", "LEVEL", "LIFE",
-                                     "DEPTH", "SPEED", "FOLD", "RING", "DENS"};   /* (BYTE 0.17: MOTION, PULSE; mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
+                                     "STYLE", "DRIVE", "TONE", "WOBBLE", "HARMONY", "PROGRESS", "OCTAVE", "CHORD", "VOICING",   /* (FORM 2: */
+                                     "DRUMS", "DETUNE", "SWING", "RATE", "CYCLE"};   /* FORM's, mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
@@ -826,12 +827,16 @@ static const page_t PAGES[] = {
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     /* (FORM 2, the owner: by importance, no DELAY) after STATES and RULES (the engine's): the timbre (STYLE DRIVE TONE
      * WOBBLE, in its ARP slots), the harmony, the layers, the clock */
-    /* (BYTE 0.17, the owner: "one engine, whole") FORM: RUN ROOT FORM A FORM B; SHAPE its EDIT 2 (A B C D); MOTION
-     * MORPH and the curve moving it and the stages (MOD SPEED DEPTH); TIMBRE (FOLD RING CRUSH); PULSE: RATE DENSITY GATE DRUMS */
-    {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_E3,P_E0,P_E1}},
-    {"MOTION", FAM_EDIT, SC_FORM, GR_NONE, {P_E2,P_CAOS,P_ASWING,P_APROB}},
-    {"TIMBRE", FAM_EDIT, SC_FORM, GR_NONE, {P_AGATE,P_ARATE,P_AORDER,0xFF}},
-    {"PULSE", FAM_EDIT, SC_FORM, GR_NONE, {P_MORPH,P_DXIMG,P_KEY,P_DETUNE}},
+    /* (BYTE 0.17, the owner: FORM 2's sound back, "the mode first") FORM: RUN ROOT STATE A STATE B; SOUND: MORPH COLOR
+     * STYLE DRUMS; RULES its EDIT 2 (GROOVE DENSITY SEED EVOLVE); NOTES: MODE (SEQ ARP CHORD) OCTAVE CHORD VOICING;
+     * HARMONY: HARMONY PROGRESS SCALE; TIMBRE: DRIVE WOBBLE TONE DETUNE; CLOCK: RATE CYCLE SWING (the pattern's LEN and
+     * RATE the sequencer's: FORM's in P_FRA P_FRB) */
+    {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_ROOT,P_E0,P_E1}},
+    {"SOUND", FAM_EDIT, SC_FORM, GR_NONE, {P_E2,P_E3,P_CAOS,P_KEY}},
+    {"NOTES", FAM_EDIT, SC_FORM, GR_NONE, {P_MORPH,P_AOCT,P_CHRD,P_CVOI}},
+    {"HARMONY", FAM_EDIT, SC_FORM, GR_NONE, {P_AORDER,P_AGATE,P_SCALE,0xFF}},
+    {"TIMBRE", FAM_EDIT, SC_FORM, GR_NONE, {P_ASWING,P_ARATE,P_APROB,P_DETUNE}},
+    {"CLOCK", FAM_EDIT, SC_FORM, GR_NONE, {P_FRA,P_FRB,P_SSWING,0xFF}},
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */

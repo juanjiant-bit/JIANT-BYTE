@@ -1785,8 +1785,8 @@ static int project_restore_runtime(const project_t *input)
         if (e == ENGI_FORM && s->p[P_FRA] == 127 && s->p[P_FRB] == 127) {   /* (BYTE 0.16) a FORM part stored with RATE A
                                                          * and B in the pattern's DIV and LEN: theirs moved, the pattern's
                                                          * own back (HUMAN's 127 there: never a RATE) */
-            t->p[P_FRA] = (int16_t)clamp(s->p[P_SDIV], 0, 7);
-            t->p[P_FRB] = (int16_t)clamp(s->p[P_SLEN], 0, 7);
+            t->p[P_FRA] = (int16_t)clamp(s->p[P_SDIV], 0, 9);
+            t->p[P_FRB] = (int16_t)clamp(s->p[P_SLEN], 1, 64);
             t->p[P_SDIV] = TP[P_SDIV].def;
             t->p[P_SLEN] = TP[P_SLEN].def;
         }
