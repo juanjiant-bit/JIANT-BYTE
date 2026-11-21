@@ -88,6 +88,25 @@ static inline uint32_t fvm_hash(uint32_t h)
     h *= 0x85EBCA77u;
     return h ^ (h >> 13);
 }
+/* (BYTE 0.16, the owner: "pick two of a table at random and combine them into a third: the same pattern hardly ever
+ * twice") eu(step, seed): an action pattern of 16 steps a bar, every 4 bars two euclidean rhythms drawn from FVM_EU by
+ * the seed and the section, joined by a way drawn too (OR, AND, XOR, a bar each): 1 the step plays */
+static const uint8_t FVM_EU[16][2]={{3,8},{5,8},{2,8},{3,16},{5,16},{7,16},{9,16},{4,16},{11,16},{5,12},{7,12},{4,12},
+                                    {3,6},{2,6},{6,16},{13,16}};
+static uint32_t fvm_eu(uint32_t s, uint32_t seed)
+{
+    uint32_t h = fvm_hash(seed * 0x9E3779B1u + (s >> 6) * 0x85EBCA77u), i, g[2];
+    for (i = 0; i < 2u; i++) {
+        uint32_t e = (h >> (i * 8u)) & 15u, k = FVM_EU[e][0], n = FVM_EU[e][1], r = (h >> (16u + i * 4u)) & 15u;
+        g[i] = ((s + r) * k) % n < k;
+    }
+    switch (h >> 30) {
+    case 0: return g[0] | g[1];
+    case 1: return (g[0] & g[1]) | ((s & 15u) == 0u);  /* (AND: the bar's first step kept: never a silent bar) */
+    case 2: return g[0] ^ g[1];
+    default: return (s >> 4) & 1u ? g[1] : g[0];
+    }
+}
 #define I32(v) ((int32_t)(v))
 #define U32(v) ((uint32_t)(v))
 #define FVM_OPS2(X) \
@@ -102,7 +121,8 @@ static inline uint32_t fvm_hash(uint32_t h)
     X(MULIF, U32((int64_t)a * I32(b))) \
     X(DIVF, I32(b) ? U32(I32(((int64_t)I32(a) * 65536) / I32(b))) : 0u) \
     X(DIVFI, (I32(b) && I32(b) != -1) ? U32(I32(a) / I32(b)) : (I32(b) ? U32(-I32(a)) : 0u)) \
-    X(MODF, (I32(b) && I32(b) != -1) ? U32(I32(a) % I32(b)) : 0u)
+    X(MODF, (I32(b) && I32(b) != -1) ? U32(I32(a) % I32(b)) : 0u) \
+    X(EU, fvm_eu(a, b))
 #define FVM_OPS1(X) \
     X(NEG, U32(-I32(a))) X(NOT, ~a) X(LNOT, U32(!a)) X(ITOF, a << 16) X(FTOI, U32(I32(a) >> 16)) \
     X(ABS, I32(a) < 0 ? U32(-I32(a)) : a) X(FLOOR, a & 0xFFFF0000u) \
@@ -455,12 +475,12 @@ static const struct { char nm[5]; uint8_t kind, ty, ix; } FVM_VARS[] = {
                                                      * and fifth, the root a little sharp (FORM's own arrays: X, I, x elsewhere) */                    /* (JIANT BYTE) an effect's input (fx.c dist_eq) */                  /* (JIANT BYTE) the song's position in beats (a modifier's clock) */
 };
 enum { FC_SIN, FC_COS, FC_TRI, FC_SAW, FC_SQR, FC_ABS, FC_MIN, FC_MAX, FC_FLOOR, FC_INT, FC_FIX, FC_RND, FC_SAT,
-       FC_CLIP, FC_PH, FC_LP, FC_HP, FC_NOTE, FC_CHORD, FC_KICK, FC_SNARE, FC_HAT };
+       FC_CLIP, FC_PH, FC_LP, FC_HP, FC_EU, FC_NOTE, FC_CHORD, FC_KICK, FC_SNARE, FC_HAT };
 static const struct { char nm[6]; uint8_t id, nargs; } FVM_CALLS[] = {
     {"sin", FC_SIN, 1}, {"cos", FC_COS, 1}, {"tri", FC_TRI, 1}, {"saw", FC_SAW, 1}, {"sqr", FC_SQR, 1},
     {"abs", FC_ABS, 1}, {"min", FC_MIN, 2}, {"max", FC_MAX, 2}, {"floor", FC_FLOOR, 1}, {"int", FC_INT, 1},
     {"fix", FC_FIX, 1}, {"rnd", FC_RND, 1}, {"sat", FC_SAT, 1}, {"clip", FC_CLIP, 1}, {"ph", FC_PH, 1},
-    {"lp", FC_LP, 2}, {"hp", FC_HP, 2},
+    {"lp", FC_LP, 2}, {"hp", FC_HP, 2}, {"eu", FC_EU, 2},
     {"note", FC_NOTE, 3}, {"chord", FC_CHORD, 3}, {"kick", FC_KICK, 1}, {"snare", FC_SNARE, 1}, {"hat", FC_HAT, 1},
 };
 
@@ -492,6 +512,8 @@ static uint32_t fvm_call(fvm_cc_t *c, uint32_t id, uint32_t *ar)
                        fvm_num(c, FT_FIX, (uint32_t)-65536), FT_FIX);
     case FC_PH:
         return fvm_new(c, NK_ST, FO_PH, FT_FIX, fvm_tofix(c, a), 0, 0, 0);
+    case FC_EU:
+        return fvm_bin(c, FO_EU, fvm_toint(c, a), fvm_toint(c, b), FT_INT);
     default:                                         /* lp hp */
         return fvm_new(c, NK_ST, id == FC_LP ? FO_LP : FO_HP, FT_FIX, fvm_tofix(c, a), fvm_tofix(c, b), 0, 0);
     }
