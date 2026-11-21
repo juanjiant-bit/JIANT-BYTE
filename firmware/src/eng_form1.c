@@ -417,11 +417,17 @@ static __attribute__((noinline)) int32_t f1_cbass(f1_vs_t*v,uint32_t dom,uint32_
  v->s[7]=(int32_t)((uint32_t)(uint16_t)f1|((uint32_t)(uint16_t)f2<<16));
  return clamp(y,-32767,32767);
 }
+static __attribute__((noinline)) void f1_life_cap(fl_node_t*node,uint32_t a,uint32_t b,uint32_t morph,int32_t color,uint32_t note)
+{   /* (BYTE 0.16) its cycle out of f1_life's frame: f1_life calls the formula's run, this does not (the second core's
+     * stack: FORM with LIFE was 4 B past its 6 KB) */
+ int32_t cycle[FVM_BLK];for(uint32_t i=0;i<FVM_BLK;i++)cycle[i]=f1_mix(f1_wave(a,i,0x100000000ull/FVM_BLK,0,color,0),f1_wave(b,i,0x100000000ull/FVM_BLK,0,color,0),morph);
+ node->valid=1;node->note=(uint8_t)note;node->envelope=32767;node->has_number=1;node->number=(uint16_t)(color*64);node->n=1;fl_project(node,cycle);
+}
 static __attribute__((noinline)) void f1_life(track_t*t,f1_vs_t*v,uint32_t a,uint32_t b,uint32_t morph,int32_t color,uint32_t inc,uint32_t tick,int32_t*y,uint32_t n,uint32_t hs){
  if(!fl.on)return;
  uint32_t id=fl_ctx[MC_CPU()&1u].id;if(!id)return;
  fl_node_t*node=&fl.node[fl.rd^1u][id-1u];
- if(!node->valid){int32_t cycle[FVM_BLK];for(uint32_t i=0;i<FVM_BLK;i++)cycle[i]=f1_mix(f1_wave(a,i,0x100000000ull/FVM_BLK,0,color,0),f1_wave(b,i,0x100000000ull/FVM_BLK,0,color,0),morph);node->valid=1;node->note=v->note;node->envelope=32767;node->has_number=1;node->number=(uint16_t)(color*64);node->n=1;fl_project(node,cycle);}
+ if(!node->valid)f1_life_cap(node,a,b,morph,color,v->note);
  static fvm_ins_t in={FO_PUSH,FM_ARR,0,FA_XF};static const fvm_prog_t p={.ins=&in,.cap=1,.n=1,.depth=1,.ty=FT_FIX};
  for(uint32_t off=0;off<n;off+=FVM_BLK){uint32_t count=n-off<FVM_BLK?n-off:FVM_BLK,W[FVM_BLK],X[FVM_BLK],O[FVM_BLK];for(uint32_t i=0;i<count;i++){W[i]=((tick+(off+i)*hs)*inc)>>16;X[i]=(uint32_t)(y[off+i]*2);}fvm_env_t e={{0},{0},0};e.arr[FA_W]=W;e.arr[FA_XF]=X;fl_run(&p,&e,&lofi_work[MC_CPU()&1u].s,count,O);for(uint32_t i=0;i<count;i++)y[off+i]=fvm_sample(FT_FIX,O[i]);}
  (void)t;

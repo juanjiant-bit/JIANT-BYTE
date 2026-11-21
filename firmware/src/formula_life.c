@@ -52,8 +52,9 @@ static void fl_project(fl_node_t *a,const int32_t *y)
 }
 static void fl_capture(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,fl_node_t*a)
 {
-    uint32_t c=MC_CPU()&1u,T[FVM_BLK],W[FVM_BLK],S[FVM_BLK],v[FVM_BLK];
-    int32_t y[FVM_BLK];
+    uint32_t c=MC_CPU()&1u,T[FVM_BLK],W[FVM_BLK],v[FVM_BLK];   /* (BYTE 0.16: S is T, y is v: 256 B off the audio's
+                                                         * deepest stack, the second core's 6 KB) */
+    int32_t *y=(int32_t*)v;
     a->valid=1;a->note=fl_ctx[c].note;a->envelope=fl_ctx[c].envelope;a->has_number=1;
     /* A/VAR and real literals donate numbers, but only as bounded shape indices.
      * They are never written into a clock multiplier, shift, mask or divisor. */
@@ -65,10 +66,10 @@ static void fl_capture(const fvm_prog_t*p,const fvm_env_t*e,fvm_scratch_t*sc,fl_
     int32_t state[FVM_MAXSTATE];
     fvm_env_t en=*e;
     if(p->func){memcpy(state,e->state,p->nstate*sizeof *state);en.state=state;en.u[FU_HZ]=(FS/32u)*65536u;}
-    for(uint32_t i=0;i<FVM_BLK;i++){T[i]=i*8u;W[i]=i*2048u;S[i]=i*8u;}
-    en.arr[FA_T]=T;en.arr[FA_W]=W;en.arr[FA_TS]=S;
+    for(uint32_t i=0;i<FVM_BLK;i++){T[i]=i*8u;W[i]=i*2048u;}
+    en.arr[FA_T]=T;en.arr[FA_W]=W;en.arr[FA_TS]=T;
     fvm_run(&piece,&en,sc,FVM_BLK,v);
-    for(uint32_t i=0;i<FVM_BLK;i++)y[i]=fvm_sample(piece.ty,v[i]);
+    for(uint32_t i=0;i<FVM_BLK;i++)y[i]=fvm_sample(piece.ty,v[i]);   /* (in place: y[i] from v[i] alone) */
     fl_project(a,y);
 }
 static int32_t fl_other_h(uint32_t id,uint32_t k,uint32_t weight);
