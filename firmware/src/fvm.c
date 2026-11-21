@@ -147,7 +147,7 @@ typedef struct { uint8_t input, number; uint32_t value; const int32_t *offset; }
 static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_env_t *e, fvm_scratch_t *sc,
                                               uint32_t n, uint32_t *out, const fvm_patch_t *patch)
 {
-    if(p->func){fvm_func_run(p,e,n,out);return;}
+    if(p->func){if(!fvm_func_block(p,e,sc,n,out))fvm_func_run(p,e,n,out);return;}
     uint32_t pc, sp = 0u, i, injected[FVM_BLK];
     if (n > FVM_BLK)
         n = FVM_BLK;
