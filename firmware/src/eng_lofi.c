@@ -657,6 +657,10 @@ static uint8_t func_song_mask;
  * runs on its own: a voice always, its own clock, at the root) */
 static int func_song(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]==1:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==5;}
 static int func_free(const track_t*t){return t->eng_req==ENGI_FORM?t->p[P_LRTRG]==2:t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==6;}
+/* (BYTE 0.16, the owner: "the whole formula is never heard") the formula's clock: the transport's in PLAY, and in NOTE
+ * while the song plays (the key its pitch and gate, the formula where the song is: a 1/16 step a sixteenth of it, in
+ * place); stopped, NOTE from the key, FREE its own */
+#define func_bar(t) (func_song(t)||(song.playing&&!func_free(t)))
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
 static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:t->p[P_E7]==3?MATH_FUNC_GROWL:t->p[P_E7]==4?MATH_FUNC_HALF:t->p[P_E7]>=5&&t->p[P_E7]<5+(int)NELEM(MATH_FUNC_R)?MATH_FUNC_R[t->p[P_E7]-5]:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
 static uint32_t math_music_cost(const track_t*t){
@@ -677,7 +681,7 @@ static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32
     if(n>LOFI_N)n=LOFI_N;
     if(!n)return;
     uint32_t pos,step,rem,carry=0,den,sh=VH_SH(),sd=(uint32_t)FS;
-    if(func_song(t)){pos=func_clock_begin;den=n;step=(func_clock_end-pos)/den;rem=(func_clock_end-pos)%den;}
+    if(func_bar(t)){pos=func_clock_begin;den=n;step=(func_clock_end-pos)/den;rem=(func_clock_end-pos)%den;}
     else {uint64_t ticks=(uint64_t)q<<16;den=en.u[FU_BPS];pos=(uint32_t)(ticks/den);carry=(uint32_t)(ticks%den);step=(65536u<<sh)/den;rem=(65536u<<sh)%den;}
     /* Exact integer interpolation: no 64-bit division in the sample loop. (BYTE 0.16) Nor S's (the seconds, Q16): once a
      * block, then stepped; at half the rate (VH_SH: MATH always at 22 kHz) each sample two of t, its time whole */

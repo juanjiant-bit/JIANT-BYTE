@@ -191,7 +191,7 @@ static void graph_focus_lz(const track_t *t)
 static void form_cap(int32_t x,int32_t y,const char*s,uint16_t c){cv_text_on(x,y-AF_S_CAP_Y,&AF_S,s,c,T_BG);}
 static uint32_t form_view_clock(const track_t*t){
  uint32_t c=0;
- if(func_song(t))c=func_clock_begin;
+ if(func_bar(t))c=func_clock_begin;
  else for(uint32_t i=0;i<NVOICE;i++)if(t->v[i].active){c=(uint32_t)(((uint64_t)t->v[i].ph[0]<<16)/((uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300)));break;}
  return c;
 }

@@ -445,7 +445,7 @@ static __attribute__((noinline)) void f1_render(track_t*t,f1_vs_t*v,int32_t*out,
  uint32_t a=(uint32_t)clamp(F1P(P_E0),0,F1_N-1),b=(uint32_t)clamp(F1P(P_E1),0,F1_N-1),seed=(uint32_t)clamp(F1P(P_E6),0,127),groove=(uint32_t)clamp(F1P(P_E4),0,7),density=(uint32_t)clamp(F1P(P_E5),0,127),evolve=(uint32_t)clamp(F1P(P_E7),0,127),domain=(uint32_t)clamp(F1P(P_CAOS),0,10);
  const f1_state_t*A=&F1_STATE[a],*B=&F1_STATE[b];
  uint32_t samples=(uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300),tick=v->ph[0],pos,end;
- if(func_song(t)){pos=func_clock_begin;end=func_clock_end;}else{pos=(uint32_t)(((uint64_t)tick<<16)/samples);end=(uint32_t)(((uint64_t)(tick+n*hs)<<16)/samples);}
+ if(func_bar(t)){pos=func_clock_begin;end=func_clock_end;}else{pos=(uint32_t)(((uint64_t)tick<<16)/samples);end=(uint32_t)(((uint64_t)(tick+n*hs)<<16)/samples);}
  uint32_t dpos=(end-pos)/n,rem=(end-pos)%n,carry=0;
  static const uint8_t RATE_N[]={1,2,4,8,3,6,1,1,1,1},RATE_D[]={4,4,4,4,4,4,8,16,32,64};uint32_t rate=(uint32_t)clamp(F1P(P_SDIV),0,16),cycle=(uint32_t)clamp(F1P(P_SLEN),1,64),last=0xffffffffu,mi=0,bi=0,ci[4]={0};
  int32_t tonal[CTL],drums[CTL];uint32_t lastinc=pitch_inc((uint32_t)clamp(v->note,24,96)*16u);

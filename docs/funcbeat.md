@@ -4,7 +4,7 @@ Seleccionar **MATH → FUNC SONG** o **FUNC BEAT** con PRESET y pulsar **PLAY**.
 
 En las páginas del motor:
 
-- **RUN: NOTE** (por defecto) ejecuta la función desde cada nota del teclado: la tecla la hace sonar y le da la altura.
+- **RUN: NOTE** (por defecto) ejecuta la función desde cada nota del teclado: la tecla la hace sonar y le da la altura. Con PLAY corriendo, el reloj de la fórmula es el del transporte (la tecla da altura y gate, la fórmula sigue donde va la canción); parado, arranca desde la nota.
 - **RUN: PLAY** sigue PLAY/STOP y usa una voz de transporte por pista (era SONG). El teclado no duplica la pieza; usar ROOT para transponerla.
 - **RUN: FREE** corre siempre, sin teclas ni transporte, con su propio reloj, en la tónica (ROOT).
 - FORM tiene el mismo RUN (NOTE, PLAY, FREE). Los proyectos guardados conservan el modo que tenían.
@@ -49,7 +49,7 @@ Cada helper devuelve audio; el programa decide cuándo sumarlo, repetirlo o sile
 | `kick(edad)` | Bombo con caída de tono y envolvente de medio beat |
 | `snare(edad)` | Caja tonal + ruido determinista, duración 3/8 de beat |
 | `hat(edad)` | Percusión de ruido, duración 1/8 de beat |
-| `P` | Beats por muestra: transporte en SONG, tiempo desde la nota en NOTE |
+| `P` | Beats por muestra: transporte en SONG, en NOTE el transporte si corre, si no el tiempo desde la nota |
 | `p` | Reloj de transporte por bloque, conservado para fórmulas anteriores |
 | `t`, `T` | Muestras enteras y segundos desde que arrancó esta voz/programa |
 | `w` | Fase de la nota, en vueltas |

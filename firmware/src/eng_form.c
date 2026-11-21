@@ -198,7 +198,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  int32_t YA[CTL],YB[CTL];
  if(n>CTL)n=CTL;if(!n)return;
  /* the song's step (16ths, SWING's pair split: the gate's, the panel's) */
- pos=func_song(t)?func_clock_begin:(uint32_t)(((uint64_t)v->ph[0]<<16)/bl);
+ pos=func_bar(t)?func_clock_begin:(uint32_t)(((uint64_t)v->ph[0]<<16)/bl);
  uint32_t q0=pos<<2,pair=q0&0x1FFFFu,split=65536u,sb=((q0>>17)<<1)+(pair<split?0u:1u);
  /* the states: one (MORPH at an end, or A = B) or both, by FORM 1's own MORPH, the one that composes; DEF its COLOR, OCT
   * its melody's octave, RATE its DIV (B's at MORPH 127) */
