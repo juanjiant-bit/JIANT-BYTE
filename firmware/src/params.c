@@ -829,11 +829,10 @@ static const page_t PAGES[] = {
     /* (BYTE 0.17, the owner: "a monophonic entity, a drone the modulators turn into every stage of the beat") FORM:
      * RUN ROOT RATE SEED; DRONE: SHAPE FM FOLD CRUSH; MOD 1 .. 4: DEST EUCLID AMOUNT DECAY (eng_form.c FORM_MF) */
     {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_ROOT,P_E0,P_E1}},
-    {"DRONE", FAM_EDIT, SC_FORM, GR_NONE, {P_E2,P_E3,P_E4,P_E5}},
-    {"MOD 1", FAM_EDIT, SC_FORM, GR_NONE, {P_E6,P_E7,P_CAOS,P_ASWING}},
-    {"MOD 2", FAM_EDIT, SC_FORM, GR_NONE, {P_APROB,P_ARATE,P_AORDER,P_AGATE}},
-    {"MOD 3", FAM_EDIT, SC_FORM, GR_NONE, {P_AOCT,P_DETUNE,P_CVOI,P_CSTR}},
-    {"MOD 4", FAM_EDIT, SC_FORM, GR_NONE, {P_DXIMG,P_MORPH,P_FRB,P_KEY}},
+    {"DRONE", FAM_EDIT, SC_FORM, GR_NONE, {P_FRA,P_E2,P_E3,P_E4}},
+    {"MOD", FAM_EDIT, SC_FORM, GR_NONE, {ID_FV0,ID_FV0+1u,ID_FV0+2u,P_E7}},   /* (KNOB 1 the modulator, DEST SHAPE EUCLID
+                                                         * its own: eng_form.c form_view, form_page_id) */
+    {"MOD AMT", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,0xFF,0xFF}},
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
@@ -1034,6 +1033,11 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
     if (id == 0xFFu) {
         *valp = 0;
         return 0;
+    }
+    if (pg->scope == SC_FORM) {                       /* (BYTE 0.17) FORM's MOD page: KNOB 1 the modulator the rest edit */
+        if (id >= ID_FV0 && id < ID_FV0 + 3u)
+            return form_view_desc(TSEL, id - ID_FV0, valp);
+        id = form_page_id(id);
     }
     if (id == ID_ALLTR) {                             /* (0.7.6) SCL's KNOB 4: the global ALL TR on the track page */
         *valp = &song.g[G_STRN];

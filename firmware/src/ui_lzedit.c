@@ -192,14 +192,14 @@ static void graph_focus_lz(const track_t *t)
 static void form_cap(int32_t x,int32_t y,const char*s,uint16_t c){cv_text_on(x,y-AF_S_CAP_Y,&AF_S,s,c,T_BG);}
 static __attribute__((noinline)) void graph_form_lz(const track_t*t){
  uint32_t tr=(uint32_t)(t-trk)%NTRK,seed=(uint32_t)clamp(t->p[P_E1],0,127)*977u+1u,now=(uint32_t)(form_st[tr].last<0?0:form_st[tr].last),m,k,sel=4u;
- const page_t*pg=cur_page();for(m=0;m<4u;m++)if(pg->id[0]==FORM_MF[m][0])sel=m;
+ const page_t*pg=cur_page();if(pg->id[0]==ID_FV0||pg->id[0]==P_CAOS)sel=(uint32_t)form_view[0]&3u;
  cv_oy=0;form_scope_tr=(uint8_t)tr;
  {int32_t i,px=6,py=26;cv_rect(6,26,228,1,ux_mix(T_BG,T_DIM,50));
   for(i=0;i<64;i++){int32_t v=form_scope[i],nx=6+i*228/63,ny=26-v*20/32768,a=v<0?-v:v;if(i)cv_line_t(px,py,nx,ny,heat_col(70+a*186/32768),2);px=nx;py=ny;}}
  for(m=0;m<4u;m++){
-  int32_t y=52+(int32_t)m*17;uint32_t d=(uint32_t)clamp(t->p[FORM_MF[m][0]],0,FD_N-1);uint16_t ink=m==sel?T_TEXT:T_DIM;
-  form_cap(6,y,FORM_DEST[d],ink);
-  for(k=0;k<16u;k++){uint32_t s=(now&~15u)+k,hit=d&&form_hit(t->p,m,s,seed);int32_t x=58+(int32_t)k*11;
+  int32_t y=52+(int32_t)m*17;uint32_t d=(uint32_t)clamp(t->p[FORM_MF[m][0]],0,8*FORM_NSH-1)>>3;uint16_t ink=m==sel?T_TEXT:T_DIM;
+  form_cap(6,y,FORM_SHAPE[d],ink);
+  for(k=0;k<16u;k++){uint32_t s=(now&~15u)+k,hit=form_hit(t->p,m,s,seed);int32_t x=58+(int32_t)k*11;
    cv_rect(x,y,9,9,k==(now&15u)?(hit&&((form_lit[tr]>>m)&1u)?heat_col(245):T_TEXT):hit?heat_col(m==sel?170:110):T_SURF);}
  }
 }

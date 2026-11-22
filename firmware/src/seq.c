@@ -1521,6 +1521,12 @@ static void key_next(uint32_t k, track_t *t)
 }
 static void key_on(uint32_t k, track_t *t)
 {
+    if (form_keys(t)) {                               /* (BYTE 0.17) FORM PLAY / FREE: the keys are gestures (eng_form.c) */
+        uint32_t r = form_key(t, k, KB_VEL(k), 1);
+        kb_on[k] = 1; kb_sn[k] = 0;
+        if (r) func_pitch[trk_index(t) % NTRK] = (uint8_t)r;
+        return;
+    }
     uint32_t n = chord_build(t, kb_note[k], kb_snd[k]), gap = n > 1u ? chord_gap(t) : 0u, i;
     kb_on[k] = 0;
     kb_sn[k] = (uint8_t)n;
@@ -1561,6 +1567,7 @@ static void key_off(uint32_t k, track_t *t)
     uint32_t n = kb_on[k], i;
     if (!n)
         return;
+    if (form_keys(t)) { kb_on[k] = 0; form_key(t, k, 0, 0); return; }
     dxo_off(t, DXO_KEY + k);                         /* the held performance ends */
     kb_on[k] = 0;                                   /* (the strum's notes not in yet: never) */
     kb_sn[k] = 0;
@@ -1736,6 +1743,7 @@ static void keyboard_block(void)
                 uint32_t high = k >= split_cut(0);
                 if (SPLIT_ON) kb_trk[k] = (uint8_t)split_track(high);
                 kb_note[k] = (uint8_t)kb_map(&trk[kb_trk[k]], k);
+                if (form_keys(&trk[kb_trk[k]])) kb_note[k] = (uint8_t)(53u + k);   /* (FORM: every key a gesture) */
                 if (SPLIT_ON && kb_note[k] != KB_SILENT && !drum_track(&trk[kb_trk[k]]))
                     kb_note[k] = (uint8_t)clamp((int32_t)kb_note[k] + 12 * split_oct(high), 0, 127);
             }

@@ -1745,6 +1745,10 @@ sect:
         settings_save();
         return;
     }
+    if (vp >= form_view && vp < form_view + 3) {        /* (BYTE 0.17) FORM's MOD: the modulator, its DEST, its SHAPE */
+        form_view_put(TSEL, (uint32_t)(vp - form_view), v);
+        return;
+    }
     if (vp == &lmode_ui || vp == &lphase_ui) {          /* (0.9.18) LFO MODE / PHASE: P_LPHASE written back */
         lfo_view_put(TSEL, vp == &lmode_ui, v);
         if (!mom_on)
