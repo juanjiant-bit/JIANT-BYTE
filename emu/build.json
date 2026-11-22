@@ -1,6 +1,6 @@
 {
   "product": "JIANT /B1T3",
-  "commit": "9b3ab2890268381387bb69fc369044bc81ed2e22",
-  "wasm_size": 1217086,
-  "wasm_sha256": "700128b40f230e0bd694328566a5ae0aab8d9e186eabad54e6f3146ad4d5467b"
+  "commit": "92b19437e7049eb1b39ceadd59fb7101e6d22bb2",
+  "wasm_size": 1218560,
+  "wasm_sha256": "f7461a51406e229f720fd33d113995e5ab13321f17af38c89894524dfb97392a"
 }
