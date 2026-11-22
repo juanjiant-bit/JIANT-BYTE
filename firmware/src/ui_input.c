@@ -1739,7 +1739,7 @@ sect:
         settings_save();
         return;
     }
-    if (vp >= form_view && vp < form_view + 4) {        /* (BYTE 0.17) FORM's MOD: the modulator, its DEST, its SHAPE */
+    if (vp >= form_view && vp < form_view + 5) {        /* (BYTE 0.17) FORM's MOD: the modulator, its DEST, its SHAPE */
         form_view_put(TSEL, (uint32_t)(vp - form_view), v);
         return;
     }

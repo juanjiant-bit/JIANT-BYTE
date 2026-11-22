@@ -26,7 +26,7 @@ static void play(double *y)
 static double rms(const double *y) { double e = 0; for (unsigned i = 0; i < NS; i++) e += y[i] * y[i]; return sqrt(e / NS); }
 static double peak(const double *y) { double p = 0; for (unsigned i = 0; i < NS; i++) if (fabs(y[i]) > p) p = fabs(y[i]); return p; }
 static double dlt(const double *a, const double *b) { double d = 0, e = 0; for (unsigned i = 0; i < NS; i++) d += (a[i] - b[i]) * (a[i] - b[i]), e += a[i] * a[i]; return sqrt(d / (e + 1e-12)); }
-static void mods_off(void) { for (unsigned m = 0; m < 4u; m++) TSEL->p[FORM_MF[m][1]] = 0; }
+static void mods_off(void) { for (unsigned m = 0; m < 4u; m++) TSEL->p[FORM_MF[m][1]] = (int16_t)FORM_EUV(0, 0); }
 int main(int argc, char **argv)
 {
     (void)argv; if (argc > 1) return 0;                 /* (the old "checks" run: all of it here) */
@@ -50,27 +50,27 @@ int main(int argc, char **argv)
     {   /* each DEST heard: MOD 1 a TRI on it, a dense euclid, at full */
         setup(0); mods_off(); TSEL->p[P_ROOT] = 12; TSEL->p[P_E3] = 40; play(ya);   /* (an audio FREQ, some FM: RATIO heard) */
         for (unsigned d = 0; d < FD_N; d++) {
-            setup(0); mods_off(); TSEL->p[P_ROOT] = 12; TSEL->p[P_E3] = 40; TSEL->p[P_E6] = (int16_t)FORM_DS(d, S_TRI); TSEL->p[P_E7] = 9; TSEL->p[P_CAOS] = 127; TSEL->p[P_ASWING] = 110; play(yb);
+            setup(0); mods_off(); TSEL->p[P_ROOT] = 12; TSEL->p[P_E3] = 40; TSEL->p[P_E6] = (int16_t)FORM_DS(d, S_TRI); TSEL->p[P_E7] = FORM_EUV(9, 0); TSEL->p[P_CAOS] = 127; TSEL->p[P_ASWING] = 110; play(yb);
             OK(dlt(ya, yb) > 0.15 && peak(yb) < 1.0, "MOD 1 TRI > %s: heard (%.2f)", FORM_DEST[d], dlt(ya, yb));
         }
         unsigned bad = 0;
         for (unsigned s = 12; s < 48u; s++) {           /* every HIT, NOTE, GESTURE moves the one sound */
-            setup(0); mods_off(); TSEL->p[P_ROOT] = 12; TSEL->p[P_E6] = (int16_t)FORM_DS(FD_PITCH, s); TSEL->p[P_E7] = 5; TSEL->p[P_CAOS] = 127; TSEL->p[P_ASWING] = 60; play(yb);
+            setup(0); mods_off(); TSEL->p[P_ROOT] = 12; TSEL->p[P_E6] = (int16_t)FORM_DS(FD_PITCH, s); TSEL->p[P_E7] = FORM_EUV(5, 0); TSEL->p[P_CAOS] = 127; TSEL->p[P_ASWING] = 60; play(yb);
             if (!(dlt(ya, yb) > 0.05 && peak(yb) < 1.0)) { printf("form: shape %s %.3f\n", FORM_SHAPE[s], dlt(ya, yb)); bad++; }
         }
         OK(!bad, "every HIT, GESTURE and NOTE moves the sound, bounded (%u not)", bad);
     }
     {   /* REST at full, held: the silence */
-        setup(0); mods_off(); TSEL->p[P_ROOT] = 12; TSEL->p[P_E6] = (int16_t)FORM_DS(FD_PITCH, S_REST); TSEL->p[P_E7] = 9; TSEL->p[P_CAOS] = 127; TSEL->p[P_ASWING] = 127; play(yb);
+        setup(0); mods_off(); TSEL->p[P_ROOT] = 12; TSEL->p[P_E6] = (int16_t)FORM_DS(FD_PITCH, S_REST); TSEL->p[P_E7] = FORM_EUV(9, 0); TSEL->p[P_CAOS] = 127; TSEL->p[P_ASWING] = 127; play(yb);
         setup(0); mods_off(); TSEL->p[P_ROOT] = 12; play(ya);
         double ha = 0, hb = 0; for (unsigned i = 1; i < NS; i++) { double da = ya[i] - ya[i - 1], db = yb[i] - yb[i - 1]; ha += da * da; hb += db * db; }
         OK(hb < ha * 0.25, "REST: the drone taken under hearing (%.3f of the drone's)", hb / (ha + 1e-12));
     }
     {   /* each modulator its own euclid: 3/8 strikes 3 of every 8 steps; "--" none */
-        setup(0); mods_off(); TSEL->p[P_E7] = 7;
+        setup(0); mods_off(); TSEL->p[P_E7] = FORM_EUV(7, 0);
         unsigned hits = 0; for (unsigned s = 0; s < 64u; s++) hits += (unsigned)form_hit(TSEL->p, 0, s, 1u);
-        unsigned fuse = 0; TSEL->p[P_E7] = 1; for (unsigned s = 0; s < 64u; s++) fuse += (unsigned)form_hit(TSEL->p, 0, s, 1u);
-        unsigned none = 0; TSEL->p[P_E7] = 0; for (unsigned s = 0; s < 64u; s++) none += (unsigned)form_hit(TSEL->p, 0, s, 1u);
+        unsigned fuse = 0; TSEL->p[P_E7] = FORM_EUV(1, 0); for (unsigned s = 0; s < 64u; s++) fuse += (unsigned)form_hit(TSEL->p, 0, s, 1u);
+        unsigned none = 0; TSEL->p[P_E7] = FORM_EUV(0, 0); for (unsigned s = 0; s < 64u; s++) none += (unsigned)form_hit(TSEL->p, 0, s, 1u);
         OK(hits == 24u && fuse > 0u && fuse < 64u && !none, "EUCLID: 3/8 strikes %u of 64, FUSE %u, -- %u", hits, fuse, none);
     }
     {   /* the keys: a white a gesture into the chosen MOD, a black chooses it, a top key the root */
@@ -99,19 +99,26 @@ int main(int argc, char **argv)
     {   /* the pages: FORM (RUN ROOT RATE SEED), DRONE, MOD 1 .. 4 */
         setup(0); ui.home = 1; press(B_EDIT);
         int ok = cur_page()->scope == SC_FORM && cur_page()->id[0] == P_LRTRG && cur_page()->id[1] == P_ROOT;
+        turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_E2 && cur_page()->id[3] == P_E5;
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_FRA;
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == ID_FV0;
-        int16_t *vp; form_view[0] = 2; page_desc(cur_page(), 3, &vp); ok &= vp == &TSEL->p[FORM_MF[2][1]];
-        form_view_put(TSEL, 2, S_KICK); ok &= TSEL->p[FORM_MF[2][0]] >> 3 == S_KICK; form_view_put(TSEL, 1, FD_NOISE); ok &= (TSEL->p[FORM_MF[2][0]] & 7) == FD_NOISE && TSEL->p[FORM_MF[2][0]] >> 3 == S_KICK;
+        int16_t *vp; form_view[0] = 2; page_desc(cur_page(), 3, &vp); ok &= vp == &form_view[4];
+        form_view_put(TSEL, 2, S_TRI); form_view_put(TSEL, 1, FD_NOISE); form_view_put(TSEL, 3, 4); ok &= form_vds(TSEL->p, 2) == FD_NOISE + 8u * S_TRI + 512u * 4u;
+        form_view_put(TSEL, 2, S_KICK); ok &= (form_vds(TSEL->p, 2) & 511u) >> 3 == S_KICK;
+        { unsigned bad2 = 0; for (unsigned sh2 = 0; sh2 < FORM_NSH; sh2++) for (unsigned d2 = 0; d2 < FD_N; d2++) for (unsigned r2 = 0; r2 < 7u; r2++) {   /* (every one stored -64 .. 127, read back) */
+            int32_t a = FORM_DS(d2, sh2), b = FORM_EUV(24, r2); uint32_t want = (sh2 < 12u || (sh2 >= 24u && sh2 < 35u) ? d2 : 0u) + 8u * (sh2 == 49u ? 50u : sh2) + 512u * r2;
+            TSEL->p[FORM_MF[3][0]] = (int16_t)a; TSEL->p[FORM_MF[3][1]] = (int16_t)b;
+            bad2 += a < -64 || a > 127 || b < -64 || b > 127 || form_vds(TSEL->p, 3) != want; }
+          ok &= !bad2; if (bad2) printf("form: %u packings wrong\n", bad2); }
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_CAOS; page_desc(cur_page(), 1, &vp); ok &= vp == &TSEL->p[FORM_MF[2][3]];
         form_view[0] = 0; frames(20);
-        OK(ok, "EDIT: FORM, DRONE (PALET), MOD (KNOB 1 the modulator), MOD AMT");
+        OK(ok, "EDIT: FORM, DRONE (FEEDBK), DRONE 2 (PALET), MOD (KNOB 1 the modulator), MOD AMT");
     }
     {   /* the dice in range */
         int ok = 1;
         for (unsigned k = 0; k < 40u; k++) {
             setup(0); form_dice(TSEL, k & 1u);
-            for (unsigned m = 0; m < 4u; m++) ok &= TSEL->p[FORM_MF[m][0]] < (int)(8 * FORM_NSH) && TSEL->p[FORM_MF[m][1]] < (int)FORM_NEU && TSEL->p[FORM_MF[m][2]] <= 127 && TSEL->p[FORM_MF[m][3]] <= 127;
+            for (unsigned m = 0; m < 4u; m++) for (unsigned f = 0; f < 4u; f++) { int v_ = TSEL->p[FORM_MF[m][f]]; if (v_ < -64 || v_ > 127) { ok = 0; printf("form: dice m%u f%u = %d\n", m, f, v_); } }
         }
         OK(ok, "40 throws of the dice in range");
     }

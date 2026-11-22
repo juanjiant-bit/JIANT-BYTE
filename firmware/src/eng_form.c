@@ -12,8 +12,8 @@
  * the page into the chosen MOD (velocity its amount, aftertouch more), the blacks MOD 1..4 (tapped: chosen; held: the
  * whites into it), LATCH x2 /2 INV; C#5..G5 the root (the scale's degrees). At half the rate, all in C. */
 static const char *const FORM_RUN[]={"TRIG","PLAY","FREE",0};
-static const char *const FORM_DEST[]={"PITCH","FM","FOLD","CRUSH","NOISE","SHAPE","LEVEL","RATIO",0};
-enum{FD_PITCH,FD_FM,FD_FOLD,FD_CRUSH,FD_NOISE,FD_SHAPE,FD_LEVEL,FD_RATIO,FD_N};
+static const char *const FORM_DEST[]={"PITCH","FM","FOLD","NOISE","SHAPE","LEVEL","RATIO",0};   /* (CRUSH: the drone's knob alone) */
+enum{FD_PITCH,FD_FM,FD_FOLD,FD_NOISE,FD_SHAPE,FD_LEVEL,FD_RATIO,FD_N};
 static const char *const FORM_SHAPE[]={
  "SINE","S&H","DRIFT","SPRING","STAIRS","BOUNCE","EXP UP","LOG DN","CHAOS","SWEEP","RND GATE","TRIPLET",
  "KICK","SNARE","HAT","OPEN HAT","CLAP","RIM","TOM","ZAP","BITHAT","NOISE DN","SWELL","CRASH",
@@ -25,8 +25,14 @@ enum{FPG_TAB,FPG_HIT,FPG_GES,FPG_NOTE,FPG_FM};
 enum{S_SINE=0,S_KICK=12,S_SNARE,S_HAT,S_OHAT,S_CLAP,S_RIM,S_TOM,S_ZAP,S_BITHAT,S_NOISEDN,S_SWELL,S_CRASH,
  S_RAMPUP=24,S_RAMPDN,S_TRI,S_GATE,S_ENVUP,S_ENVDN,S_RISER,S_STUT,S_STUTUP,S_DOWN,S_UP,S_REST,
  S_ARPUP=36,S_ARPDN,S_ARPUD,S_ARPRND,S_CHm,S_CHM,S_SUS4,S_m7,S_CLUSTER,S_OCT,S_FIFTH,S_GLIDE};
-#define FORM_DS(d,s) ((d)+8*(s))                         /* a modulator's DEST, SHAPE and RATE, one slot: */
-#define FORM_DSMAX (512*7-1)                             /* DEST + 8 x SHAPE + 512 x RATE (0: FORM's RATE) */
+/* (a stored parameter is -64 .. 127: 192 values) a modulator's two slots: SHAPE with its DEST (the TABLES and GESTURES
+ * but REST: 23 x 7 DESTs, then the 31 shapes with no DEST: REST, the HITS, the NOTES, FM but x1), and its EUCLID with
+ * its RATE (25 x 7). Inside, as one: DEST + 8 x SHAPE + 512 x RATE (form_vds) */
+#define FORM_DSC(d,s) (((s)<12u)?(uint32_t)(s)*7u+(uint32_t)(d):((s)>=24u&&(s)<35u)?((uint32_t)(s)-12u)*7u+(uint32_t)(d):\
+ 161u+((s)==35u?0u:(s)<24u?(uint32_t)(s)-11u:(s)<48u?(uint32_t)(s)-23u:(uint32_t)(s)-23u-((s)>49u)))
+#define FORM_DS(d,s) ((int32_t)FORM_DSC(d,s)-64)
+#define FORM_EUV(e,r) ((int32_t)(e)+25*(int32_t)(r)-64)
+#define FORM_DSMAX (512*7-1)
 static const char *const FORM_MRATE[]={"FORM","1/1","1/2","1/4","1/8","1/16","1/32",0};
 /* a modulator's step: 2^e a beat (e -2 .. 3: 1/1 .. 1/32), its RATE's or FORM's */
 static int32_t form_mexpo(const int16_t*p,int32_t ds){int32_t r=ds>>9;return r?r-3:clamp(p[P_E0],0,3);}
@@ -45,9 +51,15 @@ static const int8_t FORM_FOFS[12]={-24,-19,-12,-7,-5,0,5,7,12,19,24,36};
 static const char *const FORM_PAL[]={"SOFT","PD",0};
 /* the modulators' slots: DEST+SHAPE (FORM_DS), EUCLID, AMOUNT, DECAY; PALET in P_FRA */
 static const uint8_t FORM_MF[4][4]={{P_E6,P_E7,P_CAOS,P_ASWING},{P_APROB,P_ARATE,P_AORDER,P_AGATE},{P_AOCT,P_DETUNE,P_CVOI,P_CSTR},{P_DXIMG,P_MORPH,P_FRB,P_KEY}};
+static uint32_t form_vds(const int16_t*p,uint32_t m){
+ uint32_t c=(uint32_t)clamp(p[FORM_MF[m][0]]+64,0,191),e=(uint32_t)clamp(p[FORM_MF[m][1]]+64,0,174),s,d=0,j;
+ if(c<161u){s=c/7u;d=c%7u;if(s>=12u)s+=12u;}
+ else{j=c-161u;s=!j?35u:j<13u?11u+j:j<25u?23u+j:j==25u?48u:24u+j;}
+ return d+8u*s+512u*(e/25u);
+}
 static int form_owned_param(uint32_t id){return id==P_LRTRG||id==P_ROOT||id==P_FRA||id==P_CAOS||id==P_ASWING||id==P_APROB||id==P_ARATE||id==P_AORDER||id==P_AGATE||
  id==P_AOCT||id==P_DETUNE||id==P_CVOI||id==P_CSTR||id==P_DXIMG||id==P_MORPH||id==P_FRB||id==P_KEY;}
-static const param_desc_t FORM_MD[4]={{"DS",F_INT,0,FORM_DSMAX,0,0},{"EUCLID",F_ENUM,0,FORM_NEU-1,0,FORM_EU},{"AMOUNT",F_PCT,0,127,100,0},{"DECAY",F_PCT,0,127,14,0}};
+static const param_desc_t FORM_MD[4]={{"DS",F_INT,-64,127,0,0},{"EUV",F_INT,-64,110,-64,0},{"AMOUNT",F_PCT,0,127,100,0},{"DECAY",F_PCT,0,127,14,0}};
 static const param_desc_t *form_common_desc(uint32_t id){
  static const param_desc_t run={"RUN",F_ENUM,0,2,1,FORM_RUN},root={"FREQ",F_ENUM,0,FORM_NF-1,6,FORM_FREQ},pal={"PALET",F_ENUM,0,1,0,FORM_PAL};
  if(id==P_LRTRG)return &run;
@@ -57,20 +69,22 @@ static const param_desc_t *form_common_desc(uint32_t id){
  return 0;
 }
 /* the MOD page's views (params.c page_desc, ui_input.c): KNOB 1 the modulator, 2 its DEST, 3 its SHAPE (one slot) */
-#define ID_FV0 0xDCu
+#define ID_FV0 0xDBu
 _Static_assert(P_COUNT<ID_FV0,"FORM's view ids over the parameters");
 static const char *const FORM_MODN[]={"1","2","3","4",0};
-static const param_desc_t FORM_VD[4]={{"MOD",F_ENUM,0,3,0,FORM_MODN},{"DEST",F_ENUM,0,FD_N-1,0,FORM_DEST},{"SHAPE",F_ENUM,0,FORM_NSH-1,0,FORM_SHAPE},{"RATE",F_ENUM,0,6,0,FORM_MRATE}};
-static int16_t form_view[4];
+static const param_desc_t FORM_VD[5]={{"MOD",F_ENUM,0,3,0,FORM_MODN},{"DEST",F_ENUM,0,FD_N-1,0,FORM_DEST},{"SHAPE",F_ENUM,0,FORM_NSH-1,0,FORM_SHAPE},{"RATE",F_ENUM,0,6,0,FORM_MRATE},{"EUCLID",F_ENUM,0,FORM_NEU-1,0,FORM_EU}};
+static int16_t form_view[5];
 static const param_desc_t *form_view_desc(const track_t*t,uint32_t f,int16_t**valp){
- uint32_t sel=(uint32_t)form_view[0]&3u;int32_t ds=clamp(t->p[FORM_MF[sel][0]],0,FORM_DSMAX);
- form_view[0]=(int16_t)sel;form_view[1]=(int16_t)(ds&7);form_view[2]=(int16_t)((ds&511)>>3);form_view[3]=(int16_t)(ds>>9);*valp=&form_view[f];return &FORM_VD[f];
+ uint32_t sel=(uint32_t)form_view[0]&3u,ds=form_vds(t->p,sel);
+ form_view[0]=(int16_t)sel;form_view[1]=(int16_t)(ds&7u);form_view[2]=(int16_t)((ds&511u)>>3);form_view[3]=(int16_t)(ds>>9);
+ form_view[4]=(int16_t)((uint32_t)clamp(t->p[FORM_MF[sel][1]]+64,0,174)%25u);*valp=&form_view[f];return &FORM_VD[f];
 }
 static void form_view_put(track_t*t,uint32_t f,int32_t v){
- uint32_t sel=(uint32_t)form_view[0]&3u;int32_t ds=clamp(t->p[FORM_MF[sel][0]],0,FORM_DSMAX);
+ uint32_t sel=(uint32_t)form_view[0]&3u,ds=form_vds(t->p,sel),d=ds&7u,s=(ds&511u)>>3,r=ds>>9,e=(uint32_t)clamp(t->p[FORM_MF[sel][1]]+64,0,174)%25u;
  if(f==0){form_view[0]=(int16_t)(v&3);return;}
- if(f==1)ds=(ds&~7)|clamp(v,0,FD_N-1);else if(f==2)ds=(ds&~0x1F8)|(clamp(v,0,FORM_NSH-1)<<3);else ds=(ds&511)|(clamp(v,0,6)<<9);
- t->p[FORM_MF[sel][0]]=(int16_t)ds;
+ if(f==1)d=(uint32_t)clamp(v,0,FD_N-1);else if(f==2){s=(uint32_t)clamp(v,0,FORM_NSH-1);if(s==49u)s=v<(int32_t)((ds&511u)>>3)?48u:50u;}
+ else if(f==3)r=(uint32_t)clamp(v,0,6);else e=(uint32_t)clamp(v,0,FORM_NEU-1);
+ t->p[FORM_MF[sel][0]]=(int16_t)FORM_DS(d,s);t->p[FORM_MF[sel][1]]=(int16_t)FORM_EUV(e,r);
 }
 /* a FORM page's slot: MOD 1's fields stand for the chosen modulator's */
 static uint32_t form_page_id(uint32_t id){
@@ -81,14 +95,14 @@ static uint32_t form_page_id(uint32_t id){
 #define FP(label,fr,ra,se,sh,fm,fo,cr,d1,e1,a1,k1,d2,e2,a2,k2,d3,e3,a3,k3,d4,e4,a4,k4) {label,{ra,se,sh,fm,fo,cr,d1,e1},{0,0,127,24},0,TAG(FX),FX(0,10,30,30),0,\
   MODS(P_LRTRG,1,P_ROOT,fr,P_FRA,0,P_CAOS,a1,P_ASWING,k1,P_APROB,d2,P_ARATE,e2,P_AORDER,a2,P_AGATE,k2,P_AOCT,d3,P_DETUNE,e3,P_CVOI,a3,P_CSTR,k3,P_DXIMG,d4,P_MORPH,e4,P_FRB,a4,P_KEY,k4)}
 #define FORM_PLIST(X) \
- X("01 DRONE",     12,  2,   7,  30,  5,  0,  0,  FORM_DS(FD_PITCH,S_KICK),0,110,10,    FORM_DS(FD_PITCH,S_ARPUP),0,90,14,    FORM_DS(FD_FOLD,S_TRI),0,80,30,      FORM_DS(FD_NOISE,S_HAT),0,80,10) \
- X("02 PLASTICINE", 6,  2,  17,  30,  5,  0,  0,  FORM_DS(FD_PITCH,S_ENVDN),1,100,14,   FORM_DS(FD_FM,S_STUT),7,64,6,         FORM_DS(FD_FOLD,S_TRI),8,76,30,      FORM_DS(FD_PITCH,S_UP),0,100,14) \
- X("03 BEAT",       6,  2,  11,  30,  5,  0,  0,  FORM_DS(FD_PITCH,S_KICK),1,115,8,     FORM_DS(FD_PITCH,S_SNARE),21,90,8,    FORM_DS(FD_PITCH,S_HAT),22,76,8,     FORM_DS(FD_PITCH,S_ARPUP),7,90,14) \
- X("04 MELODY",    12,  2,   5,  20, 10,  0,  0,  FORM_DS(FD_PITCH,S_ARPUD),23,100,14,  FORM_DS(FD_FM,S_ENVDN),7,80,20,       FORM_DS(FD_SHAPE,S_TRI),0,70,30,     FORM_DS(FD_PITCH,3),0,60,20) \
- X("05 SILENCE",    6,  2,  29,  40,  5,  0,  0,  FORM_DS(FD_PITCH,S_REST),10,127,40,  FORM_DS(FD_PITCH,S_UP),7,110,10,      FORM_DS(FD_NOISE,S_STUT),12,80,6,    FORM_DS(FD_FOLD,S_SINE),0,80,40) \
- X("06 MACHINE",    7,  2,  31,  50, 10,  10, 0,  FORM_DS(FD_PITCH,S_KICK),4,120,8,     FORM_DS(FD_PITCH,S_CLAP),21,90,8,     FORM_DS(FD_FM,S_RAMPUP),0,70,20,     FORM_DS(FD_PITCH,S_ZAP),13,80,10)
+ X("01 DRONE",     12,  2,   7,  30,  5,  0,  0,  FORM_DS(FD_PITCH,S_KICK), FORM_EUV(0,0),110,10,    FORM_DS(FD_PITCH,S_ARPUP), FORM_EUV(0,0),90,14,    FORM_DS(FD_FOLD,S_TRI), FORM_EUV(0,0),80,30,      FORM_DS(FD_NOISE,S_HAT), FORM_EUV(0,0),80,10) \
+ X("02 PLASTICINE", 6,  2,  17,  30,  5,  0,  0,  FORM_DS(FD_PITCH,S_ENVDN), FORM_EUV(1,0),100,14,   FORM_DS(FD_FM,S_STUT), FORM_EUV(7,0),64,6,         FORM_DS(FD_FOLD,S_TRI), FORM_EUV(8,0),76,30,      FORM_DS(FD_PITCH,S_UP), FORM_EUV(0,0),100,14) \
+ X("03 BEAT",       6,  2,  11,  30,  5,  0,  0,  FORM_DS(FD_PITCH,S_KICK), FORM_EUV(1,0),115,8,     FORM_DS(FD_PITCH,S_SNARE), FORM_EUV(21,0),90,8,    FORM_DS(FD_PITCH,S_HAT), FORM_EUV(22,0),76,8,     FORM_DS(FD_PITCH,S_ARPUP), FORM_EUV(7,0),90,14) \
+ X("04 MELODY",    12,  2,   5,  20, 10,  0,  0,  FORM_DS(FD_PITCH,S_ARPUD), FORM_EUV(23,0),100,14,  FORM_DS(FD_FM,S_ENVDN), FORM_EUV(7,0),80,20,       FORM_DS(FD_SHAPE,S_TRI), FORM_EUV(0,0),70,30,     FORM_DS(FD_PITCH,3), FORM_EUV(0,0),60,20) \
+ X("05 SILENCE",    6,  2,  29,  40,  5,  0,  0,  FORM_DS(FD_PITCH,S_REST), FORM_EUV(10,0),127,40,  FORM_DS(FD_PITCH,S_UP), FORM_EUV(7,0),110,10,      FORM_DS(FD_NOISE,S_STUT), FORM_EUV(12,0),80,6,    FORM_DS(FD_FOLD,S_SINE), FORM_EUV(0,0),80,40) \
+ X("06 MACHINE",    7,  2,  31,  50, 10,  10, 0,  FORM_DS(FD_PITCH,S_KICK), FORM_EUV(4,0),120,8,     FORM_DS(FD_PITCH,S_CLAP), FORM_EUV(21,0),90,8,     FORM_DS(FD_FM,S_RAMPUP), FORM_EUV(0,0),70,20,     FORM_DS(FD_PITCH,S_ZAP), FORM_EUV(13,0),80,10)
 /* (a preset's DEST+SHAPE+RATE over int8's 127: set in full after it, form_preset_ds; the preset's own slots 0) */
-#define FPX(label,fr,ra,se,sh,fm,fo,cr,d1,e1,a1,k1,d2,e2,a2,k2,d3,e3,a3,k3,d4,e4,a4,k4) FP(label,fr,ra,se,sh,fm,fo,cr,0,e1,a1,k1,0,e2,a2,k2,0,e3,a3,k3,0,e4,a4,k4),
+#define FPX(label,fr,ra,se,sh,fm,fo,cr,d1,e1,a1,k1,d2,e2,a2,k2,d3,e3,a3,k3,d4,e4,a4,k4) FP(label,fr,ra,se,sh,fm,fo,cr,d1,e1,a1,k1,d2,e2,a2,k2,d3,e3,a3,k3,d4,e4,a4,k4),
 static const preset_t FORM_PRESETS[]={FORM_PLIST(FPX)};
 #undef FPX
 #define FPD(label,fr,ra,se,sh,fm,fo,cr,d1,e1,a1,k1,d2,e2,a2,k2,d3,e3,a3,k3,d4,e4,a4,k4) {d1,d2,d3,d4},
@@ -106,7 +120,7 @@ static void form_dice(track_t*t,uint32_t comp_only)
  int16_t*p=t->p;
  if(!comp_only){p[P_E1]=form_rnd(128u);p[P_E2]=form_rnd(70u);p[P_E3]=form_rnd(40u);p[P_E4]=form_rnd(60u);p[P_E5]=0;}
  for(uint32_t m=0;m<4u;m++){
-  if(!comp_only){p[FORM_MF[m][0]]=(int16_t)FORM_DS(form_rnd(FD_N),12+form_rnd(36u));p[FORM_MF[m][1]]=form_rnd(FORM_NEU);}
+  if(!comp_only){uint32_t dd=(uint32_t)form_rnd(FD_N),ss=12u+(uint32_t)form_rnd(36u);p[FORM_MF[m][0]]=(int16_t)FORM_DS(dd,ss);p[FORM_MF[m][1]]=(int16_t)FORM_EUV(form_rnd(FORM_NEU),0);}
   p[FORM_MF[m][2]]=(int16_t)(40+form_rnd(88u));p[FORM_MF[m][3]]=form_rnd(128u);
  }
 }
@@ -124,7 +138,7 @@ static uint8_t form_lit[NTRK];                           /* (the panel: the modu
 /* modulator m's hit at step s ("--": none, FUSE: two drawn from the seed and joined) */
 static int form_hit(const int16_t*p,uint32_t m,uint32_t s,uint32_t seed)
 {
- uint32_t e=(uint32_t)clamp(p[FORM_MF[m][1]],0,FORM_NEU-1);
+ uint32_t e=(uint32_t)clamp(p[FORM_MF[m][1]]+64,0,174)%25u;
  if(!e)return 0;
  if(e==1u)return (int)fvm_eu(s,seed+m*37u);
  uint32_t k=FORM_EUK[e][0],n=FORM_EUK[e][1],r=fvm_hash(seed*0x9E3779B1u+m*0x85EBCA77u)%n,q=(s+r)%n;
@@ -163,7 +177,7 @@ static uint32_t form_key(track_t*t,uint32_t k,uint32_t vel,int on)
   uint8_t bit=(uint8_t)(1u<<(b-4u));if(on)st->modes|=bit;else st->modes&=(uint8_t)~bit;return 0;}
  if(on){
   int32_t pg=clamp(song.octave,-2,2)+2;uint32_t sh=(uint32_t)pg*12u+c;
-  if(sh>=FORM_NSH)return 0;
+  if(sh>=FORM_NSH||sh==49u)return 0;   /* (FM x1: none, RATIO's) */
   for(i=0;i<FORM_G;i++)if((st->g[i].fl&10u)==10u&&st->g[i].key==k+1u){st->g[i].fl&=(uint8_t)~3u;return 0;}   /* (a latched one: let go) */
   form_spawn(st,sh,(uint32_t)(st->hmod>0?st->hmod-1:form_view[0]&3),vel,1u|((st->modes&1u)?2u:0u),0u,k+1u);
  }else for(i=0;i<FORM_G;i++)if((st->g[i].fl&8u)&&st->g[i].key==k+1u&&!(st->g[i].fl&2u))st->g[i].fl&=(uint8_t)~1u;
@@ -242,7 +256,7 @@ static void form_eval(form_st_t*st,const int16_t*p,int32_t*D,uint32_t at)
  for(i=0;i<FORM_G;i++){
   form_g_t*g=&st->g[i];if(!(g->fl&8u))continue;
   uint32_t m=g->mod&3u,raw=(st->clk-g->t0)>>8,sh=g->sh,pg=sh/12u,k=sh%12u;
-  int32_t ds=clamp(p[FORM_MF[m][0]],0,FORM_DSMAX),dst=ds&7,amt=clamp(p[FORM_MF[m][2]],0,127),dec=clamp(p[FORM_MF[m][3]],0,127),e,xe=form_mexpo(p,ds)-2;
+  int32_t ds=(int32_t)form_vds(p,m),dst=ds&7,amt=clamp(p[FORM_MF[m][2]],0,127),dec=clamp(p[FORM_MF[m][3]],0,127),e,xe=form_mexpo(p,ds)-2;
   uint32_t tau=xe>=0?raw<<xe:raw>>(-xe);                 /* (its time in its own RATE's steps) */
   tau=g->spd==1u?tau<<1:g->spd==2u?tau>>1:tau;
   if(form_oneshot(sh)){if(tau>=2048u){g->fl=0;continue;}e=32767;}
@@ -278,7 +292,6 @@ static void form_eval(form_st_t*st,const int16_t*p,int32_t*D,uint32_t at)
    case FD_NOISE:D[FV_NOISE]+=va+(va>>1);break;
    case FD_RATIO:D[FV_RATIO]+=va>>3;break;
    case FD_FOLD:D[FV_FOLD]+=va;break;
-   case FD_CRUSH:D[FV_CRUSH]+=va;break;
    case FD_SHAPE:D[FV_SHAPE]+=va;break;
    default:D[FV_LEVEL]+=va;break;
   }
@@ -296,7 +309,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  st->clk+=(uint32_t)((((n<<sh))<<18)/(bps?bps:1u));
  st->last=(int32_t)(end>>(16-clamp(p[P_E0],0,3)));
  for(k=0;k<4u;k++){                                     /* each modulator on its own RATE's steps */
-  int32_t ds=clamp(p[FORM_MF[k][0]],0,FORM_DSMAX),dec=clamp(p[FORM_MF[k][3]],0,127);uint32_t s1=end>>(16-form_mexpo(p,ds));
+  int32_t ds=(int32_t)form_vds(p,k),dec=clamp(p[FORM_MF[k][3]],0,127);uint32_t s1=end>>(16-form_mexpo(p,ds));
   if((int32_t)s1==st->lastm[k])continue;
   st->lastm[k]=(int32_t)s1;form_lit[tr]=(uint8_t)(form_lit[tr]&~(1u<<k));
   if(form_hit(p,k,s1,seed)){form_spawn(st,(uint32_t)((ds&511)>>3),k,(s1&3u)?90u:127u,0u,64u+(uint32_t)dec*32u,0u);form_lit[tr]|=(uint8_t)(1u<<k);}
@@ -318,8 +331,8 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  uint32_t ph=locked?func_clock_begin<<(12u+fq):v->ph[0],mph=v->ph[1];
  /* the timbre now: the drone's knobs and the modulators' */
  int32_t shp=clamp(p[P_E2]*258+D[FV_SHAPE],0,32767),fm=clamp(p[P_E3]*258+D[FV_FM],0,32767),fo=clamp(p[P_E4]*258+D[FV_FOLD],0,32767);
- int32_t cr=clamp(p[P_E5]*258+D[FV_CRUSH],0,32767),nzv=clamp(D[FV_NOISE],0,52428),lvl=clamp(32768+D[FV_LEVEL],0,52428);
- uint32_t cs=(uint32_t)(cr*12>>15),hn=1u+(uint32_t)((cr>>11)*(cr>>11)>>4),pal=(uint32_t)clamp(p[P_FRA],0,1);
+ int32_t fbv=clamp(p[P_E5]*258+D[FV_CRUSH],0,32767),nzv=clamp(D[FV_NOISE],0,52428),lvl=clamp(32768+D[FV_LEVEL],0,52428);
+ uint32_t pal=(uint32_t)clamp(p[P_FRA],0,1);
  uint32_t sr=(uint32_t)FS>>sh,fc=(inc>>16)*3u*(sr>>4)>>12;if(fc<4200u)fc=4200u;if(fc>20000u)fc=20000u;   /* (the low-pass: 4.2 kHz, or 3 x the pitch) */
  int32_t lpk=(int32_t)(fc*205887u/(sr?sr:1u));if(lpk>32767)lpk=32767;
  uint32_t pd=32768u-(uint32_t)(shp*15400>>15),ra=(32768u<<16)/pd,rb=(32768u<<16)/(65536u-pd);
@@ -328,6 +341,8 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  for(i=0;i<n;i++){
   ph+=inc;mph+=rinc;
   uint32_t pp=ph+(uint32_t)((int64_t)sine_i(mph)*fm<<3);      /* FM: up to ~2 turns, at RATIO (an octave up) */
+  if(fbv)pp+=(uint32_t)((int64_t)((hold+hc)>>1)*fbv<<1);     /* (the owner: CRUSH broke the audio) FEEDBACK: its own last two
+                                                         * samples into its phase, up to half a turn (DX's, smooth .. rough) */
   if(nzv){nz=nz*1664525u+1013904223u;nzl+=(((int32_t)nz>>16)-nzl)*15>>5;pp+=(uint32_t)(nzl*(nzv>>2))<<4;}   /* NOISE: the phase dirtied (~2.6 kHz) */
   int32_t y;
   if(pal){uint32_t u,qq=pp>>16;u=qq<pd?(qq*ra)>>16:32768u+(((qq-pd)*rb)>>16);y=-sine_i((u<<16)+0x40000000u);}   /* PD: sine .. a saw, its phase bent */
@@ -336,7 +351,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
    else if(shp<21846)y=tri+(int32_t)(((int64_t)(saw-tri)*((shp-10923)*3))>>15);
    else y=saw+(int32_t)(((int64_t)(pul-saw)*((shp-21846)*3))>>15);}
   if(fo>256)y+=(int32_t)((int64_t)(form_fold(clamp(y*(256+(fo>>7)*5)>>8,-262144,262143))-y)*fo>>15);
-  if(cs){if(++hc>=(int32_t)hn){hc=0;hold=(y>>cs)<<cs;}y=hold;}
+  hc=hold;hold=y;
   y=(int32_t)((int64_t)y*lvl>>15);
   lpz+=(int32_t)((int64_t)(y-lpz)*lpk>>15);
   int32_t o=lpz-dx+(dy*253>>8);dx=lpz;dy=o;                     /* (under ~40 Hz out: REST's bottom silent) */
@@ -351,5 +366,5 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
 static int32_t form_kmap(const track_t*t,uint32_t k){return form_keys(t)?(int32_t)(53u+k):-1;}
 static const engine_t ENG_FORM={.name="FORM",.page_title={"FORM","DRONE"},
  .edit={{"RATE",F_ENUM,0,3,2,FORM_RATE},{"SEED",F_INT,0,127,0,0},{"SHAPE",F_PCT,0,127,30,0},{"FM",F_PCT,0,127,5,0},
-        {"FOLD",F_PCT,0,127,0,0},{"CRUSH",F_PCT,0,127,0,0},{"DS",F_INT,0,FORM_DSMAX,0,0},{"EUCLID",F_ENUM,0,FORM_NEU-1,0,FORM_EU}},
+        {"FOLD",F_PCT,0,127,0,0},{"FEEDBK",F_PCT,0,127,0,0},{"DS",F_INT,-64,127,0,0},{"EUV",F_INT,-64,110,-64,0}},
  .presets=FORM_PRESETS,.npresets=NELEM(FORM_PRESETS),.knob={P_E2,P_E3,P_E4,P_E5},.poly=1,.half=1,.note_on=form_note_on,.render=form_render,.keys=form_kmap};
