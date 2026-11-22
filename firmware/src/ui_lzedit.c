@@ -218,8 +218,9 @@ static void form_card(const track_t*t,const form_st_t*st,uint32_t mm,uint32_t sh
 #define FT_N 68
 #define FT_BL 0x29FFu
 #define FT_YE 0xEF8Bu
-static int8_t ft_h[4][FT_N] __attribute__((section(".pool")));static uint8_t ft_l[FT_N] __attribute__((section(".pool")));   /* (its strikes, bit m) */
-static uint8_t ft_x,ft_tr=0xFF;static uint32_t ft_fr;
+/* (the history: ui_byte.c's hud_q, lanes 0..3 what each adds, 8 its zero; 4..7 its strikes) */
+#define ft_x hud_x
+static int32_t ft_v(uint32_t m,uint32_t i){return (int32_t)hud_get(m,i)-8;}
 static void ft_tag(int32_t x,int32_t y,const char*s,uint16_t fg,uint16_t bg){int32_t w=text_w(&AF_X,s)+4;cv_rect(x,y,w,11,bg);cv_text_on(x+2,y+1-AF_X_CAP_Y,&AF_X,s,fg,bg);}
 static void ft_frame(int32_t y,int32_t h){int32_t x;
  cv_rect(32,y,206,1,T_SURF);cv_rect(32,y+h-1,206,1,T_SURF);
@@ -232,9 +233,8 @@ static __attribute__((noinline)) void graph_form_lz(const track_t*t){
  cv_oy=0;form_scope_tr=(uint8_t)tr;
  for(i=0;i<FORM_G;i++)if((st->g[i].fl&8u)&&st->g[i].key&&(!kg||st->g[i].t0>kg->t0))kg=&st->g[i];   /* (the newest a key plays) */
  if(kg){form_mass(24,18);form_card(t,st,kg->mod&3u,kg->sh,1);return;}      /* (the owner: what the keys do, large) */
- if(ft_tr!=tr){memset(ft_h,0,sizeof ft_h);memset(ft_l,0,sizeof ft_l);ft_tr=(uint8_t)tr;ft_x=0;}
- if(anim_fr!=ft_fr){ft_fr=anim_fr;ft_x=(uint8_t)((ft_x+1u)%FT_N);ft_l[ft_x]=form_lit[tr];
-  for(m=0;m<4u;m++)ft_h[m][ft_x]=(int8_t)clamp(st->mv[m]>>1,-63,63);}
+ if(hud_tick(0x20u|tr))
+  for(m=0;m<4u;m++){hud_put(m,hud_x,(uint32_t)(clamp(st->mv[m]>>4,-8,7)+8));hud_put(4u+m,hud_x,((form_lit[tr]>>m)&1u)*15u);}
  {int32_t px=0,py=0,pk=2048;ft_frame(1,22);ft_tag(1,6,"OUT",0x0000,tc);   /* OUT (as loud as it is, to the lane) */
   for(i=0;i<64u;i++){int32_t v=form_scope[i]<0?-form_scope[i]:form_scope[i];if(v>pk)pk=v;}
   for(i=0;i<64u;i++){int32_t x=32+(int32_t)i*205/63,y=12-form_scope[i]*10/pk;if(i)cv_line_t(px,py,x,y,tc,1);px=x;py=y;}}
@@ -247,13 +247,13 @@ static __attribute__((noinline)) void graph_form_lz(const track_t*t){
   str_cpy(b,FORM_SHAPE[d],12);
   {uint32_t pq=d/12u,n=0;while(b[n])n++;
    if(pq==FPG_GES||pq==FPG_TAB){b[n]='>';str_cpy(b+n+1,FORM_DEST[ds&7],8);}}
-  {int32_t pk=6;for(i=0;i<FT_N;i++){int32_t a=ft_h[m][i]<0?-ft_h[m][i]:ft_h[m][i];if(a>pk)pk=a;}   /* (its swing, to the lane) */
-  for(i=0;i<FT_N;i++){int32_t v=ft_h[m][i],x=32+(int32_t)i*3,yy=mid-v*10/pk;
+  {int32_t pk=2;for(i=0;i<FT_N;i++){int32_t a=ft_v(m,i)<0?-ft_v(m,i):ft_v(m,i);if(a>pk)pk=a;}   /* (its swing, to the lane) */
+  for(i=0;i<FT_N;i++){int32_t v=ft_v(m,i),x=32+(int32_t)i*3,yy=mid-v*10/pk;
    if(i&&(i<=ft_x||i>ft_x+3u))cv_line_t(px,py,x,yy,c,on?2:1);px=x;py=yy;
-   if((ft_l[i]>>m)&1u&&!((ft_l[(i+FT_N-1u)%FT_N]>>m)&1u))cv_rect(x,y+19,2,3,T_TEXT);}}   /* (a strike: a tick) */
+   if(hud_get(4u+m,i)&&!hud_get(4u+m,(i+FT_N-1u)%FT_N))cv_rect(x,y+19,2,3,T_TEXT);}}   /* (a strike: a tick) */
   {int32_t w=text_w(&AF_X,b)+4;cv_rect(237-w,y+1,w,11,T_BG);cv_text_on(239-w,y+2-AF_X_CAP_Y,&AF_X,b,on?T_TEXT:T_DIM,T_BG);}   /* (its shape > DEST, right) */
   cv_rect(cx,y,1,23,FT_YE);cv_rect(cx-2,y,5,1,FT_YE);cv_rect(cx-1,y+1,3,1,FT_YE);
-  {int32_t v=ft_h[m][ft_x]*99/63,n=0;char q[6];if(v<0){q[n++]='-';v=-v;}if(v>9)q[n++]=(char)('0'+v/10);q[n++]=(char)('0'+v%10);q[n]=0;
+  {int32_t v=ft_v(m,ft_x)*99/8,n=0;char q[6];if(v<0){q[n++]='-';v=-v;}if(v>9)q[n++]=(char)('0'+v/10);q[n++]=(char)('0'+v%10);q[n]=0;
    cv_text_on(cx+3<210?cx+3:cx-22,y+12-AF_X_CAP_Y,&AF_X,q,FT_YE,T_BG);}
  }
 }

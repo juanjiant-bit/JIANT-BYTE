@@ -216,12 +216,18 @@ static void ub_terrain(gq_work_t *w, int32_t x, int32_t y, int32_t wd, int32_t h
 #define HUD_N 68u
 static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c);   /* (ui_graph.c) */
 static uint16_t vk_heat(int32_t v);                     /* (ui_engvis.c) */
-static uint8_t hud_h[8][HUD_N] __attribute__((section(".pool")));   /* (the traces' history: 8 lanes, swept) */
+static uint8_t hud_q[8][HUD_N / 2u] __attribute__((section(".pool")));   /* (the traces' history: 8 lanes, swept, 4 bits a point) */
+static uint32_t hud_get(uint32_t k, uint32_t i) { return (uint32_t)(hud_q[k][i >> 1] >> ((i & 1u) * 4u)) & 15u; }
+static void hud_put(uint32_t k, uint32_t i, uint32_t v)
+{
+    uint8_t *q = &hud_q[k][i >> 1];
+    *q = (uint8_t)((*q & ~(15u << ((i & 1u) * 4u))) | ((v > 15u ? 15u : v) << ((i & 1u) * 4u)));
+}
 static uint8_t hud_x, hud_who = 0xFF;
 static uint32_t hud_fr;
 static int hud_tick(uint32_t who)                       /* the sweep a step on (1: a new frame); a new part: cleared */
 {
-    if (hud_who != who) { memset(hud_h, 0, sizeof hud_h); hud_who = (uint8_t)who; hud_x = 0; }
+    if (hud_who != who) { memset(hud_q, 0, sizeof hud_q); hud_who = (uint8_t)who; hud_x = 0; }
     if (anim_fr == hud_fr) return 0;
     hud_fr = anim_fr; hud_x = (uint8_t)((hud_x + 1u) % HUD_N);
     return 1;
@@ -253,9 +259,9 @@ static void hud_trace(uint32_t k, int32_t x, int32_t y, int32_t w, int32_t h, ui
     uint32_t i;
     int32_t px = 0, py = 0;
     for (i = 0; i < HUD_N; i++) {
-        int32_t xx = x + (int32_t)i * w / (int32_t)HUD_N, yy = y + h - 2 - (int32_t)hud_h[k][i] * (h - 4) / 255;
+        int32_t xx = x + (int32_t)i * w / (int32_t)HUD_N, yy = y + h - 2 - (int32_t)hud_get(k, i) * (h - 4) / 15;
         if (i && (i <= hud_x || i > hud_x + 3u)) cv_line_t(px, py, xx, yy, c, th);
-        if (ticks && i && hud_h[k][i] > hud_h[k][i - 1u] + 60u) cv_rect(xx, y + h - 4, 2, 3, T_TEXT);
+        if (ticks && i && hud_get(k, i) > hud_get(k, i - 1u) + 3u) cv_rect(xx, y + h - 4, 2, 3, T_TEXT);
         px = xx; py = yy;
     }
 }
@@ -324,7 +330,7 @@ static void hud_wave(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
     uint32_t tq[NP], i, k, tr = (uint32_t)(t - trk) % NTRK, pos = (uint32_t)clamp(t->p[P_E1], 0, 127);
     uint8_t v[NP];
     int32_t lx = x + 30, lw = wd - 32, ch = ht / 2, lh = (ht - ch - 6) / 2, ly, cx;
-    if (hud_tick(0x80u | tr)) hud_h[0][hud_x] = (uint8_t)clamp(track_env[tr] >> 6, 0, 255);
+    if (hud_tick(0x80u | tr)) hud_put(0, hud_x, (uint32_t)clamp(track_env[tr] >> 10, 0, 15));
     hud_lane(lx, y, lw, ch);
     hud_tag(x, y + 2, "CYC", 0x0000, tc);
     for (k = 0; k < 3u; k++) {                          /* POS's neighbours, then its own */
@@ -347,7 +353,7 @@ static void hud_wave(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
     hud_lane(lx, ly, lw, lh);
     hud_tag(x, ly + (lh - 11) / 2, "LVL", T_TEXT, HUD_BL);
     hud_trace(0, lx, ly, lw, lh, HUD_BL, 1, 1);
-    hud_cursor(lx + (int32_t)hud_x * lw / (int32_t)HUD_N, ly, lh, hud_h[0][hud_x] * 99 / 255);
+    hud_cursor(lx + (int32_t)hud_x * lw / (int32_t)HUD_N, ly, lh, (int32_t)hud_get(0, hud_x) * 99 / 15);
     ly += lh + 3;
     hud_lane(lx, ly, lw, lh);
     hud_tag(x, ly + (lh - 11) / 2, "MIX", 0x0000, T_TEXT);
@@ -438,7 +444,7 @@ static void ub_kit(const track_t *t, const int32_t *A, int32_t sel)
         for (lane = 0; lane < 8u; lane++) {
             int32_t e = K[lane].x.live && !ANIM_OFF() ? clamp(K[lane].x.ea >> 22, 0, 255) : 0, ly = A[1] + (int32_t)lane * lh;
             int mu = dx_lane_muted(lane), on = (int32_t)lane == sel;
-            if (nw) hud_h[lane][hud_x] = (uint8_t)e;
+            if (nw) hud_put(lane, hud_x, (uint32_t)e >> 4);
             hud_lane(lx, ly, lw, lh - 1);
             hud_tag(A[0], ly + (lh - 12) / 2, drum_lane_abbr(t, lane), e > 100 ? 0x0000 : mu ? T_DIM : on ? 0x0000 : T_INK,
                     e > 100 ? HUD_YE : mu ? T_SURF : on ? T_INK : HUD_BL);
