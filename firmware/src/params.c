@@ -832,7 +832,7 @@ static const page_t PAGES[] = {
     {"DRONE", FAM_EDIT, SC_FORM, GR_NONE, {P_FRA,P_E2,P_E3,P_E4}},
     {"MOD", FAM_EDIT, SC_FORM, GR_NONE, {ID_FV0,ID_FV0+1u,ID_FV0+2u,P_E7}},   /* (KNOB 1 the modulator, DEST SHAPE EUCLID
                                                          * its own: eng_form.c form_view, form_page_id) */
-    {"MOD AMT", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,0xFF,0xFF}},
+    {"MOD AMT", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,ID_FV0+3u,0xFF}},   /* (+ its RATE) */
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
@@ -1037,7 +1037,7 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return 0;
     }
     if (pg->scope == SC_FORM) {                       /* (BYTE 0.17) FORM's MOD page: KNOB 1 the modulator the rest edit */
-        if (id >= ID_FV0 && id < ID_FV0 + 3u)
+        if (id >= ID_FV0 && id < ID_FV0 + 4u)
             return form_view_desc(TSEL, id - ID_FV0, valp);
         id = form_page_id(id);
     }

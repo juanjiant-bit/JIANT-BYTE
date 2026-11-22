@@ -627,7 +627,7 @@ static int page_visible(uint32_t i)
     if (PAGES[i].graph == GR_SONG && (PAGES[i].fam == FAM_SEQ || PAGES[i].title[0] == 'C'))   /* (V10.7.32: CLIPS, PARTS' grid) */
         return 0;                                       /* (0.6.24) the song in one place: SAVE > ARRANGE (SEQ > SONG
                                                          * was the same page twice; kept in the table: its index) */
-    if (PAGES[i].graph == GR_LIVE || (!FELUCCA_XFX && PAGES[i].fam == FAM_FX && PAGES[i].id[0] == ID_BAL))
+    if (PAGES[i].graph == GR_LIVE || (PAGES[i].fam == FAM_FX && PAGES[i].id[0] == ID_BAL)   /* (BYTE, the owner: BALANCE out) */)
         return 0;                                       /* (V10.7.30) KEYS RAILS, BALANCE out (core.h): kept in the table */
     if ((!FELUCCA_SPLIT && (uint32_t)(PAGES[i].graph - GR_SPLIT) < 2u) || (!FELUCCA_ENVX && PAGES[i].graph == GR_STAGE))
         return 0;                                       /* (V10.7.32) KEY SPLIT, KEY SPLIT 2, ENV > STAGE out (core.h) */
@@ -1733,6 +1733,8 @@ static void apply_preset_to(track_t *t, uint32_t pi)
             t->p[P_DIST + i] = (int16_t)(pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);
         preset_mods(t, pr);                           /* (V10.6i) its movement: LFO, ENV 2, MOD, FILTER */
     }
+    if (e == &ENG_FORM)                               /* (BYTE) FORM's modulators: DEST+SHAPE+RATE in full */
+        form_preset_ds(t, pi);
     fm6_track_loaded(t);                              /* FM6: the preset's patch (its SLOT) */
     load_end(t);
 }

@@ -3353,11 +3353,7 @@ static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (
                                                          * the flash past the tables, out of a direct call's reach) */
         f(n);
     }
-    if (FELUCCA_XFX && (bal_v || (bal.g[0] | bal.g[1] | bal.g[2] | bal.g[3]))) {   /* (V10.7.30) BALANCE, before the EQ */
-        void (*f)(uint32_t) = bal_block;
-        FM1_OPAQUE(f);
-        f(n);
-    }
+    (void)bal_block;                                    /* (BYTE, the owner: BALANCE out, never run) */
     if (eq_v[0] || eq_v[1] || eq_v[2] || eq_v[3] || eqs.g[0] || eqs.g[1] || eqs.g[2] || eqs.g[3]) {   /* (p9) the EQ */
         void (*f)(uint32_t) = eq_block;
         FM1_OPAQUE(f);                                  /* (as tape_block: out of the RAM code's direct reach) */

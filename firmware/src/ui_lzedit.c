@@ -190,17 +190,42 @@ static void graph_focus_lz(const track_t *t)
 /* (BYTE 0.17) FORM's panel: the drone playing (its scope), the four modulators as lanes of 16 steps (each its euclid's
  * hits, the step now lit, those that struck hot), their DEST, the page's modulator singled out */
 static void form_cap(int32_t x,int32_t y,const char*s,uint16_t c){cv_text_on(x,y-AF_S_CAP_Y,&AF_S,s,c,T_BG);}
+static const char *const FORM_HOW[55]={"SWAYS UP AND DOWN|EVERY 4 STEPS","JUMPS TO RANDOM|VALUES EACH STEP","WANDERS SLOWLY|TO RANDOM POINTS","BOUNCES ONCE|AND SETTLES","CLIMBS 4 STAIRS|EVERY 16 STEPS","BOUNCES FASTER|AND SMALLER","RISES SLOW|THEN FAST","FALLS FAST|THEN SLOW","RANDOM EVERY|HALF STEP","ONE LONG RAMP|OVER 64 STEPS","OPENS AT RANDOM|ONE IN FOUR","A GATE IN|TRIPLETS","DROPS OCTAVES,|SINE, LOUDER","MID PITCH,|DIRTY PHASE","VERY HIGH,|METALLIC FM","HIGH, METALLIC,|LONG TAIL","BURSTS OF|DIRTY PHASE","A SHORT HIGH|WOODEN CLICK","A LOW FALLING|SINE BODY","FALLS FROM|VERY HIGH","HIGH AND|CRUSHED BITS","DIRT THAT|FADES SLOWLY","DIRT THAT GROWS|OVER 8 STEPS","A HIGH METALLIC|WASH, LONG","RISES EVERY|4 STEPS, LOOPS","FALLS EVERY|4 STEPS, LOOPS","UP AND DOWN|EVERY 4 STEPS","ON AND OFF|EVERY 2 STEPS","RISES IN 4 STEPS|AND STAYS","JUMPS UP,|THEN FADES","A SLOW BUILD|OVER 16 STEPS","ON AND OFF|EVERY HALF STEP","A STUTTER THAT|SPEEDS UP","PUSHES DOWN|WHILE HELD","PUSHES UP|WHILE HELD","SINKS UNDER|HEARING: SILENCE","TO THE ROOT,|0 3 7 12 UP","TO THE ROOT,|12 7 3 0 DOWN","TO THE ROOT,|UP AND DOWN","TO THE ROOT,|RANDOM NOTES","A MINOR CHORD|STRUMMED FAST","A MAJOR CHORD|STRUMMED FAST","A SUS4 CHORD|STRUMMED FAST","A MINOR 7TH|STRUMMED FAST","4 NEIGHBOURS|STRUMMED FAST","TO THE ROOT,|AN OCTAVE UP","TO THE ROOT,|A FIFTH UP","SLIDES DOWN|AN OCTAVE","FM PARTNER|AT x1/2","FM PARTNER|AT x1","FM PARTNER|AT x1.5","FM PARTNER|AT x2","FM PARTNER|AT x3","FM PARTNER|AT x5","FM PARTNER|AT x7"};   /* (the owner: what it does, how) */
+/* the mass: the sound as a ribbon of clay, as thick as it is loud, bent as the audio bends (the scope's 64 points) */
+static void form_mass(int32_t y0,int32_t amp){
+ int32_t i,px=6,py=y0;cv_rect(6,y0,228,1,ux_mix(T_BG,T_DIM,40));
+ for(i=0;i<64;i++){int32_t v=form_scope[i],a=v<0?-v:v,x=6+i*228/63,y=y0-v*amp/32768,th=2+a*7/32768;
+  cv_rect(x-2,y-th,5,th*2+1,heat_col(80+a*170/32768));if(i)cv_line_t(px,py,x,y,T_TEXT,1);px=x;py=y;}
+}
+/* a modulator's card, large: its shape, MOD and DEST, RATE, what it does in two lines; the eight on the right */
+static void form_card(const track_t*t,const form_st_t*st,uint32_t mm,uint32_t sh,int live){
+ static const char NM8[8][3]={"PI","FM","FO","CR","NO","SH","LV","RA"};
+ int32_t ds=clamp(t->p[FORM_MF[mm][0]],0,FORM_DSMAX),k;char b[24];const char*h=FORM_HOW[sh%FORM_NSH],*bar=h;uint32_t pg=sh/12u;
+ cv_text_on(6,52-AF_L_CAP_Y,&AF_L,FORM_SHAPE[sh%FORM_NSH],live?T_THEME:T_TEXT,T_BG);
+ b[0]='M';b[1]=(char)('1'+mm);b[2]=' ';b[3]='>';b[4]=' ';b[5]=0;
+ str_cpy(b+5,pg==FPG_GES||pg==FPG_TAB?FORM_DEST[ds&7]:pg==FPG_HIT?"ALL OF IT":pg==FPG_NOTE?"PITCH":"FM",12);
+ form_cap(6,72,b,T_TEXT);
+ while(*bar&&*bar!='|')bar++;
+ {char l1[20];uint32_t n=(uint32_t)(bar-h);if(n>19u)n=19u;memcpy(l1,h,n);l1[n]=0;form_cap(6,88,l1,T_MID);}
+ if(*bar)form_cap(6,100,bar+1,T_MID);
+ str_cpy(b,"RATE ",8);str_cpy(b+5,FORM_MRATE[ds>>9],8);form_cap(6,112,b,T_DIM);
+ for(k=0;k<8;k++){int32_t x=112+k*16,v=st->dv[k],hh=(v<0?-v:v)*18/1024;
+  cv_rect(x,76,11,1,T_DIM);cv_rect(x,v<0?76:76-hh,11,hh?hh:1,v?heat_col(110+(v<0?-v:v)*140/1024):T_SURF);form_cap(x-2,(k&1)?110:98,NM8[k],T_DIM);}
+}
 static __attribute__((noinline)) void graph_form_lz(const track_t*t){
- uint32_t tr=(uint32_t)(t-trk)%NTRK,seed=(uint32_t)clamp(t->p[P_E1],0,127)*977u+1u,now=(uint32_t)(form_st[tr].last<0?0:form_st[tr].last),m,k,sel=4u;
+ uint32_t tr=(uint32_t)(t-trk)%NTRK,seed=(uint32_t)clamp(t->p[P_E1],0,127)*977u+1u,m,k,sel=4u,i;
+ const form_st_t*st=&form_st[tr];const form_g_t*kg=0;
  const page_t*pg=cur_page();if(pg->id[0]==ID_FV0||pg->id[0]==P_CAOS)sel=(uint32_t)form_view[0]&3u;
  cv_oy=0;form_scope_tr=(uint8_t)tr;
- {int32_t i,px=6,py=26;cv_rect(6,26,228,1,ux_mix(T_BG,T_DIM,50));
-  for(i=0;i<64;i++){int32_t v=form_scope[i],nx=6+i*228/63,ny=26-v*20/32768,a=v<0?-v:v;if(i)cv_line_t(px,py,nx,ny,heat_col(70+a*186/32768),2);px=nx;py=ny;}}
+ form_mass(24,18);
+ for(i=0;i<FORM_G;i++)if((st->g[i].fl&8u)&&st->g[i].key&&(!kg||st->g[i].t0>kg->t0))kg=&st->g[i];   /* (the newest a key plays) */
+ if(kg){form_card(t,st,kg->mod&3u,kg->sh,1);return;}      /* (the owner: what the keys do, large) */
+ if(sel<4u){form_card(t,st,sel,(uint32_t)(clamp(t->p[FORM_MF[sel][0]],0,FORM_DSMAX)&511)>>3,0);return;}   /* (MOD: the one chosen) */
  for(m=0;m<4u;m++){
-  int32_t y=52+(int32_t)m*17;uint32_t d=(uint32_t)clamp(t->p[FORM_MF[m][0]],0,8*FORM_NSH-1)>>3;uint16_t ink=m==sel?T_TEXT:T_DIM;
-  form_cap(6,y,FORM_SHAPE[d],ink);
+  int32_t y=52+(int32_t)m*17,ds=clamp(t->p[FORM_MF[m][0]],0,FORM_DSMAX);uint32_t d=(uint32_t)(ds&511)>>3,now=(uint32_t)(st->lastm[m]<0?0:st->lastm[m]);
+  form_cap(6,y,FORM_SHAPE[d],T_TEXT);
   for(k=0;k<16u;k++){uint32_t s=(now&~15u)+k,hit=form_hit(t->p,m,s,seed);int32_t x=58+(int32_t)k*11;
-   cv_rect(x,y,9,9,k==(now&15u)?(hit&&((form_lit[tr]>>m)&1u)?heat_col(245):T_TEXT):hit?heat_col(m==sel?170:110):T_SURF);}
+   cv_rect(x,y,9,9,k==(now&15u)?(hit&&((form_lit[tr]>>m)&1u)?heat_col(245):T_TEXT):hit?heat_col(140):T_SURF);}
  }
 }
 /* the lens's panel for EDIT's page pg (1), else 0 (its own) */
