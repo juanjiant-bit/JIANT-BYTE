@@ -1988,6 +1988,8 @@ static __attribute__((noinline)) void panel_send(uint32_t y)
     dc_frame(ui.force);
     cv_blit_cells(0, y);
 }
+static void hold_banner(void);
+static uint32_t hold_banner_key(void);
 static void draw_graph(void)
 {
     const page_t *pg = cur_page();
@@ -1998,7 +2000,7 @@ static void draw_graph(void)
         draw_tracks();
         return;
     }
-    sig = graph_signature();
+    sig = graph_signature() ^ hold_banner_key() * 2654435761u;
     if (!ui.force && sig == ui.graph_sig)
         return;
     {   /* (0.6.57) LOAD LITE / ECO: the panel's animation (the beings, the scope, LFO, the envelope's dot, a turn
@@ -2158,6 +2160,7 @@ static void draw_graph(void)
     }
     cv_oy = 0;
     ux.surf = surf;
+    hold_banner();                                   /* (BYTE, as JIANT FM V10.8.9) a key held: what it plays, large */
     if (toast_on())                                  /* (0.9.5) a toast: a small pill near the panel's foot, over the page,
                                                       * which goes on drawing and moving behind it (0.8.5 .. 0.9.4: the
                                                       * panel cleared, the message boxed alone in it) */

@@ -1155,6 +1155,8 @@ static const uint8_t GPL_ACT[16] = {CA_MUTE, CA_STUT, CA_OCTU, CA_OCTD, CA_RATCH
                                     CA_ARP, CA_RAND, CA_CHORD, CA_MUTE, CA_RATCH, CA_TRANS};
 static const uint8_t GPL_VAL[16] = {0, 0, 0, 0, 0, 1, 2, CV_TR_MAKE(2, 1), CV_TR_MAKE(4, 1), CV_TR_MAKE(-2, 1),
                                     0x08, 1, 0, CV_MUTE_CUT, 6, CV_TR_MAKE(7, 1)};
+static const char *const GPL_NM[16] = {"MUTE", "STUTTER", "OCT +", "OCT -", "RATCH x2", "RATCH x3", "RATCH x4", "TRANS +2",
+                                       "TRANS +4", "TRANS -2", "ARP", "RANDOM", "CHORD", "MUTE CUT", "RATCH x8", "TRANS +7"};
 static uint8_t gpl_mask = (uint8_t)((1u << NTRK) - 1u), gpl_key = 0xFFu;
 static uint32_t gpl_prev, gpl_g0, gpl_k;
 static void gpl_off(void)

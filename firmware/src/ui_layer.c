@@ -1438,6 +1438,37 @@ static __attribute__((noinline)) void layer_state(uint32_t l)
                      l == LAYER_SEQ ? k == ui.lane % NLANE : !dx_lane_muted(k));
     }
 }
+/* (BYTE, as JIANT FM V10.8.9's hold_banner, joined with FORM's card) a key held: a box over the panel, its name large
+ * in the accent, under it where it goes and REC when it records; none when let go. COMP PLAY's component, the FX
+ * layer's punch-in (FORM's keys: their own card, ui_lzedit.c form_card) */
+static uint32_t hold_banner_key(void)
+{
+    uint32_t h = perf_kill ? 0u : perf_held;
+    if (gpl_key < 16u && gco_play())
+        return 1u + gpl_key;
+    if (ui.layer == LAYER_FX && h)
+        return 64u + (uint32_t)__builtin_ctz(h);
+    return 0;
+}
+static void hold_banner(void)
+{
+    uint32_t k = hold_banner_key(), rec = song.rec && song.playing;
+    const char *nm, *sub;
+    int32_t w = 212, h = 52, x = (240 - w) / 2, y = ((int32_t)graph_h() - h) / 2;
+    if (!k)
+        return;
+    if (k < 64u) {
+        nm = GPL_NM[(k - 1u) % 16u];
+        sub = rec ? "REC: INTO THE LANE" : gpl_mask == (1u << NTRK) - 1u ? "COMP PLAY: ALL TRACKS" : "COMP PLAY: THE TRACKS CHOSEN";
+    } else {
+        nm = PF_NAME[(k - 64u) % PF_N];
+        sub = rec ? "PUNCH IN: REC" : "PUNCH IN";
+    }
+    cv_rrect(x, y, w, h, 6, T_SURF, T_BG);
+    cv_rect(x, y, w, 2, rec ? T_ACCENT : T_THEME);
+    cv_text_in(x, y + 6, w, text_w(&AF_L, nm) <= w - 8 ? &AF_L : &AF_M, nm, T_ACCENT, T_SURF);
+    cv_text_in(x, y + 34, w, &AF_S, sub, rec ? T_ACCENT : T_MID, T_SURF);
+}
 static __attribute__((noinline)) void draw_layer(void)
 {
     uint32_t l = ui.layer % LAYER_N, sig = l * 7919u + ux.gen * 977u;

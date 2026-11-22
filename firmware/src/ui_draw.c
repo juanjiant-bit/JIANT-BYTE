@@ -231,8 +231,13 @@ static void head_transport(void)
 }
 static void sound_name(const track_t *t, char *b);
 /* the centre's words (b holds 40) and their colour */
+/* (BYTE, the owner: "each track its own colour, the thermal palette's: 1 yellow 2 orange 3 red 4 magenta 5 violet 6 blue";
+ * the top bar: TRACK N / its engine, upper case, in its colour) */
+static const uint16_t TRK_COL[6] = {0xFE87, 0xFC45, 0xF9C7, 0xF9D6, 0xA2FF, 0x3C7F};
+static uint8_t head_trk;                               /* (the title a track's: its bar) */
 static uint16_t head_title(char *b)
 {
+    head_trk = 0;
     const page_t *pg = cur_page();
     int glob = !ui.home && !ly_drawn() && !song_pg(ui.page) && (pg->graph == GR_SLOTS || pg->graph == GR_TOOLS ||
                                                               pg->fam == FAM_GLO || pg->fam == FAM_SAVE);   /* (V10.7.32:
@@ -246,8 +251,6 @@ static uint16_t head_title(char *b)
     b[0] = 'T';
     b[1] = (char)('1' + song.sel % NTRK);
     b[2] = 0;
-    if (!ui.home && !ly_drawn() && pg->fam == FAM_FX)
-        return T_ACCENT;
     if (glob) {
         char nm[16];
         b[0] = 'P';
@@ -260,12 +263,12 @@ static uint16_t head_title(char *b)
         str_cpy(b + str_len(b), nm[0] ? nm : "NO NAME", 16);
         return T_TEXT;
     }
-    str_cpy(b, trk_engp(TSEL)->name, 12);               /* (it began "T1 . ": the track's number stands in its box at
-                                                         * the left; the room is the sound's name's) */
-    sound_name(TSEL, b + str_len(b) + 1u);
-    if (b[str_len(b) + 1u])
-        b[str_len(b)] = ' ';
-    return T_TEXT;
+    str_cpy(b, "TRACK ", 40);                          /* (BYTE) TRACK N / ENGINE, on every track page (FX, SEQ, EDIT ..) */
+    b[6] = (char)('1' + song.sel % NTRK); b[7] = 0;
+    str_cpy(b + 7, " / ", 4);
+    str_cpy(b + 10, trk_engp(TSEL)->name, 12);
+    head_trk = 1;
+    return TRK_COL[song.sel % NTRK];
 }
 /* a message / a layer's label at x, or centred on x 120 (x < 0), at most maxw px with its
  * icon (ui.c MSG_NOFILE: the accent's) */
@@ -345,9 +348,9 @@ static void draw_head(void)
     cv_begin(240, H_HEAD, T_BG);
     if (!ui.menu) {                                     /* (0.8.9) the track's box, as the 0.6 had it */
         char n[2] = {(char)('1' + song.sel % NTRK), 0};
-        cv_rrect(HEAD_TK_X, HEAD_MID - 6, 13, 13, 3, T_ACCENT, T_BG);
+        cv_rrect(HEAD_TK_X, HEAD_MID - 6, 13, 13, 3, TRK_COL[song.sel % NTRK], T_BG);   /* (BYTE: the track's colour) */
         GFX_HOOK_ALIGN(HEAD_TK_X, HEAD_MID - 6, HEAD_TK_X + 13, HEAD_MID + 7, AL_HV, "header track number in its box");
-        cv_text_in(HEAD_TK_X, HEAD_XY, 13, &AF_X, n, T_INK, T_ACCENT);
+        cv_text_in(HEAD_TK_X, HEAD_XY, 13, &AF_X, n, 0x0000, TRK_COL[song.sel % NTRK]);
     }
     head_transport();
     if (!ui.roll[ROLL_BPM].from[0])
@@ -373,7 +376,12 @@ static void draw_head(void)
         if (x + w > r) x = r - w;
         if (x < l) x = l;
         GFX_HOOK_ALIGN(0, 0, 0, HEAD_RULE_Y, AL_V, "header text on its middle");
-        cv_free_text(x, HEAD_XY, &AF_X, ttl, tc, T_BG, r - x);   /* (0.8.5: AF_X, the mock-up's small mono) */
+        if (head_trk) {                                /* (BYTE, the owner) the track's bar: its colour, the words black (5, 6: white) */
+            uint16_t ink = song.sel % NTRK >= 4u ? 0xFFFF : 0x0000;
+            cv_rrect(l - 4, HEAD_MID - 8, r - l + 8, 17, 4, tc, T_BG);
+            cv_free_text(x, HEAD_XY, &AF_X, ttl, ink, tc, r - x);
+        } else
+            cv_free_text(x, HEAD_XY, &AF_X, ttl, tc, T_BG, r - x);   /* (0.8.5: AF_X, the mock-up's small mono) */
     } else if (centre) {                               /* right of the BPM, over the right slot */
         int32_t x = lx + 9 > 142 ? lx + 9 : 142;
         head_msg(x, 236 - x);
@@ -1275,7 +1283,7 @@ static __attribute__((noinline)) void comp_columns(void)
         uint32_t a = CA_VIEW(CO_ACT(gc->comp), gc->val);
         char lb[10], un[8];
         if (gco_play()) {                               /* (BYTE) COMP PLAY: what a key plays, on what, REC */
-            text_column(0, "PLAYS", gpl_key < 16u ? CA_NAMES[GPL_ACT[gpl_key]] : "-", gpl_key < 16u ? VAL(0u) : T_DIM);
+            text_column(0, "PLAYS", gpl_key < 16u ? GPL_NM[gpl_key] : "-", gpl_key < 16u ? VAL(0u) : T_DIM);
             if (gpl_mask == (1u << NTRK) - 1u) str_cpy(val, "ALL", 8); else fmt_int(val, (int32_t)__builtin_popcount(gpl_mask));
             hot_text_column(1, "TRACKS", val);
             text_column(2, "REC", song.rec ? "ADDS" : "OFF", song.rec ? VAL(2u) : T_DIM);
