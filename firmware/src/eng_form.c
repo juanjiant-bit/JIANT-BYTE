@@ -105,7 +105,7 @@ static void form_note_on(track_t*t,voice_t*v){(void)t;memset(v->s,0,sizeof v->s)
 typedef struct{uint8_t sh,mod,fl,vel,key,spd;uint16_t len;uint32_t t0,rel;} form_g_t;   /* fl: 1 held 2 latched 4 inverted 8 alive */
 #define FORM_G 6u
 typedef struct{int32_t last;uint32_t clk,nz,hdown;int32_t nzl,lpz,hold,hc,dcx,dcy;int8_t hmod;uint8_t modes;form_g_t g[FORM_G];} form_st_t;
-static form_st_t form_st[NTRK];
+static form_st_t form_st[NTRK] __attribute__((section(".pool")));   /* (out of the bss: its room) */
 static int16_t form_scope[64];
 static volatile uint8_t form_scope_tr=0xFF;
 static uint8_t form_sc_i;
