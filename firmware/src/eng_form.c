@@ -104,7 +104,7 @@ static void form_note_on(track_t*t,voice_t*v){(void)t;memset(v->s,0,sizeof v->s)
 /* ---- the gestures: a key's or a euclid's, alive until their envelope is out ---- */
 typedef struct{uint8_t sh,mod,fl,vel,key,spd;uint16_t len;uint32_t t0,rel;} form_g_t;   /* fl: 1 held 2 latched 4 inverted 8 alive */
 #define FORM_G 6u
-typedef struct{int32_t last;uint32_t clk,nz,hdown;int32_t nzl,lpz,hold,hc,dcx,dcy;int8_t hmod;uint8_t modes;form_g_t g[FORM_G];} form_st_t;
+typedef struct{int32_t last;uint32_t clk,nz,hdown;int32_t nzl,lpz,hold,hc,dcx,dcy;int8_t hmod;   /* (hmod: the black held, MOD n+1; 0 none) */uint8_t modes;form_g_t g[FORM_G];} form_st_t;
 static form_st_t form_st[NTRK] __attribute__((section(".pool")));   /* (out of the bss: its room) */
 static int16_t form_scope[64];
 static volatile uint8_t form_scope_tr=0xFF;
@@ -148,13 +148,13 @@ static uint32_t form_key(track_t*t,uint32_t k,uint32_t vel,int on)
  uint32_t tr=(uint32_t)(t-trk)%NTRK,c=FORM_KMAP[k%27u],i;form_st_t*st=&form_st[tr];
  if(c>=32u)return on?48u+FORM_SCALE[c-32u]:0u;
  if(c>=16u){uint32_t b=c-16u;
-  if(b<4u){if(on){st->hmod=(int8_t)b;st->hdown=st->clk;}else{if(st->clk-st->hdown<(3u<<15))form_view[0]=(int16_t)b;st->hmod=-1;}return 0;}
+  if(b<4u){if(on){st->hmod=(int8_t)(b+1u);st->hdown=st->clk;}else{if(st->clk-st->hdown<(3u<<15))form_view[0]=(int16_t)b;st->hmod=0;}return 0;}
   uint8_t bit=(uint8_t)(1u<<(b-4u));if(on)st->modes|=bit;else st->modes&=(uint8_t)~bit;return 0;}
  if(on){
   int32_t pg=clamp(song.octave,-2,2)+2;uint32_t sh=(uint32_t)pg*12u+c;
   if(sh>=FORM_NSH)return 0;
   for(i=0;i<FORM_G;i++)if((st->g[i].fl&10u)==10u&&st->g[i].key==k+1u){st->g[i].fl&=(uint8_t)~3u;return 0;}   /* (a latched one: let go) */
-  form_spawn(st,sh,(uint32_t)(st->hmod>=0?st->hmod:form_view[0]&3),vel,1u|((st->modes&1u)?2u:0u),0u,k+1u);
+  form_spawn(st,sh,(uint32_t)(st->hmod>0?st->hmod-1:form_view[0]&3),vel,1u|((st->modes&1u)?2u:0u),0u,k+1u);
  }else for(i=0;i<FORM_G;i++)if((st->g[i].fl&8u)&&st->g[i].key==k+1u&&!(st->g[i].fl&2u))st->g[i].fl&=(uint8_t)~1u;
  return 0;
 }
