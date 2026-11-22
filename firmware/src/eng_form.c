@@ -331,7 +331,9 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  st->hold=hold;st->hc=hc;st->dcx=dx;st->dcy=dy;st->nz=nz;st->nzl=nzl;st->lpz=lpz;
  v->s[2]=(int32_t)(q+(n<<sh));v->ph[0]=ph;v->ph[1]=mph;
 }
+/* (seq.c kb_map) PLAY / FREE: every key sounds (a gesture: no scale's QUANT silences one) */
+static int32_t form_kmap(const track_t*t,uint32_t k){return form_keys(t)?(int32_t)(53u+k):-1;}
 static const engine_t ENG_FORM={.name="FORM",.page_title={"FORM","DRONE"},
  .edit={{"RATE",F_ENUM,0,3,2,FORM_RATE},{"SEED",F_INT,0,127,0,0},{"SHAPE",F_PCT,0,127,30,0},{"FM",F_PCT,0,127,5,0},
         {"FOLD",F_PCT,0,127,0,0},{"CRUSH",F_PCT,0,127,0,0},{"DS",F_INT,0,8*FORM_NSH-1,0,0},{"EUCLID",F_ENUM,0,FORM_NEU-1,0,FORM_EU}},
- .presets=FORM_PRESETS,.npresets=NELEM(FORM_PRESETS),.knob={P_E2,P_E3,P_E4,P_E5},.poly=1,.half=1,.note_on=form_note_on,.render=form_render};
+ .presets=FORM_PRESETS,.npresets=NELEM(FORM_PRESETS),.knob={P_E2,P_E3,P_E4,P_E5},.poly=1,.half=1,.note_on=form_note_on,.render=form_render,.keys=form_kmap};

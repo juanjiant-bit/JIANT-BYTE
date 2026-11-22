@@ -1755,7 +1755,6 @@ static void keyboard_block(void)
                 uint32_t high = k >= split_cut(0);
                 if (SPLIT_ON) kb_trk[k] = (uint8_t)split_track(high);
                 kb_note[k] = (uint8_t)kb_map(&trk[kb_trk[k]], k);
-                if (form_kb(k, &trk[kb_trk[k]], 2)) kb_note[k] = (uint8_t)(53u + k);   /* (FORM: every key a gesture) */
                 if (SPLIT_ON && kb_note[k] != KB_SILENT && !drum_track(&trk[kb_trk[k]]))
                     kb_note[k] = (uint8_t)clamp((int32_t)kb_note[k] + 12 * split_oct(high), 0, 127);
             }
