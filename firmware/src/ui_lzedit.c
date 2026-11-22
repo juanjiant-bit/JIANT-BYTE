@@ -241,16 +241,16 @@ static __attribute__((noinline)) void graph_form_lz(const track_t*t){
  for(m=0;m<4u;m++){
   int32_t y=26+(int32_t)m*24,mid=y+11,ds=(int32_t)form_vds(t->p,m),px=0,py=0,cx=32+(int32_t)ft_x*3;
   uint32_t d=(uint32_t)(ds&511)>>3,lit=(form_lit[tr]>>m)&1u,on=sel==m;char b[20];
-  uint16_t c=on?T_INK:FT_BL;
+  uint16_t c=on?T_TEXT:FT_BL;
   ft_frame(y,23);
-  b[0]='M';b[1]=(char)('1'+m);b[2]=0;ft_tag(1,y+1,b,lit?0x0000:on?0x0000:T_INK,lit?FT_YE:on?T_INK:FT_BL);
+  b[0]='M';b[1]=(char)('1'+m);b[2]=0;ft_tag(1,y+1,b,lit?0x0000:on?0x0000:T_TEXT,lit?FT_YE:on?T_TEXT:FT_BL);
   str_cpy(b,FORM_SHAPE[d],12);
   {uint32_t pq=d/12u,n=0;while(b[n])n++;
    if(pq==FPG_GES||pq==FPG_TAB){b[n]='>';str_cpy(b+n+1,FORM_DEST[ds&7],8);}}
   {int32_t pk=6;for(i=0;i<FT_N;i++){int32_t a=ft_h[m][i]<0?-ft_h[m][i]:ft_h[m][i];if(a>pk)pk=a;}   /* (its swing, to the lane) */
   for(i=0;i<FT_N;i++){int32_t v=ft_h[m][i],x=32+(int32_t)i*3,yy=mid-v*10/pk;
    if(i&&(i<=ft_x||i>ft_x+3u))cv_line_t(px,py,x,yy,c,on?2:1);px=x;py=yy;
-   if((ft_l[i]>>m)&1u&&!((ft_l[(i+FT_N-1u)%FT_N]>>m)&1u))cv_rect(x,y+19,2,3,T_INK);}}   /* (a strike: a tick) */
+   if((ft_l[i]>>m)&1u&&!((ft_l[(i+FT_N-1u)%FT_N]>>m)&1u))cv_rect(x,y+19,2,3,T_TEXT);}}   /* (a strike: a tick) */
   {int32_t w=text_w(&AF_X,b)+4;cv_rect(237-w,y+1,w,11,T_BG);cv_text_on(239-w,y+2-AF_X_CAP_Y,&AF_X,b,on?T_TEXT:T_DIM,T_BG);}   /* (its shape > DEST, right) */
   cv_rect(cx,y,1,23,FT_YE);cv_rect(cx-2,y,5,1,FT_YE);cv_rect(cx-1,y+1,3,1,FT_YE);
   {int32_t v=ft_h[m][ft_x]*99/63,n=0;char q[6];if(v<0){q[n++]='-';v=-v;}if(v>9)q[n++]=(char)('0'+v/10);q[n++]=(char)('0'+v%10);q[n]=0;

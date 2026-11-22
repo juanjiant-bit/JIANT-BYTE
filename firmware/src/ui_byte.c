@@ -210,6 +210,149 @@ static void ub_terrain(gq_work_t *w, int32_t x, int32_t y, int32_t wd, int32_t h
         }
     }
 }
+/* ---- (BYTE, the owner's references: the census, the flight recorder) the engines' panels as instruments ---- */
+#define HUD_BL 0x29FFu
+#define HUD_YE 0xEF8Bu
+#define HUD_N 68u
+static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c);   /* (ui_graph.c) */
+static uint16_t vk_heat(int32_t v);                     /* (ui_engvis.c) */
+static uint8_t hud_h[8][HUD_N] __attribute__((section(".pool")));   /* (the traces' history: 8 lanes, swept) */
+static uint8_t hud_x, hud_who = 0xFF;
+static uint32_t hud_fr;
+static int hud_tick(uint32_t who)                       /* the sweep a step on (1: a new frame); a new part: cleared */
+{
+    if (hud_who != who) { memset(hud_h, 0, sizeof hud_h); hud_who = (uint8_t)who; hud_x = 0; }
+    if (anim_fr == hud_fr) return 0;
+    hud_fr = anim_fr; hud_x = (uint8_t)((hud_x + 1u) % HUD_N);
+    return 1;
+}
+static int32_t hud_tag(int32_t x, int32_t y, const char *s, uint16_t fg, uint16_t bg)
+{
+    int32_t w = text_w(&AF_X, s) + 4;
+    cv_rect(x, y, w, 11, bg);
+    cv_text_on(x + 2, y + 1 - AF_X_CAP_Y, &AF_X, s, fg, bg);
+    return w;
+}
+static void hud_lane(int32_t x, int32_t y, int32_t w, int32_t h)   /* a lane's frame: its rules, a dotted middle, ticks */
+{
+    int32_t i;
+    cv_rect(x, y, w, 1, T_SURF); cv_rect(x, y + h - 1, w, 1, T_SURF);
+    for (i = x; i < x + w; i += 3) cv_rect(i, y + h / 2, 1, 1, T_LINE);
+    for (i = x; i < x + w; i += w / 6) cv_rect(i, y + h - 4, 1, 3, T_DIM);
+}
+static void hud_cursor(int32_t x, int32_t y, int32_t h, int32_t v)   /* the yellow cursor, its value (0 .. 99) beside */
+{
+    char q[4];
+    cv_rect(x, y, 1, h, HUD_YE); cv_rect(x - 2, y, 5, 1, HUD_YE); cv_rect(x - 1, y + 1, 3, 1, HUD_YE);
+    v = clamp(v, 0, 99); q[0] = (char)('0' + v / 10); q[1] = (char)('0' + v % 10); q[2] = 0;
+    cv_text_on(x + 3, y + h - 11 - AF_X_CAP_Y, &AF_X, q, HUD_YE, T_BG);
+}
+/* lane k's history in (x, y) w x h, 0 .. 255 bottom .. top, the sweep's gap; ticks where it rose (a hit) */
+static void hud_trace(uint32_t k, int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c, int32_t th, int ticks)
+{
+    uint32_t i;
+    int32_t px = 0, py = 0;
+    for (i = 0; i < HUD_N; i++) {
+        int32_t xx = x + (int32_t)i * w / (int32_t)HUD_N, yy = y + h - 2 - (int32_t)hud_h[k][i] * (h - 4) / 255;
+        if (i && (i <= hud_x || i > hud_x + 3u)) cv_line_t(px, py, xx, yy, c, th);
+        if (ticks && i && hud_h[k][i] > hud_h[k][i - 1u] + 60u) cv_rect(xx, y + h - 4, 2, 3, T_TEXT);
+        px = xx; py = yy;
+    }
+}
+/* MATH: CENSUS (the IPv4 map's): 256 of its bytes along a Hilbert curve, each its heat; a scan head running it; beside,
+ * the census by value (16 bins), the heat's scale, the head's reading */
+static void hud_hil(uint32_t d, int32_t *x, int32_t *y)   /* d along a 16 x 16 Hilbert curve */
+{
+    uint32_t s, rx, ry, t = d;
+    int32_t X = 0, Y = 0, k;
+    for (s = 1; s < 16u; s <<= 1) {
+        rx = 1u & (t >> 1); ry = 1u & (t ^ rx);
+        if (!ry) { if (rx) { X = (int32_t)s - 1 - X; Y = (int32_t)s - 1 - Y; } k = X; X = Y; Y = k; }
+        X += (int32_t)(s * rx); Y += (int32_t)(s * ry); t >>= 2;
+    }
+    *x = X; *y = Y;
+}
+static void hud_census(gq_work_t *w, int32_t x, int32_t y, uint32_t t0, uint16_t tc)
+{
+    uint32_t tq[64], i, j, bin[16] = {0}, hd = anim_fr % 256u, mx = 1;
+    uint8_t v[256];
+    int32_t cx, cy, px = 0, py = 0;
+    char b[16];
+    static const char HX[] = "0123456789ABCDEF";
+    memset(w->st, 0, sizeof w->st);
+    for (i = 0; i < 256u; i += 64u) {
+        for (j = 0; j < 64u; j++) tq[j] = (t0 + (i + j) * 8u) << 8;
+        ub_run(w, tq, 64u, 0, v + i);
+    }
+    for (i = 0; i < 256u; i++) {
+        hud_hil(i, &cx, &cy);
+        cv_rect(x + cx * 6, y + cy * 6, 5, 5, v[i] < 8u ? T_SURF : vk_heat(40 + v[i] * 215 / 255));
+        bin[v[i] >> 4]++;
+    }
+    for (i = 0; i < 256u; i++) {                        /* the curve, faint, over them */
+        hud_hil(i, &cx, &cy);
+        cx = x + cx * 6 + 2; cy = y + cy * 6 + 2;
+        if (i) cv_line(px, py, cx, cy, ux_mix(T_BG, T_TEXT, 22));
+        px = cx; py = cy;
+    }
+    hud_hil(hd, &cx, &cy);                              /* the scan head */
+    cv_rect(x + cx * 6 - 2, y + cy * 6 - 2, 9, 1, T_TEXT); cv_rect(x + cx * 6 - 2, y + cy * 6 + 6, 9, 1, T_TEXT);
+    cv_rect(x + cx * 6 - 2, y + cy * 6 - 2, 1, 9, T_TEXT); cv_rect(x + cx * 6 + 6, y + cy * 6 - 2, 1, 9, T_TEXT);
+    {   /* beside: the census by value, its scale, the head's reading */
+        int32_t rx = x + 104, rw = 126, by = y + 50;
+        for (i = 0; i < 16u; i++) if (bin[i] > mx) mx = bin[i];
+        hud_tag(rx, y, "CENSUS 256", 0x0000, T_TEXT);
+        for (i = 0; i < 16u; i++) {
+            int32_t hh = (int32_t)(bin[i] * 34u / mx);
+            cv_rect(rx + (int32_t)i * 8, by - hh, 6, hh ? hh : 1, vk_heat(40 + (int32_t)i * 14));
+        }
+        cv_rect(rx, by + 1, rw, 1, T_DIM);
+        for (i = 0; i < 32u; i++) cv_rect(rx + (int32_t)i * 4, by + 5, 4, 5, vk_heat(40 + (int32_t)i * 7));
+        cv_text_on(rx, by + 13 - AF_X_CAP_Y, &AF_X, "0", T_DIM, T_BG);
+        cv_text_r(rx + 128, by + 13 - AF_X_CAP_Y, &AF_X, "255", T_DIM, T_BG);
+        b[0] = '@'; b[1] = HX[hd >> 4]; b[2] = HX[hd & 15u]; b[3] = ' '; b[4] = '='; b[5] = ' ';
+        b[6] = HX[v[hd] >> 4]; b[7] = HX[v[hd] & 15u]; b[8] = 0;
+        hud_tag(rx, by + 26, b, 0x0000, HUD_YE);
+        (void)tc;
+    }
+}
+/* WAVE: TELEMETRY: CYCLE its cycle at POS (POS's neighbours faint), the cursor sweeping it; LEVEL its level swept;
+ * MIX the mix's scope */
+static void hud_wave(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32_t wd, int32_t ht, uint16_t tc)
+{
+    enum { NP = 64u };
+    uint32_t tq[NP], i, k, tr = (uint32_t)(t - trk) % NTRK, pos = (uint32_t)clamp(t->p[P_E1], 0, 127);
+    uint8_t v[NP];
+    int32_t lx = x + 30, lw = wd - 32, ch = ht / 2, lh = (ht - ch - 6) / 2, ly, cx;
+    if (hud_tick(0x80u | tr)) hud_h[0][hud_x] = (uint8_t)clamp(track_env[tr] >> 6, 0, 255);
+    hud_lane(lx, y, lw, ch);
+    hud_tag(x, y + 2, "CYC", 0x0000, tc);
+    for (k = 0; k < 3u; k++) {                          /* POS's neighbours, then its own */
+        int32_t pp = clamp((int32_t)pos + (k == 0u ? -24 : k == 1u ? 24 : 0), 0, 127), px = 0, py = 0;
+        for (i = 0; i < NP; i++) tq[i] = i * 8192u / NP;
+        memset(w->st, 0, sizeof w->st);
+        ub_run(w, tq, NP, (uint32_t)pp * 516u, v);
+        for (i = 0; i < NP; i++) {
+            int32_t xx = lx + (int32_t)i * (lw - 1) / (int32_t)(NP - 1u), yy = y + ch / 2 - ((int32_t)v[i] - 128) * (ch / 2 - 3) / 128;
+            if (i) cv_line_t(px, py, xx, yy, k == 2u ? tc : ux_mix(T_BG, HUD_BL, 70), k == 2u ? 2 : 1);
+            px = xx; py = yy;
+        }
+        if (k == 2u) {
+            uint32_t ci = anim_fr % NP;
+            cx = lx + (int32_t)ci * (lw - 1) / (int32_t)(NP - 1u);
+            hud_cursor(cx, y, ch, v[ci] * 99 / 255);
+        }
+    }
+    ly = y + ch + 3;
+    hud_lane(lx, ly, lw, lh);
+    hud_tag(x, ly + (lh - 11) / 2, "LVL", T_TEXT, HUD_BL);
+    hud_trace(0, lx, ly, lw, lh, HUD_BL, 1, 1);
+    hud_cursor(lx + (int32_t)hud_x * lw / (int32_t)HUD_N, ly, lh, hud_h[0][hud_x] * 99 / 255);
+    ly += lh + 3;
+    hud_lane(lx, ly, lw, lh);
+    hud_tag(x, ly + (lh - 11) / 2, "MIX", 0x0000, T_TEXT);
+    scope_at(lx, lw, ly + lh / 2, lh / 2 - 2, T_TEXT);
+}
 /* the panel at A {x, y, w, h} (px), en_home HOME's level (-1: the part's own): 0 when t plays no formula */
 static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
 {
@@ -241,20 +384,22 @@ static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
             if (t->v[i].active && t->v[i].age >= age) { age = t->v[i].age; tt = (uint32_t)t->v[i].s[2]; }
         for (k = 0; k < 6u; k++) b[2u + k] = HX[(tt >> (20u - 4u * k)) & 15u];
         b[8] = 0;
-        cv_text_r(x + wd - 2, y + ht - 10 - AF_F_CAP_Y, &AF_F, b, age ? T_THEME : T_DIM, T_BG);
+        cv_text_r(x + wd - 2, y + 13 - AF_F_CAP_Y, &AF_F, b, age ? T_THEME : T_DIM, T_BG);
     }
-    ub_text_draw(x + 2, y + 2, s, (uint32_t)(wd - 4) / 6u, 3u, T_TEXT);
-    {
-        int32_t by = y + 32, bh = ht - 32;
-        if (fix)
-            ub_portrait(w, x + 42, by + bh / 2 - 8 - bob, 30, fr, bc, ec);
-        else
-            ub_sprite(w, x + 8, by + bh / 2 - 36 - bob, 6, fr, bc, ec);
-        cv_text_in(x, y + ht - 10 - AF_X_CAP_Y, 84, &AF_X, nm, bc, T_BG);
+    ub_text_draw(x + 2, y + 2, s, (uint32_t)(wd - 120) / 6u, 2u, T_TEXT);
+    {   /* (BYTE) its name in its colour, at the top right; under: CENSUS (MATH) or TELEMETRY (WAVE) */
+        uint16_t tc = TRK_COL[tr % 6u];
+        int32_t tw = text_w(&AF_X, nm) + 4;
+        hud_tag(x + wd - tw, y + 1, nm, tr % 6u >= 4u ? 0xFFFFu : 0x0000u, tc);
+        (void)ec; (void)bob; (void)bc;
         if (trk_engp(t) == &ENG_WAVE)
-            ub_terrain(w, x + 92, by - 6, wd - 92, bh - 4, t->p[P_E1]);
-        else
-            ub_raster(w, x + wd - UB_COLS * 3, by + (bh - UB_ROWS * 3) / 2 - 7, anim_fr);   /* (t= under it) */
+            hud_wave(t, w, x, y + 22, wd, ht - 22, tc);
+        else {
+            uint32_t i, tt = 0, age = 0;
+            for (i = 0; i < NVOICE; i++)
+                if (t->v[i].active && t->v[i].age >= age) { age = t->v[i].age; tt = (uint32_t)t->v[i].s[2]; }
+            hud_census(w, x + 2, y + 20, age ? tt : anim_fr * 64u, tc);
+        }
     }
     return 1;
 }
@@ -287,6 +432,22 @@ static void ub_kit(const track_t *t, const int32_t *A, int32_t sel)
     static const uint8_t ORDER[8] = {3,4,2,7,5,1,6,0};
     drum_lane_t *K = drum_kit_of(t);
     uint32_t k, lane; int32_t p = A[2] >= 180 ? 2 : 1;
+    if (A[2] >= 160 && K) {                             /* (BYTE: TELEMETRY) the eight sounds a trace each, swept */
+        uint32_t tr = (uint32_t)(t - trk) % NTRK, nw = hud_tick(0x40u | tr);
+        int32_t lh = (A[3] - 2) / 8, lx = A[0] + 34, lw = A[2] - 36, cx = lx + (int32_t)hud_x * lw / (int32_t)HUD_N;
+        for (lane = 0; lane < 8u; lane++) {
+            int32_t e = K[lane].x.live && !ANIM_OFF() ? clamp(K[lane].x.ea >> 22, 0, 255) : 0, ly = A[1] + (int32_t)lane * lh;
+            int mu = dx_lane_muted(lane), on = (int32_t)lane == sel;
+            if (nw) hud_h[lane][hud_x] = (uint8_t)e;
+            hud_lane(lx, ly, lw, lh - 1);
+            hud_tag(A[0], ly + (lh - 12) / 2, drum_lane_abbr(t, lane), e > 100 ? 0x0000 : mu ? T_DIM : on ? 0x0000 : T_INK,
+                    e > 100 ? HUD_YE : mu ? T_SURF : on ? T_INK : HUD_BL);
+            hud_trace(lane, lx, ly, lw, lh - 1, mu ? T_DIM : on ? T_INK : lane == 0u ? TRK_COL[tr % 6u] : HUD_BL, on ? 2 : 1, 0);
+        }
+        cv_rect(cx, A[1], 1, lh * 8 - 1, HUD_YE);
+        cv_rect(cx - 2, A[1], 5, 1, HUD_YE);
+        return;
+    }
     for (k = 0; k < 8u; k++) {
         int32_t e, x, y, sz; uint16_t c;
         lane = ORDER[k];

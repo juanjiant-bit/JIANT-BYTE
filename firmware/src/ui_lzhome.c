@@ -336,10 +336,10 @@ static void ob_sat(uint32_t c, int32_t x, int32_t y, int32_t bot)
     cv_rect(x - s / 2, y - s / 2, s + 1, s + 1, tc);
     if (sel) {                                          /* (the selected: bracketed) */
         int32_t b = s / 2 + 4;
-        cv_rect(x - b, y - b, 3, 1, T_INK); cv_rect(x - b, y - b, 1, 3, T_INK);
-        cv_rect(x + b - 2, y - b, 3, 1, T_INK); cv_rect(x + b, y - b, 1, 3, T_INK);
-        cv_rect(x - b, y + b, 3, 1, T_INK); cv_rect(x - b, y + b - 2, 1, 3, T_INK);
-        cv_rect(x + b - 2, y + b, 3, 1, T_INK); cv_rect(x + b, y + b - 2, 1, 3, T_INK);
+        cv_rect(x - b, y - b, 3, 1, T_TEXT); cv_rect(x - b, y - b, 1, 3, T_TEXT);
+        cv_rect(x + b - 2, y - b, 3, 1, T_TEXT); cv_rect(x + b, y - b, 1, 3, T_TEXT);
+        cv_rect(x - b, y + b, 3, 1, T_TEXT); cv_rect(x - b, y + b - 2, 1, 3, T_TEXT);
+        cv_rect(x + b - 2, y + b, 3, 1, T_TEXT); cv_rect(x + b, y + b - 2, 1, 3, T_TEXT);
     }
     tg[0] = (char)('1' + c); tg[1] = ' '; str_cpy(tg + 2, ENGINES[trk_eng(&trk[c])]->name, 10);
     tw = text_w(&AF_X, tg) + 4;
