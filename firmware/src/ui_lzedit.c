@@ -212,20 +212,49 @@ static void form_card(const track_t*t,const form_st_t*st,uint32_t mm,uint32_t sh
  for(k=0;k<8;k++){int32_t x=112+k*16,v=st->dv[k],hh=(v<0?-v:v)*18/1024;
   cv_rect(x,76,11,1,T_DIM);cv_rect(x,v<0?76:76-hh,11,hh?hh:1,v?heat_col(110+(v<0?-v:v)*140/1024):T_SURF);form_cap(x-2,(k&1)?110:98,NM8[k],T_DIM);}
 }
+/* (BYTE, the owner's references: telemetry) the panel a flight recorder: OUT the drone's wave in its track's colour;
+ * under it the four modulators, each a trace of what it adds now, swept left to right; a yellow cursor reads it; each
+ * its tag (lit when it strikes), its shape > DEST; the MOD page's one white */
+#define FT_N 68
+#define FT_BL 0x29FFu
+#define FT_YE 0xEF8Bu
+static int8_t ft_h[4][FT_N] __attribute__((section(".pool")));static uint8_t ft_l[FT_N] __attribute__((section(".pool")));   /* (its strikes, bit m) */
+static uint8_t ft_x,ft_tr=0xFF;static uint32_t ft_fr;
+static void ft_tag(int32_t x,int32_t y,const char*s,uint16_t fg,uint16_t bg){int32_t w=text_w(&AF_X,s)+4;cv_rect(x,y,w,11,bg);cv_text_on(x+2,y+1-AF_X_CAP_Y,&AF_X,s,fg,bg);}
+static void ft_frame(int32_t y,int32_t h){int32_t x;
+ cv_rect(32,y,206,1,T_SURF);cv_rect(32,y+h-1,206,1,T_SURF);
+ for(x=32;x<238;x+=3)cv_rect(x,y+h/2,1,1,T_LINE);
+ for(x=32;x<238;x+=34)cv_rect(x,y+h-4,1,3,T_DIM);}
 static __attribute__((noinline)) void graph_form_lz(const track_t*t){
- uint32_t tr=(uint32_t)(t-trk)%NTRK,seed=(uint32_t)clamp(t->p[P_E1],0,127)*977u+1u,m,k,sel=4u,i;
- const form_st_t*st=&form_st[tr];const form_g_t*kg=0;
+ uint32_t tr=(uint32_t)(t-trk)%NTRK,m,i,sel=4u;
+ const form_st_t*st=&form_st[tr];const form_g_t*kg=0;uint16_t tc=TRK_COL[tr%6u];
  const page_t*pg=cur_page();if(pg->id[0]==ID_FV0||pg->id[0]==P_CAOS)sel=(uint32_t)form_view[0]&3u;
  cv_oy=0;form_scope_tr=(uint8_t)tr;
- form_mass(24,18);
  for(i=0;i<FORM_G;i++)if((st->g[i].fl&8u)&&st->g[i].key&&(!kg||st->g[i].t0>kg->t0))kg=&st->g[i];   /* (the newest a key plays) */
- if(kg){form_card(t,st,kg->mod&3u,kg->sh,1);return;}      /* (the owner: what the keys do, large) */
- if(sel<4u){form_card(t,st,sel,(form_vds(t->p,sel)&511u)>>3,0);return;}   /* (MOD: the one chosen) */
+ if(kg){form_mass(24,18);form_card(t,st,kg->mod&3u,kg->sh,1);return;}      /* (the owner: what the keys do, large) */
+ if(ft_tr!=tr){memset(ft_h,0,sizeof ft_h);memset(ft_l,0,sizeof ft_l);ft_tr=(uint8_t)tr;ft_x=0;}
+ if(anim_fr!=ft_fr){ft_fr=anim_fr;ft_x=(uint8_t)((ft_x+1u)%FT_N);ft_l[ft_x]=form_lit[tr];
+  for(m=0;m<4u;m++)ft_h[m][ft_x]=(int8_t)clamp(st->mv[m]>>1,-63,63);}
+ {int32_t px=0,py=0,pk=2048;ft_frame(1,22);ft_tag(1,6,"OUT",0x0000,tc);   /* OUT (as loud as it is, to the lane) */
+  for(i=0;i<64u;i++){int32_t v=form_scope[i]<0?-form_scope[i]:form_scope[i];if(v>pk)pk=v;}
+  for(i=0;i<64u;i++){int32_t x=32+(int32_t)i*205/63,y=12-form_scope[i]*10/pk;if(i)cv_line_t(px,py,x,y,tc,1);px=x;py=y;}}
  for(m=0;m<4u;m++){
-  int32_t y=52+(int32_t)m*17,ds=(int32_t)form_vds(t->p,m);uint32_t d=(uint32_t)(ds&511)>>3,now=(uint32_t)(st->lastm[m]<0?0:st->lastm[m]);
-  form_cap(6,y,FORM_SHAPE[d],T_TEXT);
-  for(k=0;k<16u;k++){uint32_t s=(now&~15u)+k,hit=form_hit(t->p,m,s,seed);int32_t x=58+(int32_t)k*11;
-   cv_rect(x,y,9,9,k==(now&15u)?(hit&&((form_lit[tr]>>m)&1u)?heat_col(245):T_TEXT):hit?heat_col(140):T_SURF);}
+  int32_t y=26+(int32_t)m*24,mid=y+11,ds=(int32_t)form_vds(t->p,m),px=0,py=0,cx=32+(int32_t)ft_x*3;
+  uint32_t d=(uint32_t)(ds&511)>>3,lit=(form_lit[tr]>>m)&1u,on=sel==m;char b[20];
+  uint16_t c=on?T_INK:FT_BL;
+  ft_frame(y,23);
+  b[0]='M';b[1]=(char)('1'+m);b[2]=0;ft_tag(1,y+1,b,lit?0x0000:on?0x0000:T_INK,lit?FT_YE:on?T_INK:FT_BL);
+  str_cpy(b,FORM_SHAPE[d],12);
+  {uint32_t pq=d/12u,n=0;while(b[n])n++;
+   if(pq==FPG_GES||pq==FPG_TAB){b[n]='>';str_cpy(b+n+1,FORM_DEST[ds&7],8);}}
+  {int32_t pk=6;for(i=0;i<FT_N;i++){int32_t a=ft_h[m][i]<0?-ft_h[m][i]:ft_h[m][i];if(a>pk)pk=a;}   /* (its swing, to the lane) */
+  for(i=0;i<FT_N;i++){int32_t v=ft_h[m][i],x=32+(int32_t)i*3,yy=mid-v*10/pk;
+   if(i&&(i<=ft_x||i>ft_x+3u))cv_line_t(px,py,x,yy,c,on?2:1);px=x;py=yy;
+   if((ft_l[i]>>m)&1u&&!((ft_l[(i+FT_N-1u)%FT_N]>>m)&1u))cv_rect(x,y+19,2,3,T_INK);}}   /* (a strike: a tick) */
+  {int32_t w=text_w(&AF_X,b)+4;cv_rect(237-w,y+1,w,11,T_BG);cv_text_on(239-w,y+2-AF_X_CAP_Y,&AF_X,b,on?T_TEXT:T_DIM,T_BG);}   /* (its shape > DEST, right) */
+  cv_rect(cx,y,1,23,FT_YE);cv_rect(cx-2,y,5,1,FT_YE);cv_rect(cx-1,y+1,3,1,FT_YE);
+  {int32_t v=ft_h[m][ft_x]*99/63,n=0;char q[6];if(v<0){q[n++]='-';v=-v;}if(v>9)q[n++]=(char)('0'+v/10);q[n++]=(char)('0'+v%10);q[n]=0;
+   cv_text_on(cx+3<210?cx+3:cx-22,y+12-AF_X_CAP_Y,&AF_X,q,FT_YE,T_BG);}
  }
 }
 /* the lens's panel for EDIT's page pg (1), else 0 (its own) */

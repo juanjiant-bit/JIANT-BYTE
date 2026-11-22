@@ -542,6 +542,8 @@ static void scr_shown(void)                            /* after the frame: the r
 }
 
 static const page_t *page_over;   /* a quick layer's own four knobs (ui_layer.c), while it edits or draws them */
+/* (BYTE, the owner) each track its colour, the thermal palette's: 1 yellow 2 orange 3 red 4 magenta 5 violet 6 blue */
+static const uint16_t TRK_COL[6] = {0xFE87, 0xFC45, 0xF9C7, 0xF9D6, 0xA2FF, 0x3C7F};
 static const page_t *cur_page(void) { return page_over ? page_over : &PAGES[ui.page]; }
 
 /* MENU > LARGE (#15, Discussion #80: what KNOB 1..4 do, in bigger type). Per page type:

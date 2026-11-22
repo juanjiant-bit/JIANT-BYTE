@@ -267,6 +267,90 @@ static void eco_water(int32_t bot, uint32_t still)       /* the cytoplasm: granu
         cv_rect(gx, gy, 1 + (int32_t)(h >> 31), 1 + (int32_t)(h >> 31), ux_mix(T_SURF, T_THEME, 22 + (int32_t)(h >> 29) * 4));
     }
 }
+#if FELUCCA_PIXEL
+/* (BYTE, the owner's references: the satellites' HUD) ORBIT: the sphere a wireframe turning (its latitudes, its
+ * meridians; the far side faint), each track a satellite on its own orbit (inclined its own way), running with its
+ * sound (eco.tm), its size its level; the orbit dotted, its last stretch a trail in the track's colour; a leader to its
+ * tag (its number, its engine, in its colour); the selected one bracketed; muted, dim */
+#define OB_BL 0x29FFu
+static int32_t ob_cx, ob_cy, ob_r;
+static uint32_t ob_rot;
+static int ob_pt(uint32_t la, uint32_t lo, int32_t *x, int32_t *y)   /* a point of the sphere (turns): 1 on the near side */
+{
+    int32_t cl = bg_sin(la + 0x4000u), X = cl * bg_sin(lo + ob_rot) >> 15, Z = cl * bg_sin(lo + ob_rot + 0x4000u) >> 15, Y = bg_sin(la);
+    int32_t ct = 30556, st = 11250;                    /* (its tilt: 0.35 rad) */
+    int32_t y2 = (Y * ct - Z * st) >> 15, z2 = (Y * st + Z * ct) >> 15;
+    *x = ob_cx + (X * ob_r >> 15);
+    *y = ob_cy - (y2 * ob_r >> 15);
+    return z2 > 0;
+}
+static void ob_orbit(uint32_t c, uint32_t a, int32_t *x, int32_t *y)   /* track c's orbit at angle a (turns) */
+{
+    uint32_t inc = 2400u + c * 1500u, r2 = ob_rot * 3u / 10u;
+    int32_t rk = ob_r * (282 + (int32_t)c * 12) >> 8, X = rk * bg_sin(a + 0x4000u) >> 15, S = rk * bg_sin(a) >> 15;
+    int32_t yy = S * bg_sin(inc) >> 15, z = S * bg_sin(inc + 0x4000u) >> 15;
+    *x = ob_cx + ((X * bg_sin(r2 + 0x4000u) - z * bg_sin(r2)) >> 15);
+    *y = ob_cy - yy + (z >> 2);
+}
+static void ob_sphere(int32_t bot, uint32_t still)
+{
+    uint32_t i, k;
+    int32_t x, y, px = 0, py = 0, f, pf = 0;
+    ob_cx = 82; ob_cy = bot / 2 + 8; ob_r = bot * 2 / 5;
+    ob_rot = still ? 0u : anim_fr * 90u;
+    for (k = 0; k < 5u; k++)                            /* the latitudes: -60 .. 60 */
+        for (i = 0; i <= 24u; i++) {
+            f = ob_pt((uint32_t)((int32_t)k - 2) * 5461u, i * 2731u, &x, &y);
+            if (i) cv_line(px, py, x, y, ux_mix(T_BG, OB_BL, f && pf ? 75 : 28));
+            px = x; py = y; pf = f;
+        }
+    for (k = 0; k < 6u; k++)                            /* the meridians */
+        for (i = 0; i <= 24u; i++) {
+            f = ob_pt(i * 2731u, k * 5461u, &x, &y);
+            if (i) cv_line(px, py, x, y, ux_mix(T_BG, OB_BL, f && pf ? 60 : 22));
+            px = x; py = y; pf = f;
+        }
+    for (i = 0; i < 48u; i += 2) {                      /* its rim, dotted */
+        x = ob_cx + (ob_r * bg_sin(i * 1365u + 0x4000u) >> 15); y = ob_cy + (ob_r * bg_sin(i * 1365u) >> 15);
+        cv_rect(x, y, 1, 1, T_DIM);
+    }
+}
+static uint32_t ob_ang(uint32_t c) { return eco.tm[c] / 2u + anim_fr * (40u + c * 9u) + c * 10923u; }
+static void ob_sat(uint32_t c, int32_t x, int32_t y, int32_t bot)
+{
+    uint32_t i, a = ob_ang(c);
+    int off = eco_off(c), sel = c == song.sel;
+    uint16_t tc = off ? T_DIM : TRK_COL[c % 6u];
+    int32_t px = 0, py = 0, qx, qy, s = 3 + eco.en[c] / 40, tw, tx, ty;
+    char tg[12];
+    for (i = 0; i <= 32u; i++) {                        /* its orbit, dotted; the last eighth its trail */
+        ob_orbit(c, a - 0x2000u + i * 2048u, &qx, &qy);
+        if (i && (i & 1u)) cv_line(px, py, qx, qy, ux_mix(T_BG, tc, 30));
+        px = qx; py = qy;
+    }
+    for (i = 0, px = x, py = y; i < 8u; i++) {          /* the trail */
+        ob_orbit(c, a - (i + 1u) * 900u, &qx, &qy);
+        cv_line(px, py, qx, qy, ux_mix(T_BG, tc, 90 - (int32_t)i * 10));
+        px = qx; py = qy;
+    }
+    cv_rect(x - s / 2, y - s / 2, s + 1, s + 1, tc);
+    if (sel) {                                          /* (the selected: bracketed) */
+        int32_t b = s / 2 + 4;
+        cv_rect(x - b, y - b, 3, 1, T_INK); cv_rect(x - b, y - b, 1, 3, T_INK);
+        cv_rect(x + b - 2, y - b, 3, 1, T_INK); cv_rect(x + b, y - b, 1, 3, T_INK);
+        cv_rect(x - b, y + b, 3, 1, T_INK); cv_rect(x - b, y + b - 2, 1, 3, T_INK);
+        cv_rect(x + b - 2, y + b, 3, 1, T_INK); cv_rect(x + b, y + b - 2, 1, 3, T_INK);
+    }
+    tg[0] = (char)('1' + c); tg[1] = ' '; str_cpy(tg + 2, ENGINES[trk_eng(&trk[c])]->name, 10);
+    tw = text_w(&AF_X, tg) + 4;
+    tx = 166; ty = 12 + (int32_t)c * 12;               /* (the tags a column: a leader from each, bent) */
+    (void)bot;
+    cv_line(x, y, tx - 12, ty + 5, ux_mix(T_BG, tc, 55));
+    cv_line(tx - 12, ty + 5, tx, ty + 5, ux_mix(T_BG, tc, 55));
+    cv_rect(tx, ty, tw, 11, tc);
+    cv_text_on(tx + 2, ty + 1 - AF_X_CAP_Y, &AF_X, tg, (c % 6u) >= 4u && !off ? 0xFFFFu : 0x0000u, tc);
+}
+#endif
 /* (V10.7.34) and LIFE (lf 1; life.c): the beings where the sound has them (its swim: agitated loud, calm in silence; its
  * breath their size), and between them who moves whom, a line from the one that moves to the one moved, thicker as it moves
  * it more (its weight x its sound now), a dot near the one moved; LIFE 0: no lines, STILL */
@@ -274,14 +358,11 @@ static void graph_eco(uint32_t lf)
 {
     uint32_t c, j, links = 0, still = ANIM_OFF() != 0;
     int32_t bx[ECO_N], by[ECO_N], bot = eco_bot(), lo;
-#if FELUCCA_PIXEL
-    int32_t label_x[ECO_N], label_y[ECO_N];
-#endif
     (void)eco_step();                                   /* (the swim, once a frame) */
     (void)bg_energy();                                  /* (the output's level kept as it was read: once a frame) */
     char b[48];
 #if FELUCCA_PIXEL
-    ub_scene(bot, bg_energy(), still);                 /* formula beings swim in the original HOME physics */
+    ob_sphere(bot, still);                             /* (BYTE) ORBIT: the sphere */
 #else
     eco_water(bot, still);
 #endif
@@ -289,6 +370,14 @@ static void graph_eco(uint32_t lf)
         eco_at(c, &bx[c], &by[c]);                      /* (codex/anim: between its last two steps) */
         bx[c] >>= 4;
         by[c] >>= 4;
+#if FELUCCA_PIXEL
+        {   /* (BYTE) each on its orbit */
+            int32_t x, y;
+            ob_orbit(c, ob_ang(c), &x, &y);
+            bx[c] = x << 4; by[c] = y << 4;
+            continue;
+        }
+#endif
         if (lf && life.init) {                          /* LIFE may not have received its first audio block yet */
             bx[c] = (12 + ((life.bx[c] * 216) >> 16)) << 4;
             by[c] = (8 + ((life.by[c] * (bot - 16)) >> 16)) << 4;
@@ -322,27 +411,9 @@ static void graph_eco(uint32_t lf)
                 py = by[c] >> 4, ny;
         char num[2] = {(char)('1' + c), 0};
 #if FELUCCA_PIXEL
-        r = clamp((r * 3 / 4) >> 4, 8, 18) << 4;
-        /* Portrait tentacles extend below their centre. Keep the complete
-         * silhouette and its moving track number inside the scene. */
-        rad = r >> 4;
-        px = clamp(px, rad + 3, 237 - rad);
-        py = clamp(py, rad + 12, bot - rad * 8 / 5 - 26);
-        eco_being(c, px << 4, py << 4, r);
-        ny = py + rad * 8 / 5 + 2;
-        /* When swimmers cross, keep their track numbers legible. Try nearby
-         * rows, never changing either being's audio-driven position. */
-        for (uint32_t attempt = 0; attempt < ECO_N; attempt++) {
-            uint32_t hit = 0;
-            for (j = 0; j < c; j++)
-                if (px - label_x[j] < 10 && label_x[j] - px < 10 &&
-                    ny - label_y[j] < 11 && label_y[j] - ny < 11) hit = 1;
-            if (!hit) break;
-            ny -= 12;
-            if (ny < 14) ny = bot - 14;
-        }
-        label_x[c] = px; label_y[c] = ny;
-        if (1)
+        (void)r; (void)rad; (void)ny; (void)num;
+        ob_sat(c, px, py, bot);
+        if (0)
 #else
         eco_being(c, bx[c], by[c], r);
         ny = clamp(py + rad / 2 + 4, 4, bot);

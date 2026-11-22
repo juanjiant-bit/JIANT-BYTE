@@ -129,7 +129,7 @@ static void form_note_on(track_t*t,voice_t*v){(void)t;memset(v->s,0,sizeof v->s)
 /* ---- the gestures: a key's or a euclid's, alive until their envelope is out ---- */
 typedef struct{uint8_t sh,mod,fl,vel,key,spd;uint16_t len;uint32_t t0,rel;} form_g_t;   /* fl: 1 held 2 latched 4 inverted 8 alive */
 #define FORM_G 6u
-typedef struct{int32_t last,lastm[4];int16_t dv[8];uint32_t clk,nz,hdown;int32_t nzl,lpz,hold,hc,dcx,dcy;int8_t hmod;   /* (hmod: the black held, MOD n+1; 0 none) */uint8_t modes;form_g_t g[FORM_G];} form_st_t;
+typedef struct{int32_t last,lastm[4];int16_t dv[8],mv[4];uint32_t clk,nz,hdown;int32_t nzl,lpz,hold,hc,dcx,dcy;int8_t hmod;   /* (hmod: the black held, MOD n+1; 0 none) */uint8_t modes;form_g_t g[FORM_G];} form_st_t;
 static form_st_t form_st[NTRK] __attribute__((section(".pool")));   /* (out of the bss: its room) */
 static int16_t form_scope[64];
 static volatile uint8_t form_scope_tr=0xFF;
@@ -252,7 +252,7 @@ enum{FV_OCT,FV_FM,FV_FOLD,FV_CRUSH,FV_NOISE,FV_SHAPE,FV_LEVEL,FV_RATIO,FV_LIFT,F
 /* every gesture alive, summed into the eight (and the lift, the notes' semitones) */
 static void form_eval(form_st_t*st,const int16_t*p,int32_t*D,uint32_t at)
 {
- uint32_t i;
+ uint32_t i;int32_t M[4]={0,0,0,0};                  /* (the panel: what each modulator adds now) */
  for(i=0;i<FORM_G;i++){
   form_g_t*g=&st->g[i];if(!(g->fl&8u))continue;
   uint32_t m=g->mod&3u,raw=(st->clk-g->t0)>>8,sh=g->sh,pg=sh/12u,k=sh%12u;
@@ -272,7 +272,7 @@ static void form_eval(form_st_t*st,const int16_t*p,int32_t*D,uint32_t at)
    else if(k==7){int32_t x=form_fexp((tau*1477u)>>8);oct=-4096+(24576*x>>15);fm=5200*x>>15;}
    D[FV_LIFT]+=h[0]*A>>15;D[FV_OCT]+=oct*A>>15;D[FV_LEVEL]+=h[2]*A>>15;D[FV_SHAPE]+=h[3]*A>>15;
    D[FV_FM]+=fm*A>>15;D[FV_RATIO]+=h[5]*A>>15;D[FV_NOISE]+=h[6]*A>>15;D[FV_CRUSH]+=h[7]*A>>15;
-   continue;}
+   M[m]+=A;continue;}
   if(pg==FPG_NOTE){
    int32_t sem,pl=0;
    if(k<3u){sem=FORM_ARP[k][(tau>>8)%(k==2u?6u:4u)];pl=1;}
@@ -281,11 +281,11 @@ static void form_eval(form_st_t*st,const int16_t*p,int32_t*D,uint32_t at)
    else if(k==9u)sem=12;else if(k==10u)sem=7;else sem=-(int32_t)(tau>=512u?12:tau*12u/512u);
    D[FV_LIFT]+=a;D[FV_SEM]+=(int32_t)((int64_t)sem*341*a>>15);D[FV_ESUM]+=a;
    if(pl){int32_t q=32767-form_fexp(((tau&255u)*923u)>>8);D[FV_LEVEL]-=(27852*q>>15)*a>>15;}
-   continue;}
-  if(pg==FPG_FM){if(k<7u){D[FV_RATIO]+=FORM_RAT[k]*e>>15;D[FV_FM]+=5200*a>>15;}continue;}
-  if(sh==S_REST){D[FV_OCT]-=(int32_t)((int64_t)8*4096*a>>15);continue;}
+   M[m]+=sem*a/12;continue;}
+  if(pg==FPG_FM){if(k<7u){D[FV_RATIO]+=FORM_RAT[k]*e>>15;D[FV_FM]+=5200*a>>15;}M[m]+=a;continue;}
+  if(sh==S_REST){D[FV_OCT]-=(int32_t)((int64_t)8*4096*a>>15);M[m]-=a;continue;}
   int32_t v=form_shape(sh,tau,g->t0);if(g->fl&4u)v=-v;
-  int32_t va=v*a>>15;
+  int32_t va=v*a>>15;M[m]+=va;
   switch(dst){
    case FD_PITCH:D[FV_OCT]+=va>>2;if(va>0)D[FV_LIFT]+=va;break;
    case FD_FM:D[FV_FM]+=va*15600>>15;break;
@@ -296,6 +296,7 @@ static void form_eval(form_st_t*st,const int16_t*p,int32_t*D,uint32_t at)
    default:D[FV_LEVEL]+=va;break;
   }
  }
+ for(i=0;i<4u;i++)st->mv[i]=(int16_t)clamp(M[i]>>8,-1024,1024);
 }
 static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*out,uint32_t n,const vmod_t*m)
 {

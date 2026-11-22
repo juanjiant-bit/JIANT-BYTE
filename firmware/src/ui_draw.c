@@ -233,7 +233,6 @@ static void sound_name(const track_t *t, char *b);
 /* the centre's words (b holds 40) and their colour */
 /* (BYTE, the owner: "each track its own colour, the thermal palette's: 1 yellow 2 orange 3 red 4 magenta 5 violet 6 blue";
  * the top bar: TRACK N / its engine, upper case, in its colour) */
-static const uint16_t TRK_COL[6] = {0xFE87, 0xFC45, 0xF9C7, 0xF9D6, 0xA2FF, 0x3C7F};
 static uint8_t head_trk;                               /* (the title a track's: its bar) */
 static uint16_t head_title(char *b)
 {
