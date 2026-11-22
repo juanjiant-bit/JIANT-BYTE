@@ -137,6 +137,27 @@ int main(int argc, char **argv)
         OK(song_draft && proj_cur == PROJ_NO_SLOT && !memcmp(&chain_config, &empty, sizeof empty), "POWER-ON: a new project (draft), the saved songs untouched");
         song_draft = 0;
     }
+    {   /* (BYTE) GLO > COMP PLAY: a white key plays its component while held; REC + PLAY: let go, it is in the lane */
+        ui_power_on(); go_home(); frame();
+        int ok = nav_put(SEC_GLO, "COMP PLAY") && gco_play();
+        memset(glane, 0, sizeof glane); gl_touch();
+        fm1_in.notes = 1u; frame();                     /* (F3: MUTE) */
+        ok &= CO_ACT(gl_lv.comp) == CA_MUTE && gl_lv.mask == (1u << NTRK) - 1u;
+        fm1_in.notes = 0; frame();
+        ok &= !gl_lv.comp && !gl_on;                    /* (no REC: nothing written) */
+        int32_t bb[CTL * 2];
+        song.rec = 1u; transport_req = 1; for (unsigned j = 0; j < 40u; j++) mix_block(bb, CTL); frame();
+        uint32_t g0 = clk_n;
+        fm1_in.notes = 1u << 7; frame();                 /* (C4: RATCH x2, held) */
+        for (unsigned j = 0; j < 2000u; j++) mix_block(bb, CTL);
+        frame();
+        ok &= CO_ACT(gl_lv.comp) == CA_RATCH;
+        fm1_in.notes = 0; frame();
+        ok &= !gl_lv.comp && gl_on && CO_ACT(glane[g0 % GL_N].comp) == CA_RATCH;
+        transport_req = 2; for (unsigned j = 0; j < 40u; j++) mix_block(bb, CTL); song.rec = 0;
+        OK(ok, "COMP PLAY: a key plays its component held, REC adds it to the lane (%u steps held)", (unsigned)glane[g0 % GL_N].len + 1u);
+        memset(glane, 0, sizeof glane); gl_touch();
+    }
     printf("form: %s\n", ft_bad ? "FAIL" : "all ok");
     return ft_bad != 0;
 }

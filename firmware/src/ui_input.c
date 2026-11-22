@@ -126,8 +126,6 @@ static uint32_t oct_leds(void)
                (menu_step(ui.menu_sel, 1) != menu_get(ui.menu_sel) ? OCT_BREATH : 0u);         /* way it can go */
     if (ui.confirm || act_cols())
         return 1u | (ui.confirm || act_ready() ? OCT_BREATH : 0u);
-    if (live_page())                                    /* (p2) LIVE: OCT- RETURN lit, OCT+ COMMIT breathing, while */
-        return lv.busy ? 1u | OCT_BREATH : 0u;          /* a track is modified */
     return (song.octave < 0 ? 1u : 0u) | (song.octave > 0 ? 2u : 0u);
 }
 
@@ -296,7 +294,7 @@ static uint32_t step_leds(void)
  * dark; 0: the keys held and the notes playing, over the idle glow */
 static int keys_own(void)
 {
-    return (name_on() && !ui.menu) || ui.layer || grid_on() || live_mano();
+    return (name_on() && !ui.menu) || ui.layer || grid_on();
 }
 
 /* Discussion #127 (1.2): MENU > SCALE LEDS ON, the keys of the selected track's scale (ROOT, SCALE), bit k = key k, as
@@ -339,7 +337,7 @@ static uint32_t key_leds(uint32_t *br)                 /* (*br: a layer's keys t
     uint32_t c;
     if (br)
         *br = 0;
-    c = name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds(br) : grid_on() ? grid_leds() : live_mano() ? live_leds() :
+    c = name_on() && !ui.menu ? name_leds() : ui.layer ? layer_leds(br) : grid_on() ? grid_leds() :
                  (fm1_in.notes & ~kb_layer) | play_leds() | step_leds() | voice_leds();
     return c;
 }
@@ -1456,10 +1454,6 @@ static void edit_param(uint32_t slot, int32_t steps)
     const page_t *pg = cur_page();
     const param_desc_t *d;
     int32_t v;
-    if (FELUCCA_LIVE && pg->graph == GR_LIVE) {         /* (p2) GLO > LIVE (ui_live.c) */
-        live_knob(slot, steps);
-        return;
-    }
     if (BAR_PAGE(pg) && slot == 0u) {                    /* (0.9.2) SEQ > BAR: KNOB 1 the bar (no wrap), the cursor at its
                                                          * place in it */
         uint32_t len = (uint32_t)clamp(TSEL->p[P_SLEN], 1, NSTEP), nb = (len + 15u) / 16u;
@@ -2181,6 +2175,10 @@ static void presets_turn(int32_t s) /* One continuous preset list; EDIT + PRESET
     static uint32_t mark_ms;
     uint32_t total, cur, n, k;
     char nm[24];
+    if ((ui_help_off & 2u) && (ui.home || (cur_page()->graph != GR_BROWSE && PAGES[ui.page].fam != FAM_SEQ))) {
+        nav_put(SEC_SAVE, "PRESETS");                   /* (JIANT FM V10.7.81) PRESETS MENU: the knob opens the list, then scrolls it */
+        return;
+    }
     if (!ui.home && cur_page()->graph == GR_BROWSE) {
         pl_scroll(s);
         return;
@@ -2780,7 +2778,7 @@ static void ui_input_frame(void)
             pl_close();
     }
     layer_masks();                                      /* seq.c: keys pressed with a layer's button are its own */
-    live_frame();                                       /* (p2) GLO > LIVE: KEYS's keys, OCT- held, the modifiers */
+    gpl_frame();                                        /* (BYTE) GLO > COMP PLAY: the components the keys hold */
     {   /* (0.6.67) a button held + SELECT (rule 5): its dice (HOME the generator, GEN; EDIT the sound, SEQ the sequence,
          * LFO the LFO, FX the effects; GLO + SELECT the tempo), ENV SCL ARP SAVE their chain (nav_jump); the button's tap
          * and layer swallowed, and the turn's last detents for a moment after it is let go (no page moved by them). Not in
@@ -3024,8 +3022,6 @@ static void ui_input_frame(void)
                     ui.song_row = 0;
                     ui_message("SONG CLEARED");
                 }
-            } else if (kind == CF_LIVE_COMMIT) {        /* (p2) LIVE: the modifiers written (UNDO: marked above) */
-                live_commit(ui.confirm_trk);
             } else if (kind == CF_CPU_TEST) {           /* (0.6.83) SAVE > TOOLS 6: the heaviest song (UNDO: back) */
                 if (!chain_busy()) {
                     cpu_test_song();
@@ -3151,8 +3147,6 @@ static void ui_input_frame(void)
             uint32_t both = (1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP]);
             if (act_cols() || layer_set_open() || gen_on())   /* action pages: enter / back (below); SET layers: OCT-; GEN */
                 break;
-            if (live_page())                            /* (p2) LIVE: OCT- RETURN / held BYPASS, OCT+ COMMIT */
-                break;                                  /* (ui_live.c live_frame) */
             if (!ui.home && !ui.menu && !ui.confirm && cur_page()->graph == GR_BROWSE) {   /* (V10.7.33) PRESETS' list: OCT+
                                                          * loads the sound picked, OCT- closes it as it was */
                 if (b == B_OCTUP)

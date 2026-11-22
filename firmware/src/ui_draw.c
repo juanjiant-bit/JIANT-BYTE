@@ -1274,6 +1274,15 @@ static __attribute__((noinline)) void comp_columns(void)
         const gcomp_t *gc = &glane[gl_cur % GL_N];
         uint32_t a = CA_VIEW(CO_ACT(gc->comp), gc->val);
         char lb[10], un[8];
+        if (gco_play()) {                               /* (BYTE) COMP PLAY: what a key plays, on what, REC */
+            text_column(0, "PLAYS", gpl_key < 16u ? CA_NAMES[GPL_ACT[gpl_key]] : "-", gpl_key < 16u ? VAL(0u) : T_DIM);
+            if (gpl_mask == (1u << NTRK) - 1u) str_cpy(val, "ALL", 8); else fmt_int(val, (int32_t)__builtin_popcount(gpl_mask));
+            hot_text_column(1, "TRACKS", val);
+            text_column(2, "REC", song.rec ? "ADDS" : "OFF", song.rec ? VAL(2u) : T_DIM);
+            fmt_int(val, (int32_t)(clk_n % GL_N) + 1);
+            text_column(3, "STEP", song.playing ? val : "-", T_DIM);
+            return;
+        }
         if (gco_slot()) {
             fmt_int(val, (int32_t)gl_cur + 1);
             hot_text_column(0, "STEP", val);
@@ -1387,10 +1396,6 @@ static void draw_columns(void)
     if (cur_page()->graph == GR_SWARM) {               /* (V10.6z6) EDIT > SWARM, SWARM 2 (ui_dx.c) */
         if (bt_hw_seg())
             sw_ui_cards_bt(cur_page());
-        return;
-    }
-    if (FELUCCA_LIVE && cur_page()->graph == GR_LIVE) {   /* (p2) GLO > LIVE (ui_live.c) */
-        live_cards();
         return;
     }
     if (cur_page()->graph == GR_FOCUS) {               /* (0.8.5) EDIT > FOCUS: PARAM, its value, SRC, AMT */
@@ -2160,10 +2165,6 @@ static void confirm_text(char *a, char *b)
         break;
     case CF_CPU_TEST:                                /* (0.6.83) SAVE > TOOLS 6 */
         str_cpy(a, "BUILD CPU TEST SONG?", 24);
-        str_cpy(b, "UNDO AFTER: GLO + G4", 24);
-        break;
-    case CF_LIVE_COMMIT:                             /* (p2) GLO > LIVE (k: the tracks) */
-        str_cpy(a, "WRITE LIVE CHANGES?", 24);
         str_cpy(b, "UNDO AFTER: GLO + G4", 24);
         break;
     case CF_INIT_SYS:                                /* (0.6.40) SAVE > TOOLS; (V10.7.22) CLEAR PROJECT, MENU > INIT */

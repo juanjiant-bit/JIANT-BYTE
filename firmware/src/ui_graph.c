@@ -1376,8 +1376,6 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
         h ^= (ui.ev_top + 1u) * 3266489917u + motion_enabled(t) * 977u;
     }
     if (pg->graph == GR_CHANCE) h ^= ui.cursor * 40503u + step_chance(&t->step[ui.cursor]);
-    if (FELUCCA_LIVE && pg->graph == GR_LIVE)        /* (p2) GLO > LIVE: the playheads, the ghosts, the keys */
-        h = live_sig(h);
     if (pg->graph == GR_FUGUE) {                     /* (0.6.52) the heads, their settings, where they are */
         uint32_t ti = song.sel % NTRK, k;
         h = (h ^ (steps_hash(t) + (song.playing ? seq_src(t, t->seq_idx) : 0xFFFFu) * 31u + fg_ui * 7u)) * 16777619u;
@@ -1415,6 +1413,7 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
              (song.playing ? t->seq_idx + 1u : 0u) << 16) * 16777619u;
     }
     if (pg->graph == GR_GCOMP) {                     /* (0.9.9-seq2f) the global lane, its cursor, MONO, the step playing */
+        h = (h ^ (gl_lv.comp * 131u + gpl_mask * 65537u + (uint32_t)song.rec * 3u + gpl_key * 40503u)) * 16777619u;
         h = (h ^ (gl_cur * 7919u + gl_trk * 31u + gl_mono * 977u + (song.playing ? gl_step_at(0) % GL_N + 1u : 0u))) *
             16777619u;
         for (i = 0; i < GL_N; i++)
@@ -2055,9 +2054,6 @@ static void draw_graph(void)
         cv_oy = 0;
         graph_home_lz();                             /* (0.8.5: HOME's lens; V10.7.24 MACROS / SCOPE; JIANT 0.5: the system's
                                                       * beings, was the scope) */
-    } else if (FELUCCA_LIVE && pg->graph == GR_LIVE) {   /* (p2) GLO > LIVE: the rails, KEYS's board (ui_live.c) */
-        cv_oy = 0;
-        graph_live();
     } else if (pg->graph == GR_SCENE) {              /* (V10.25) SCL > SCENE: the six tracks' roles */
         cv_oy = 0;
         graph_scene();

@@ -132,7 +132,7 @@ static const nv_t CE_GLO[] = {NV("KEYS", 0, 0, 0), NV("RAILS", 0, 0, 0), NV("MIX
                              };
 #else
 static const nv_t CE_GLO[] = {NV("MIXER", 0, 0, 0), NV("BUS SENDS", 0, 0, 0),
-                              NV("COMP", 0, 1, 3), NV("COMP 2", 0, 1, 3), NV("GLOBAL", 0, 2, 1),
+                              NV("COMP", 0, 1, 3), NV("COMP 2", 0, 1, 3), NV("COMP PLAY", 0, 1, 3), NV("GLOBAL", 0, 2, 1),
                               NV("SYSTEM", 0, 2, 2), NV("PORTS", 0, 2, 2)
 #if FELUCCA_SPLIT
                               , NV("KEY SPLIT", 0, 2, 2), NV("KEY SPLIT 2", 0, 2, 2)   /* (V10.7.32: out, core.h) */

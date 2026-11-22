@@ -2006,6 +2006,8 @@ static const step_t *seq_unit(const track_t *t, uint32_t len, uint32_t k, uint32
 typedef struct { uint8_t comp, val, len, nm, mask; } gcomp_t;
 typedef struct { uint32_t g0; uint8_t act, val, len, mask, ser; int8_t mv; } gspan_t;
 static gcomp_t glane[GL_N];
+static gcomp_t gl_lv;                                   /* (BYTE) GLO > COMP PLAY: the component a key holds, a span of
+                                                         * one step on every global step while held (ui.c gpl_frame) */
 static uint8_t gl_mono, gl_on;                          /* MONO (1) / POLY (0); any step of the lane set */
 static gspan_t gsp[GSP_N];
 static uint8_t gsp_n, gl_ser, gl_pre, gl_acc, gl_took[NTRK];
@@ -2081,6 +2083,17 @@ static void gl_eval(uint32_t g)                         /* every global step up 
         gl_next = g - 63u;
     for (; gl_next <= g; gl_next++) {
         const gcomp_t *c = &glane[gl_next % GL_N];
+        if (CO_ACT(gl_lv.comp) && gl_lv.mask) {         /* (COMP PLAY: held, on this step too, beside the lane's) */
+            uint32_t j, m = 0;
+            for (j = 0; j < gsp_n; j++)
+                if (gsp[j].g0 + gsp[j].len > gl_next) gsp[m++] = gsp[j];
+            gsp_n = (uint8_t)m;
+            if (gsp_n == GSP_N) { gsp[0] = gsp[1]; gsp_n--; }
+            gsp[gsp_n].g0 = gl_next; gsp[gsp_n].act = (uint8_t)CO_ACT(gl_lv.comp); gsp[gsp_n].val = gl_lv.val;
+            gsp[gsp_n].len = 1; gsp[gsp_n].mask = gl_lv.mask; gsp[gsp_n].ser = ++gl_ser;
+            gsp[gsp_n].mv = (int8_t)(CO_ACT(gl_lv.comp) == CA_TRANS ? CV_TR_MOVE(gl_lv.val) : 0);
+            gsp_n++;
+        }
         uint32_t a = CO_ACT(c->comp), v = c->val, p = gl_next / GL_N, ok, i, n = 0;
         int32_t mv = 0;
         if (!a || !c->mask)
@@ -2154,7 +2167,7 @@ static __attribute__((noinline)) const step_t *comp_run(track_t *t, const step_t
     uint8_t probability = s->probability;   /* save before cvs can replace an aliased C.LEN input */
     t->cx_deg = t->cx_oct = 0;
     t->cx_rnd = t->cx_rat = t->cx_dec = t->cx_tch = t->cx_bend = t->cx_arp = t->cx_lock = 0;
-    if (gl_on || gsp_n) {                               /* (seq2f) the global lane: evaluated up to here */
+    if (gl_on || gsp_n || gl_lv.comp) {                 /* (seq2f) the global lane: evaluated up to here; COMP PLAY held */
         g = gl_step_at(ev_off);
         gl_eval(g);
     }

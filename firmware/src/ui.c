@@ -410,16 +410,6 @@ enum { CF_NONE, CF_CLEAR_SEQ, CF_CLEAR_TRK, CF_OVR_PROJ, CF_OVR_USER, CF_LOAD_PA
                                    * keep the diced sequence / LFO / effects?;
                                    * SAVE over a used slot; a pattern over the user's steps;
                                    * USER ERASE; (0.9.3) MUTATE turned OFF: BACK TO BEFORE MUTATE?; (p2) LIVE's COMMIT */
-/* (p2, main 0.9.11) GLO > LIVE: KEYS, RAILS (ui_live.c, included by ui_layer.c) */
-static int live_page(void);
-static int live_mano(void);
-static void live_frame(void);
-static void live_knob(uint32_t slot, int32_t steps);
-static void live_cards(void);
-static void graph_live(void);
-static uint32_t live_sig(uint32_t h);
-static uint32_t live_leds(void);
-static void live_commit(uint32_t m);
 
 /* MENU > DISPLAY > SCREEN OFF (1.1.5): after a while with no input on the panel the screen goes dark (the backlight
  * stays on: lcd.c lcd_power)
@@ -637,7 +627,7 @@ static int page_visible(uint32_t i)
     if (PAGES[i].graph == GR_SONG && (PAGES[i].fam == FAM_SEQ || PAGES[i].title[0] == 'C'))   /* (V10.7.32: CLIPS, PARTS' grid) */
         return 0;                                       /* (0.6.24) the song in one place: SAVE > ARRANGE (SEQ > SONG
                                                          * was the same page twice; kept in the table: its index) */
-    if ((!FELUCCA_LIVE && PAGES[i].graph == GR_LIVE) || (!FELUCCA_XFX && PAGES[i].fam == FAM_FX && PAGES[i].id[0] == ID_BAL))
+    if (PAGES[i].graph == GR_LIVE || (!FELUCCA_XFX && PAGES[i].fam == FAM_FX && PAGES[i].id[0] == ID_BAL))
         return 0;                                       /* (V10.7.30) KEYS RAILS, BALANCE out (core.h): kept in the table */
     if ((!FELUCCA_SPLIT && (uint32_t)(PAGES[i].graph - GR_SPLIT) < 2u) || (!FELUCCA_ENVX && PAGES[i].graph == GR_STAGE))
         return 0;                                       /* (V10.7.32) KEY SPLIT, KEY SPLIT 2, ENV > STAGE out (core.h) */
@@ -1097,7 +1087,8 @@ static void comp_vname(const track_t *t, const step_t *s, uint32_t a, uint32_t v
 static uint8_t gl_cur, gl_trk;
 static const uint8_t GA_LIST[] = {CA_NONE, CA_MUTE, CA_STUT, CA_OCTU, CA_OCTD, CA_RATCH, CA_TRANS, CA_ARP, CA_RAND, CA_CHORD,
                                   CA_TRIG};
-static uint32_t gco_slot(void) { return ui.page > 0u && PAGES[ui.page - 1u].graph == GR_GCOMP; }
+static int gco_play(void) { return cur_page()->graph == GR_GCOMP && cur_page()->title[4] == ' ' && cur_page()->title[5] == 'P'; }
+static uint32_t gco_slot(void) { return ui.page > 0u && PAGES[ui.page - 1u].graph == GR_GCOMP && !gco_play(); }
 static int keys_pg(uint32_t g) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == g; }   /* (V10.6o) */
 static int gco_on(void) { return keys_pg(GR_GCOMP); }
 static int ckeys_on(void) { return keys_pg(GR_COMP); }   /* (seq2g) */
@@ -1114,6 +1105,8 @@ static __attribute__((noinline)) void gco_knob(uint32_t slot, int32_t steps)
     gcomp_t *c = &glane[gl_cur % GL_N];
     uint32_t a = CA_VIEW(CO_ACT(c->comp), c->val);
     int32_t d = clamp(steps, -4, 4);
+    if (gco_play())
+        return;                                         /* (COMP PLAY: the keys alone) */
     if (gco_slot()) {                                   /* COMPS 2 */
         if (slot == 0u) gl_cur = (uint8_t)clamp((int32_t)gl_cur + d, 0, GL_N - 1);
         else if (slot == 1u) gl_trk = (uint8_t)clamp((int32_t)gl_trk + d, 0, NTRK - 1);
@@ -1154,10 +1147,58 @@ static __attribute__((noinline)) void gco_knob(uint32_t slot, int32_t steps)
     }
     gl_touch();
 }
+/* (BYTE, the owner: "a new mode of the master's step components: play them, and add them") GLO > COMP PLAY: the
+ * white keys are components played while held, on the tracks the black keys 1..6 choose (all to start with); with REC
+ * and PLAY, let go, it is added to the global lane at the step it went down on, its LENGTH as long as it was held. The
+ * lane's own engine plays it (seq.c gl_lv): nothing of LIVE's */
+static const uint8_t GPL_ACT[16] = {CA_MUTE, CA_STUT, CA_OCTU, CA_OCTD, CA_RATCH, CA_RATCH, CA_RATCH, CA_TRANS, CA_TRANS, CA_TRANS,
+                                    CA_ARP, CA_RAND, CA_CHORD, CA_MUTE, CA_RATCH, CA_TRANS};
+static const uint8_t GPL_VAL[16] = {0, 0, 0, 0, 0, 1, 2, CV_TR_MAKE(2, 1), CV_TR_MAKE(4, 1), CV_TR_MAKE(-2, 1),
+                                    0x08, 1, 0, CV_MUTE_CUT, 6, CV_TR_MAKE(7, 1)};
+static uint8_t gpl_mask = (uint8_t)((1u << NTRK) - 1u), gpl_key = 0xFFu;
+static uint32_t gpl_prev, gpl_g0, gpl_k;
+static void gpl_off(void)
+{
+    uint32_t p = gpl_key;
+    if (p >= 16u)
+        return;
+    if (song.playing && song.rec) {                     /* REC: into the lane, where it went down */
+        gcomp_t *c = &glane[gpl_g0 % GL_N];
+        uint32_t l = clk_n > gpl_g0 ? clk_n - gpl_g0 : 1u;
+        c->comp = CO_MAKE(GPL_ACT[p], CC_ALWAYS); c->val = GPL_VAL[p];
+        c->len = (uint8_t)((l > CL_MAX ? CL_MAX : l) - 1u); c->nm = CNM_MAKE(1u, 2u); c->mask = gpl_mask;
+        gl_cur = (uint8_t)(gpl_g0 % GL_N);
+        gl_touch();
+    }
+    gl_lv.comp = 0;
+    gpl_key = 0xFFu;
+}
+static void gpl_frame(void)                             /* each pass: the keys held on COMP PLAY */
+{
+    uint32_t held = keys_pg(GR_GCOMP) && gco_play() ? fm1_in.notes & ~kb_layer : 0u, dn = held & ~gpl_prev, k;
+    for (k = 0; k < 27u; k++) {
+        uint32_t p = key_place(k);
+        if ((dn >> k) & 1u) {
+            if (key_black(k)) {
+                if (p < NTRK) gpl_mask ^= (uint8_t)(1u << p);
+                gl_lv.mask = gpl_mask;
+            } else if (p < 16u) {
+                gpl_off();                              /* (one at a time: the last pressed plays) */
+                gpl_key = (uint8_t)p; gpl_k = k; gpl_g0 = clk_n;
+                gl_lv.val = GPL_VAL[p]; gl_lv.mask = gpl_mask; gl_lv.comp = CO_MAKE(GPL_ACT[p], CC_ALWAYS);
+            }
+        }
+    }
+    if (gpl_key < 16u && !((held >> gpl_k) & 1u))
+        gpl_off();
+    gpl_prev = held;
+}
 /* the keys on COMPS (presses): a white key the step, black keys 1..6 its tracks */
 static void gco_keys(uint32_t pressed)
 {
     uint32_t k;
+    if (gco_play())
+        return;                                         /* (COMP PLAY: gpl_frame) */
     for (k = 0; k < 27u; k++) {
         uint32_t p = key_place(k);
         gcomp_t *c = &glane[gl_cur % GL_N];

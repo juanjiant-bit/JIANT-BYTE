@@ -1487,7 +1487,6 @@ static __attribute__((noinline)) void draw_layer(void)
     draw_foot();
 }
 
-#include "ui_live.c"                                    /* (p2, main 0.9.11) GLO > LIVE: KEYS, RAILS */
 
 
 
