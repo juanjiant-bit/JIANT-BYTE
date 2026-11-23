@@ -229,51 +229,56 @@ static uint16_t note_col(uint32_t n)
 {
     return heat_col(40 + (int32_t)(n % 12u) * 200 / 11);
 }
+/* (BYTE, the owner's SPHERE + READING) the scale on a wireframe sphere's equator, turning: its notes as tags where
+ * they face us (ROOT in the track's colour, the one sounding yellow), the far side dots; at the right large: the note
+ * sounding, the scale, a cell a degree */
 static __attribute__((noinline)) void graph_key(const track_t *t, const page_t *pg)
 {
     static const char *const NN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-    static const uint8_t BLK[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
-    uint32_t mask = scale_mask(t), i, rt = (uint32_t)clamp(t->p[P_ROOT], 0, 11), first = 12u, prev = 12u;
-    int32_t px[12], py[12];
+    uint32_t mask = scale_mask(t), i, k, rt = (uint32_t)clamp(t->p[P_ROOT], 0, 11), now = last_note % 12u, nd = 0, age = 0;
+    uint32_t rot = ANIM_OFF() ? 0u : anim_fr * 60u;
+    int32_t cx = 62, cy = 62, R = 52;
+    uint16_t tc = TRK_COL[(uint32_t)(t - trk) % 6u];
     const char *u = "";
     char b[16];
-    for (i = 0; i < 12u; i++) {
-        uint32_t a = (uint32_t)(i * 65536u / 12u) + 0xC000u;   /* (C on top, clockwise; a turn 65536, in decimal: the
-                                                         * build's register lint reads 0x10000 as an SFR) */
-        px[i] = 62 + (og_cos(a) * 42 >> 15);
-        py[i] = 58 + (og_sin(a) * 42 >> 15);
+    (void)pg;
+    for (i = 0; i < NVOICE; i++)                        /* (the note sounding: the newest voice's, else the last key's) */
+        if (t->v[i].active && t->v[i].age >= age) { age = t->v[i].age; now = t->v[i].note % 12u; }
+    for (k = 0; k < 3u; k++) {                          /* the sphere: three latitudes */
+        int32_t sl = k == 1u ? 0 : k ? 9000 : -9000, cl = og_cos((uint32_t)(sl < 0 ? -sl : sl)), px = 0, py = 0;
+        for (i = 0; i <= 40u; i++) {
+            uint32_t a2 = i * 65536u / 40u;
+            int32_t x = cx + (og_cos(a2) * R >> 15) * cl / 32768, y = cy + (og_sin((uint32_t)sl) * R / 32768) * 55 / 100 + ((og_sin(a2) * R >> 15) * cl / 32768) * 45 / 100;
+            if (i) cv_line(px, py, x, y, k == 1u ? 0x2A6Fu : 0x1A4Bu);
+            px = x; py = y;
+        }
     }
-    for (i = 0; i < 12u; i++) {                         /* the scale joined */
-        uint32_t n = (rt + i) % 12u;
-        if (!(mask >> i & 1u))
-            continue;
-        if (prev < 12u)
-            og_line(px[prev] * 16, py[prev] * 16, px[n] * 16, py[n] * 16, note_col(prev));
-        else
-            first = n;
-        prev = n;
+    for (i = 0; i < 12u; i++) {                         /* the notes round its equator */
+        uint32_t deg = (i + 12u - rt) % 12u, in = mask >> deg & 1u, a2 = i * 65536u / 12u + rot;
+        int32_t x = cx + (og_cos(a2) * R >> 15), y = cy + (og_sin(a2) * R >> 15) * 45 / 100, front = og_sin(a2) > 0;
+        if (!in) continue;
+        if (front) {
+            uint16_t bg = i == now ? HUD_YE : deg == 0u ? tc : HUD_BL;
+            int32_t tw = text_w(&AF_X, NN[i]) + 4;
+            cv_rect(x - tw / 2, y - 6, tw, 11, bg);
+            cv_text_on(x - tw / 2 + 2, y - 5 - AF_X_CAP_Y, &AF_X, NN[i], i == now || deg == 0u ? 0x0000u : T_TEXT, bg);
+        } else
+            cv_rect(x - 1, y - 1, 3, 3, T_DIM);
     }
-    if (first < 12u && prev != first)
-        og_line(px[prev] * 16, py[prev] * 16, px[first] * 16, py[first] * 16, note_col(prev));
-    for (i = 0; i < 12u; i++) {
-        uint32_t deg = (i + 12u - rt) % 12u, in = mask >> deg & 1u;
-        uint16_t c = in ? note_col(i) : T_RAISE;
-        if (deg == 0u)                                  /* the ROOT: its colour in a ring of text */
-            og_node(px[i] * 16, py[i] * 16, 9, T_TEXT);
-        og_node(px[i] * 16, py[i] * 16, in ? 7 : 4, c);
-        if (in)
-            cv_text_in(px[i] - 7, py[i] - 3 - AF_X_CAP_Y, 14, &AF_X, NN[i], T_INK, c);
-    }
-    cv_text_in(42, 48 - AF_M_CAP_Y, 40, &AF_M, NN[rt], note_col(rt), T_SURF);
-    param_format(&TP[P_SCALE], t->p[P_SCALE], b, &u);
-    cv_text_in(32, 66 - AF_X_CAP_Y, 60, &AF_X, b, T_TEXT, T_SURF);
-    (void)pg;                                           /* (QUANT and ALL TR stood at the right: their cards say them) */
-    for (i = 0; i < 24u; i++) {                         /* two octaves from C */
-        uint32_t deg = (i + 24u - rt) % 12u;
-        cv_rect(8 + (int32_t)i * 9, BLK[i % 12u] ? 112 : 122, 8, BLK[i % 12u] ? 10 : 12,
-                mask >> deg & 1u ? note_col(i) : BLK[i % 12u] ? T_LINE : T_RAISE);
-        if (deg == 0u)
-            cv_rect(8 + (int32_t)i * 9, BLK[i % 12u] ? 110 : 120, 8, 1, T_TEXT);
+    cv_text(132, 4 - AF_X_CAP_Y + 1, &AF_X, "NOW", T_DIM);   /* the reading */
+    cv_text(132, 16 - AF_L_CAP_Y, &AF_L, NN[now], mask >> ((now + 12u - rt) % 12u) & 1u ? HUD_YE : T_MID);
+    str_cpy(b, NN[rt], sizeof b);
+    str_cpy(b + str_len(b), " ", 2);
+    param_format(&TP[P_SCALE], t->p[P_SCALE], b + str_len(b), &u);
+    cv_free_text(132, 50 - AF_M_CAP_Y, &AF_M, b, T_TEXT, cv_bg, 104);
+    for (i = 0; i < 12u; i++) nd += mask >> i & 1u;
+    fmt_int(b, (int32_t)nd);
+    str_cpy(b + str_len(b), " NOTES", 8);
+    cv_text(132, 70 - AF_X_CAP_Y, &AF_X, b, T_DIM);
+    for (i = 0, k = 0; i < 12u; i++) {                  /* a cell a degree: the root, the one sounding */
+        if (!(mask >> i & 1u)) continue;
+        cv_rect(132 + (int32_t)k * (104 / (int32_t)(nd ? nd : 1)), 88, 104 / (int32_t)(nd ? nd : 1) - 2, 6, (rt + i) % 12u == now ? HUD_YE : i == 0u ? tc : T_LINE);
+        k++;
     }
 }
 static __attribute__((noinline)) void graph_chord(const track_t *t)

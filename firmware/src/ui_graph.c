@@ -71,38 +71,55 @@ static uint16_t heat_y(int32_t y, int32_t y0, int32_t y1, uint16_t c)
 /* Matches voice.c: attack is linear, decay and release are exponential
  * (env += (target - env) * k each tick, ~99 % after the set time). Time
  * axis is the parameter value (the times themselves are exponential). */
+/* (BYTE, the owner's LAYERS) the envelope as the last ten notes' stacked back in perspective (each as loud as its
+ * velocity, the older fainter, blue), the front one the shape now in the track's colour, A D S R its tags, the level
+ * now a yellow node on it */
+static uint8_t adsr_h[10], adsr_ps[NVOICE], adsr_tr = 0xFF;
 static void graph_adsr(const track_t *t, uint16_t c)
 {
     const page_t *pg = cur_page();
-    int32_t a = 4 + t->p[pg->id[0]] * 50 / 127, d = 6 + t->p[pg->id[1]] * 50 / 127, r = 6 + t->p[pg->id[3]] * 60 / 127;
-    int32_t top = 6 * graph_ht / 100, bot = 88 * graph_ht / 100, sus = t->p[pg->id[2]] * 1000 / 127;   /* 0..1000 */
-    int32_t x0 = 12, x1 = x0 + a, x3 = 226 - r, i, px, py;
-    int32_t e = 32768;                                                  /* exp(-4.6 u), Q15 */
-#define EGY(lvl) (bot - (lvl) * (bot - top) / 1000)
-    cv_rect(PANEL_X0, bot + 2, PANEL_W, 1, T_RAISE);
-    cv_line_t(x0, bot, x1, top, heat_y((bot + top) / 2, top, bot, c), 2);                                  /* attack: linear */
-    px = x1;
-    py = top;
-    for (i = 1; i <= d; i++) {                                          /* decay: exponential to SUS */
-        int32_t lvl;
-        e = (e * (32768 - 150733 / d)) >> 15;           /* k^d = exp(-4.6) */
-        lvl = sus + ((1000 - sus) * e >> 15);
-        cv_line_t(px, py, x1 + i, EGY(lvl), heat_y(py, top, bot, c), 2);
-        px = x1 + i;
-        py = EGY(lvl);
+    int32_t a = 4 + t->p[pg->id[0]] * 34 / 127, d = 6 + t->p[pg->id[1]] * 34 / 127, r = 6 + t->p[pg->id[3]] * 40 / 127;
+    int32_t sus = t->p[pg->id[2]] * 1000 / 127, sl = 150 - a - d - r, x0 = 12, bot = 94 * graph_ht / 100, H = 52 * graph_ht / 100;
+    int16_t lv[160];
+    int32_t n = 0, i, k, e = 32768;
+    uint32_t tr = (uint32_t)(t - trk) % NTRK;
+    uint16_t tc = TRK_COL[tr % 6u];
+    (void)c;
+    if (sl < 8) sl = 8;
+    if (adsr_tr != tr) { memset(adsr_h, 0, sizeof adsr_h); memset(adsr_ps, 0, sizeof adsr_ps); adsr_tr = (uint8_t)tr; }
+    for (i = 0; i < NVOICE; i++) {                      /* a note begun: a layer */
+        if (t->v[i].stage == 1u && adsr_ps[i] != 1u) {
+            memmove(adsr_h + 1, adsr_h, sizeof adsr_h - 1u);
+            adsr_h[0] = (uint8_t)clamp(t->v[i].vel ? t->v[i].vel : 100, 20, 127);
+        }
+        adsr_ps[i] = t->v[i].stage;
     }
-    cv_line_t(px, py, x3, EGY(sus), heat_y(py, top, bot, c), 2);                               /* sustain */
-    px = x3;
-    py = EGY(sus);
-    e = 32768;
-    for (i = 1; i <= r; i++) {                                          /* release: exponential to 0 */
-        e = (e * (32768 - 150733 / r)) >> 15;
-        cv_line_t(px, py, x3 + i, EGY(sus * e >> 15), heat_y(py, top, bot, c), 2);
-        px = x3 + i;
-        py = EGY(sus * e >> 15);
+    for (i = 0; i <= a && n < 160; i++) lv[n++] = (int16_t)(i * 1000 / (a ? a : 1));   /* the shape, a level a column */
+    for (i = 1; i <= d && n < 160; i++) { e = (e * (32768 - 150733 / d)) >> 15; lv[n++] = (int16_t)(sus + ((1000 - sus) * e >> 15)); }
+    for (i = 0; i < sl && n < 160; i++) lv[n++] = (int16_t)sus;
+    for (i = 1, e = 32768; i <= r && n < 160; i++) { e = (e * (32768 - 150733 / r)) >> 15; lv[n++] = (int16_t)(sus * e >> 15); }
+    for (k = 9; k >= 0; k--) {                          /* the layers, the far first */
+        int32_t ox = x0 + k * 7, oy = bot - k * 5, g = k ? adsr_h[k] : 127, py = 0;
+        uint16_t lc = k ? ux_mix(T_BG, HUD_BL, 85 - k * 7) : tc;
+        if (k && !adsr_h[k]) continue;
+        for (i = 0; i < n; i++) {
+            int32_t y = oy - lv[i] * H / 1000 * g / 127;
+            if (i) cv_line_t(ox + i - 1, py, ox + i, y, lc, k ? 1 : 2);
+            py = y;
+        }
     }
-    if (pg->id[0] == P_ATK) {                           /* (JIANT 0.5) the track's envelope now: the loudest voice's */
-        const voice_t *bv = 0;                          /* level as a dot on the curve, a line down to the axis */
+    for (i = 0; i < 160; i += 3) cv_pset(x0 + i, bot + 2, T_LINE);
+    {   /* A D S R: tags at the front shape's corners */
+        static const char *const L4[4] = {"A", "D", "S", "R"};
+        int32_t cx[4] = {a, a + d, a + d + sl / 2, n - 1}, q;
+        for (q = 0; q < 4; q++) {
+            int32_t x = x0 + cx[q], y = bot - lv[cx[q] < n ? cx[q] : n - 1] * H / 1000 - 14;
+            cv_rect(x - 3, y, 9, 11, T_TEXT);
+            cv_text_on(x - 1, y + 1 - AF_X_CAP_Y, &AF_X, L4[q], 0x0000u, T_TEXT);
+        }
+    }
+    if (pg->id[0] == P_ATK) {                           /* the track's envelope now: the loudest voice's, a yellow node */
+        const voice_t *bv = 0;
         int32_t lvl, x;
         for (i = 0; i < NVOICE; i++)
             if (t->v[i].stage && t->v[i].stage < 4u && (!bv || t->v[i].env > bv->env))
@@ -110,38 +127,49 @@ static void graph_adsr(const track_t *t, uint16_t c)
         if (bv) {
             lvl = (int32_t)(((int64_t)bv->env * 1000) >> 24);
             if (bv->stage == 1u)
-                x = x0 + a * lvl / 1000;
+                x = a * lvl / 1000;
             else if (bv->stage == 2u)
-                x = x1 + (sus < 1000 ? clamp((1000 - lvl) * d / (1000 - sus), 0, d) : 0);
+                x = a + (sus < 1000 ? clamp((1000 - lvl) * d / (1000 - sus), 0, d) : 0);
             else
-                x = x3 + (sus > 0 ? clamp((sus - lvl) * r / sus, 0, r) : r);
-            cv_rect(x, EGY(lvl), 1, bot + 2 - EGY(lvl), T_MID);
-            cv_rrect(x - 3, EGY(lvl) - 3, 7, 7, 3, T_TEXT, T_SURF);
+                x = a + d + sl + (sus > 0 ? clamp((sus - lvl) * r / sus, 0, r) : r);
+            cv_rect(x0 + x, bot - H - 4, 1, H + 6, HUD_YE);
+            cv_rect(x0 + x - 2, bot - lvl * H / 1000 - 2, 5, 5, HUD_YE);
         }
     }
-#undef EGY
 }
 
 /* LFO: the wave as it runs (JIANT 0.5): the phase now at the playhead (a quarter in), two cycles across, scrolling
  * at the LFO's own rate; behind the playhead dimmer (what it played), the level now a dot, its depth after FADE */
+/* (BYTE, the owner's SATELLITE) LFO: a satellite on its orbit at the phase, as high as the LFO now (its depth after
+ * FADE); its height carried right, where the wave it made is written, the newest at the satellite, in the track's
+ * colour; the orbit dotted, the phase and the value as readings */
 static void graph_lfo(const track_t *t, uint16_t c)
 {
-    int32_t x, cy = graph_ht / 2, a = 38 * graph_ht / 100, py = cy, xp = PANEL_W / 4;
-    uint32_t span = 0xFFFFFFFFu / (PANEL_W / 2u), ph = t->lfo_ph - (uint32_t)xp * span;
-    int32_t now = cy - mulq15(t->lfo_val, t->lfo_fade) * a / 32768;
-    cv_rect(PANEL_X0, cy, PANEL_W, 1, T_RAISE);
-    for (x = 0; x < PANEL_W; x++) {                  /* (lfo_wave only reads the track) */
-        uint32_t px = ph + (uint32_t)x * span;
-        int32_t y = cy - lfo_wave((track_t *)t, px) * a / 32768;
-        if (t->p[P_LWAVE] == 4)                      /* S&H: a value per cycle part, held */
-            y = cy - ((int32_t)((((px >> 29) + 1u) * 2654435761u) >> 16) - 32768) * a / 32768;
-        if (x)
-            cv_line_t(PANEL_X0 + x - 1, py, PANEL_X0 + x, y,
-                      x < xp ? ux_mix(T_SURF, heat_y(y, cy - a, cy + a, c), 45) : heat_y(y, cy - a, cy + a, c), 2);
+    int32_t cy = graph_ht / 2, a = 38 * graph_ht / 100, ox = PANEL_X0 + a + 6, x0 = ox + a + 12, x, py = cy, i;
+    int32_t val = mulq15(t->lfo_val, t->lfo_fade), sx = ox + (og_cos(t->lfo_ph >> 16) * a >> 15), sy = cy - val * a / 32768;
+    uint32_t span = 0xFFFFFFFFu / (uint32_t)(PANEL_W - (x0 - PANEL_X0)) * 3u / 2u;
+    uint16_t tc = TRK_COL[(uint32_t)(t - trk) % 6u];
+    char b[16];
+    (void)c;
+    for (i = 0; i < 64; i += 2)                         /* its orbit, dotted; the axis */
+        cv_pset(ox + (a * og_cos((uint32_t)i * 1024u) >> 15), cy + (a * og_sin((uint32_t)i * 1024u) >> 15), T_DIM);
+    for (x = PANEL_X0; x < PANEL_X0 + PANEL_W; x += 3) cv_pset(x, cy, T_LINE);
+    for (x = 0; x < PANEL_X0 + PANEL_W - x0; x++) {     /* the wave it wrote, the newest nearest */
+        uint32_t ph = t->lfo_ph - (uint32_t)x * span;
+        int32_t y = cy - lfo_wave((track_t *)t, ph) * a / 32768;
+        if (t->p[P_LWAVE] == 4)
+            y = cy - ((int32_t)((((ph >> 29) + 1u) * 2654435761u) >> 16) - 32768) * a / 32768;
+        if (!x) y = sy;                                 /* (it starts where the satellite is) */
+        if (x) cv_line_t(x0 + x - 1, py, x0 + x, y, tc, 2);
         py = y;
     }
-    cv_rect(PANEL_X0 + xp, cy - a - 4, 1, 2 * a + 8, T_MID);   /* the playhead */
-    cv_rrect(PANEL_X0 + xp - 3, now - 3, 7, 7, 3, T_TEXT, T_SURF);
+    cv_line(ox, cy, sx, sy, HUD_YE);                    /* the satellite, its height carried over */
+    for (x = sx; x < x0; x += 2) cv_pset(x, sy, T_MID);
+    cv_rect(sx - 2, sy - 2, 5, 5, HUD_YE);
+    str_cpy(b, "PHASE ", sizeof b); fmt_int(b + 6, (int32_t)((t->lfo_ph >> 16) * 360u >> 16));
+    cv_text_on(PANEL_X0 + 2, graph_ht - 8 - AF_X_CAP_Y, &AF_X, b, HUD_YE, cv_bg);
+    str_cpy(b, "VALUE ", sizeof b); fmt_int(b + 6, val * 100 / 32768);
+    cv_text_on(x0, graph_ht - 8 - AF_X_CAP_Y, &AF_X, b, T_TEXT, cv_bg);
 }
 
 
