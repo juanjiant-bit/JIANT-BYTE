@@ -3,7 +3,7 @@
  * fragments and phase links in the shared active-voice network. */
 /* (BYTE, CPU) ABOUT's fine timings: TIMER4 ticks (24 MHz) summed per section, read a second at a time (ui_menu.c) */
 #if FELUCCA_DUAL_CORE
-#define PROF_T() (*(volatile uint32_t *)0x10804u)
+#define PROF_T() fm1_mc_ticks()                     /* (hal/fm1_multicore.h: TIMER4, 24 MHz) */
 #else
 #define PROF_T() 0u
 #endif
