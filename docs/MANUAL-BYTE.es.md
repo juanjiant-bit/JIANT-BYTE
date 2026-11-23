@@ -1,39 +1,45 @@
 # JIANT BYTE — Manual de usuario
 
-**v0.14** · firmware bytebeat y floatbeat para el M-VAVE FM-1
+**Beta (v0.16, rama byte-cpu-light)** · firmware bytebeat y floatbeat para el M-VAVE FM-1
 
 Este manual es para quien acaba de instalar JIANT BYTE (o lo abrió en el emulador) y quiere saber cómo tocarlo, cómo
 armar temas y cómo guardar su trabajo sin perder nada. Los controles aparecen nombrados como los muestra el equipo, en
-mayúsculas: **SELECT**, **OCT+**, **STATE A**.
+mayúsculas: **SELECT**, **OCT+**, **DRONE CLAY**.
 
 JIANT BYTE está construido sobre JIANT FM (V10.7.37, a su vez un fork de Felucca 1.1.5.1 con el sistema de canciones de
 SLOOP). De JIANT FM conserva la base: seis pistas, el secuenciador, las canciones, los efectos, MIDI, USB y el
-actualizador. Todo lo demás lo reemplaza por fórmulas: cada sonido, golpe, ser, punch-in y animación es una fórmula del
-tiempo. Si venís de JIANT FM, el panel, la navegación, el secuenciador y el guardado te van a resultar conocidos; los
-motores son otros (no hay ANALOG, PHASE, FM6, VOICE, WHEEL ni ANIMAL).
+actualizador. Todo lo demás lo reemplaza por fórmulas: cada sonido, golpe, drone y punch-in es una fórmula del tiempo.
+Si venís de JIANT FM, el panel, la navegación, el secuenciador y el guardado te van a resultar conocidos; los motores
+son otros (no hay ANALOG, PHASE, FM6, VOICE, WHEEL, ANIMAL ni EXT).
 
-> **Estado: beta, para probar.** Probalo primero en el navegador. En un FM-1 real, hacé un backup con el editor de
-> JIANT FM antes de instalar: JIANT BYTE guarda sus proyectos aparte de los de JIANT FM.
+> **Estado: beta. JIANT BYTE todavía necesita más pruebas en equipos reales.**
+>
+> - Probalo primero en el [emulador](https://juanjiant-bit.github.io/JIANT-BYTE/emu/).
+> - En un FM-1 real, **hacé un backup con el editor de JIANT FM antes de instalar**. JIANT BYTE guarda sus proyectos
+>   aparte de los de JIANT FM, pero el backup es la única copia segura.
+> - Si algo suena mal, se cuelga o se reinicia, contalo en
+>   [un issue](https://github.com/juanjiant-bit/JIANT-BYTE/issues): qué estabas haciendo, en qué página, con qué
+>   motores y cuántas pistas. MENU › SYSTEM › ABOUT muestra la versión y el último crash.
 
 Si vas a leer un solo capítulo, leé [Guardar y cargar](#14-guardar-y-cargar). Si querés que suene ya, andá a
 [Inicio rápido](#0-inicio-rápido).
 
 ## Contenido
 
-- [Qué hay de nuevo en v0.14](#qué-hay-de-nuevo-en-v014)
+- [Qué hay de nuevo en esta beta](#qué-hay-de-nuevo-en-esta-beta)
 0. [Inicio rápido](#0-inicio-rápido)
 1. [El panel](#1-el-panel)
 2. [La pantalla](#2-la-pantalla)
 3. [Páginas y capas](#3-páginas-y-capas)
-4. [Motores](#4-motores): [MATH](#41-math), [WAVE](#42-wave), [DRUM-X](#43-drum-x), [FORM](#44-form), [EXT](#45-ext)
+4. [Motores](#4-motores): [MATH](#41-math), [WAVE](#42-wave), [DRUM-W](#43-drum-w), [las páginas comunes](#44-las-páginas-comunes)
 5. [LIFE](#5-life)
 6. [El generador](#6-el-generador)
-7. [El secuenciador](#7-el-secuenciador)
+7. [El secuenciador](#7-el-secuenciador) (con [DRONE CLAY](#drone-clay-el-sonido-que-se-modela))
 8. [ARRANGE: temas, partes y escenas](#8-arrange-temas-partes-y-escenas)
 9. [Dados y UNDO](#9-dados-y-undo)
 10. [Efectos y master](#10-efectos-y-master)
 11. [Modulación y macros](#11-modulación-y-macros)
-12. [Tocar en vivo](#12-tocar-en-vivo)
+12. [Tocar en vivo](#12-tocar-en-vivo) (con [PUNCH SEQ](#punch-seq-los-punch-in-en-la-grilla))
 13. [Sistema: TRACKS, LOAD y el MENU](#13-sistema-tracks-load-y-el-menu)
 14. [Guardar y cargar](#14-guardar-y-cargar)
 15. [MIDI y USB](#15-midi-y-usb)
@@ -43,48 +49,37 @@ Si vas a leer un solo capítulo, leé [Guardar y cargar](#14-guardar-y-cargar). 
 
 ---
 
-## Qué hay de nuevo en v0.14
+## Qué hay de nuevo en esta beta
 
-La v0.14 tiene dos frentes: que BYTE use poca CPU y que FORM pase de 22 estados cerrados a un motor que compone por
-capas, desde una progresión de acordes hasta un beat electrónico completo.
+**FORM ya no es un motor: ahora es DRONE CLAY**, un secuenciador que puede tener cualquier pista. Prendés **CLAY** en
+**SEQ › DRONE CLAY** y la pista toca un drone muy grave con su propia voz, mientras cuatro moduladores (golpes, tablas,
+gestos, notas y FM, cada uno con su ritmo euclídeo) lo van modelando a través de cualquier perilla de su sonido. Con
+CLAY prendido las teclas son gestos y cada una muestra una tarjeta que dice qué hace. Ver
+[DRONE CLAY](#drone-clay-el-sonido-que-se-modela).
 
-**CPU más liviana.** El FM-1 se podía reiniciar al morphear FORM con DENSITY alto, y con cuatro pistas el audio se
-rompía. Ahora:
+**PUNCH SEQ** (GLO): cuatro filas de punch-in de 16 pasos que tocan solas con el transporte, sobre todas las pistas.
+Ver [PUNCH SEQ](#punch-seq-los-punch-in-en-la-grilla).
 
-- **FORM** corre siempre a media frecuencia (22 kHz) y cuesta un tercio menos. Con MORPH entre dos estados cuesta casi
-  la mitad que antes.
-- **MATH y WAVE** también pueden pasar a media frecuencia, pero solo cuando la protección de carga se dispara.
-- **La reverb** (ROOM, ROOM con MOD o WIDE, y CLOUD) trabaja a 22 kHz: la mitad del costo.
-- **LIFE** es mucho más barato, y con LIFE en 0 no gasta nada.
-- **Con la carga alta**, la protección le saca LIFE a todas las pistas menos a la que tenés elegida, y FORM toca un
-  solo estado (el más cercano) en lugar de morphear entre dos. Ver [CPU y rendimiento](#17-cpu-y-rendimiento).
+**DRUM-W** reemplaza a DRUM-X: ocho pads hechos de wavetables. Ver [DRUM-W](#43-drum-w).
 
-**FORM 2.** FORM compone por capas. Cada estado combina una armonía, un voicing, una melodía, un ritmo, un timbre, una
-forma y una mezcla:
+**La pantalla nueva.** El arranque **ORBIT** (la esfera de HOME que se arma punto por punto, los satélites de las seis
+pistas entrando en órbita, JIANT BYTE escrito), HOME como órbita, y cada página dibujando lo que hace: **CHORD** nombra el
+acorde entero, **SCALE** gira la escala en una esfera, **ENV** apila las envolventes, el **DELAY** es un túnel, DRUM-W un
+radar, MATH un censo de su fórmula. Ver [La pantalla](#2-la-pantalla).
 
-- **36 estados**: los 22 de antes, tal como estaban, y 14 nuevos: STRUM 332, HOUSE M9, CHIRP, DRIFT, BITPACK, BUILD,
-  RISER, FILLS, SUITE, DEGREES, NIBBLE, GROWL, WOBBLE y ACID.
-- **Armonía por grados**: **HARMONY** elige entre la del estado (AUTO), CLASSIC, DEGREES, FAMILY, PEDAL y BITS. Fuera de
-  CLASSIC los acordes se apilan con los grados de la escala de la canción y la melodía sigue al acorde.
-- **PROGRESS** elige la familia de progresiones (AXIS, II-V-I, VAMP, DESCEND, FOURTHS, EPIC, POP, CIRCLE) o la deja a
-  SEED. **EVOLVE** hace sustituciones entre secciones.
-- **Voicings nuevos**: además de CLOSE, LEAD, OPEN y +BASS, ahora DROP, QUARTAL, NEAR y WIDE.
-- **Bajo de carácter** (**STYLE**): WOBBLE, REESE, GROWL, RING, SCREECH y ACID. **DRIVE** satura la mezcla de FORM,
-  **TONE** le da carácter, **WOBBLE** elige la velocidad del wobble.
-- **Ritmo y forma**: ratchets, fills al final de la vuelta, riser antes del cambio, entradas de a una, sidechain del
-  bombo.
-- **El MORPH compone**: entre A y B, cada paso toma la melodía de uno u otro y cada sección la progresión, según la
-  probabilidad que marca la perilla. En 0 y en 127 suena un solo estado, como siempre.
-- **El dado de FORM**: **EDIT + SELECT** tira todo FORM de forma coherente; **SEQ + SELECT** tira solo la composición.
-  **OCT−** lo deshace.
-- **Seis páginas, por importancia**: STATES, RULES, TIMBRE, HARMONY, LAYERS y CLOCK. La sección ARP no aparece en una
-  pista FORM. Todos los valores de FORM son destinos de la matriz de modulación.
+**Más cosas:**
 
-Todo está en [FORM](#44-form).
-
-**Otras cosas que ya trae esta versión** (de las v0.8 a v0.13): el [LIFE](#5-life) con recorrido audible, **FUNC** en
-MATH (programas que componen una pieza entera, ver [FUNC](#func-programas-que-componen)), los punch-in que intercambian
-timbre entre fórmulas ([Tocar en vivo](#fx-punch-in-mantené-fx)) y, desde la v0.13, FORM como primer motor de la lista de PRESETS y de la pista 1 de los proyectos nuevos.
+- **WAVE** dibuja cada fórmula una vez en una tabla de verdad y la lee: el mismo sonido con mucha menos CPU.
+- **STRETCH** estira una secuencia melódica en proporción: pasar de 4 a 64 pasos mantiene cada nota tan larga como su
+  paso. Un golpe de batería sigue siendo un golpe.
+- **CHORD** con los nombres de JIANT FM, y te dice por qué un acorde no suena (una pista DRUM, una voz que no es POLY).
+- **Sin click al encender**: la salida espera a que el audio ande y después sube de a poco.
+- **CPU más liviana** en los motores, en la cadena del master y en DRONE CLAY. **MENU › SYSTEM › ABOUT** muestra cuánto
+  tarda cada motor por bloque de audio.
+- **Se fueron**: el motor FORM (ahora DRONE CLAY), **SEQ › MUTATE**, **GLO › COMP** (los componentes globales), el
+  carril grabado de punch-in de la capa FX (ahora está PUNCH SEQ), **FILTER 2** (el modulador de ruido del filtro),
+  **FX › BALANCE** y los motores de JIANT FM que quedaban sin usar. Los proyectos que los usaban cargan igual: una
+  pista FORM vieja carga como WAVE con sus moduladores en DRONE CLAY.
 
 ---
 
@@ -109,11 +104,13 @@ Si tu FM-1 tiene otro firmware custom (Felucca, Skiff, baudgirl…), volvé prim
 
 ### Tu primer sonido (1 minuto)
 
-1. Encendé el equipo. Aparece **JIANT /B1T3** en letras de píxel y después llegás a **HOME**, a la página **MACROS**:
-   un ser por pista nadando por la pantalla.
-2. Un proyecto nuevo arranca así: **T1 FORM** (01 SCORE), **T2 DRUM-X** (ACOUSTIC), **T3 WAVE** (SUB BASS), **T4 MATH**
-   (MATH KEYS), **T5 WAVE** (SAW PAD) y **T6 MATH** (BYTEBEAT). Con **TRACKS 4**, el valor de fábrica, suenan T1–T4.
-3. Apretá **PLAY**. La pista 1 es FORM en modo SONG: compone sola con el transporte, sin que toques nada.
+1. Encendé el equipo. Aparece el arranque **ORBIT** (la esfera, los satélites, **JIANT BYTE**) y después llegás a
+   **HOME**, a la página **MACROS**: la órbita de las pistas.
+2. Un proyecto nuevo arranca así: **T1 WAVE** (INIT WAVE), **T2 DRUM-W** (ACOUSTIC), **T3 WAVE** (SUB BASS), **T4 MATH**
+   (MATH KEYS), **T5 WAVE** (SAW PAD) y **T6 MATH** (BYTEBEAT). Con **TRACKS 4**, el valor de fábrica, suenan T1–T4. Las
+   secuencias arrancan vacías.
+3. Tocá las teclas: suena la pista elegida. Para oír algo que se mueve solo, probá [DRONE CLAY](#drone-clay-el-sonido-que-se-modela)
+   en T1: **SEQ**, SELECT hasta **DRONE CLAY**, KNOB 1 en **ON** y **PLAY**.
 4. Girá **ALGORITHM** hasta **T3** o **T4** y tocá las teclas.
 5. Girá **PRESETS**: se abre la lista de sonidos. Seguí girando para elegir y apretá **OCT+** para cargar. **EDIT
    mantenido + PRESETS** salta al primer sonido del motor siguiente.
@@ -163,8 +160,8 @@ Ese es todo el ciclo: **hacer música → guardarla en una parte → encadenar p
 | **LFO** | La sección LFO: LFO → STEP MOD → MATRIX. | Capa **MACRO**: KNOB 1–4 son M1–M4. Mantenido + SELECT: los dados del LFO. |
 | **ENV** | La sección ENV (ENV · ENV DEST · ENV 2). | — |
 | **SCL** | La sección SCL: SCALE → CHORD → SCENE. | Capa **SCL**: las teclas fijan la tónica. |
-| **ARP** | La sección ARP (ARP · ARP 2). En una pista FORM no aparece. | — |
-| **GLO** | La sección GLO: MIX → COMP → SETUP. | Capa **GLO**: mutes, solos, tap tempo, **UNDO** (G4). Mantenido + SELECT: el tempo. |
+| **ARP** | La sección ARP (ARP · ARP 2). | — |
+| **GLO** | La sección GLO: MIXER → PUNCH SEQ → SETUP. | Capa **GLO**: mutes, solos, tap tempo, **UNDO** (G4). Mantenido + SELECT: el tempo. |
 | **SAVE** | La sección SAVE: TOOLS → PROJECTS → PART SLOTS → USER → PRESETS. | Capa **SAVE**: tocar y guardar partes en vivo; **C5** NAME. |
 | **PLAY** | Arranca y para. | ~0,7 s: **PANIC**, corta todo el sonido. |
 | **REC** | Arma o desarma la grabación en la pista elegida. | Capa **REC**. Mantenido solo y soltado sin tocar nada más: **UNDO**. |
@@ -188,7 +185,7 @@ recientes. La curva se elige en MENU › CONTROL › VELOCITY; cada tecla aprend
 | **GLO** + **SELECT** | El tempo, desde cualquier página. |
 | **GLO** + **G4** | **UNDO** del último cambio grande (otra vez: rehacer). |
 | **SEQ** + **REC** | **CLEAR ALL SEQUENCES?**: los pasos y la automatización de todas las pistas. |
-| **REC** + **FX / EDIT / ENV / LFO / SCL / ARP / GLO** | Borra la automatización de esa parte en la pista elegida (FX: también el carril de punch-in). |
+| **REC** + **FX / EDIT / ENV / LFO / SCL / ARP / GLO** | Borra la automatización de esa parte en la pista elegida. |
 | **SAVE** + **OCT+** / **OCT−** | Guarda la música en la parte que está sonando / la recupera como quedó guardada. |
 | **HOME** + **SELECT** | **GEN**, el generador de temas. |
 | **EDIT / SEQ / LFO / FX** + **SELECT** | Los dados: sonido, secuencia, LFO, efectos. |
@@ -206,44 +203,63 @@ recientes. La curva se elige en MENU › CONTROL › VELOCITY; cada tecla aprend
 
 ### El aspecto
 
-Una máquina demoscene con los colores de JIANT: negro, violeta y naranja por defecto. Los rótulos van en Chakra Petch,
-los valores en Inter Tight y los títulos grandes en Michroma; las fórmulas conservan su propia letra monoespaciada de
-píxel, con minúsculas. Cajas cuadradas, medidores segmentados.
+La pantalla de JIANT BYTE es como un registrador de vuelo: rótulos en etiquetas, colores térmicos y telemetría que se
+mueve con el sonido. Los colores funcionan como una cámara térmica: frío (azul, violeta) es poco, caliente (rojo,
+naranja, amarillo, blanco) es mucho. Lo que está sonando o lo que acabás de tocar se pone **amarillo**.
 
-**MENU › DISPLAY › COLOR** cambia la paleta: **JIANT** (la de fábrica) y paletas retro como C64, AMIGA, CGA, GAMEBOY,
-ATARI y CONTRAST.
+**Cada pista tiene su color**: 1 amarillo, 2 naranja, 3 rojo, 4 magenta, 5 violeta, 6 azul. En las páginas de una
+pista, arriba aparece una barra de su color con **TRACK N / MOTOR**.
 
-Los colores funcionan como una cámara térmica: frío (índigo, violeta) es poco, caliente (rojo, naranja, crema) es
-mucho. Violeta es lo elegido, naranja lo activo.
+**MENU › DISPLAY › COLOR** cambia la paleta: **JIANT** (la de fábrica) y C64, CONTRAST, AMIGA, CGA, GAMEBOY, ATARI y
+BYTE.
+
+![El arranque ORBIT](byte-boot.png)
+
+**El arranque, ORBIT**: la esfera de HOME se arma punto por punto, los satélites de las seis pistas entran en su
+órbita, se cierra una mira amarilla y se escribe **JIANT BYTE**, con la versión en una etiqueta amarilla. El equipo
+arranca sin click: la salida queda apagada hasta que el audio ya corre y después sube de a poco.
 
 ### Las partes de la pantalla
 
-- **Encabezado** (arriba): el estado del transporte, los **BPM**, el punto de REC; al medio qué es la página (el motor de
-  la pista y su sonido, o el proyecto en las páginas del tema); a la derecha la octava, el **medidor de carga** (cinco
-  barritas) y la batería. Los mensajes aparecen al medio ("SAVED", "FORM DICED"…).
-- **Pestañas**: los **grupos** de la sección, el actual encendido y un punto por cada una de sus páginas.
-- **Tarjetas**: las cuatro cajas son KNOB 1–4: el nombre arriba, el valor y su barra abajo. La que girás se enciende.
-  Una tarjeta apagada quiere decir "acá ahora no hay nada". Una acción armada (SAVE, LOAD, ERASE…) se tiñe de violeta y
-  dice **OCT+**: apretá OCT+ para hacerla.
-- **Panel** (al medio): el dibujo de la página: el ser del sonido, una fórmula con su raster, la envolvente, la grilla
-  de pasos, una lista.
-- **Pie**: la miga de pan, **SECCIÓN · GRUPO · página**, y a la derecha el lugar de la página en la cadena, por ejemplo
-  **EDIT · SOUND · HARMONY 4/13**.
+- **Encabezado** (arriba): la pista elegida en su color, el estado del transporte, los **BPM**, el punto de REC; al medio
+  qué es la página (la pista y su motor, o el proyecto en las páginas del tema); a la derecha el **medidor de carga**
+  (barritas) y la batería. Los mensajes aparecen al medio ("SAVED", "DRONE CLAY ON"…).
+- **Pestañas**: los **grupos** de la sección; el actual encendido.
+- **Tarjetas**: las cuatro son KNOB 1–4: el nombre en una etiqueta arriba, el valor debajo y una fila de celdas que se
+  encienden en colores térmicos. La perilla que acabás de girar toma el color de la pista. Una tarjeta vacía quiere
+  decir "acá ahora no hay nada". Una acción armada (SAVE, LOAD, ERASE…) dice **OCT+**: apretá OCT+ para hacerla.
+- **Panel** (al medio): el dibujo de la página (ver abajo).
+- **Pie**: la sección y la página en una etiqueta, y a la derecha el lugar de la página en la cadena, por ejemplo
+  **DRONE CLAY 13/19**.
 
-### Los seres
+### Lo que dibuja cada página
 
-Cada fórmula da a luz un **ser**: un bytebeat se vuelve un sprite espejado con cuerpo estable y patas que se mueven;
-un floatbeat, un retrato de fase con tentáculos de onda. En HOME los seres de las seis pistas nadan libres por la
-pantalla; su calor sigue al sonido, de violeta a naranja y crema. Una pista muteada se apaga. LIFE usa los mismos seres
-y muestra sus conexiones.
+| Página | Qué se ve |
+| --- | --- |
+| **HOME** | La **órbita**: una esfera de alambre que gira y cada pista un satélite en su órbita, tan grande como suena, con una estela de su color; su etiqueta (número y motor) en una columna. LIFE dibuja las conexiones entre ellas |
+| **MATH** | El **censo** de la fórmula: sus bytes a lo largo de una curva de Hilbert, cada uno con su calor, y un osciloscopio al lado |
+| **WAVE** | La **órbita de fase**: el ciclo de la fórmula en POS dibujado contra sí mismo, y la mezcla de A y B |
+| **DRUM-W** | Un **radar**: cada pad un sector con su tabla dibujada en redondo; un golpe enciende su sector |
+| **DRONE CLAY** | **Telemetría**: OUT (el drone) y los cuatro moduladores como trazos de lo que suman ahora, con su SHAPE y su DEST |
+| **CHORD** | El acorde con su **nombre entero** y grande (D MAJ ADD9, C MIN7…), sus notas en dos octavas de teclas con sus intervalos y los siete grados con la calidad de su acorde |
+| **SCALE** | La escala en una **esfera** que gira, la tónica en el color de la pista, la nota que suena en amarillo; al lado la nota, la escala y sus grados |
+| **ENV** | Las **capas**: las envolventes de las últimas notas apiladas en perspectiva, cada una tan alta como su velocidad, con los valores de A D S R |
+| **LFO** | Un **satélite** en su órbita según la fase, escribiendo la onda |
+| **FOCUS** | Un parámetro grande, con su barra térmica y cuánto lo mueve la matriz |
+| **DELAY** | Un **túnel**: cada eco un cuadro en perspectiva hacia el centro |
+| **REVERB** | La cola como una matriz térmica |
+| **MIXER, SENDS** | Columnas de celdas térmicas por pista |
+| **PUNCH SEQ** | Las cuatro filas con sus pasos, el cabezal y **NOW:** con lo que está sonando |
+
+![CHORD, SCALE, ENV y PUNCH SEQ](byte-graphs.png)
 
 ### Diálogos y mensajes
 
 Antes de cualquier cosa destructiva aparece una pregunta: **OCT− NO**, **OCT+ YES**. Los dados muestran **BEFORE** y
 **NOW** lado a lado y debajo **SELECT: DICE AGAIN · OCT− CANCEL · OCT+ OK**.
 
-Los mensajes aparecen como una píldora chica cerca del pie del panel, sin tapar la página. La ayuda de una página
-aparece solo si te quedás en ella un momento, y cada una como mucho dos veces.
+Los mensajes aparecen como una píldora chica cerca del pie del panel, sin tapar la página. Con **MENU › DISPLAY › HELP**
+el encabezado dice qué hace la perilla mientras la girás.
 
 ---
 
@@ -263,33 +279,32 @@ Todas las secciones se manejan igual: lo aprendés una vez y ya las conocés tod
    0,4 s de fábrica). Un mapa muestra qué hace cada tecla; soltá y volvés.
 6. **La pantalla dice dónde estás.** Las pestañas son los grupos; el pie dice **SECCIÓN · GRUPO · página** y **n/N**.
 
-Cada sección recuerda la página donde la dejaste. Algunas páginas solo aparecen cuando corresponden (las de DRUM-X en una
-pista de batería, las de FORM en una pista FORM, RETRIG en MATH, SLICER y CHORUS no con LOAD ECO); la cadena las saltea.
+Cada sección recuerda la página donde la dejaste. Algunas páginas solo aparecen cuando corresponden (las de DRUM-W en una
+pista de batería, SLICER y CHORUS no con LOAD ECO); la cadena las saltea.
 
 ### Las secciones y sus cadenas
 
 | Sección | Grupos (el botón) · páginas (SELECT) |
 | --- | --- |
 | **HOME** | **LIFE**: LIFE — **MACROS**: MACROS — **LIVE MIX**: LIVE MIX — **TRACKS**: TRACKS — **TIMELINE**: TIMELINE — **ARRANGE**: ARRANGE — **PARTS**: PARTS — **GEN**: GEN 1 · GEN 2 · GEN 3 |
-| **EDIT** (MATH, WAVE) | **SOUND**: EDIT 1 · EDIT 2 · RETRIG (solo MATH) — **TONE**: FILTER · FILTER 2 · TONE — **VOICES**: VOICES · VOICES 2 · VOICES 3 — **AUTO KNOBS**: AUTO KNOBS |
-| **EDIT** (FORM) | **SOUND**: STATES · RULES · TIMBRE · HARMONY · LAYERS · CLOCK — **TONE**: FILTER · FILTER 2 · TONE — **VOICES**: VOICES · VOICES 2 · VOICES 3 — **AUTO KNOBS**: AUTO KNOBS |
-| **EDIT** (DRUM-X) | **KIT**: KIT · KIT 2 · KIT 3 · KIT 4 — **SOUND**: FORMULA · FORM MOD · SOUND · SOUND 2 · SOUND 3 · SOUND 4 — **LEVELS**: LEVELS · LEVELS 2 — **TONE**: KIT LFO · FILTER · STEREO · VOICES · VOICES 3 |
-| **SEQ** | **STEP**: STEP — **PATTERN**: LENGTH · RHYTHM · TRACK — **EUCLID**: EUCLID · MODES · MUTATE — **PLAYHEADS**: PLAYHEADS — **STRETCH**: STRETCH — **STEP COND**: STEP COND · COND 2 — **LOCKS**: LOCKS — **TRACK GEN**: TRACK GEN |
-| **FX** | **TRACK**: SENDS · DIST · AUTO PAN — **BUSES**: BUSES — **DELAY**: DELAY · DELAY 2 · DELAY 3 — **REVERB**: REVERB · REVERB 2 — **CHORUS**: CHORUS — **SLICER**: SLICER · SLICER IN · SLICER IN2 · SL PITCH — **MASTER**: MASTER · TAPE · EQ · BALANCE |
-| **GLO** | **MIX**: MIXER · BUS SENDS — **COMP**: COMP · COMP 2 — **SETUP**: GLOBAL · SYSTEM · PORTS |
+| **EDIT** (MATH, WAVE) | **SOUND**: FORMULA · MOTION (MATH) o WAVE · OSC B (WAVE) — **TONE**: FILTER · TONE — **FOCUS**: FOCUS — **PLAY**: PLAY · MORE |
+| **EDIT** (DRUM-W) | **PLAY**: PLAY — **PAD**: WAVE · SHAPE · MOVE · BODY · NOISE — **KIT**: COLOR · MIX |
+| **SEQ** | **STEP**: STEP — **PATTERN**: LENGTH · RHYTHM · TRACK — **EUCLID**: EUCLID · MODES — **PLAYHEADS**: PLAYHEADS — **STRETCH**: STRETCH — **STEP COND**: STEP COND · COND 2 — **LOCKS**: LOCKS — **TRACK GEN**: TRACK GEN — **CLAY**: DRONE CLAY · CLAY MOD 1–4 · CLAY DECAY · CLAY TIME |
+| **FX** | **TRACK**: SENDS · DIST · AUTO PAN — **BUSES**: BUSES — **DELAY**: DELAY · DELAY 2 · DELAY 3 — **REVERB**: REVERB · REVERB 2 — **CHORUS**: CHORUS — **SLICER**: SLICER · SLICER IN · SLICER IN2 · SL PITCH — **MASTER**: MASTER · TAPE · EQ |
+| **GLO** | **MIXER**: MIXER · BUS SENDS — **PUNCH SEQ**: PUNCH SEQ — **SETUP**: GLOBAL · SYSTEM · PORTS |
 | **ENV** | **ENV**: ENV · ENV DEST · ENV 2 |
 | **LFO** | **LFO**: LFO · LFO 2 · LFO DEST — **STEP MOD**: STEP MOD · STEP MOD 2 — **MATRIX**: MATRIX |
 | **SCL** | **SCALE**: SCL — **CHORD**: CHORD — **SCENE**: SCENE |
-| **ARP** | **ARP**: ARP · ARP 2 (no en FORM) |
+| **ARP** | **ARP**: ARP · ARP 2 |
 | **SAVE** | **TOOLS**: TOOLS — **PROJECTS**: PROJECTS — **PART SLOTS**: PART SLOTS — **USER**: USER — **PRESETS**: PRESETS |
 
-En las páginas EDIT 1 y EDIT 2 el encabezado muestra el nombre que les da el motor: **MATH / TIME** en MATH, **WAVE /
-OSC B** en WAVE, **KIT / KIT 2** en DRUM-X y **STATES / RULES** en FORM.
+Las dos primeras páginas de EDIT llevan el nombre que les da el motor: **FORMULA / MOTION** en MATH y **WAVE / OSC B** en
+WAVE.
 
 ### Las páginas de HOME
 
 - **LIFE**: el intercambio de timbre entre fórmulas. Ver [LIFE](#5-life).
-- **MACROS**: **KNOB 1–4** son las macros **M1–M4** del proyecto. Los seres nadan por el panel; al girar una macro,
+- **MACROS**: **KNOB 1–4** son las macros **M1–M4** del proyecto. La órbita de las pistas gira en el panel; al girar una macro,
   arriba se ve adónde va ("NO ROUTE" si no va a ningún lado: armala en LFO › MATRIX).
 - **LIVE MIX**: el osciloscopio de la mezcla y cuatro modificadores globales para tocar en vivo: **FILTER** (el DJ
   FILTER: a la izquierda un pasabajos, a la derecha un pasaaltos, al medio apagado), **SPACE** (el delay y la reverb de
@@ -323,17 +338,7 @@ OSC B** en WAVE, **KIT / KIT 2** en DRUM-X y **STATES / RULES** en FORM.
 | STEP MOD 2 | DIV | — | — | — |
 | MATRIX | SLOT (1–4) | SRC | DEST | AMT |
 
-**EDIT** (las páginas comunes a los sintes: MATH, WAVE y FORM)
-
-| Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
-| --- | --- | --- | --- | --- |
-| FILTER | TYPE | CUT | RES | DRIVE |
-| FILTER 2 | NOISE | RATE | MODE | DEST |
-| TONE | KEY TRK | CRUSH | LIFE | — |
-| VOICES | POLY | VOICES (1–8) | GLIDE | PRIO |
-| VOICES 2 | ALLOC | UNISON | VEL | IMAGE |
-| VOICES 3 | CRUSH | LIFE | GL MODE | — |
-| AUTO KNOBS | PARAM (E1–E8) | su valor | SRC (el slot de la matriz que apunta a él) | AMT |
+**EDIT**: las páginas de los motores y las comunes están en [Motores](#4-motores).
 
 **FX**
 
@@ -356,7 +361,6 @@ OSC B** en WAVE, **KIT / KIT 2** en DRUM-X y **STATES / RULES** en FORM.
 | MASTER | CLIP | PUNCH | DUCK | REL |
 | TAPE | TAPE | WOW | — | — |
 | EQ | LOW | LO MID | HI MID | HIGH |
-| BALANCE | AMOUNT | — | — | — |
 
 **SCL**
 
@@ -372,10 +376,11 @@ OSC B** en WAVE, **KIT / KIT 2** en DRUM-X y **STATES / RULES** en FORM.
 | --- | --- | --- | --- | --- |
 | MIXER | LEVEL | PAN | MUTE | G.SWING |
 | BUS SENDS | CHORUS | DLY | REV | — |
+| PUNCH SEQ | ROW | EFFECT | LEN | RES |
 | GLOBAL | BPM | G.SWING | CLOCK | TUNE |
 | SYSTEM | TRACKS | LOAD | ROUTE | CPU |
 
-**ARP** (por pista; no en FORM)
+**ARP** (por pista)
 
 | Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
@@ -395,7 +400,7 @@ Mientras mantenés un botón, las teclas y las perillas cambian de función y un
 **ALGORITHM** con el botón mantenido para pasar entre **MAP · KNOBS · STATE**. Las capas:
 
 - **EDIT**: **F3** INIT (el sonido de fábrica del motor), **G3** RECALL (el sonido como está guardado en la parte), teclas
-  negras 1–8 mutean los sonidos del kit en una pista DRUM-X. KNOB 1–4 mantenidas: el cambio vuelve al soltar.
+  negras 1–8 mutean los pads del kit en una pista DRUM-W. KNOB 1–4 mantenidas: el cambio vuelve al soltar.
 - **GLO**: teclas negras 1–6 mutean T1–T6, blancas F3.. hacen solo mientras las mantenés, teclas negras 7–10 mutean los
   grupos del kit (KICK, SNARE, HAT, PERC), **F4** TAP tempo, **G4** UNDO.
 - **SCL**: las teclas fijan la tónica.
@@ -409,36 +414,38 @@ Mientras mantenés un botón, las teclas y las perillas cambian de función y un
 
 ## 4. Motores
 
-JIANT BYTE tiene cuatro motores. En la lista de PRESETS van en este orden, en una lista continua: **FORM → DRUM-X →
-WAVE → MATH**, y de vuelta a FORM. **EDIT mantenido + PRESETS** salta al primer sonido del motor siguiente o anterior.
+JIANT BYTE tiene tres motores. En la lista de PRESETS van en este orden, en una lista continua: **DRUM-W → WAVE →
+MATH**, y de vuelta a DRUM-W. **EDIT mantenido + PRESETS** salta al primer sonido del motor siguiente o anterior.
 
 | Motor | Qué es |
 | --- | --- |
-| **FORM** | Una parte que se toca sola: melodía, bajo, acordes y batería hechos de fórmulas. Dos estados A y B (de 36), un MORPH que compone entre ellos, armonía por los grados de la escala, bajos de carácter. |
-| **DRUM-X** | La batería: ocho sonidos, cada uno una voz de batería o una fórmula. |
-| **WAVE** | Un wavetable paramétrico de fórmulas: dos fórmulas A y B, POS las recorre, WARP dobla la fase, tres voces desafinadas y un sub. |
+| **DRUM-W** | La batería: ocho pads, cada uno dos wavetables A y B unidas por una estructura, con su envolvente, su LFO, su cuerpo y su ruido. |
+| **WAVE** | Un wavetable donde cada tabla es una fórmula: dos osciladores A y B, POS los recorre, WARP dobla la fase, tres voces desafinadas y un sub. |
 | **MATH** | Fórmulas como voces: BYTE (48 bytebeats), FLOAT (48 floatbeats), USER (una fórmula propia o inventada por el generador) y FUNC (programas que componen). |
 
 Una fórmula lee el tiempo `t` y devuelve una muestra. **Bytebeat** trabaja con enteros, 8 bits a la vez: ritmo, melodía
 y suciedad salen de desplazamientos de bits y lógica (`t*(42&t>>10)`). **Floatbeat** trabaja con fracciones: senos,
-fases y filtros hacen tonos, pads, campanas y texturas (`sin(w+sin(w*2)*a)`). Todo corre en una pequeña máquina de
+fases y filtros hacen tonos, pads, campanas y texturas (`sin(w+sin(w*2)*A)`). Todo corre en una pequeña máquina de
 fórmulas que se compila en el instrumento y trabaja en punto fijo, en los dos núcleos del FM-1.
 
-Las páginas comunes a los sintes (FILTER, FILTER 2, TONE, VOICES, VOICES 2, VOICES 3, AUTO KNOBS) se explican al final
-del capítulo, en [Las páginas comunes](#46-las-páginas-comunes).
+¿Y FORM? Ya no es un motor: su compositor es ahora **DRONE CLAY**, un secuenciador que cualquier pista puede prender
+(ver [DRONE CLAY](#drone-clay-el-sonido-que-se-modela)). Un proyecto o un preset de usuario viejo con una pista FORM la
+carga como WAVE, con sus moduladores en DRONE CLAY.
+
+Las páginas que comparten MATH y WAVE (FILTER, TONE, FOCUS, PLAY, MORE) se explican al final del capítulo, en
+[Las páginas comunes](#44-las-páginas-comunes).
 
 ### 4.1 MATH
 
-MATH toca fórmulas como voces. **WAVE** (KNOB 2 de EDIT 1) elige el tipo: **BYTE**, **FLOAT**, **USER** o **FUNC**. Las
-páginas cambian según el tipo.
+MATH toca fórmulas como voces. **WAVE** (KNOB 2 de FORMULA) elige el tipo: **BYTE**, **FLOAT**, **USER** o **FUNC**.
+Las páginas cambian según el tipo.
 
 **BYTE y FLOAT**
 
 | Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| EDIT 1 (MATH) | CHIP | WAVE | ALGO | VAR |
-| EDIT 2 (TIME) | MOTION | GRIT (BYTE) / FEEDBK (FLOAT) | BEND | LOOP |
-| RETRIG | RTRG | — | — | — |
+| FORMULA | CHIP | WAVE | ALGO | VAR |
+| MOTION | MOTION | GRIT (BYTE) / FEEDBK (FLOAT) | BEND | LOOP |
 
 - **CHIP**: la resolución. BYTE: **4BIT, 4B/2** (4 bits sostenidos dos muestras), **8BIT, 1BIT**. FLOAT: **4BIT, 4B/2,
   FULL** (suave, el de fábrica), **1BIT**.
@@ -451,7 +458,7 @@ páginas cambian según el tipo.
 - **BEND**: dobla el tiempo de la fórmula.
 - **LOOP**: encierra el tiempo en una ventana corta que se repite con la nota: la evolución larga de la fórmula queda
   como un tono afinado.
-- **RTRG** (RETRIG): **ON** (de fábrica) arranca la fórmula desde el principio en cada nota, para que la voz toque
+- **RTRG** (en **MORE**): **ON** (de fábrica) arranca la fórmula desde el principio en cada nota, para que la voz toque
   afinada.
 
 Los presets de MATH, en el orden de la lista: para tocar, **MATH KEYS, MATH BASS, MATH PAD, MATH LEAD, MATH BELL, FLOAT
@@ -461,8 +468,8 @@ PAD**; experimentos, **BYTEBEAT, BYTE VAR, BYTE BENT, BYTE TONE, FLOAT ARP**; y 
 
 | Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| EDIT 1 | CHIP (hasta FULL) | WAVE | SEED (0–191) | MUTA (0–127) |
-| EDIT 2 | MOTION | GRIT / FEEDBK | BEND | LOOP |
+| FORMULA | CHIP (hasta FULL) | WAVE | SEED (0–191) | MUTA (0–127) |
+| MOTION | MOTION | GRIT / FEEDBK | BEND | LOOP |
 
 Con WAVE en **USER**, **SEED** inventa una fórmula. Cada una se corre y se juzga antes de sonar: las que quedan mudas,
 trabadas o solo con continua se descartan. **MUTA** la mueve: **1–63** muta números, desplazamientos y operadores;
@@ -477,30 +484,22 @@ Si la parte tiene un texto propio guardado, SEED y MUTA lo mutan en lugar de inv
 Cada parte de MATH y WAVE tiene además dos valores: **CAOS** lleva cualquier fórmula de como está escrita (0) a rota
 (127): tramos del tiempo plegados, saltados, realimentados. **TIME** decide de quién es el tiempo: **UNSYNC** (cada nota lo
 arranca), **SYNC** (el reloj de la canción es dueño del ritmo, la tecla solo de la altura) o **FIJO** (la canción es dueña
-de todo). En v0.14 estos dos valores no tienen una página en el panel: los fijan los presets y el generador, y en vivo
-el punch-in **CAOS MAX** pone todas las fórmulas en CAOS 127 mientras lo mantenés.
+de todo). Estos dos valores no tienen una página en el panel: los fijan los presets y el generador, y en vivo el
+punch-in **CAOS MAX** pone todas las fórmulas en CAOS 127 mientras lo mantenés.
 
 #### FUNC: programas que componen
 
 FUNC es un programa propio, con variables locales, estado por voz y funciones chicas, corrido por la misma máquina de
 fórmulas del instrumento. No es JavaScript. Para empezar, elegí el preset **FUNC SONG** o **FUNC BEAT** y apretá
-**PLAY**: una función produce la pieza completa.
+**PLAY**: una función produce la pieza completa. Con **RUN** la función sigue al transporte (una voz por pista, la pieza
+entera) o arranca en cada nota (para instrumentos y texturas); cuatro perillas **A–D** son controles del programa y
+destinos de la matriz.
 
-| Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
-| --- | --- | --- | --- | --- |
-| EDIT 1 | RUN (NOTE / SONG) | WAVE | A | B |
-| EDIT 2 | C | D | ROOT (−24…+24) | FORM (CUSTOM / SONG / BEAT) |
+> FUNC se está rehaciendo en otra rama: las perillas A–D van a tener nombres propios según la composición y los
+> patrones van a ser menos azarosos. Por eso este manual no detalla qué hace cada una.
 
-- **RUN SONG** sigue a PLAY / STOP con una voz por pista: el teclado no duplica la pieza (usá ROOT para transponerla).
-  **RUN NOTE** corre la función desde cada nota, para instrumentos y texturas.
-- **FORM** explora las dos composiciones (SONG, BEAT) y vuelve a tu código (**CUSTOM**). Cambiar FORM o de preset no
-  borra el texto CUSTOM.
-- **A–D** son controles del programa (0–100 %) y destinos de la matriz. En **FUNC SONG**: A el voicing y el registro de
-  los acordes y el color de la melodía, B la cadencia de la caja, C los hats (2, 4, 6 u 8 por tiempo), D los pasos de la
-  melodía por tiempo. En **FUNC BEAT**: A los armónicos del bajo, B la caja, C los hats, D el período del bombo.
-- **OCT+** en la página del motor abre el editor del programa; **OCT+** aplica, **OCT−** cancela. Un programa con error
-  muestra el error y conserva el anterior. Editar una plantilla y aplicarla la convierte en CUSTOM. El emulador tiene
-  además un editor de texto debajo del instrumento.
+**OCT+** en la página del motor abre el editor del programa; **OCT+** aplica, **OCT−** cancela. Un programa con error
+muestra el error y conserva el anterior. El emulador tiene además un editor de texto debajo del instrumento.
 
 Lo que tiene un programa:
 
@@ -509,7 +508,7 @@ Lo que tiene un programa:
 | `note(midi, edad, color)` | una nota con envolvente de un tiempo; color agrega armónicos |
 | `chord(raíz, edad, color)` | cuatro notas, envolvente de cuatro tiempos |
 | `kick(edad)`, `snare(edad)`, `hat(edad)` | bombo, caja, hat |
-| `P` | tiempos (beats): el transporte en SONG, desde la nota en NOTE |
+| `P` | tiempos (beats): el transporte, o desde la nota |
 | `t`, `T` | muestras y segundos desde que arrancó la voz |
 | `w` | la fase de la nota, en vueltas |
 | `n`, `v`, `freq`, `sr` | nota MIDI, velocidad, frecuencia, frecuencia de muestreo |
@@ -529,15 +528,17 @@ componentes de helpers a la vez (un `chord` cuenta cuatro). Sin bucles libres ni
 
 ### 4.2 WAVE
 
-WAVE es un wavetable paramétrico, como los sintes de wavetable por software, pero cada pieza es una ecuación: la tabla
-no se guarda, la dibuja una fórmula. **POS** recorre los "cuadros" que dibuja la fórmula.
+WAVE es un wavetable como los sintes de wavetable por software, pero cada tabla la dibuja una ecuación. **POS** recorre
+los "cuadros" que dibuja la fórmula. WAVE dibuja cada fórmula una vez en una tabla de 128 puntos (y la vuelve a dibujar de
+a poco cuando movés POS), y todas las voces de la pista la leen: suena igual que la fórmula escrita y cuesta mucho menos.
+BITS, STEP y NOISE, CAOS y una pista de una sola voz siguen calculando la fórmula exacta.
 
 | Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| EDIT 1 (WAVE) | A | POS | WARP | AMT |
-| EDIT 2 (OSC B) | B | MIX | DETUNE | SUB |
+| WAVE | A | POS | WARP | AMT |
+| OSC B | B | MIX | DETUNE | SUB |
 
-- **A** y **B**: la fórmula de cada oscilador, una de dieciséis:
+- **A** y **B**: la tabla de cada oscilador, una de dieciséis fórmulas:
 
   | Nombre | Qué hace POS |
   | --- | --- |
@@ -565,436 +566,83 @@ no se guarda, la dibuja una fórmula. **POS** recorre los "cuadros" que dibuja l
 - **DETUNE**: en 0 una voz; subiendo, tres voces abiertas alrededor de la nota.
 - **SUB**: un seno una octava abajo.
 
-Presets de WAVE: **FM KEYS, SAW PAD, SYNC LEAD, SUB BASS, FM BELL, FORMANT, BIT TABLE, INIT WAVE**.
+Presets de WAVE: **INIT WAVE, FM KEYS, SAW PAD, SYNC LEAD, SUB BASS, BIT TABLE, FM BELL, FORMANT**.
 
-### 4.3 DRUM-X
+### 4.3 DRUM-W
 
-DRUM-X es un kit sintetizado de ocho sonidos, **BD SD CP CH OH TM RS CB** (bombo, caja, palmas, hat cerrado, hat
-abierto, tom, rim, cencerro). Cada sonido puede ser la voz de batería clásica o una fórmula.
+DRUM-W es la batería de BYTE: ocho pads, **BD SD CP CH OH TM RS CB** (bombo, caja, palmas, hat cerrado, hat abierto,
+tom, rim, cencerro). Cada pad son dos **wavetables** (las mismas dieciséis fórmulas de WAVE), **A** y **B**, unidas por una
+estructura, con una envolvente y un LFO que mueven la posición, un cuerpo (afinación y barrido) y un ruido filtrado.
 
-**Los kits**: DRUM-X (el de fábrica), 909 CLUB, 808 BOOM, LOFI DUST, INDUSTRIAL, ACOUSTIC, DUB ROOTS, TECHNO RAW,
-BREAKS, HIP HOP, LATIN PERC y **FLOAT KIT**, con los ocho instrumentos hechos de fórmulas. Cargar uno carga el kit
-completo en la parte. Hay **un kit por parte**, compartido por todas las pistas DRUM-X: si otra pista toca DRUM-X,
-recorrer kits en una pista distinta lo deja como está ("KIT OF T4 KEPT").
+**Los kits**: DRUM-W (el de fábrica), 909 CLUB, 808 BOOM, LOFI DUST, INDUSTRIAL, ACOUSTIC, DUB ROOTS, TECHNO RAW,
+BREAKS, HIP HOP, LATIN PERC y FLOAT KIT. Cargar uno carga el kit completo en la parte. Hay **un kit por parte**,
+compartido por todas las pistas DRUM-W: si otra pista toca DRUM-W, recorrer kits en una pista distinta lo deja como está
+("KIT OF T4 KEPT").
 
-Cada sonido tiene dos lados, **A** y **B**; **MORPH** mueve todo el kit entre ellos. Las páginas van primero todo el
-kit, después un sonido, al final los volúmenes:
+Las páginas van en tres grupos: **PLAY** (todo el kit), **PAD** (un pad: KNOB 1 lo elige) y **KIT**.
 
 | Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| KIT | MORPH | TUNE | TONE | DECAY |
-| KIT 2 | NOISE | MOD ENV | FOLD | DRIVE |
-| KIT 3 | BP | FEEDBK | HANDS | GLUE |
-| KIT 4 | KEY MAP | — | — | — |
-| FORMULA | SOUND | FORMULA | SIDE | VAR A |
-| FORM MOD | SOUND | RATE | BEND | BITS |
-| SOUND | SOUND | SIDE | PITCH | PMOD |
-| SOUND 2 | SOUND | DECAY | NOISE | COLOR |
-| SOUND 3 | SOUND | MODE | PM.TYPE | DRIVE |
-| SOUND 4 | SOUND | LAYER | FEEDBK | SEND |
-| LEVELS | KICK | SNARE | CLAP | HATCL |
-| LEVELS 2 | HATOP | TOM | RIM | BELL |
-| KIT LFO | RATE | DEPTH | SHAPE | RAND |
-| FILTER | TYPE | CUT | RES | DIST |
-| STEREO | IMAGE | — | — | — |
+| PLAY | WAVE | MORPH | DECAY | STRIKE |
+| WAVE | PAD | TABLE A | POS | TABLE B |
+| SHAPE | PAD | STRUCT | AMOUNT | RATIO |
+| MOVE | PAD | ENV | DECAY | LFO |
+| BODY | PAD (con su lado A / B) | PITCH | SWEEP | DECAY |
+| NOISE | PAD | NOISE | CUTOFF | TYPE |
+| COLOR | ATTACK | FOLD | GAIN | CUTOFF |
+| MIX | PAD | LEVEL | STEREO | METAL |
 
-- **MOD ENV** (KIT 2) modula la fase con la envolvente del golpe: la pegada más metálica, la cola vuelve a su timbre.
-  **FOLD** pliega después de la envolvente. Los dos actúan también en las fórmulas.
-- **KIT 3**: **BP**, un pasabanda sobre los metales; **FEEDBK**, cada oscilador realimentado; **HANDS**, más gente
-  aplaudiendo en el CLAP; **GLUE**, una compresión sobre el bus del kit, de suave a límite duro.
-- **KIT 4 › KEY MAP**: **EXTENDED** (cada octava un trabajo: FILLS, KICK / TOM cromáticos, FX KIT, FLAM, ratchets) o
-  **CLASSIC** (las octavas cambian cómo suena el golpe: ver abajo).
-- **SOUND 3 › MODE**: la onda **SIN / FM / MTL / BEL**, el filtro de ruido **LP / BP / HP / GR** (GR: un güiro) o una
-  fórmula.
-- **SOUND 4**: **LAYER** un segundo oscilador desafinado, **FEEDBK** el de ese sonido, **SEND** ese golpe solo hacia un
-  efecto (CHO, DLY, REV).
-- **KIT LFO**: un LFO sobre MORPH, a tempo; **RAND** da a cada golpe su propio MORPH.
+- **PLAY**: perillas para todo el kit mientras toca. **MORPH** lleva cada pad de su lado A a su lado B.
+- **WAVE**: las dos tablas del pad y dónde está su posición (**POS**).
+- **SHAPE**: cómo se unen A y B: **STRUCT** **MIX, FM, RING, SYNC** o **FOLD**; **AMOUNT** cuánto; **RATIO** la relación de
+  B (1/2 a 8).
+- **MOVE**: la envolvente que mueve la posición al golpe (**ENV**, su **DECAY**) y un **LFO**.
+- **BODY**: la afinación, el barrido (**SWEEP**) y el decay del lado que estás editando.
+- **NOISE**: el ruido, su corte y su **TYPE** (blanco, rosa, marrón, violeta o resonante, con filtro HP, BP o LP).
+- **COLOR**: el kit entero: **ATTACK** (la subida de un ADSR), **FOLD**, **GAIN** (de limpio a +12 dB) y **CUTOFF**.
+- **MIX**: el nivel del pad, el estéreo del kit y **METAL**, un pasabanda sobre los metales.
 
-**Fórmulas en la batería.** En **FORMULA**: **SOUND** el instrumento (BD … CB), **FORMULA** CLASSIC (el oscilador de
-siempre), una de las 24 fórmulas de fábrica o USER, **SIDE** el lado A / B, **VAR A** la variable `A` de la expresión (la
-misma que COLOR de SOUND 2). La página muestra la expresión completa en grande. En **FORM MOD**: **RATE** (−24…+24
-semitonos: el reloj de la fórmula de ¼× a 4×), **BEND** (deforma la fase) y **BITS** (de 16 a 4 bits).
-
-**OCT+** en FORMULA abre el editor del texto del instrumento:
-
-| Control | Hace |
-| --- | --- |
-| KNOB 1 | el cursor |
-| KNOB 2 | el carácter bajo el cursor |
-| Teclas blancas | grupos de letras y dígitos; tocá de nuevo para el siguiente |
-| **D#** | letras / operadores |
-| **F# / A#** | cursor a la izquierda / derecha |
-| **G#** | espacio |
-| **C#** | borra el carácter anterior |
-| **OCT+ / OCT−** | aplica / cancela |
-
-En el texto, `w` es la fase, `T` los segundos desde el golpe, `t` el contador de la fórmula, `A` el COLOR y `v` la
-velocidad; mayúsculas y minúsculas cuentan. Hasta 63 caracteres por instrumento. Una expresión con error muestra el error
-y su posición, el editor queda abierto y el sonido de antes no se toca. Por ejemplo: `sin(w+sin(w*2)*A*3)`.
-
-**El kit en cada octava (KEY MAP CLASSIC).** Las teclas tocan el mismo sonido en cualquier octava; OCT cambia cómo:
-
-| OCT | Qué hace una tecla |
-| --- | --- |
-| **+3** | RATCHET x2: el golpe dos veces por paso mientras la mantenés |
-| **+2** | REPEAT: un golpe por paso, un redoble |
-| **+1** | REPEAT 1/2: un golpe cada dos pasos |
-| **0** | el kit como siempre |
-| **−1** | SHORT: la mitad del decay |
-| **−2** | GHOST: corto, más suave y oscuro |
-| **−3** | FLAM: un golpe de adorno y el golpe ~20 ms después |
-
-Los ratchets van a tempo. La grabación en vivo guarda el golpe y su modo en cada paso; en **SEQ › STEP** (la grilla),
-**KNOB 3 HIT** recorre **--, ON, x2, x4, x8, SHORT, GHOST, FLAM** para el sonido elegido.
+La página PLAY dibuja el kit como un radar: cada pad un sector con su tabla, y el que suena se enciende.
 
 **Mutes**: GLO mantenido + teclas negras 7–10 mutean los grupos KICK, SNARE, HAT, PERC; EDIT mantenido + teclas negras
-1–8 mutean cada sonido. **EDIT + SELECT** tira los dados del kit (los dos lados de cada sonido alrededor del kit de
-fábrica). **EDIT + F3** (INIT) trae de vuelta el kit de fábrica.
+1–8 mutean cada pad. **EDIT + SELECT** tira los dados del kit. **EDIT + F3** (INIT) trae de vuelta el kit de fábrica.
+
+Los punch-in blancos de las fórmulas (HALF, WOBBLE, REPEAT, STEP, BITS, MIRROR, SCRAMBLE) también actúan en DRUM-W:
+cambian cómo se recorren los pasos y al soltar vuelven a tiempo.
 
 El kit se guarda con cada parte del proyecto, no con los presets de usuario.
 
-### 4.4 FORM
+### 4.4 Las páginas comunes
 
-FORM es una parte que se toca sola: melodía, bajo, acordes y batería, todo hecho de fórmulas que corren mientras suena.
-No reproduce grabaciones: compone en el momento. Cada pista FORM es una sola voz del motor con varias capas adentro.
-
-La idea: elegís dos **estados** (A y B) de una lista de 36. Cada estado es una combinación de genes: una armonía, un
-voicing, una melodía, un ritmo, un timbre, una forma y una mezcla. **MORPH** compone entre los dos. Las otras páginas
-cambian una capa por vez: el timbre, la armonía, las capas, el reloj.
-
-#### Cómo empezar
-
-1. Elegí un preset de FORM con **PRESETS** (son los primeros de la lista): cada uno lleva el nombre de su estado A.
-2. Apretá **PLAY**. En **RUN SONG** (el de fábrica) FORM arranca y para con el transporte, como una canción. En **RUN
-   NOTE** suena mientras mantenés una tecla, transportado a esa nota.
-3. Apretá **EDIT**: estás en **STATES**. Girá **STATE A** y **STATE B**, y después **MORPH**.
-4. Seguí con **SELECT** por las páginas: RULES, TIMBRE, HARMONY, LAYERS, CLOCK.
-5. ¿Querés otra idea? Mantené **EDIT** y girá **SELECT**: el dado de FORM. **OCT+** la deja, **OCT−** vuelve.
-
-La tónica y la escala son las de la canción: **SCL › ROOT** y **SCALE**. Todas las pistas melódicas comparten la misma
-tonalidad (cambiarla en cualquier pista la cambia en todas), así que FORM siempre toca en la tonalidad de las otras.
-
-#### Las seis páginas
-
-Por importancia: lo que más cambia el sonido, primero.
+Valen para MATH y WAVE. Los grupos de EDIT son **SOUND** (las páginas del motor), **TONE** (FILTER, TONE), **FOCUS** y
+**PLAY** (PLAY, MORE).
 
 | Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| **STATES** (EDIT 1) | STATE A | STATE B | MORPH | COLOR |
-| **RULES** (EDIT 2) | GROOVE | DENSITY | SEED | EVOLVE |
-| **TIMBRE** | STYLE | DRIVE | TONE | WOBBLE |
-| **HARMONY** | HARMONY | PROGRESS | CHORD | VOICING |
-| **LAYERS** | DRUMS | DETUNE | OCTAVE | LEVEL |
-| **CLOCK** | RUN | DIV | CYCLE | SWING |
-
-Cada página dibuja la parte del motor que maneja:
-
-- **STATES**: los nombres de los dos estados, las trazas de sus ecuaciones (la forma de la voz, no una grabación de la
-  mezcla) y la proporción A / B de MORPH.
-- **RULES**: los golpes de bombo, caja y hat que salen de GROOVE, DENSITY y SEED.
-- **TIMBRE** y **LAYERS**: lo que llega a la mezcla de A y de B, la batería, el detune.
-- **HARMONY**: el contorno de la melodía en la escala y las notas del acorde que suena.
-- **CLOCK**: el transporte, el ciclo de ocho secciones, las entradas de melodía, armonía y batería, el cursor y el swing.
-
-**STATES**
-
-| Control | Valores | Qué hace |
-| --- | --- | --- |
-| **STATE A** | 01 SCORE … 36 ACID | El primer estado. |
-| **STATE B** | 01 SCORE … 36 ACID | El segundo estado. |
-| **MORPH** | 0–100 % (0 de fábrica) | En 0 suena solo A; en 100 %, solo B. En el medio, compone: ver [El MORPH compone](#el-morph-compone). |
-| **COLOR** | 0–100 % (50 de fábrica) | El carácter de las ecuaciones: cuánto brillo, índice o mordida tiene cada una. Es también el destino **SHP** de la matriz. |
-
-**RULES**
-
-| Control | Valores | Qué hace |
-| --- | --- | --- |
-| **GROOVE** | ORIGINAL, EUCLID, BREAKS, POLY, REVERSE, HALF, DOUBLE, ROTATE | Reorganiza el ritmo de los estados: el suyo (ORIGINAL), repartido en euclídeo, quebrado, polirrítmico, al revés, a medio tiempo, al doble, rotado. |
-| **DENSITY** | 0–100 % (79 de fábrica) | Cuántos eventos suenan: abajo ralo, arriba lleno. |
-| **SEED** | 0–127 | La semilla: rota los motivos y, sin PROGRESS, elige la familia de progresión. El mismo SEED suena siempre igual. |
-| **EVOLVE** | 0–100 % (50 de fábrica) | Cuánto cambia la música de una sección a la siguiente: mutaciones, entradas de batería, sustituciones de acordes. En 0 cada vuelta es igual. |
-
-**TIMBRE**
-
-| Control | Valores | Qué hace |
-| --- | --- | --- |
-| **STYLE** | AUTO, BYTE, FLOAT, FUNC, HYBRID, WOBBLE, REESE, GROWL, RING, SCREECH, ACID | Cómo se interpreta la matemática. AUTO deja la de cada estado. Ver [STYLE y los bajos de carácter](#style-y-los-bajos-de-carácter). |
-| **DRIVE** | 0–100 % (0 de fábrica) | Satura toda la mezcla de FORM, con el sub adentro. Un poco engorda; mucho distorsiona. |
-| **TONE** | 0–100 % (50 de fábrica) | El carácter del bajo de carácter: los formantes (GROWL), la resonancia (ACID), la desafinación (REESE), la apertura del filtro (WOBBLE), el índice (SCREECH). |
-| **WOBBLE** | 1/2, 1/4, 1/8, 1/8T, 1/16, STEPS, JUMPS, BAR (1/8 de fábrica) | La velocidad del wobble, a tempo. **STEPS** cambia de velocidad según un patrón; **JUMPS** salta entre velocidades al azar; **BAR** una vuelta por compás. |
-
-**HARMONY**
-
-| Control | Valores | Qué hace |
-| --- | --- | --- |
-| **HARMONY** | AUTO, CLASSIC, DEGREES, FAMILY, PEDAL, BITS | De dónde sale la armonía. Ver [Los modos de armonía](#los-modos-de-armonía). |
-| **PROGRESS** | AUTO, AXIS, II-V-I, VAMP, DESCEND, FOURTHS, EPIC, POP, CIRCLE | La familia de progresiones (en FAMILY y PEDAL; en AUTO también los estados clásicos pasan a FAMILY). Ver [Las progresiones](#las-progresiones). |
-| **CHORD** | OFF, TRIAD, 7TH, ADD9, SUS2, SUS4, MAJ, MIN, 7, MAJ7, MIN7, POWER | El acorde. Es el mismo valor que **SCL › CHORD**. |
-| **VOICING** | CLOSE, LEAD, OPEN, +BASS, DROP, QUARTAL, NEAR, WIDE | Cómo se reparten las notas del acorde. Ver [Los voicings](#los-voicings). |
-
-**LAYERS**
-
-| Control | Valores | Qué hace |
-| --- | --- | --- |
-| **DRUMS** | 0–100 % (79 de fábrica) | Cuánta batería propia suena. En 0, FORM sin batería (para tocar con DRUM-X). |
-| **DETUNE** | 0–100 % (19 de fábrica) | Cuánto se separan las capas del acorde: de afinadas a un coro ancho. |
-| **OCTAVE** | −1, 0, +1, +2 (0 de fábrica) | La octava de la melodía (los acordes y el bajo quedan). |
-| **LEVEL** | | El nivel de la pista, el mismo de MIXER. |
-
-**CLOCK**
-
-| Control | Valores | Qué hace |
-| --- | --- | --- |
-| **RUN** | NOTE, SONG (SONG de fábrica) | **SONG**: arranca con PLAY y vuelve al principio al parar. **NOTE**: suena mientras mantenés una tecla, transportado a esa nota. |
-| **DIV** | 4BAR … 1/32, 8T, 16T (1/16 de fábrica) | La velocidad de la composición. En 1/16 cada estado toca a su velocidad propia; valores más largos la hacen más lenta, más cortos más rápida. |
-| **CYCLE** | 1–64 tiempos (32 de fábrica) | El largo del ciclo. Cada ciclo tiene ocho secciones: ahí cambian la progresión, las entradas y las mutaciones de EVOLVE. |
-| **SWING** | 0–100 % (0 de fábrica) | Los contratiempos más tarde. |
-
-> En la página CLOCK la segunda perilla dice **DIV** (en la matriz de modulación también). Es la velocidad de FORM.
-
-#### Los 36 estados
-
-Los primeros 22 son adaptaciones nativas de 22 fórmulas de referencia (bytebeat, floatbeat y funcbeat). Los 14 últimos
-salen de las referencias de Juan para FORM 2 y combinan los genes nuevos. Ninguno ejecuta el original: conservan sus
-rasgos con rutinas acotadas.
-
-| Nº | Estado | Qué tiene |
-| --- | --- | --- |
-| 01 | **SCORE** | Un motivo, una progresión, una voz secundaria y entradas de batería. |
-| 02 | **TIME RULE** | Tiempo modular, triángulo y lógica: un ritmo irregular. |
-| 03 | **COUNTER** | Una melodía codificada, contrapunto y entradas por sección. |
-| 04 | **FIVE PART** | Cinco funciones a múltiplos impares, envolventes por bits. Sin batería propia. |
-| 05 | **TUNED MEM** | El motivo `14BGFB6B34BGIKNR`, pulso y detune, recurrencia y eco. |
-| 06 | **SWITCH** | Alterna lógica temporal y ritmos. |
-| 07 | **BASS ECHO** | Bajo en capas desafinadas, subvoz, melodía y eco. |
-| 08 | **DETUNE** | Cuatro capas desafinadas y memoria espacial. |
-| 09 | **RATIOS** | Razones 1, 4/5, 3/4, 1/2, 1/4 y una secuencia reflejada. |
-| 10 | **NESTED FM** | Modulación anidada con índice lento. Sin batería propia. |
-| 11 | **BIT MORPH** | AND y XOR, melodía por semitonos. |
-| 12 | **CRUSH CHD** | Los acordes `037A05AC`, saturación y reducción de resolución. |
-| 13 | **FILTER CHD** | Acordes con pulso, pasaaltos, bajo y batería. |
-| 14 | **SWEEPS** | Barridos recíprocos de fase y percusión. |
-| 15 | **BIT GROOVE** | Multiplicaciones, desplazamientos y máscaras rítmicas. |
-| 16 | **MASK SONG** | Ritmos codificados y entradas escalonadas. |
-| 17 | **NONLIN CHD** | Fase elevada a una potencia impar, acordes y puertas. |
-| 18 | **GENERATIVE** | Ratios, cambios por ciclo y semilla, recurrencia y memoria. |
-| 19 | **SHAPED ARP** | Arpegio, potencias pares, silencios y registros. |
-| 20 | **BUILD UP** | Construcción progresiva por máscaras y capas. |
-| 21 | **BIT PAIRS** | Dos expresiones de bits, ritmo cruzado y percusión. |
-| 22 | **NESTED EQ** | Funciones anidadas, producto de ondas, saturación y ruido acotado. |
-| 23 | **STRUM 332** | Acordes rasgueados en 3-3-2, armonía por familia (AXIS). |
-| 24 | **HOUSE M9** | Voicings abiertos de house con nota común y sidechain del bombo. |
-| 25 | **CHIRP** | Una secuencia de intervalos justos; armonía por grados. |
-| 26 | **DRIFT** | Melodía y progresión por operaciones de bits, sobre ciclos largos. |
-| 27 | **BITPACK** | Un bajo de 8 bits empaquetado en nibbles, sobre un pedal, con ratchets. |
-| 28 | **BUILD** | Un arreglo que se arma: las capas entran de a una; ratchets. |
-| 29 | **RISER** | La melodía cambia por sección y un riser de ruido antes del cambio. |
-| 30 | **FILLS** | Arpegio con silencios y fills al final de la vuelta. |
-| 31 | **SUITE** | Una progresión escrita con voicings abiertos de cinco. |
-| 32 | **DEGREES** | Grados apilados en la escala y progresión por bits: la clave de FORM 2. |
-| 33 | **NIBBLE** | Nibbles, arpegio con silencios y un pulso que respira. |
-| 34 | **GROWL** | Bajo GROWL de dubstep: formantes por sincronismo, sobre un pedal, con sidechain. |
-| 35 | **WOBBLE** | Bajo WOBBLE de dubstep a medio tiempo, pedal y sidechain. |
-| 36 | **ACID** | Bajo ACID: filtro resonante con acento, slide y squelch; ratchets. |
-
-Los presets de FORM 2 (23 a 36) traen además su pareja de estado B, su CHORD, su VOICING y su DRIVE, WOBBLE y TONE. Por
-ejemplo, **35 WOBBLE** viene con B en 34 GROWL, DRIVE al 70 % y WOBBLE en JUMPS.
-
-#### Los modos de armonía
-
-**HARMONY** decide de dónde salen la progresión y la melodía.
-
-| Modo | Qué hace |
-| --- | --- |
-| **AUTO** | La armonía del estado. Los estados 01–22 usan CLASSIC; los 23–36, la suya (FAMILY, DEGREES, PEDAL o BITS). |
-| **CLASSIC** | Como los 22 primeros: la progresión y la melodía son cadenas de semitonos; cambiar la escala las corre a la nota más cercana de la escala. |
-| **DEGREES** | La progresión del estado leída como grados de la escala: los acordes se apilan en la escala y la melodía sigue al acorde. Cambiar la escala cambia la forma, no solo la afinación. |
-| **FAMILY** | La progresión sale de una familia (ver PROGRESS), con acordes apilados en la escala. |
-| **PEDAL** | Como FAMILY, pero el bajo se queda en la tónica: los acordes se mueven sobre una nota pedal. |
-| **BITS** | La progresión sale de operaciones de bits sobre el ciclo y la sección: diatónica, cambia por sección, nunca del todo igual. |
-
-Fuera de CLASSIC, **EVOLVE** hace sustituciones entre secciones: a veces cambia el acorde por su relativo, a veces por
-el que está una cuarta arriba.
-
-**CHORD** en las armonías por grados (todas menos CLASSIC) elige el tipo de acorde por tramos de la perilla:
-
-| CHORD | Acorde apilado en la escala |
-| --- | --- |
-| OFF | una sola voz en la capa de acordes |
-| TRIAD, 7TH | tríada (con la octava arriba) |
-| ADD9, SUS2, SUS4 | con séptima |
-| MAJ, MIN, 7 | con novena, sin fundamental (abierto, tipo m9) |
-| MAJ7, MIN7, POWER | suspendido |
-
-En **CLASSIC** los nombres valen tal cual (TRIAD, 7TH, ADD9, SUS2, SUS4, MAJ, MIN, 7, MAJ7, MIN7, POWER), en semitonos.
-
-#### Las progresiones
-
-**PROGRESS** elige la familia de progresiones cuando HARMONY es FAMILY o PEDAL, o AUTO: con HARMONY en AUTO, elegir una
-progresión hace que un estado clásico (01–22) toque por esa familia. Son grados de la escala: en otra escala, sus propios grados. En **AUTO**, la familia la elige el estado, y
-**SEED** la mueve.
-
-| PROGRESS | Grados | Suena a |
-| --- | --- | --- |
-| **AXIS** | i – VI – III – VII | el eje del pop menor y el house |
-| **II-V-I** | ii – V – I – I | la cadencia del jazz |
-| **VAMP** | i – iv – i – iv | un vamp modal de dos acordes |
-| **DESCEND** | i – VII – VI – V | el bajo que baja |
-| **FOURTHS** | i – iv – VII – III | por cuartas |
-| **EPIC** | i – VI – iv – V | épico, de película |
-| **POP** | I – V – vi – IV | el pop de siempre |
-| **CIRCLE** | i – III – VI – ii | un círculo que no cierra |
-
-La progresión cambia de acorde cada dos secciones del ciclo (CYCLE).
-
-#### Los voicings
-
-| VOICING | Cómo reparte el acorde |
-| --- | --- |
-| **CLOSE** | cerrado, todo junto |
-| **LEAD** | la voz de arriba baja una octava en las secciones impares |
-| **OPEN** | voces alternadas una octava arriba: abierto |
-| **+BASS** | la fundamental una octava abajo |
-| **DROP** | la fundamental abajo y la tercera voz arriba: un drop amplio |
-| **QUARTAL** | apilado por cuartas |
-| **NEAR** | cada acorde cerca del anterior: las notas comunes se quedan, las otras se mueven poco (conducción de voces) |
-| **WIDE** | el acorde muy abierto, en un registro amplio |
-
-#### STYLE y los bajos de carácter
-
-**STYLE** cambia cómo se interpreta la matemática de los estados. Los cinco primeros son dominios:
-
-| STYLE | Qué hace |
-| --- | --- |
-| **AUTO** | el dominio de cada estado |
-| **BYTE** | cuantización y lógica entera: grano de bytebeat |
-| **FLOAT** | una salida continua, más redonda |
-| **FUNC** | agrega una recurrencia con memoria y filtro por voz |
-| **HYBRID** | cruza los valores de una expresión entera con una onda continua |
-
-Los seis últimos ponen un **bajo de carácter** en lugar del bajo del estado: una voz propia, con su fase y su altura, que
-sigue la progresión y a veces salta octavas y quintas.
-
-| STYLE | El bajo | TONE |
-| --- | --- | --- |
-| **WOBBLE** | una sierra por dos polos de filtro que abre y cierra el wobble | cuánto abre |
-| **REESE** | tres sierras desafinadas con phasing | cuánto se desafinan |
-| **GROWL** | dos formantes que reinician su fase con cada ciclo de la nota (hard sync): la nota es la altura, los formantes la vocal; wobble trapezoidal | dónde están los formantes |
-| **RING** | modulación en anillo con un parcial que cambia por paso | el parcial |
-| **SCREECH** | FM de índice alto: un chillido | el índice |
-| **ACID** | un filtro resonante sobre una sierra, con acento, slide y squelch; toca la melodía dos octavas abajo | la resonancia y la apertura |
-
-Los estados **34 GROWL**, **35 WOBBLE** y **36 ACID** traen su bajo con STYLE en AUTO. **WOBBLE** (la perilla) es la
-velocidad del wobble en todos; **DRIVE** satura la suma, con el sub adentro.
-
-#### El MORPH compone
-
-**MORPH** no es un crossfade. Entre 0 y 100 %:
-
-- **cada paso** toma su melodía de A o de B, al azar, con la probabilidad que marca la perilla (a más MORPH, más pasos
-  de B);
-- **cada sección** toma su progresión de A o de B, igual;
-- lo continuo (el timbre de las ecuaciones, los golpes de batería) se mezcla.
-
-El azar es fijo: sale de SEED, del paso y del ciclo, así que la misma posición de la perilla suena siempre igual. En
-**0** suena solo A, en **100 %** solo B, como siempre.
-
-MORPH en el medio cuesta casi el doble de CPU que un estado solo. Si la protección de carga se dispara, FORM toca solo
-el estado más cercano a la perilla (ver [CPU y rendimiento](#17-cpu-y-rendimiento)).
-
-#### SEED y EVOLVE
-
-- **SEED** (0–127) rota los motivos y, con PROGRESS en AUTO, mueve la familia de progresión. Es determinista: guardá
-  el número de una semilla que te guste.
-- **EVOLVE** (0–100 %) decide cuánto se transforma la música en cada sección del ciclo: mutaciones de motivo, entradas
-  y salidas de batería, sustituciones de acordes (en las armonías por grados). Con EVOLVE en 0 el ciclo se repite igual;
-  arriba, cada vuelta trae algo.
-- **CYCLE** fija cuánto dura una vuelta (ocho secciones); con CYCLE largo los cambios son lentos.
-
-#### El dado de FORM
-
-| Gesto | Qué tira |
-| --- | --- |
-| **EDIT + SELECT** | Todo FORM, de forma coherente: los estados (a veces A y B iguales), MORPH (a veces en un extremo), COLOR, STYLE (una vez de cada cuatro un bajo de carácter), DRIVE (poco, y a veces mucho), TONE, WOBBLE, DRUMS, DETUNE, OCTAVE, CYCLE (8, 16 o 32) y SWING, más la composición. La pantalla dice **FORM DICED**. |
-| **SEQ + SELECT** | Solo la composición: HARMONY (la mitad de las veces AUTO), PROGRESS, CHORD, VOICING, GROOVE, DENSITY, SEED y EVOLVE. Los estados y el timbre quedan. **SEQ DICED: FORM**. |
-
-El dado nunca cae en un extremo que rompa el sonido. Lo escuchás al instante: **SELECT** otra vez tira de nuevo,
-**OCT+** lo deja, **OCT−** devuelve lo que había.
-
-#### FORM y el resto del equipo
-
-- **Modulación**: todos los valores de FORM son destinos de la matriz. Los ocho de STATES y RULES son E1–E8 (con sus
-  nombres); además, solo en una pista FORM, **STYLE, DRIVE, TONE, WOBBLE, HARMONY, PROGRESS, OCTAVE, CHORD, VOICING,
-  DRUMS, DETUNE, SWING, DIV** y **CYCLE**. PITCH transporta y SHP mueve COLOR.
-- **LIFE**: FORM intercambia timbre con las otras fórmulas, en las dos direcciones.
-- **La sección ARP** no aparece en una pista FORM: su lugar lo usan los genes.
-- **Presets de usuario**: guardan los genes de FORM (estados, timbre, armonía, reloj).
-
-#### Consejos por género
-
-Puntos de partida; después movelos a gusto. Elegí la escala en **SCL** antes (MIN sirve para casi todos).
-
-**House** (120–124 BPM)
-
-- STATE A **24 HOUSE M9**, STATE B **23 STRUM 332** o **31 SUITE**, MORPH 20–35 %.
-- HARMONY **FAMILY**, PROGRESS **AXIS** o **VAMP**, CHORD en el tramo **MAJ / MIN / 7** (novena abierta, el acorde m9),
-  VOICING **DROP** o **NEAR**.
-- SWING 10–20 %, DIV 1/16, DRUMS 60–80 %. El sidechain de HOUSE M9 ya bombea; en FX, un poco de REV.
-
-**Dubstep** (140 BPM, sentido a medio tiempo)
-
-- STATE A **35 WOBBLE**, STATE B **34 GROWL**, MORPH 40–60 %: un paso de cada uno.
-- STYLE **AUTO** (o forzá **WOBBLE**, **GROWL** o **REESE**), WOBBLE **1/8T** o **STEPS**, DRIVE 50–70 %, TONE a gusto.
-- HARMONY **PEDAL**, CHORD OFF o TRIAD. En FX › MASTER, un poco de **DUCK**.
-
-**Acid** (125–135 BPM)
-
-- STATE A **36 ACID**, STATE B **27 BITPACK**, MORPH 0–30 %.
-- TONE 80–100 % (la resonancia), DRIVE 20–40 %, WOBBLE 1/16.
-- HARMONY **PEDAL** o **FAMILY** con PROGRESS **VAMP**. EVOLVE 60–80 % para que el patrón cambie por sección. Un DELAY
-  1/8D con FEEDBK medio.
-
-**Ambient** (70–90 BPM)
-
-- STATE A **26 DRIFT**, STATE B **18 GENERATIVE** u **08 DETUNE**, MORPH 50 %.
-- DRUMS 0, DIV **1/8** o **1/4**, CYCLE 64, EVOLVE alto.
-- VOICING **WIDE** o **QUARTAL**, DETUNE 40–60 %, HARMONY **DEGREES** o **BITS**.
-- REVERB **CLOUD** o ROOM grande, mucho REV en la pista; un DELAY largo.
-
-### 4.5 EXT
-
-La entrada de audio (EXT, con su modo SWARM) de JIANT FM **no está en JIANT BYTE v0.14**: el motor está retirado y una
-parte guardada con él suena como MATH. Las fórmulas de BYTE pueden leer la salida de otra pista (O1..O6).
-
-### 4.6 Las páginas comunes
-
-Valen para MATH, WAVE y FORM (DRUM-X tiene su propio FILTER, con DIST en KNOB 4).
+| FILTER | TYPE | CUT | RES | IMAGE |
+| TONE | KEY TRK | CRUSH | LIFE | — |
+| FOCUS | el parámetro (E1–E8) | su valor | SRC (el slot de la matriz que apunta a él) | AMT |
+| PLAY | POLY | GLIDE | UNISON | VEL |
+| MORE (MATH) | RTRG | GL MODE | UNISON | VEL |
+| MORE (WAVE) | VOICES | — | — | — |
 
 **FILTER**: **TYPE** LP, HP, BP, **COMB**, **COMB-** (filtros peine afinados a la nota: CUT los mueve, RES es cuánto
-resuenan; COMB metálico, COMB- hueco, de armónicos impares) o **LP24** (un pasabajos de 24 dB/oct que con DRIVE gruñe y
-grita); **CUT**; **RES**; **DRIVE** (la parte entra a un recorte suave antes del filtro, x1 a x6, con el nivel
-compensado al cerrar).
-
-**FILTER 2**: un modulador del filtro. **NOISE** la profundidad (0: apagado), **RATE** su velocidad, **MODE** cómo mueve
-el corte: **SOFT** (un valor al azar que se desliza), **STEP** (sample and hold), **METAL** (un seno a velocidad de audio
-afinado a la nota; RATE pasa a ser RATIO), **BREAK** (saltos a tempo sobre un patrón de 16 pasos; RATE pasa a ser DIV) o
-**DUST** (picos sueltos), y **DEST** qué mueve: **FILT** (el corte), F75, MIX, P75 o **PITCH** (la afinación). El
-modulador es también la fuente **F.NOISE** de la matriz.
+resuenan; COMB metálico, COMB- hueco, de armónicos impares) o **LP24** (un pasabajos de 24 dB/oct); **CUT**; **RES**;
+**IMAGE** (las voces repartidas en el estéreo).
 
 **TONE**: **KEY TRK** (el corte sigue a la nota, 0–100 %), **CRUSH** (el reductor de bits de la pista) y **LIFE** (el
 LIFE de esta pista, ver [LIFE](#5-life)).
 
-**VOICES**: **POLY** (POLY, MONO, LEG, UNI, DRONE), **VOICES** (cuántas voces puede usar la pista, 1–8: menos voces,
-menos CPU), **GLIDE**, **PRIO** (LAST, LOW, HIGH). **DRONE** deja sonar la nota al soltarla; la siguiente se desliza hasta
-ahí. Para apagarlo, tocá otra vez sola la tecla de una nota que suena, o MUTE.
+**FOCUS**: un parámetro del motor en grande, con su barra térmica y cuánto lo mueve la matriz; abajo los ocho con sus
+barras. **KNOB 1** lo elige, **KNOB 2** lo ajusta, **KNOB 3** la fuente del slot de la matriz que apunta a él (subirla
+desde OFF toma un slot libre), **KNOB 4** el AMT.
 
-**VOICES 2**: **ALLOC** (ROT / REUSE), **UNISON** (cuánto se abren las voces de UNI), **VEL** (cuánta velocidad le llega
-al sonido: 0 % toca todo parejo) e **IMAGE** (las voces repartidas en el estéreo).
+**PLAY**: **POLY** (POLY, MONO, LEG, UNI, DRONE), **GLIDE**, **UNISON** (cuánto se abren las voces de UNI) y **VEL**
+(cuánta velocidad le llega al sonido: 0 % toca todo parejo). **DRONE** deja sonar la nota al soltarla; la siguiente se
+desliza hasta ahí. Para apagarlo, tocá otra vez sola la tecla de una nota que suena, o MUTE.
 
-**VOICES 3**: **CRUSH**, **LIFE** y **GL MODE** (RATE o TIME: cómo se mide el glide).
-
-**AUTO KNOBS**: un parámetro del motor en grande. **KNOB 1** lo elige (E1–E8), **KNOB 2** lo ajusta, **KNOB 3** la fuente
-del slot de la matriz que apunta a él (subirla desde OFF toma un slot libre), **KNOB 4** el AMT.
+**MORE**: en MATH **RTRG** y **GL MODE** (RATE o TIME: cómo se mide el glide); en WAVE **VOICES** (cuántas voces puede
+usar la pista, 1–8: menos voces, menos CPU).
 
 ---
 
@@ -1026,29 +674,28 @@ por dentro:
 | 75 | ~49 % |
 | 100 | 100 % |
 
-La pantalla muestra los seres de las pistas que suenan y una línea entre cada par que se está intercambiando, más gruesa
+La pantalla muestra la órbita de las pistas que suenan y una línea entre cada par que se está intercambiando, más gruesa
 cuanto más.
 
 ### Quién participa
 
-- **Todos los motores, en las dos direcciones**: MATH (BYTE y FLOAT), WAVE, DRUM-X y FORM. No hay un motor central ni
+- **Todos los motores, en las dos direcciones**: MATH (BYTE y FLOAT), WAVE y DRUM-W. No hay un motor central ni
   parejas fijas.
 - **Hacen falta notas superpuestas**: una voz sola no tiene con quién intercambiar. También se conectan dos notas de la
   misma pista (un acorde).
-- La batería clásica de DRUM-X (sin fórmula) participa con su COLOR y su envolvente; los golpes cambian a las otras voces
-  en sus primeros ~100 ms.
+- Los golpes de DRUM-W cambian a las otras voces en sus primeros ~100 ms.
 - Mute, solo y las voces que terminaron dejan de participar. La profundidad no depende del volumen de la pista donante:
   el LEVEL y las envolventes deciden qué notas participan, no cuánto.
 
 ### El LIFE de cada pista
 
-**EDIT › TONE, KNOB 3** (también **EDIT › VOICES 3, KNOB 2**) es el LIFE propio de la pista, 0–100 % (100 de fábrica), por
+**EDIT › TONE, KNOB 3** es el LIFE propio de la pista, 0–100 % (100 de fábrica), por
 el de HOME. En 0 la pista queda afuera: ni recibe ni da. En la matriz, **LIFE** es una fuente (la respiración de la
-pista), **BEING** otra (la altura de su ser en la página LIFE) y **LIFE** un destino (el LIFE de la pista, sumado).
+pista), **BEING** otra (su pulso en la página LIFE) y **LIFE** un destino (el LIFE de la pista, sumado).
 
 ### Para escucharlo
 
-1. Hacé sonar dos sonidos distintos a la vez (una nota sostenida de WAVE mientras toca FORM, por ejemplo).
+1. Hacé sonar dos sonidos distintos a la vez (un pad de WAVE sostenido mientras toca un bytebeat de MATH, por ejemplo).
 2. HOME › LIFE: **LIFE 50, NUM 65, FRAG 60, LINK 40**. Después subí LIFE a 75–100.
 3. Para oír solo el intercambio de formas: FRAG 100, NUM y LINK en 0, y recorré LIFE.
 4. Muteá la pista donante para escuchar qué aportaba.
@@ -1094,7 +741,7 @@ propio flujo, así que mover BASS deja la batería y el lead como estaban. La pa
 género y la semilla).
 
 **Cómo suena en BYTE.** El género pone la armonía, el ritmo, las envolventes y el arreglo. Los sonidos se eligen por rol
-musical entre presets propios de MATH y WAVE, con DRUM-X para la batería:
+musical entre presets propios de MATH y WAVE, con DRUM-W para la batería:
 
 - **Bajo**: familias floatbeat de fundamental y parciales enteros, o WAVE con sub; sin CAOS ni BEND al azar.
 - **Pads y lead**: floatbeats armónicos y FM, o WAVE con POS, mezcla y ancho controlados.
@@ -1103,7 +750,7 @@ musical entre presets propios de MATH y WAVE, con DRUM-X para la batería:
 - **Batería**: FLOAT KIT adaptado al género.
 
 En PARTS y SONG las partes B, C y D desarrollan el timbre con automatización (POS en WAVE, BEND en BYTE, el filtro en
-FLOAT). GEN deja **LIFE en 0**. Todavía no compone partes FORM.
+FLOAT). GEN deja **LIFE en 0** y DRONE CLAY apagado.
 
 **Una base limpia.** Cada pieza arranca del estado de CLEAR PROJECT: nada de lo anterior se cuela. Se conservan el tempo
 con BPM LOCK, el nombre del proyecto y tus propias partes. **UNDO** (GLO + G4) devuelve la música de antes.
@@ -1128,7 +775,7 @@ La última página de SEQ escribe el patrón de la pista elegida con las reglas 
 
 | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- |
-| **GENRE** | **SEED** | **ROLE** (BASS, CHORDS, LEAD, ARP) o, en una pista DRUM-X, **COMPLEX** | **ENERGY** |
+| **GENRE** | **SEED** | **ROLE** (BASS, CHORDS, LEAD, ARP) o, en una pista DRUM-W, **COMPLEX** | **ENERGY** |
 
 **OCT+** escribe la pista. Respeta la tonalidad de la canción y el bombo de la pista de batería. No funciona con un tema
 sonando (**STOP SONG TO EDIT**).
@@ -1138,8 +785,8 @@ sonando (**STOP SONG TO EDIT**).
 ## 7. El secuenciador
 
 Cada pista tiene su propio patrón de **64 pasos** con su largo (LEN), división (DIV), swing y gate, así que patrones de
-distinto largo giran unos contra otros. Una pista FORM en RUN SONG se compone sola; el secuenciador es para MATH, WAVE y
-DRUM-X (y para FORM en RUN NOTE).
+distinto largo giran unos contra otros. Además de los pasos, cada pista puede tener [DRONE CLAY](#drone-clay-el-sonido-que-se-modela),
+un drone que se modela solo.
 
 ### La cadena de SEQ
 
@@ -1147,12 +794,13 @@ DRUM-X (y para FORM en RUN NOTE).
 | --- | --- | --- |
 | **STEP** | STEP | Escribir pasos: el piano roll (melódica) o la grilla (batería). |
 | **PATTERN** | LENGTH · RHYTHM · TRACK | El largo, la división, el swing y el gate; SPAN y FIT; la altura, CHANCE, HUMAN y REC Q de la pista. |
-| **EUCLID** | EUCLID · MODES · MUTATE | Patrones euclídeos, sus modos y las mutaciones por compás. |
+| **EUCLID** | EUCLID · MODES | Patrones euclídeos y sus modos. |
 | **PLAYHEADS** | PLAYHEADS | Tres cabezales más sobre el mismo patrón. |
 | **STRETCH** | STRETCH | Estirar, repetir, empujar y rotar el patrón. |
 | **STEP COND** | STEP COND · COND 2 | Hasta dos componentes por paso. |
 | **LOCKS** | LOCKS | La automatización y los locks, como lista. |
 | **TRACK GEN** | TRACK GEN | El generador de la pista. |
+| **CLAY** | DRONE CLAY · CLAY MOD 1–4 · CLAY DECAY · CLAY TIME | El drone que se modela (ver [DRONE CLAY](#drone-clay-el-sonido-que-se-modela)). |
 
 Todas las páginas muestran el mismo piano roll del compás, con las filas de la escala teñidas, el cursor y el cabezal;
 cada página dibuja lo suyo encima. **SEQ mantenido + PRESETS** mueve el paso; PRESETS solo carga sonidos.
@@ -1164,15 +812,18 @@ cada página dibuja lo suyo encima. **SEQ mantenido + PRESETS** mueve el paso; P
 | LENGTH | LEN | DIV | SWING | GATE |
 | RHYTHM | SPAN | FIT | — | — |
 | TRACK | PITCH | CHANCE | HUMAN | REC Q |
-| EUCLID | HITS | STEPS | ROTATE | LANE (batería) / VARY (melódica) |
-| MODES | ACCENT · MOTION | GHOST · HARMONY | RATCHET · OCTAVE | VARY · SLIDE |
-| MUTATE | EVERY | AMOUNT | MODE (ORBIT, DRIFT, PULSE) | WHAT (GROOVE, RHYTHM, FEEL, ALL) |
+| EUCLID | HITS (batería: DENSITY) | STEPS | ROTATE | VARY (batería: LANE) |
+| MODES | VOICES | HARM (batería: GHOST) | OCTAVE (batería: RATCHET) | SLIDE (batería: VARY) |
 | PLAYHEADS | HEAD | RATE | DIR | INTERVAL |
 | STRETCH | STRETCH | REPEAT | NUDGE | ROTATE |
 | STEP COND | ACTION | LENGTH | CONDITION | VALUE |
 | COND 2 | ACTION | LENGTH | CONDITION | VALUE |
 | LOCKS | ROW | STEP | PARAM | VALUE |
 | TRACK GEN | GENRE | SEED | ROLE / COMPLEX | ENERGY |
+| DRONE CLAY | CLAY (OFF / ON) | DRONE (C0–C3 en la tónica) | RATE | RUN (SONG / FREE) |
+| CLAY MOD 1–4 | DEST | SHAPE | EUCLID | AMOUNT |
+| CLAY DECAY | DECAY 1 | DECAY 2 | DECAY 3 | DECAY 4 |
+| CLAY TIME | STEP | SEED | — | — |
 
 ### Escribir pasos
 
@@ -1187,7 +838,7 @@ cada página dibuja lo suyo encima. **SEQ mantenido + PRESETS** mueve el paso; P
   cuántos pasos dura. Con las teclas apretadas, **ARP** escribe el acorde arpegiado (KNOB 1 la resolución, KNOB 2 el
   orden, KNOB 3 las octavas).
 - **SEQ + G5** (CLR STEP) borra el paso del cursor y sus locks.
-- En una pista **DRUM-X**, STEP es una **grilla**: las teclas blancas son los 16 pasos de la página, las negras 1–8 eligen
+- En una pista **DRUM-W**, STEP es una **grilla**: las teclas blancas son los 16 pasos de la página, las negras 1–8 eligen
   el carril (y lo tocan), la negra 9 mantenida es ACC, las negras 10 y 11 cambian de página cuando LEN pasa de 16. **KNOB 3
   HIT** recorre --, ON, x2, x4, x8, SHORT, GHOST, FLAM.
 
@@ -1205,12 +856,17 @@ Mantené un paso (en STEP) y girá una perilla: ese valor queda **lockeado** en 
 una fila con **PLAY** (la automatización ON / OFF), cuántos LOCK y REC hay y **OCT+** CLEAR ALL; debajo los registros como
 lista (LOCK, REC o RAMP, su paso, su parámetro y su valor), que se editan con las cuatro perillas.
 
-### EUCLID, MODES y MUTATE
+### EUCLID y MODES
 
 **EUCLID** reparte **HITS** golpes en **STEPS** pasos, **ROTATE** los corre; en batería **LANE** elige el carril (ALL: todo
-el kit, HITS es la densidad), en melódica **VARY** cambia las notas. **MODES** son cuatro modos con su cantidad (acento,
-fantasmas, ratchets, variación; en melódica movimiento, armonía, octava, slide). **MUTATE** muta el patrón cada **EVERY**
-compases, con **AMOUNT**, un **MODE** y **WHAT** muta.
+el kit, la primera perilla es la densidad), en melódica **VARY** cambia las notas. **MODES** son cuatro modos con su
+cantidad (en melódica voces, armonía, octava, slide; en batería voces, fantasmas, ratchets, variación).
+
+### STRETCH
+
+**STRETCH** estira el patrón, **REPEAT** lo repite, **NUDGE** lo empuja y **ROTATE** lo rota. En una pista melódica el
+estiramiento es proporcional: cada nota se alarga en la misma medida (sus pasos quedan ligados), así que pasar de 4 a
+64 pasos mantiene cada nota tan larga como su paso. En una pista de batería un golpe sigue siendo un golpe.
 
 ### Componentes de paso (STEP COND · COND 2)
 
@@ -1223,15 +879,75 @@ arriba.
 En el roll o la grilla, mantené las teclas de los pasos y girá **SELECT**: se copian. Una tecla de paso + **REC** los pega
 desde ese paso.
 
+### DRONE CLAY: el sonido que se modela
+
+DRONE CLAY era el compositor del viejo motor FORM; ahora es un secuenciador más de la pista, y cualquier pista lo
+puede tener. La idea: **un solo sonido que nunca para y que cuatro moduladores van amasando como plastilina**.
+
+![DRONE CLAY: la telemetría del drone y los cuatro moduladores, la página de un modulador y la tarjeta de una
+tecla](byte-drone-clay.png)
+
+**Cómo empezar**
+
+1. Elegí una pista de WAVE o MATH (un pad o un bajo largo funcionan muy bien).
+2. **SEQ** y **SELECT** hasta **DRONE CLAY** (o tocá SEQ hasta el grupo **CLAY**).
+3. Girá **KNOB 1** a **ON**: la pista arranca con un primer sonido armado (un drone en C1 sostenido, un KICK sobre el
+   corte, un arpegio de notas, un triángulo lento y un hat sobre la forma). La pantalla dice **DRONE CLAY ON**.
+4. Apretá **PLAY**. En **RUN SONG** suena con el transporte; en **RUN FREE** suena siempre.
+
+**DRONE CLAY** (la página): **CLAY** lo prende; **DRONE** la nota del drone, de **C0** a **C3** sobre la tónica de la
+canción; **RATE** si el drone se sostiene (**HOLD**) o se vuelve a tocar cada **4BAR, 2BAR, 1BAR, 1/2, 1/4, 1/8, 1/16**;
+**RUN** **SONG** o **FREE**.
+
+**CLAY MOD 1–4**: cada modulador tiene
+
+- **DEST**: adónde va. Las perillas del sonido de la pista con su propio nombre (en WAVE: A, POS, WARP…), y además
+  PITCH, CUTOFF, SHAPE, VOLUME, PAN, DIST, CHORUS, DELAY, REVERB, LFO RATE, VIBRATO, VOICE CUT, LEVEL y LIFE.
+- **SHAPE**: qué forma toma. Cinco familias:
+
+  | Familia | Formas | Qué hacen |
+  | --- | --- | --- |
+  | **HITS** | KICK, SNARE, HAT, OPEN HAT, CLAP, RIM, TOM, ZAP, BITHAT, NOISE DN, SWELL, CRASH | un golpe: varios movimientos juntos sobre el DEST (el KICK sube y cae en medio paso) |
+  | **TABLES** | SINE, S&H, DRIFT, SPRING, STAIRS, BOUNCE, EXP UP, LOG DN, CHAOS, SWEEP, RND GATE, TRIPLET | curvas que se repiten |
+  | **GESTURES** | RAMP UP, RAMP DN, TRI, GATE, ENV UP, ENV DN, RISER, STUTTER, STUT UP, DOWN, UP, REST | gestos que suben, bajan o tartamudean |
+  | **NOTES** | ARP UP, ARP DN, ARP UPDN, ARP RND, CHORD m, CHORD M, SUS4, m7, CLUSTER, +OCT, +5TH, GLIDE DN | notas de verdad en la voz, sobre la escala, dos octavas arriba del drone |
+  | **FM** | FM x1/2, x1, x1.5, x2, x3, x5, x7 | modulación de frecuencia |
+
+- **EUCLID**: cuándo golpea: **--** (solo las teclas), **FUSE** (dos euclídeos fundidos que cambian solos) o un
+  euclídeo fijo (**1/4**, **3/8**, **5/16**…). Golpea en el primer paso de su ciclo, en fase con las otras pistas.
+- **AMOUNT**: cuánto.
+
+**CLAY DECAY**: cuánto dura el gesto de cada modulador. **CLAY TIME**: **STEP**, el paso de los moduladores (1/4, 1/8,
+1/16, 1/32), y **SEED**, la semilla de los FUSE.
+
+**Las teclas.** Con CLAY prendido, en una pista que no es de batería, **las teclas son gestos, no notas**, y tocan
+también con el transporte parado:
+
+| Teclas | Qué hacen |
+| --- | --- |
+| Blancas **F3 … C5** | Lanzan una forma al modulador elegido; la velocidad es la cantidad, el aftertouch suma. **OCT** elige la familia: **0** HITS, **+1** TABLES, **+2** GESTURES, **−1** NOTES, **−2** FM |
+| Negras **F# G# A#3, C#4** | **MOD 1–4**: tocada, elige el modulador; mantenida, las blancas van a ese mientras la tenés |
+| Negras **D#4, F#4, G#4, A#4** | Mientras las mantenés, los gestos siguientes: **LATCH** (quedan sonando), **x2** (más rápidos), **/2** (más lentos), **INV** (invertidos) |
+| Las últimas siete, **C#5 … G5** | El grado del drone en la escala |
+
+Cada tecla muestra una **tarjeta** por un momento: en las páginas de CLAY el panel muestra la forma grande, su
+modulador y su DEST y qué hace en palabras ("DEST UP, FALLS IN HALF A STEP"); en las otras páginas, un mensaje.
+
+**DRONE CLAY y el resto.** En una pista **MONO** o **LEGATO**, la nota de un paso o de una tecla toma la voz y después
+vuelven el drone y las notas de los gestos: el secuenciador y DRONE CLAY conviven. Un punch-in sobre el tiempo o la
+altura (HALF, REPEAT, OCT…) reinicia la composición en su primer golpe; al soltarlo vuelve a la grilla del transporte.
+Muteada o parada (en RUN SONG), la pista deja de sonar. DRONE CLAY se guarda con el proyecto.
+
 ### Escala y acordes (SCL)
 
 - **SCL**: **ROOT**, **SCALE** (CHR, MAJ, MIN, DOR, MIX, PEN, MPEN, HARM, PHRY, LYD, LOC, MEL, BLUES, WHOLE, DIMHW, DIMWH),
   **KEY SNAP** (OFF, SNAP, WHITE, SEQ: las teclas, y con SEQ también los pasos, a la escala) y **TRANSP** (todas las
   secuencias tantos grados arriba o abajo).
 - **La tonalidad es de la canción**: ROOT, SCALE y KEY SNAP son los mismos en todas las pistas melódicas; cambiarlos en
-  una los cambia en todas. FORM y GEN la siguen. Una pista de batería no tiene escala.
-- **CHORD**: una tecla toca un acorde (**CHORD**, **VOICING**, **STRUM**). En una pista FORM, CHORD es el mismo valor que
-  el de HARMONY.
+  una los cambia en todas. DRONE CLAY y GEN la siguen. Una pista de batería no tiene escala.
+- **CHORD**: una tecla toca un acorde (**CHORD**, **VOICING**, **STRUM**). La página lo nombra entero (D MAJ ADD9, C
+  MIN7…), muestra sus notas en las teclas con sus intervalos y los acordes de los siete grados, y te dice por qué no suena
+  si no puede (una pista DRUM, o una voz que no es POLY).
 - **SCENE**: con **SCENE ON** cada tecla llega a todas las pistas con rol (CHORD, ARP, BASS, LEAD, DRUM), cada una a su
   manera, desde esa nota y la tonalidad.
 
@@ -1250,7 +966,7 @@ desde ese paso.
 
 - Un **proyecto** es un tema. Hay **6 proyectos**.
 - Cada proyecto tiene **4 partes, A–D**. Una parte es una foto completa de la música: el sonido, los pasos y la
-  automatización de cada pista, el kit DRUM-X, el carril de punch-in, el SLICER, las macros, el tempo y los efectos
+  automatización de cada pista, el kit DRUM-W, el SLICER, las macros, el tempo y los efectos
   globales.
 - Cada proyecto tiene un **arreglo**: hasta **16 filas**, cada una una parte que suena **1–64 compases**, con una
   **escena** opcional, y una regla de **END**.
@@ -1344,7 +1060,7 @@ Las pistas × las cuatro partes como grilla, para lanzar partes y patrones.
 ### Escenas
 
 Una escena se guarda por fila y, cuando la fila arranca, recupera los mutes de pista, los mutes de grupo del kit, las
-macros M1–M4 y los punch-in mantenidos. Sigue vigente en las filas siguientes que no tienen escena.
+macros M1–M4 y los punch-in mantenidos. PUNCH SEQ y DRONE CLAY son del proyecto. Sigue vigente en las filas siguientes que no tienen escena.
 
 ### Tocar partes en vivo (capa SAVE)
 
@@ -1369,12 +1085,12 @@ otra vez tira de nuevo, **OCT+ OK** la deja, **OCT− CANCEL** devuelve lo que h
 | Gesto | Qué tira |
 | --- | --- |
 | **HOME + SELECT** | **GEN**, el tema entero (ver [El generador](#6-el-generador)). En HOME › MACROS, las rutas de las macros. |
-| **EDIT + SELECT** | **El sonido.** MATH y WAVE: un preset de fábrica del motor y después cada parámetro movido hasta un cuarto de su rango. DRUM-X: los dos lados de cada sonido alrededor del kit de fábrica (**KIT DICED**). FORM: todo FORM, coherente (**FORM DICED**; ver [El dado de FORM](#el-dado-de-form)). |
-| **SEQ + SELECT** | **La secuencia**: la parte que escribiría el generador para esa pista (batería, bajo, pad, lead o arpegio, según lo que suena), sobre la armonía del tema si la hizo GEN. Nunca la misma dos veces seguidas. En FORM, su composición. |
+| **EDIT + SELECT** | **El sonido.** MATH y WAVE: un preset de fábrica del motor y después cada parámetro movido hasta un cuarto de su rango. DRUM-W: el kit alrededor del de fábrica (**KIT DICED**). |
+| **SEQ + SELECT** | **La secuencia**: la parte que escribiría el generador para esa pista (batería, bajo, pad, lead o arpegio, según lo que suena), sobre la armonía del tema si la hizo GEN. Nunca la misma dos veces seguidas. |
 | **LFO + SELECT** | El LFO de la pista, apuntado sobre todo al filtro. |
 | **FX + SELECT** | El drive y los envíos de la pista, a veces un AUTO PAN, y la reverb y el delay compartidos. |
 
-Si el kit de la parte lo toca otra pista, los dados de sonido en una pista DRUM-X lo dejan como está (**KIT OF T? KEPT**).
+Si el kit de la parte lo toca otra pista, los dados de sonido en una pista DRUM-W lo dejan como está (**KIT OF T? KEPT**).
 
 ### UNDO (GLO + G4)
 
@@ -1414,7 +1130,7 @@ mezcla.
   | **SFOLD** | un plegado por fórmula |
   | **SAT** | una saturación por fórmula |
 
-- **CRUSH** (EDIT › TONE o VOICES 3): menos bits y menos frecuencia de muestreo, que se mueve para no silbar. Funciona con
+- **CRUSH** (EDIT › TONE): menos bits y menos frecuencia de muestreo, que se mueve para no silbar. Funciona con
   DIST apagado o prendido.
 - **AUTO PAN**: el paneo oscilando alrededor del PAN: **DEPTH** (0 apagado), **RATE**, **SYNC** (BEAT: divisiones a
   tempo; FREE: Hz), **WAVE**.
@@ -1462,8 +1178,6 @@ pasos. Cada parte guarda su SLICER. Con LOAD ECO no hay SLICER.
   (el bombo baja todo lo demás) y **REL** (su release).
 - **TAPE**: **TAPE** (saturación de cinta) y **WOW**.
 - **EQ**: cuatro bandas, **LOW**, **LO MID**, **HI MID**, **HIGH**, ±12 dB.
-- **BALANCE**: **AMOUNT** (50 % de fábrica): un EQ dinámico y lento que saca la "pelota de medios" de una mezcla llena,
-  sin tocar el volumen. 0 lo apaga.
 - **El DJ FILTER** está en HOME › LIVE MIX (KNOB 1 FILTER): al medio apagado, a la izquierda un pasabajos, a la derecha un
   pasaaltos. Se graba como automatización.
 
@@ -1489,7 +1203,7 @@ rango del parámetro.
 
 **Fuentes**: OFF, LFO, ENV, VEL, KEY, RAND, MODW (CC1), AT (aftertouch), EXPR (CC11), **M1–M4** (las macros), **STEP**,
 **NOISE** (un vagar suave), PROX, **ENV2**, IN ENV, **T1 ENV … T6 ENV** (el seguidor de envolvente de cada pista: una pista
-moviendo otra), **OCT+ / OCT-** (las teclas de expresión), **F.NOISE** (el modulador de FILTER 2), **LIFE** (la respiración
+moviendo otra), **OCT+ / OCT-** (las teclas de expresión), **LIFE** (la respiración
 de la pista) y **BEING** (la altura de su ser).
 
 **Destinos**:
@@ -1499,14 +1213,14 @@ de la pista) y **BEING** (la altura de su ser).
 | El sonido | PITCH, CUT, SHP, AMP, PAN, DIST, LEVEL, F.CUT |
 | Los envíos | CHO, DLY, REV |
 | El LFO | L.RATE, L.PIT |
-| El motor | **E1–E8**, con el nombre de cada parámetro (en MATH: CHIP, WAVE, ALGO, VAR…; en FORM: STATE A … EVOLVE) |
+| El motor | **E1–E8**, con el nombre de cada parámetro (en MATH: CHIP, WAVE, ALGO, VAR…; en WAVE: A, POS, WARP…) |
 | El master | CLIP, PNCH |
 | Los buses | D.TIM, D.FB, D.TON, D.MIX (delay), R.SIZ, R.DMP (reverb), C.RAT, C.DEP (chorus) |
 | LIFE | LIFE (el LIFE de la pista) |
-| Solo FORM | STYLE, DRIVE, TONE, WOBBLE, HARMONY, PROGRESS, OCTAVE, CHORD, VOICING, DRUMS, DETUNE, SWING, DIV, CYCLE |
 
-Ideas: en MATH USER, un LFO S&H sobre **ALGO** (SEED) recorre fórmulas nuevas a tempo; en FORM, **STEP** sobre **HARMONY**
-o **PROGRESS** cambia la armonía por paso; **T2 ENV** (el bombo) sobre **DRIVE** de FORM la hace morder con cada golpe.
+Ideas: en MATH USER, un LFO S&H sobre **ALGO** (SEED) recorre fórmulas nuevas a tempo; **T2 ENV** (el bombo) sobre
+**POS** de un WAVE lo hace morder con cada golpe. Para modular con golpes, gestos y notas, usá
+[DRONE CLAY](#drone-clay-el-sonido-que-se-modela).
 
 ### Macros M1–M4
 
@@ -1542,8 +1256,9 @@ soltar, salen.
 | **D4 … F5** | los punch-in **de las fórmulas** (abajo) |
 | **G5** | **COMB**: un filtro peine grave (A1 en la tónica C, hasta ~104 Hz en B) que se mece solo |
 
-**Los punch-in de las fórmulas (D4 … F5).** Transforman el tiempo `t` de las fórmulas de MATH, WAVE y FORM mientras
-los mantenés (o mientras los toca la pista de punch-in). OCT − y OCT + mueven la altura de todos los motores. Se pueden
+**Los punch-in de las fórmulas (D4 … F5).** Transforman el tiempo `t` de las fórmulas de MATH y WAVE mientras
+los mantenés (o mientras los toca [PUNCH SEQ](#punch-seq-los-punch-in-en-la-grilla)). En DRUM-W cambian cómo se recorren los pasos y
+en DRONE CLAY el tiempo de su composición. OCT − y OCT + mueven la altura de todos los motores. Se pueden
 combinar.
 
 | Tecla | Nombre | Qué hace |
@@ -1576,17 +1291,34 @@ Probalo: hacé sonar un bytebeat de MATH, mantené FX y apretá B4 o E5.
 **Las perillas con FX mantenido**: **KNOB 1** FILTER (pasabajos a la izquierda, pasaaltos a la derecha), **KNOB 2**
 CRUSH, **KNOB 3** THROW (la mezcla seca a los envíos), **KNOB 4** DEPTH (el nivel de los efectos de búfer).
 
-**El carril de punch-in**: lo que tocás con FX mientras grabás queda en un carril que vuelve a sonar con el patrón. **FX +
-PRESETS** muestra sus perillas (LEN, RES, CLEAR); **REC + FX** lo borra.
+**Para secuenciarlos**: [PUNCH SEQ](#punch-seq-los-punch-in-en-la-grilla) (GLO) los toca solos sobre la grilla.
 
 **MENU › CONTROL › FX LATCH ON**: un toque prende el efecto, otro lo apaga (para cuando no podés mantener FX, una tecla y
 una perilla a la vez); **FX + OCT−** apaga todo.
+
+### PUNCH SEQ: los punch-in en la grilla
+
+**GLO › PUNCH SEQ** (su propia pestaña, entre MIXER y SETUP) secuencia los punch-in: **cuatro filas**, cada una un
+efecto, de **16 pasos** cada una. Las filas se pueden superponer.
+
+| Perilla | Qué hace |
+| --- | --- |
+| **KNOB 1** ROW | la fila (1–4) |
+| **KNOB 2** EFFECT | el efecto de la fila: OCT−, OCT+, HALF, WOB, REP, S8, S16, BITS, MIR, SCR, LOOP 3, LOOP 5, LOOP 7, CAOS MAX o LIFE MAX |
+| **KNOB 3** LEN | cuántos pasos, 4–16 |
+| **KNOB 4** RES | cuánto dura cada paso: 1/32, 1/16, 1/8 o 1/4 |
+
+- Las **16 teclas blancas** prenden y apagan los pasos de la fila elegida; las **teclas negras 1–4** eligen la fila.
+- Con el transporte andando, los pasos encendidos actúan sobre **todas las pistas**, exactamente como si mantuvieras la
+  tecla en la capa FX. Una tecla que mantenés en vivo sigue sumando su efecto encima.
+- La página muestra cada fila con su efecto, sus pasos, el cabezal y abajo **NOW:** lo que está sonando.
+- Se guarda con el proyecto. **CLEAR ALL** y **CLEAR PROJECT** la vacían.
 
 ### Mutes y solos
 
 - **GLO + tecla negra 1–6**: mutea o devuelve T1–T6. **GLO + tecla blanca** sostenida: solo de esa pista.
 - **GLO + teclas negras 7–10**: mutea los grupos del kit (KICK, SNARE, HAT, PERC).
-- **EDIT + teclas negras 1–8** en una pista DRUM-X: mutea cada sonido.
+- **EDIT + teclas negras 1–8** en una pista DRUM-W: mutea cada pad.
 - En **HOME › TRACKS** se ve todo de un vistazo.
 
 ### Para tocar en vivo
@@ -1594,8 +1326,9 @@ una perilla a la vez); **FX + OCT−** apaga todo.
 - **HOME › LIVE MIX**: FILTER, SPACE, DRIVE y DUCK sobre toda la mezcla.
 - **Las partes** desde la capa SAVE: F3–B3 en el compás siguiente, cadenas rápidas (ver
   [ARRANGE](#tocar-partes-en-vivo-capa-save)).
-- **FORM** responde muy bien en vivo: MORPH, DRIVE, WOBBLE y EVOLVE son perillas para tocar. **EDIT + KNOB** las mueve de
-  forma momentánea: vuelven al soltar EDIT.
+- **DRONE CLAY**: con CLAY prendido las teclas son gestos (ver [DRONE CLAY](#drone-clay-el-sonido-que-se-modela)).
+- **PUNCH SEQ** toca los punch-in solos mientras vos tocás otros encima.
+- **EDIT + KNOB** mueve una perilla de forma momentánea: vuelve al soltar EDIT.
 - **Las macros** enganchadas (LFO) para mover varias cosas con una perilla.
 
 ---
@@ -1639,6 +1372,8 @@ proyecto. **CPU** (KNOB 4 de SYSTEM) muestra la carga de audio.
 | DISPLAY | ANIM | ON, OFF |
 | DISPLAY | LEDS | OFF, DIM LO, **DIM HI**, INV |
 | DISPLAY | SCREEN OFF | **NEVER**, 5, 15, 30, 60 MIN |
+| DISPLAY | HELP | ON, OFF: el encabezado dice qué hace la perilla mientras la girás |
+| DISPLAY | PRESETS | SCROLL, MENU: cómo se abre la lista de PRESETS |
 | CONTROL | HOLD | 0.3 s, **0.4 s**, 0.5 s, 0.6 s: cuánto tarda en abrir una capa |
 | CONTROL | KNOB ACCEL | **ON**, OFF |
 | CONTROL | FX LATCH | **OFF**, ON |
@@ -1665,7 +1400,7 @@ proyecto. **CPU** (KNOB 4 de SYSTEM) muestra la carga de audio.
 | SYSTEM | CPU CLOCK | **360 MHZ**, 320 MHZ (desde el próximo arranque) |
 | SYSTEM | BLUETOOTH | OFF, ON (MIDI por Bluetooth) |
 | SYSTEM | CALIBRATION | OCT+ abre HARDWARE CALIBRATION |
-| SYSTEM | ABOUT | OCT+ abre: versión, AUDIO LOAD (NOW, PEAK, LATE, SHED), LAST CRASH, créditos |
+| SYSTEM | ABOUT | OCT+ abre: versión, AUDIO LOAD (NOW, PEAK, LATE, SHED), cuánto tarda cada motor por bloque de audio, LAST CRASH, créditos |
 
 ---
 
@@ -1676,7 +1411,7 @@ Este es el capítulo para leer con atención. JIANT BYTE guarda cosas distintas 
 ### El panorama
 
 - **La música** es lo que suena ahora, en RAM: sonidos, pasos, automatización, efectos, tempo, LIFE, los programas FUNC y
-  las fórmulas del kit.
+  el kit, DRONE CLAY y PUNCH SEQ.
 - Las **partes** (A–D de cada uno de los 6 proyectos) son donde **guardás** la música, en la flash.
 - El **arreglo** es del proyecto y se guarda solo.
 - Los **presets de usuario** (32) guardan sonidos sueltos.
@@ -1765,8 +1500,8 @@ Se abre al guardar, y con **SAVE + C5** en USER, PART SLOTS o PROJECTS. Hasta 12
 
 ### Presets de usuario (SAVE › USER)
 
-32 lugares para sonidos sueltos: el motor, sus parámetros y un patrón de 16 pasos. En FORM guarda también sus genes.
-**No** guarda el kit DRUM-X ni los programas FUNC (te avisa): eso vive en las partes del proyecto. Tus presets aparecen al
+32 lugares para sonidos sueltos: el motor, sus parámetros y un patrón de 16 pasos.
+**No** guarda el kit DRUM-W ni los programas FUNC (te avisa): eso vive en las partes del proyecto. Tus presets aparecen al
 recorrer PRESETS, después de los de fábrica (o con SOURCE USER).
 
 ### Preguntas sobre guardar
@@ -1778,8 +1513,7 @@ recorrer PRESETS, después de los de fábrica (o con SOURCE USER).
 - **Dice PART FULL.** Una parte tiene un tamaño fijo; una música muy cargada puede no entrar. La guardada queda intacta.
   Acortá patrones o borrá automatización.
 - **¿Se guarda el arreglo?** Sí, solo.
-- **¿Puedo hacer un backup?** Hoy el editor web es el de JIANT FM: todavía no conoce los motores de BYTE (ver
-  [Herramientas web](#16-herramientas-web)).
+- **¿Puedo hacer un backup?** Sí, con el editor web o JIANT Studio (ver [Herramientas web](#16-herramientas-web)).
 
 ---
 
@@ -1795,12 +1529,12 @@ recorrer PRESETS, después de los de fábrica (o con SOURCE USER).
   - **ALL**: además todo lo que toca el FM-1 (secuenciador, arpegiador, punch-in) y los movimientos de perilla como NRPN.
   - **OFF**: nada.
 - **PROGRAM CHANGE**: el programa *n* carga en esa pista el sonido *n* + 1 de la lista, con los motores en este orden:
-  **MATH, DRUM-X, WAVE, FORM** (no el orden de la pantalla). Llega a los primeros 128 sonidos.
+  **MATH, DRUM-W, WAVE** (no el orden de la pantalla). Llega a los primeros 128 sonidos.
 - **Canal 16, el de la canción**: los programas **0–3** saltan a la parte **A–D** (sonando: en el compás siguiente); **16–21**
   cargan el proyecto **1–6** (parado).
 - **Clock**: GLO › GLOBAL › CLOCK en USB+BT o TRS sigue el clock de esa entrada.
 - **Controladores**: CC5 glide, CC7 nivel, CC10 paneo, CC71 resonancia, CC74 corte, CC72 release, CC73 attack, CC75 decay,
-  CC91 reverb, CC93 chorus, CC94 delay, **CC16–23** los ocho parámetros del motor (E1–E8: en FORM, STATE A … EVOLVE). CC1,
+  CC91 reverb, CC93 chorus, CC94 delay, **CC16–23** los ocho parámetros del motor (E1–E8). CC1,
   CC11 y el aftertouch son fuentes de la matriz (MODW, EXPR, AT). Pitch bend, sustain (CC64), CC120 y CC123 funcionan.
 - **NRPN**: todos los parámetros que se pueden automatizar tienen uno, con hasta 14 bits (ver [NRPN.md](NRPN.md)).
 - **MIDI LEARN**: MENU › CONTROL › LEARN arma el aprendizaje al cerrar el MENU; mové un CC y después la perilla.
@@ -1815,7 +1549,7 @@ Todo está en <https://juanjiant-bit.github.io/JIANT-BYTE/>.
 ### Emulador — <https://juanjiant-bit.github.io/JIANT-BYTE/emu/>
 
 El mismo código que corre en el FM-1, con sonido. Apretá **Switch on**. Se toca con el mouse, una pantalla táctil o el
-teclado de la computadora:
+teclado de la computadora (o, desde JIANT Studio, con un teclado MIDI):
 
 | Teclado | En el FM-1 |
 | --- | --- |
@@ -1834,10 +1568,15 @@ capas sin el equipo.
 Chrome o Edge en una computadora, con el FM-1 conectado directo por un cable USB de datos. **Hacé un backup antes** con el
 editor de JIANT FM. Si el FM-1 tiene otro firmware custom, volvé primero al oficial.
 
-### Editor
+### Editor — <https://juanjiant-bit.github.io/JIANT-BYTE/webapp/editor/>
 
-El editor web todavía es el de **JIANT FM**: no conoce los motores de BYTE (FORM, WAVE, MATH, las fórmulas de DRUM-X).
-Usalo para el backup de JIANT FM antes de instalar; para editar sonidos de BYTE, usá el equipo o el emulador.
+Hace backup de los proyectos y sonidos del FM-1 y los edita desde la computadora. Para el backup de **JIANT FM** antes de
+instalar BYTE, usá el editor de JIANT FM.
+
+### JIANT Studio — <https://juanjiant-bit.github.io/JIANT/studio/>
+
+Todo en una página, para JIANT BYTE y JIANT FM, desde una computadora o un teléfono Android: instalar, editar el FM-1 o
+el emulador, tocar el emulador con un teclado MIDI, grabar el master o los stems en WAV y lo que tocás en MIDI.
 
 ---
 
@@ -1847,13 +1586,14 @@ El FM-1 tiene poca CPU y las fórmulas son caras. JIANT BYTE se protege solo, pe
 
 ### Qué es caro
 
-- **FORM con MORPH en el medio**: calcula dos estados a la vez, casi el doble que uno. En 0 o en 100 % cuesta la mitad.
 - **Muchas voces**: acordes largos, colas de release, unísono.
 - **LIFE alto** con muchas notas superpuestas.
 - **La reverb CLOUD y SHIMMER**, el delay de granos.
 - **Seis pistas** en lugar de cuatro.
 
-FORM corre siempre a 22 kHz (la mitad de la frecuencia), así que una pista FORM es más liviana de lo que suena.
+Esta beta es más liviana: WAVE lee sus fórmulas de tablas, la cadena del master trabaja por bloques y DRONE CLAY solo
+calcula sus moduladores en las pistas que lo tienen prendido. **MENU › SYSTEM › ABOUT** muestra cuánto tarda cada motor
+(WAVE: su tabla, su fórmula exacta y la lectura; DRUM-W: sus moduladores y su cuerpo) en microsegundos por bloque.
 
 ### La protección de carga
 
@@ -1865,7 +1605,6 @@ dispara. Disparada, lo que hace y lo que vas a oír:
 | --- | --- |
 | Limita las voces a las que ya suenan: una nota nueva toma la voz de una cola | colas que se cortan antes |
 | MATH y WAVE pasan a media frecuencia | un poco menos de brillo arriba |
-| FORM toca solo el estado más cercano a MORPH | el MORPH deja de componer un rato |
 | LIFE se va, con un deslizamiento, de todas las pistas menos la elegida | las otras pistas vuelven a su timbre propio |
 
 Cuando se calma (por debajo del 70 %), devuelve una voz cada medio segundo; LIFE vuelve unos 2 s después.
@@ -1874,11 +1613,10 @@ Cuando se calma (por debajo del 70 %), devuelve una voz cada medio segundo; LIFE
 
 1. **TRACKS 4** (GLO › SYSTEM).
 2. **LOAD LITE** o **ECO**.
-3. Bajá **VOICES** en las pistas que no necesitan muchas (EDIT › VOICES, KNOB 2: 1–8).
-4. En FORM, **MORPH en 0 o 100 %**, o un estado B igual al A.
-5. Bajá **LIFE**, o poné el LIFE de las pistas que no lo necesitan en 0.
-6. Una reverb más liviana (ROOM o SPRING en lugar de CLOUD o SHIMMER).
-7. Mirá **MENU › SYSTEM › ABOUT › AUDIO LOAD**: **LATE** son bloques de audio que llegaron tarde, **SHED** voces que la
+3. Bajá **VOICES** en las pistas que no necesitan muchas (EDIT › MORE en WAVE: 1–8).
+4. Bajá **LIFE**, o poné el LIFE de las pistas que no lo necesitan en 0.
+5. Una reverb más liviana (ROOM o SPRING en lugar de CLOUD o SHIMMER).
+6. Mirá **MENU › SYSTEM › ABOUT › AUDIO LOAD**: **LATE** son bloques de audio que llegaron tarde, **SHED** voces que la
    protección soltó. Una foto de esa pantalla ayuda cuando reportás un problema.
 
 **SAVE › TOOLS › CPU TEST** toca una canción de prueba pesada para medir.
@@ -1906,14 +1644,11 @@ Las mediciones de CPU de esta versión se hicieron en la computadora: hay que co
 
 ### Tocar
 
-- **La pista 1 no suena al tocar las teclas.** Es FORM en RUN SONG: suena con **PLAY**. Para tocarla con las teclas, poné
-  **CLOCK › RUN** en **NOTE**.
-- **FORM suena siempre igual.** Subí **EVOLVE**, cambiá **SEED** o mové **MORPH**. Con EVOLVE en 0 el ciclo se repite.
-- **FORM no tiene batería.** Mirá **LAYERS › DRUMS**; los estados 04 FIVE PART y 10 NESTED FM no tienen batería propia:
-  morpheá hacia un estado rítmico o usá DRUM-X.
-- **PROGRESS no cambia nada.** PROGRESS actúa con HARMONY en FAMILY o PEDAL. Los estados 01–22 usan CLASSIC en AUTO:
-  poné HARMONY en FAMILY.
-- **No encuentro la sección ARP en FORM.** No aparece en una pista FORM: sus genes ocupan esos lugares.
+- **Las teclas no tocan notas en una pista.** Tiene DRONE CLAY prendido: las teclas son sus gestos. Apagalo en SEQ ›
+  DRONE CLAY (KNOB 1 OFF) para tocar notas.
+- **Elegí un acorde y no suena.** La página CHORD te dice por qué: una pista DRUM no toca acordes, y la voz tiene que
+  estar en POLY (EDIT › PLAY).
+- **Un proyecto viejo tenía una pista FORM.** Carga como WAVE con sus moduladores en DRONE CLAY.
 - **Cambié la escala en una pista y cambió en todas.** Es así: la tonalidad es de la canción.
 - **LIFE no hace nada.** Hacen falta dos o más notas sonando a la vez, LIFE arriba de 0 y el LIFE de la pista arriba de
   0. El generador lo deja en 0.
