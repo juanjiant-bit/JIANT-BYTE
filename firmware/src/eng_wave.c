@@ -80,9 +80,9 @@ static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
  * table is shared); a single line runs the formula as written. */
 static uint32_t trk_nvoice(const track_t *t);   /* (voice.c) */
 #define WT_N 128u
-static int16_t wt_tab[NTRK][2][WT_N + 1u];          /* (A and B: 3 KB of RAM) */
-static uint16_t wt_key[NTRK][2], wt_bkey[NTRK][2];  /* 1 + formula x 128 + POS (0: none); the one being drawn */
-static uint8_t wt_bi[NTRK][2], wt_bn[NTRK][2], wt_go[NTRK];   /* .. its next point, its points drawn; a quarter allowed
+static int16_t wt_tab[NTRK][1][WT_N + 1u];          /* (A's only: 1.5 KB of RAM, all the RAM has) */
+static uint16_t wt_key[NTRK][1], wt_bkey[NTRK][1];  /* 1 + formula x 128 + POS (0: none); the one being drawn */
+static uint8_t wt_bi[NTRK][1], wt_bn[NTRK][1], wt_go[NTRK];   /* .. its next point, its points drawn; a quarter allowed
                                                          * this block (wave_block), a bit an oscillator */
 static void wave_block(track_t *t) { wt_go[(uint32_t)(t - trk) % NTRK] = 3u; }
 static int wt_smooth(uint32_t f) { return f != 10u && f != 11u && f != 13u; }   /* (SAWSQ PULSE too: their edge a 1/128 turn ramp) */
@@ -196,7 +196,7 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
         uint32_t many = nu > 1u || trk_nvoice(t) > 1u, exact = caos || warp == WW_QUANT || (pt_ops & PT_TIME_OPS);   /* (the white punch-ins move t: the formula itself) */   /* (QUANT's steps land on the edges) */
         uint32_t q0 = PROF_T();
         ta = exact ? 0 : wt_get(tr, 0, pa, fa, (uint32_t)pos, many, &ea, wk);
-        tb = exact || !pb ? 0 : wt_get(tr, 1, pb, fb, (uint32_t)pos, many, &eb, wk);   /* (BYTE, CPU: B's table too) */
+        tb = 0;                                      /* (B exact: its table would need RAM there is not) */
         PROF_ADD(PQ_WTAB, q0);
     }
     {

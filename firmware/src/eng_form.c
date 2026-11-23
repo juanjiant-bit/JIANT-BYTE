@@ -28,7 +28,7 @@ enum{S_SINE=0,S_KICK=12,S_SNARE,S_HAT,S_OHAT,S_CLAP,S_RIM,S_TOM,S_ZAP,S_BITHAT,S
 #define FORM_EUV(e,r) ((int32_t)(e)+25*(int32_t)(r)-64)
 #define FORM_DSMAX (512*7-1)
 /* a modulator's step: 2^e a beat (e -2 .. 3: 1/1 .. 1/32), its RATE's or FORM's */
-static int32_t form_mexpo(const int16_t*p,int32_t ds){int32_t r=ds>>9;return r?r-3:clamp(p[P_E0],0,3);}
+static int32_t form_mexpo(const int16_t*p,int32_t ds){int32_t r=ds>>9;return r?r-3:clamp(p[0],0,3);}   /* (p: clay_sp, its STEP at 0) */
 static const char *const FORM_EU[]={"--","FUSE","1/4","2/4","3/4","1/8","2/8","3/8","5/8","7/8","2/5","3/5","3/7","4/7","2/9","4/9","5/9",
  "5/12","7/12","4/11","5/13","3/16","5/16","7/16","9/16",0};
 static const uint8_t FORM_EUK[25][2]={{0,0},{0,0},{1,4},{2,4},{3,4},{1,8},{2,8},{3,8},{5,8},{7,8},{2,5},{3,5},{3,7},{4,7},{2,9},{4,9},{5,9},
@@ -37,12 +37,16 @@ static const uint8_t FORM_EUK[25][2]={{0,0},{0,0},{1,4},{2,4},{3,4},{1,8},{2,8},
 static const char *const FORM_RATE[]={"1/4","1/8","1/16","1/32",0};
 /* the modulators' slots: DEST+SHAPE (FORM_DS), EUCLID, AMOUNT, DECAY; PALET in P_FRA */
 static const uint8_t FORM_MF[4][4]={{P_E6,P_E7,P_CAOS,P_ASWING},{P_APROB,P_ARATE,P_AORDER,P_AGATE},{P_AOCT,P_DETUNE,P_CVOI,P_CSTR},{P_DXIMG,P_MORPH,P_FRB,P_KEY}};
-static uint32_t form_vds(const int16_t*p,uint32_t m){
- uint32_t c=(uint32_t)clamp(p[FORM_MF[m][0]]+64,0,191),e=(uint32_t)clamp(p[FORM_MF[m][1]]+64,0,174),s,d=0,j;
+/* (BYTE, RAM) the same four in DRONE CLAY's compact slots (clay_sp: 0 STEP, 1 SEED, then 4 a modulator) */
+static const uint8_t FORM_MC[4][4]={{2,3,4,5},{6,7,8,9},{10,11,12,13},{14,15,16,17}};
+#define CLAY_SPN 18u
+static uint32_t form_vds_x(const int16_t*p,const uint8_t (*mf)[4],uint32_t m){
+ uint32_t c=(uint32_t)clamp(p[mf[m][0]]+64,0,191),e=(uint32_t)clamp(p[mf[m][1]]+64,0,174),s,d=0,j;
  if(c<161u){s=c/7u;d=c%7u;if(s>=12u)s+=12u;}
  else{j=c-161u;s=!j?35u:j<13u?11u+j:j<25u?23u+j:j==25u?48u:24u+j;}
  return d+8u*s+512u*(e/25u);
 }
+static uint32_t form_vds(const int16_t*p,uint32_t m){return form_vds_x(p,FORM_MF,m);}   /* (a stored FORM part's: its migration) */
 static int form_owned_param(uint32_t id){return id==P_LRTRG||id==P_ROOT||id==P_FRA||id==P_CAOS||id==P_ASWING||id==P_APROB||id==P_ARATE||id==P_AORDER||id==P_AGATE||
  id==P_AOCT||id==P_DETUNE||id==P_CVOI||id==P_CSTR||id==P_DXIMG||id==P_MORPH||id==P_FRB||id==P_KEY;}
 /* ---- the gestures: a key's or a euclid's, alive until their envelope is out ---- */
@@ -57,7 +61,7 @@ static uint8_t form_lit[NTRK];                           /* (the panel: the modu
 /* modulator m's hit at step s ("--": none, FUSE: two drawn from the seed and joined) */
 static int form_hit(const int16_t*p,uint32_t m,uint32_t s,uint32_t seed)
 {
- uint32_t e=(uint32_t)clamp(p[FORM_MF[m][1]]+64,0,174)%25u;
+ uint32_t e=(uint32_t)clamp(p[FORM_MC[m][1]]+64,0,174)%25u;
  if(!e)return 0;
  if(e==1u)return (int)fvm_eu(s,seed+m*37u);
  uint32_t k=FORM_EUK[e][0],n=FORM_EUK[e][1],q=s%n;   /* (the owner: on the step, with the others: a hit on the
@@ -151,7 +155,7 @@ static void form_eval(form_st_t*st,const int16_t*p,int32_t*D,uint32_t at)
  for(i=0;i<FORM_G;i++){
   form_g_t*g=&st->g[i];if(!(g->fl&8u))continue;
   uint32_t m=g->mod&3u,raw=(st->clk-g->t0)>>8,sh=g->sh,pg=sh/12u,k=sh%12u;
-  int32_t ds=(int32_t)form_vds(p,m),dst=ds&7,amt=clamp(p[FORM_MF[m][2]],0,127),dec=clamp(p[FORM_MF[m][3]],0,127),e,xe=form_mexpo(p,ds)-2;
+  int32_t ds=(int32_t)form_vds_x(p,FORM_MC,m),dst=ds&7,amt=clamp(p[FORM_MC[m][2]],0,127),dec=clamp(p[FORM_MC[m][3]],0,127),e,xe=form_mexpo(p,ds)-2;
   uint32_t tau=xe>=0?raw<<xe:raw>>(-xe);                 /* (its time in its own RATE's steps) */
   tau=g->spd==1u?tau<<1:g->spd==2u?tau>>1:tau;
   if(form_oneshot(sh)){if(tau>=2048u){g->fl=0;continue;}e=32767;}
@@ -199,10 +203,10 @@ static void form_eval(form_st_t*st,const int16_t*p,int32_t*D,uint32_t at)
  * CLAY_MD), SHAPE (the knob's order: the HITS first, CLAY_SH), EUCLID, AMOUNT; their DECAYs; the STEP and the SEED */
 enum { CL_ON, CL_OCT, CL_RATE, CL_RUN, CL_M0, CL_DEC = CL_M0 + 16, CL_STEP = CL_DEC + 4, CL_SEED, CL_N };
 #define CL_MF(m, f) (CL_M0 + 4u * (m) + (f))        /* f: 0 DEST, 1 SHAPE, 2 EUCLID, 3 AMOUNT */
-static int16_t clay[NTRK][CL_N];
-static int16_t clay_v[NTRK][4];                       /* what each modulator adds now (Q15): mod.c's per-block source */
-static uint8_t clay_dn[NTRK], clay_nn[NTRK];          /* the drone's note sounding, a NOTE gesture's (0: none) */
-static uint32_t clay_lr[NTRK];                        /* the drone's last strike (RATE's period count) */
+static int16_t clay[NTRK][CL_N] __attribute__((section(".lowbuf")));   /* (LOWBUF: zeroed at boot; the RAM is full) */
+static int16_t clay_v[NTRK][4] __attribute__((section(".lowbuf")));                       /* what each modulator adds now (Q15): mod.c's per-block source */
+static uint8_t clay_dn[NTRK] __attribute__((section(".lowbuf"))), clay_nn[NTRK] __attribute__((section(".lowbuf")));          /* the drone's note sounding, a NOTE gesture's (0: none) */
+static uint32_t clay_lr[NTRK] __attribute__((section(".lowbuf")));                        /* the drone's last strike (RATE's period count) */
 static int clay_on(uint32_t tr) { return tr < NTRK && clay[tr][CL_ON]; }
 /* the knob's SHAPE order -> FORM's shape: the HITS (12..23) first, then the TABLES (0..11), then the rest */
 static uint32_t clay_sh(int32_t i) { uint32_t k = (uint32_t)clamp(i, 0, FORM_NSH - 1); return k < 12u ? k + 12u : k < 24u ? k - 12u : k; }
@@ -211,14 +215,14 @@ static int32_t clay_sh_rank(uint32_t s) { return s < 12u ? (int32_t)s + 12 : s <
 static void clay_fill(const int16_t *c, int16_t *sp)
 {
     uint32_t m;
-    sp[P_E0] = (int16_t)clamp(c[CL_STEP], 0, 3);
-    sp[P_E1] = c[CL_SEED];
+    sp[0] = (int16_t)clamp(c[CL_STEP], 0, 3);
+    sp[1] = c[CL_SEED];
     for (m = 0; m < 4u; m++) {
         uint32_t s = clay_sh(c[CL_MF(m, 1)]);
-        sp[FORM_MF[m][0]] = (int16_t)FORM_DS(0u, s);
-        sp[FORM_MF[m][1]] = (int16_t)FORM_EUV(clamp(c[CL_MF(m, 2)], 0, FORM_NEU - 1), 0);
-        sp[FORM_MF[m][2]] = c[CL_MF(m, 3)];
-        sp[FORM_MF[m][3]] = c[CL_DEC + m];
+        sp[FORM_MC[m][0]] = (int16_t)FORM_DS(0u, s);
+        sp[FORM_MC[m][1]] = (int16_t)FORM_EUV(clamp(c[CL_MF(m, 2)], 0, FORM_NEU - 1), 0);
+        sp[FORM_MC[m][2]] = c[CL_MF(m, 3)];
+        sp[FORM_MC[m][3]] = c[CL_DEC + m];
     }
 }
 /* a new DRONE CLAY: a drone on C1 held, a kick on the cutoff, an arp's notes, a slow triangle on the sound's KNOB 2, a

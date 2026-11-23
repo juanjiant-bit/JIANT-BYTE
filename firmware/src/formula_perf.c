@@ -8,7 +8,7 @@
 #define PROF_T() 0u
 #endif
 enum { PQ_WTAB, PQ_WVM, PQ_WRD, PQ_WALL, PQ_DMOD, PQ_DBODY, PQ_DALL, PQ_N };
-static volatile uint32_t prof_tk[PQ_N];
+static volatile uint32_t prof_tk[PQ_N] __attribute__((section(".lowbuf")));
 #define PROF_ADD(k, t0) (prof_tk[k] += PROF_T() - (t0))
 static uint32_t formula_punch;
 static uint8_t punch_amount[3];

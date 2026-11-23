@@ -9,7 +9,7 @@
  * every RATE. Off, stopped, muted: its notes end. Included by seq.c (its notes, the scale) */
 static void ui_message(const char *s);                  /* (ui.c) */
 static uint32_t clay_free;                              /* (FREE stopped: its own beat, Q16) */
-static int16_t clay_sp[P_COUNT];                        /* (the audio's FORM slots: clay_fill) */
+static int16_t clay_sp[CLAY_SPN];                        /* (the audio's FORM slots: clay_fill) */
 static void clay_stop(uint32_t tr)
 {
     track_t *t = &trk[tr];
@@ -42,7 +42,7 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
             end = pt_time(end >> 4, 0u) << 4;
         st->clk += (n << 18) / (bps ? bps : 1u);
         for (k = 0; k < 4u; k++) {                     /* each modulator on the STEP: its euclid strikes a gesture */
-            int32_t ds = (int32_t)form_vds(clay_sp, k), dec = clamp(clay_sp[FORM_MF[k][3]], 0, 127);
+            int32_t ds = (int32_t)form_vds_x(clay_sp, FORM_MC, k), dec = clamp(clay_sp[FORM_MC[k][3]], 0, 127);
             uint32_t s1 = end >> (16 - form_mexpo(clay_sp, ds));
             if ((int32_t)s1 == st->lastm[k]) continue;
             st->lastm[k] = (int32_t)s1;
@@ -95,8 +95,8 @@ static const char *const CL_RUNN[] = {"SONG", "FREE", 0};
 static const char *const CL_NN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **valp)
 {
-    static const char *dn[CLAY_ND + 1], *shn[FORM_NSH + 1], *on[5];
-    static char octn[4][4];
+    static const char *nm[(CLAY_ND > FORM_NSH ? CLAY_ND : FORM_NSH) + 1] __attribute__((section(".lowbuf"))), *on[5];   /* (DEST's or SHAPE's: one list) */
+    static char octn[4][4] __attribute__((section(".lowbuf")));
     static param_desc_t d;
     static const char *const BASE[CLAY_ND] = {"OFF", "PITCH", "CUTOFF", "SHAPE", "VOLUME", "PAN", "DIST", "CHORUS", "DELAY",
                                               "REVERB", "LFO RATE", "VIBRATO", 0, 0, 0, 0, 0, 0, 0, 0, "VOICE CUT", "LEVEL", "LIFE"};
@@ -122,16 +122,17 @@ static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **val
     else if (f < CL_DEC) {
         uint32_t k = (f - CL_M0) & 3u;
         if (k == 0u) {                                   /* DEST: the sound's knobs by their own names */
-            for (i = 0; i < (uint32_t)CLAY_ND; i++) dn[i] = BASE[i];
+            for (i = 0; i < (uint32_t)CLAY_ND; i++) nm[i] = BASE[i];
             for (i = 0; i < 8u; i++) {
                 const param_desc_t *pd = track_desc(t, P_E0 + i);
-                dn[12u + i] = pd && pd->label && pd->label[0] && pd->label[0] != '-' ? pd->label : EN[i];
+                nm[12u + i] = pd && pd->label && pd->label[0] && pd->label[0] != '-' ? pd->label : EN[i];
             }
-            dn[CLAY_ND] = 0;
-            d.label = "DEST"; d.max = CLAY_ND - 1; d.names = dn;
+            nm[CLAY_ND] = 0;
+            d.label = "DEST"; d.max = CLAY_ND - 1; d.names = nm;
         } else if (k == 1u) {                            /* SHAPE: the HITS first (the owner) */
-            if (!shn[0]) for (i = 0; i < FORM_NSH; i++) shn[i] = FORM_SHAPE[clay_sh((int32_t)i)];
-            d.label = "SHAPE"; d.max = FORM_NSH - 1; d.names = shn;
+            for (i = 0; i < FORM_NSH; i++) nm[i] = FORM_SHAPE[clay_sh((int32_t)i)];
+            nm[FORM_NSH] = 0;
+            d.label = "SHAPE"; d.max = FORM_NSH - 1; d.names = nm;
         } else if (k == 2u) { d.label = "EUCLID"; d.max = FORM_NEU - 1; d.names = FORM_EU; }
         else { d.label = "AMOUNT"; d.fmt = F_PCT; d.max = 127; d.def = 100; }
     } else if (f < CL_STEP) { d.label = DECN[f - CL_DEC]; d.fmt = F_PCT; d.max = 127; }
