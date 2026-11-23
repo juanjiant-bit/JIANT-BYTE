@@ -3187,9 +3187,11 @@ static __attribute__((noinline)) void mc_join(uint32_t n)   /* core 1's parts in
         sl_r[i] += c1_mix.sr[i];
     }
 }
+static int8_t mc_lost_at = -1;                          /* (BYTE) the part core 1 had when it was given up (ABOUT) */
 static __attribute__((noinline)) void mc_lost(void)    /* core 1 given up mid-job: a part's matrix values put back */
 {
     int32_t k = mc_cur;
+    mc_lost_at = (int8_t)(k >= 0 && k < (int32_t)NPART ? k : 9);
     if (k >= 0 && k < (int32_t)NPART && mod_c[1].on) {
         mod_c[0] = mod_c[1];
         mod_end(&trk[k]);

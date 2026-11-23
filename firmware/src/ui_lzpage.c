@@ -309,7 +309,7 @@ static void chord_label(const uint8_t *pn, uint32_t n, char *o, int lng)
 /* (BYTE) note k of a chord: its interval over the root on a key (R 3 5 7 9 ..) */
 static void chord_ivl(int32_t x, int32_t y, const uint8_t *pn, uint32_t k)
 {
-    static const char *const IV[12] = {"R", "b9", "9", "b3", "3", "4", "b5", "5", "#5", "6", "b7", "7"};
+    static const char *const IV[12] = {"R", "-9", "9", "-3", "3", "4", "-5", "5", "#5", "6", "-7", "7"};
     const char *s = k ? IV[((uint32_t)pn[k] + 120u - pn[0]) % 12u] : "R";
     cv_text(x + (13 - text_w(&AF_X, s)) / 2, y - AF_X_CAP_Y, &AF_X, s, 0x0000u);
 }

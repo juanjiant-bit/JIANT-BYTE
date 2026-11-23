@@ -210,6 +210,22 @@ BTAPP_FN static int32_t about_load(int32_t y, int draw)
     str_cpy(b + str_len(b), "  SHED ", 8); fmt_int(b + str_len(b), (int32_t)load_diag.shed);
     y = menu_text(b, y, T_TEXT, draw);
     y = menu_text(cpu_status(), y, T_TEXT, draw);   /* (the second core: fx.c; p1: MENU > CPU CORES, cpu_safe.c) */
+#if FELUCCA_DUAL_CORE
+    if (fm1_core1_fault.count) {                     /* (BYTE) core 1's fault, where: its PC, core 1's own, the debug word,
+                                                      * the window it wrote into (hal/fm1_irq.h); the map names the code */
+        str_cpy(b, "C1 PC ", sizeof b); hex8(b + 6, fm1_core1_fault.pc);
+        str_cpy(b + str_len(b), " AT ", 5); hex8(b + str_len(b), fm1_core1_fault.pc1);
+        y = menu_text(b, y, T_ACCENT, draw);
+        str_cpy(b, "DBG ", sizeof b); hex8(b + 4, fm1_core1_fault.dbg);
+        str_cpy(b + str_len(b), " WR ", 5); fmt_int(b + str_len(b), (int32_t)fm1_core1_fault.wr);
+        str_cpy(b + str_len(b), " X", 3); fmt_int(b + str_len(b), (int32_t)fm1_core1_fault.count);
+        if (mc_lost_at >= 0 && mc_lost_at < (int8_t)NPART) {   /* (the part it was rendering, its engine) */
+            str_cpy(b + str_len(b), " T", 3); fmt_int(b + str_len(b), mc_lost_at + 1);
+            str_cpy(b + str_len(b), " ", 2); str_cpy(b + str_len(b), ENGINES[trk[mc_lost_at].engine]->name, sizeof b - str_len(b));
+        }
+        y = menu_text(b, y, T_ACCENT, draw);
+    }
+#endif
     /* Existing per-block scheduler timings, read while main is running:
      * audio IRQ dispatches and joins core 1 before returning to this UI.
      * These elapsed times overlap across cores; do not add them as load. */
