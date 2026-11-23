@@ -15,6 +15,8 @@ static const char *const FORM_SHAPE[]={
  "ARP UP","ARP DN","ARP UPDN","ARP RND","CHORD m","CHORD M","SUS4","m7","CLUSTER","+OCT","+5TH","GLIDE DN",
  "FM x1/2","FM x1","FM x1.5","FM x2","FM x3","FM x5","FM x7",0};
 #define FORM_NSH 55u
+/* (BYTE, RAM) DRONE CLAY's SHAPE knob: the same names, the HITS first (clay_sh), a table in the flash */
+static const char *const CLAY_SHN[]={"KICK","SNARE","HAT","OPEN HAT","CLAP","RIM","TOM","ZAP","BITHAT","NOISE DN","SWELL","CRASH","SINE","S&H","DRIFT","SPRING","STAIRS","BOUNCE","EXP UP","LOG DN","CHAOS","SWEEP","RND GATE","TRIPLET","RAMP UP","RAMP DN","TRI","GATE","ENV UP","ENV DN","RISER","STUTTER","STUT UP","DOWN","UP","REST","ARP UP","ARP DN","ARP UPDN","ARP RND","CHORD m","CHORD M","SUS4","m7","CLUSTER","+OCT","+5TH","GLIDE DN","FM x1/2","FM x1","FM x1.5","FM x2","FM x3","FM x5","FM x7",0};
 enum{FPG_TAB,FPG_HIT,FPG_GES,FPG_NOTE,FPG_FM};
 enum{S_SINE=0,S_KICK=12,S_SNARE,S_HAT,S_OHAT,S_CLAP,S_RIM,S_TOM,S_ZAP,S_BITHAT,S_NOISEDN,S_SWELL,S_CRASH,
  S_RAMPUP=24,S_RAMPDN,S_TRI,S_GATE,S_ENVUP,S_ENVDN,S_RISER,S_STUT,S_STUTUP,S_DOWN,S_UP,S_REST,
@@ -203,10 +205,11 @@ static void form_eval(form_st_t*st,const int16_t*p,int32_t*D,uint32_t at)
  * CLAY_MD), SHAPE (the knob's order: the HITS first, CLAY_SH), EUCLID, AMOUNT; their DECAYs; the STEP and the SEED */
 enum { CL_ON, CL_OCT, CL_RATE, CL_RUN, CL_M0, CL_DEC = CL_M0 + 16, CL_STEP = CL_DEC + 4, CL_SEED, CL_N };
 #define CL_MF(m, f) (CL_M0 + 4u * (m) + (f))        /* f: 0 DEST, 1 SHAPE, 2 EUCLID, 3 AMOUNT */
-static int16_t clay[NTRK][CL_N] __attribute__((section(".lowbuf")));   /* (LOWBUF: zeroed at boot; the RAM is full) */
-static int16_t clay_v[NTRK][4] __attribute__((section(".lowbuf")));                       /* what each modulator adds now (Q15): mod.c's per-block source */
-static uint8_t clay_dn[NTRK] __attribute__((section(".lowbuf"))), clay_nn[NTRK] __attribute__((section(".lowbuf")));          /* the drone's note sounding, a NOTE gesture's (0: none) */
-static uint32_t clay_lr[NTRK] __attribute__((section(".lowbuf")));                        /* the drone's last strike (RATE's period count) */
+static int16_t clay[NTRK][CL_N] __attribute__((section(".eu_keep")));   /* (RAMTEXT's room, as EUCLID's keep: the RAM is full; not zeroed
+                                                         * there: main.c clay_boot) */
+static int16_t clay_v[NTRK][4] __attribute__((section(".eu_keep")));                       /* what each modulator adds now (Q15): mod.c's per-block source */
+static uint8_t clay_dn[NTRK] __attribute__((section(".eu_keep"))), clay_nn[NTRK] __attribute__((section(".eu_keep")));          /* the drone's note sounding, a NOTE gesture's (0: none) */
+static uint32_t clay_lr[NTRK] __attribute__((section(".eu_keep")));                        /* the drone's last strike (RATE's period count) */
 static int clay_on(uint32_t tr) { return tr < NTRK && clay[tr][CL_ON]; }
 /* the knob's SHAPE order -> FORM's shape: the HITS (12..23) first, then the TABLES (0..11), then the rest */
 static uint32_t clay_sh(int32_t i) { uint32_t k = (uint32_t)clamp(i, 0, FORM_NSH - 1); return k < 12u ? k + 12u : k < 24u ? k - 12u : k; }
