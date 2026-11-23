@@ -193,8 +193,10 @@ def build_loader():
 HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0", "perf_begin", "perf_pre", "perf_block", "perf_master", "slicer_bus",
            "dly_lo", "dly_grain", "dly_grain_adv", "dly_wow_adv", "dly_rate", "fx_rest",
            "rev_run", "rev_idle", "rev_room", "rev_spring", "rev_cloud", "rev_shimmer",   # (as JIANT FM V10.7.56: rev_spring_side and rev_room_mod from flash, fx.c calls them through a register: the room)
-           "rev_reso", "cho_admit", "dist_shape", "dist_amp")
-           # (BYTE 0.16, CPU) master_out was here; now master_run, inlined into perf_master (a block, not a sample)
+           "rev_reso", "cho_admit", "dist_shape", "dist_amp",
+           # (BYTE 0.16, CPU) the master chain, a block a call (master_run; was master_out, a sample a call): one copy,
+           # called from mix_block and perf_master (inlined in both, RAMTEXT overflowed by 672 B)
+           "master_run")
 
 
 def share_strings(ir, keep=()):

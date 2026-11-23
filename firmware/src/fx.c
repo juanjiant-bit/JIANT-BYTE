@@ -923,7 +923,7 @@ static inline int32_t spk_bass(int32_t m)
 /* (byte-cpu-light) the master's chain over a block: its state in registers the block through (was a call a sample,
  * every state loaded and stored each time; fx_lowcut, volatile, read once), the same arithmetic. pre: the level from
  * mix_l / mix_r + wet x mg (mix_block), else mix_l / mix_r as they are (perf_master) */
-static inline __attribute__((always_inline)) void master_run(int32_t *out, uint32_t n, int32_t mg, int pre)
+static __attribute__((noinline)) void master_run(int32_t *out, uint32_t n, int32_t mg, int pre)
 {
     uint32_t i, lc = fx_lowcut, sh = lc == 2u ? 5u : 6u;
     int32_t dl = dc_l, dr = dc_r, el = dce_l, er = dce_r, lv = lev_cur, ldg = lev_dg, le = lim_env;
