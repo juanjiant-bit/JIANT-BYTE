@@ -32,7 +32,6 @@ static void fl_bind(const track_t*t,const voice_t*v,uint32_t depth)
     fl_ctx[c].depth=(uint16_t)depth;fl_ctx[c].note=v->note;fl_ctx[c].envelope=32767;
 }
 static void fl_unbind(void){fl_ctx[MC_CPU()&1u].id=0;}
-static void fl_envelope(int32_t gain){fl_ctx[MC_CPU()&1u].envelope=(uint16_t)clamp(gain,0,32767);}
 /* Exact Fourier projection on a complete 32-point cycle; bounded peak, no DC.
  * A time/phase leaf is never admitted as a waveform fragment by the compiler. */
 static void fl_project(fl_node_t *a,const int32_t *y)

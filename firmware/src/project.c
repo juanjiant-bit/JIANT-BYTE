@@ -183,10 +183,6 @@ static uint32_t proj_sum(const project_t *p) { return proj_hash(p, sizeof *p - 4
 static int proj_ok(const project_t *q) { return q->magic == PROJ_MAGIC && q->size == sizeof *q &&
     q->sum == proj_sum(q) && chain_valid(&q->chain) && motion_valid(&q->motion); }
 
-/* G_RTYPE (id 24) was G_DRCH, the GM drum part's MIDI channel (0..16, 10 by default) until 1.0: a project of a
- * format before FUN7 may hold any channel there. FUN7 came after it was inert (always 0), so only those imports
- * set it: ROOM, the only reverb they knew */
-static void proj_rtype_room(int16_t *g) { g[G_RTYPE] = 0; }
 /* (0.9.9-snd8) the master's TAPE block ('T' 'P' DRIVE WOW, only when on). The live TAPE (params.c tape_v), not the
  * project's: not in project_t (its size is recorded code's); a project is only packed from the live state and only
  * unpacked to be opened (an UNDO, MUTATE's anchor: the TAPE as it was then). b 0: its size; room 0: written at b + pos;
@@ -332,7 +328,6 @@ static void proj_new_tracks(project_t *q, uint32_t from)
  * over to FM6's macros. Idempotent */
 static void proj_fm4(project_t *q)
 {
-#if !FELUCCA_FM4
     uint32_t k, i, n, hit = 0;
     for (k = 0; k < NTRK; k++) {
         proj_trk_t *d = &q->t[k];
@@ -361,9 +356,6 @@ static void proj_fm4(project_t *q)
         memset(&q->motion.event[i], 0, sizeof q->motion.event[i]);
     q->motion.count = (uint8_t)n;
     q->sum = proj_sum(q);
-#else
-    (void)q;
-#endif
 }
 
 /* tracks of a retired engine (PHYS 9 in TONIC; SAMPLE 4, GRAIN 8, SLICE 13 in JIANT: core.h eng_gone) -> ANALOG with its first preset's EDIT values
@@ -1790,7 +1782,7 @@ static int project_restore_runtime(const project_t *input)
             t->p[P_SDIV] = TP[P_SDIV].def;
             t->p[P_SLEN] = TP[P_SLEN].def;
         }
-        if (!FELUCCA_FM4 && e != ENGI_FORM) {   /* (0.6.92) HUMAN is one amount (P_HVEL): a project of 0.6.87 .. 0.6.91 with VEL, TIME and
+        if (e != ENGI_FORM) {   /* (0.6.92) HUMAN is one amount (P_HVEL): a project of 0.6.87 .. 0.6.91 with VEL, TIME and
                                * GATE apart keeps the largest of them (not DIGITAL's operator slots, FELUCCA_FM4) */
             int16_t m = t->p[P_HVEL];
             if (t->p[P_HTIM] < m) m = t->p[P_HTIM];

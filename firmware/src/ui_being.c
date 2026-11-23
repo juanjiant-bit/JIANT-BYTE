@@ -127,15 +127,6 @@ static void being_lines(const genome_t *g, const bfeat_t *f, int32_t cx, int32_t
         bg_ring(x, y, r * 6 / 100, bg_col(240));
     }
 }
-/* the page's knob c as 0..256 (none: -1) and its label */
-static int32_t bg_knob(uint32_t c, const char **lab)
-{
-    int16_t *vp;
-    const param_desc_t *d = page_desc(cur_page(), c, &vp);
-    int32_t r = d && d->label && d->label[0] != '-' ? RATIO(d, enum_rank(d, *vp)) : -1;
-    *lab = d && d->label ? d->label : "";
-    return r < 0 ? -1 : r * 256 / 1000;
-}
 /* a being's features from four of its track's parameters (ids), each by what it is (its label), else by its place */
 static void bg_feat(const track_t *t, const genome_t *g, const uint8_t *ids, bfeat_t *f)
 {

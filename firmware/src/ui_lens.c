@@ -26,7 +26,7 @@ static uint32_t pd_of_fam(uint32_t f)
 static uint32_t edit_kind(void)                          /* 0 a synth, 1 FM6, 2 DRUM, 3 DIGITAL (FELUCCA_FM4) */
 {
     uint32_t e = trk_eng(TSEL);
-    return e == ENGI_FM6 ? 1u : e == ENGI_DRUM ? 2u : FELUCCA_FM4 && e == ENGI_DIGITAL ? 3u : 0u;
+    return e == ENGI_FM6 ? 1u : e == ENGI_DRUM ? 2u : 0u;
 }
 static int pd_on(void) { return !ui.home && !page_over && pd_of_fam(PAGES[ui.page].fam) < PD_N; }
 static uint32_t pd_cur(void) { return pd_of_fam(PAGES[ui.page].fam); }
@@ -72,7 +72,7 @@ static const ng_t CG_HOME[] = {
                                {"ARRANGE", "ARR"}, {"PARTS", 0}, {"GEN", 0}};
 static const nv_t CE_SYN[] = {NV("FORM", 0, 0, 0), NV("DRONE",0,0,1), NV("MOD",0,0,1), NV("MOD AMT",0,0,1), NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0),
                               NV("WORDS", 0, 0, 1), NV("SWARM", 0, 0, 1), NV("SWARM 2", 0, 0, 1),
-                              NV("FILTER", 0, 1, 1), NV("FILTER 2", 0, 1, 1), NV("TONE", 0, 1, 1), NV("AUTO KNOBS", "FOCUS", 2, 2),
+                              NV("FILTER", 0, 1, 1), NV("TONE", 0, 1, 1), NV("AUTO KNOBS", "FOCUS", 2, 2),
                               NV("VOICES", "PLAY", 3, 1), NV("MORE", 0, 3, 1), NV("VOICES 3", "MORE", 3, 1)};   /* (JIANT FM V10.7.60,
                                                          * normalized: SOUND TONE FOCUS PLAY, the engine's extras and the voices'
                                                          * last on MORE; EXT's MORE its CRUSH page) */   /* (VOICES 3: EXT's) */   /* (V10.7.35, the owner: the sound first, its
@@ -82,14 +82,14 @@ static const nv_t CE_SYN[] = {NV("FORM", 0, 0, 0), NV("DRONE",0,0,1), NV("MOD",0
                                                          * PLAY, was VOICE (the engine's name too); STEREO's IMAGE on PLAY 2) */
 static const ng_t CG_SYN[] = {{"SOUND", 0}, {"TONE", 0}, {"FOCUS", 0}, {"PLAY", 0}};
 static const nv_t CE_FM6[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("OPERATOR", 0, 1, 2), NV("OP ENV", 0, 1, 2),
-                              NV("OPERATOR 2", 0, 1, 2), NV("FILTER", 0, 2, 1), NV("FILTER 2", 0, 2, 1), NV("TONE", 0, 2, 1),
+                              NV("OPERATOR 2", 0, 1, 2), NV("FILTER", 0, 2, 1), NV("TONE", 0, 2, 1),
                               NV("VOICES", "PLAY", 3, 1), NV("MORE", 0, 3, 1)};   /* (V10.7.35: the sound first) */
 static const ng_t CG_FM6[] = {{"SOUND", 0}, {"OPERATOR", "OPS"}, {"TONE", 0}, {"VOICES", 0}};
 static const nv_t CE_DRM[] = {NV("PLAY", 0, 0, 2), NV("WAVE", 0, 1, 2), NV("SHAPE", 0, 1, 2), NV("MOVE", 0, 1, 2), NV("BODY", 0, 1, 2),
                               NV("NOISE", 0, 1, 2), NV("COLOR", 0, 2, 2), NV("MIX", 0, 2, 2)};   /* (DRUM-W: its own eight; the kit's
                                                          * old pages, LEVELS, VOICES, KIT LFO, out of the way) */
 static const ng_t CG_DRM[] = {{"PLAY", 0}, {"PAD", 0}, {"KIT", 0}};
-static const nv_t CE_DIG[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("FILTER", 0, 1, 1), NV("FILTER 2", 0, 1, 1), NV("TONE", 0, 1, 1), NV("VOICES", "PLAY", 1, 1),
+static const nv_t CE_DIG[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("FILTER", 0, 1, 1), NV("TONE", 0, 1, 1), NV("VOICES", "PLAY", 1, 1),
                               NV("MORE", 0, 1, 1), NV("OP1 ENV", 0, 2, 2), NV("OP2 ENV", 0, 2, 2), NV("OP3 ENV", 0, 2, 2),
                               NV("OP4 ENV", 0, 2, 2), NV("OP LEVEL", 0, 2, 2)};
 static const ng_t CG_DIG[] = {{"SOUND", 0}, {"TONE", 0}, {"OPERATOR", "OPS"}};

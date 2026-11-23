@@ -24,7 +24,7 @@
                                   * 0.9.9-snd5: STRING and ADD in the retired GRAIN's 8 and SLICE's 13; V10.54: 15 INPUT) */
 #define ENGI_FORM 16u            /* FORM: reference compositions, appended; old IDs stay unchanged */
 #define ENGI_DIGITAL 1u          /* reserved without FELUCCA_FM4: never selectable (eng_ok), its sounds load as FM6 */
-#define NENG_SHOWN (NENGINES - !FELUCCA_FM4 - 3 - 9)   /* (JIANT BYTE: DRUM WAVE MATH FORM; JIANT FM's others retired, aliased) */
+#define NENG_SHOWN (NENGINES - 1 - 3 - 9)   /* (JIANT BYTE: DRUM WAVE MATH FORM; JIANT FM's others retired, aliased) */
                                                /*   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
                                                 * in the display order of engines.c ENGINE_ORDER (PHYS 9, and in
                                                 * JIANT SAMPLE 4, GRAIN 8, SLICE 13: retired) */
@@ -365,65 +365,6 @@ static inline int eng_gone(uint32_t e)
 {
     return e == ENGI_PHYS || e == ENGI_SAMPLE || e == ENGI_TRIO;   /* (0.9.9-snd5: GRAIN's 8 and SLICE's 13 are STRING and ADD) */   /* (0.9.9-snd5: GRAIN's 8 and SLICE's 13 are STRING and ADD) */
 }
-/* (JIANT 0.4) a sound stored before 0.4 -> today's E values, in place: LOFI (3) {.., SWP, VIB, ARP, TONE} -> {.., CUT
- * (its TONE), VIB, BEND 0, MASK 0}; ANALOG (0) KTR -> INT 0 (the key tracking fixed at its old default). Projects
- * (project.c: the kit's marker below 3, or an older format) and user presets (upreset.c: no UP_V04_MARK) */
-static void sound_v04(uint32_t engine, int16_t *e)
-{
-    if (engine == 3u) {
-        e[4] = e[7];
-        e[6] = e[7] = 0;
-    } else if (engine == 0u) {
-        e[7] = 0;
-    }
-}
-/* (JIANT 0.4) TRIO (engine 6) folded into ANALOG: its sound's E values -> ANALOG's, in place, the nearest WAVE (its
- * three saws SAW3, its sync sets SYNC, its ring sets RING, pulses PWM, triangles TRI, noise as NOIS), INT2 as the
- * SYNC / RING ratio (DTN: 16 x (2^(st/12) - 1)), DTN, CUT and RES kept; 1 = it was TRIO (its engine is ANALOG now):
- * projects, user presets, the editor's PRESET and SET (project.c, upreset.c, ui.c). {WAVE INT2 INT3 DTN MODE CUT RES
- * PW} -> {WAVE DTN MIX NOIS CUT RES DRV KTR} */
-static int analog_from_trio(uint32_t engine, int16_t *e)
-{
-    static const uint8_t W[16] = {7, 4, 4, 7, 2, 0, 1, 4, 0, 5, 5, 5, 6, 6, 6, 6};
-    static const uint8_t R[25] = {0, 1, 2, 3, 4, 5, 6, 8, 9, 11, 12, 14, 16, 18, 20, 22, 25, 27, 30, 34, 37, 41, 45, 49,
-                                  54};   /* (16 x (2^(st/12) - 1), st 0..24) */
-    uint32_t w = (uint32_t)e[0] & 15u;
-    int32_t st = e[1] < 0 ? -e[1] : e[1];
-    if (engine != ENGI_TRIO)
-        return 0;
-    e[0] = W[w];
-    e[1] = W[w] >= 5u ? (int16_t)R[st > 24 ? 24 : st] : (int16_t)(e[3] > 0 ? e[3] : 6);
-    e[2] = (int16_t)(w == 8u ? 0 : 64);
-    e[3] = (int16_t)(w == 7u ? 60 : w == 8u ? 100 : 0);
-    e[4] = e[5];                                        /* CUT */
-    e[5] = e[6];                                        /* RES */
-    e[6] = 0;
-    e[7] = 64;
-    return 1;
-}
-/* (V10.6d) LOFI is MATH, BYTE and FLOAT alone: a sound of a chip wave (WAVE 0..4: PLS TRI SAW NOIS WRAM) -> ANALOG's
- * nearest, its E values in place: one oscillator (MIX 0), PLS SQR, TRI TRI, SAW SAW, NOIS a saw under full NOISE, WRAM
- * SIN; CUT open, no RES DRIVE INT (the FILTER page's CUT RES, the envelope, the mix, the sends stay). A BYTE / FLOAT with
- * CHIP STEP (4) -> 4BIT, the same sound. 1 = it was a chip sound (its engine is ANALOG now): projects (project.c
- * proj_phys_gone), user presets (upreset.c). Idempotent */
-static int analog_from_chip(uint32_t engine, int16_t *e)
-{
-    static const uint8_t W[5] = {1, 2, 0, 0, 3};
-    uint32_t w = (uint32_t)e[1];
-    if (engine != ENGI_LOFI)
-        return 0;
-    if (w == 5u || w == 6u) {
-        if (e[0] < 0 || e[0] > 3)
-            e[0] = 0;
-        return 0;
-    }
-    w = w < 5u ? w : 0u;
-    e[0] = (int16_t)W[w];
-    e[1] = e[2] = e[5] = e[6] = e[7] = 0;
-    e[3] = (int16_t)(w == 3u ? 127 : 0);
-    e[4] = 110;
-    return 1;
-}
 /* (V10.7.36) engine 11 was NOISE until V10.7.35, WEST since: a sound of NOISE -> WEST's values, e its P_E0..P_E7 in
  * place ({MODE COLOR FREQ PEAK TRK DENSE DRIFT CRUSH} -> {FOLD SYMM MOD RATIO GATE DECAY RES DUST}). NOISE was a noise
  * source through a filter, its level the ADSR's: its noise modes become DUST (ANLG's white noise 127, DUST's impulses
@@ -455,16 +396,6 @@ static __attribute__((noinline)) void west_from_noise(int16_t *e)
  * favourites (ui.c, settings_persist.c). Idempotent */
 #define SMP_SET_PERC 4u
 #define DRUM_KIT_E {64, 0, 70, 64, 64, 0, 0, 0}   /* {MRPH, ATTACK, TONE, DECY, NOIS, FM, WARP, GAIN} (eng_drum.c; BYTE 0.16: ATTACK 0, struck at once) */
-static int drum_from_perc(uint32_t engine, int16_t *e)
-{
-    static const int16_t KIT[8] = DRUM_KIT_E;
-    uint32_t i;
-    if (engine != ENGI_SAMPLE || e[0] != (int16_t)SMP_SET_PERC)
-        return 0;
-    for (i = 0; i < 8u; i++)
-        e[i] = KIT[i];
-    return 1;
-}
 
 /* ------------------------------------------------- voices, engines --- */
 enum { V_POLY, V_MONO, V_LEGATO, V_UNISON, V_DRONE };   /* P_VOICE (V10.7.33: DRONE appended, voice.c drone_on) */
@@ -685,7 +616,6 @@ enum { EV_ALWAYS, EV_1_2, EV_2_2, EV_SKIP, EV_1_3, EV_2_3, EV_3_3, EV_1_4, EV_2_
 static const uint8_t EV_AB[EV_N][2] = {{0, 0}, {1, 2}, {2, 2}, {0, 3}, {1, 3}, {2, 3}, {3, 3}, {1, 4}, {2, 4}, {3, 4},
                                        {4, 4}, {1, 8}, {0, 1}, {0, 2}};   /* a of b loops; {0,0} always, {0,3} never,
                                                                           * {0,1} the first, {0,2} not the first */
-static const uint8_t EV_ORD[EV_N] = {0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 3};   /* the knob's order, SKIP last */
 #define ST_EVERY(s) ((uint32_t)(s)->cwhen & 15u)
 #define ST_EVERY_SET(s, e) ((s)->cwhen = (uint8_t)(((s)->cwhen & 0xF0u) | ((uint32_t)(e) & 15u)))
 /* (0.6.88) TIMING: the step's own place off the grid (0 on it); recorded off the grid (REC Q) or set on SEQ > NOTE's
@@ -742,10 +672,6 @@ enum { CP_NONE, CP_ARPN, CP_ARPQ, CP_ARPS, CP_TRIG, CP_RAND, CP_OCT, CP_TONAL, C
 static const uint8_t CP_WRATES[CP_NWRATE] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16};
 static const uint8_t CP_WDEGS[4] = {3, 5, 7, 12};
 /* the range of carg each component's KNOB 3 turns (ARP: KNOB 3 / 4 their own; WALK CLIMB: theirs) */
-static const uint8_t CP_AMAX[CP_N] = {0, 0, 0, 0, 11, 7, 5, 14, 24, 6, 3, 63, 0, 0, 0, 0, 0, 2};
-static const uint8_t CP_ADEF[CP_N] = {0, 0, 0, 0, 0, 2, 0, 9, 7, 1, 0, 0, 0, 0, 0, 0x40, 0x00, 0};
-static const uint8_t CP_AMIN[CP_N] = {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-static int cp_iswalk(uint32_t c) { return c == CP_WALK || c == CP_CLIMB; }
 #define CP_ORD(a) ((uint32_t)(a) & 3u)            /* UP DOWN UP-DN RND */
 /* (0.6.62) JUMP / REV: (V10.6v) gone, a legacy one migrates to none */
 #define CP_RATE(a) (((uint32_t)(a) >> 2) & 7u)    /* 0..4: x2 x3 x4 x6 x8 */

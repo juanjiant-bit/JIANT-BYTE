@@ -4728,14 +4728,14 @@ static int test_edit_cycle(void)
 {
     /* (0.9.2: one chain, SELECT a page a detent; an EDIT tap the next group's first. Was 0.8.5's lens: SELECT a level, the
      * tap the level's next set) */
-    static const char *const CH_A[] = {"EDIT 1", "MORPH", "FILTER", "FILTER 2", "TONE", "VOICES", "VOICES 2", "AUTO KNOBS"};   /* (V10.7.35) */   /* (JIANT 0.5:
+    static const char *const CH_A[] = {"EDIT 1", "MORPH", "FILTER", "TONE", "VOICES", "VOICES 2", "AUTO KNOBS"};   /* (V10.7.35) */   /* (JIANT 0.5:
                                                          * ANALOG's FILTER; 0.6.45: MORPH; V10.7.21: no EDIT 2; codex/coherence:
                                                          * PLAY, was VOICE; STEREO's IMAGE on PLAY 2) */
     static const char *const TP_A[] = {"FILTER", "VOICES", "AUTO KNOBS"};
-    static const char *const CH_F[] = {"EDIT 1", "EDIT 2", "OPERATOR", "OP ENV", "OPERATOR 2", "FILTER", "FILTER 2", "TONE",
+    static const char *const CH_F[] = {"EDIT 1", "EDIT 2", "OPERATOR", "OP ENV", "OPERATOR 2", "FILTER", "TONE",
                                        "VOICES", "VOICES 2"};   /* (V10.7.35: the sound first) */   /* (codex/filters2: FILTER 2; filter2-mod: FILTER 3, KEY; V10.7.33 VOICES 3) */
     static const char *const TP_F[] = {"OPERATOR", "FILTER", "VOICES"};
-    static const char *const CH_D[] = {"EDIT 1", "EDIT 2", "FILTER", "FILTER 2", "TONE", "VOICES", "VOICES 2", "OP1 ENV", "OP2 ENV", "OP3 ENV",
+    static const char *const CH_D[] = {"EDIT 1", "EDIT 2", "FILTER", "TONE", "VOICES", "VOICES 2", "OP1 ENV", "OP2 ENV", "OP3 ENV",
                                        "OP4 ENV", "OP LEVEL"};
     static const char *const TP_D[] = {"FILTER", "OP1 ENV"};
     int bad = 0, ok;

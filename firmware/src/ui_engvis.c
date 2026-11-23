@@ -171,7 +171,6 @@ static void vx_arc(const vxf_t *f, int32_t cx, int32_t cy, int32_t rx, int32_t r
 }
 static uint32_t vx_mt(uint32_t ms) { return ms / 25u * 192u + ms % 25u * 192u / 25u; }   /* (codex/anim) ms -> the mock-up's
                                                          * Q8 frames (30 a second), whole: steps of any size add up the same */
-static uint32_t vx_rnd(uint32_t *r) { *r ^= *r << 13; *r ^= *r >> 17; *r ^= *r << 5; return *r; }
 /* the level of track t now (0..256: its part's peak, slewed: a hit at once, a quick fall), k: which drawing; its time
  * runs with it (once a frame) */
 static int32_t vx_level(const track_t *t, uint32_t k, int32_t en_home)
@@ -394,24 +393,6 @@ static void vx_kit(const track_t *t, int32_t cx, int32_t cy, int32_t s, int32_t 
     vxs.kc = 0;
 }
 
-/* ============================================================================ (0.9.6) the mock-up's family === */
-/* the mock-up's frame (uFrame): its unit space 124 x 94 fitted in the rectangle A (x y w h px), k / 100 larger, lifted
- * dy (Q4 units) */
-static vxf_t vx_uf(const int32_t *A, int32_t k, int32_t dy)
-{
-    vxf_t f;
-    int32_t a = A[2] * 256 / 124, b = A[3] * 256 / 94;
-    f.s = (a < b ? a : b) * k / 100;
-    f.cx = (A[0] * 2 + A[2]) * 8;
-    f.cy = (A[1] * 2 + A[3]) * 8 - ((dy * f.s) >> 8);
-    return f;
-}
-/* the angle (16-bit turns) of t * r radians, t the mock-up's frames (mt, Q8), r = r1000 / 1000 */
-static uint32_t vx_ang(uint32_t mt, int32_t r1000)
-{
-    return mt * (uint32_t)r1000 * 2670u >> 16;          /* (mod 2^32: an angle's 16 bits exact) */
-}
-static int32_t vx_hash(uint32_t n) { n = (n ^ 61u) ^ (n >> 16); n *= 9u; n ^= n >> 4; n *= 668265261u; return (int32_t)((n ^ (n >> 15)) & 255u); }
 /* the squash of a hit (Q8): e (0..256) at age ms (22 rad/s, e^-6t) */
 static int32_t vx_sq(int32_t e, uint32_t age)
 {
@@ -438,12 +419,6 @@ static void vx_poly(const vxf_t *f, const int32_t *p, uint32_t n, int closed, in
     if (closed)
         vx_line(f, p[2u * n - 2u], p[2u * n - 1u], p[0], p[1], h);
 }
-/* a line between two points in polar form about c (cx cy, x y scales / 256): angles (16-bit turns), radii (Q4 units) */
-static void vx_pl(const vxf_t *f, const int32_t *c, uint32_t a0, int32_t r0, uint32_t a1, int32_t r1, int32_t h)
-{
-    vx_line(f, c[0] + (((og_cos(a0) * r0) >> 15) * c[2] >> 8), c[1] + (((og_sin(a0) * r0) >> 15) * c[3] >> 8),
-            c[0] + (((og_cos(a1) * r1) >> 15) * c[2] >> 8), c[1] + (((og_sin(a1) * r1) >> 15) * c[3] >> 8), h);
-}
 /* a ring (Q4 units), its sides as many as its size asks */
 static void vx_ring(const vxf_t *f, int32_t x, int32_t y, int32_t rx, int32_t ry, int32_t h)
 {
@@ -463,11 +438,6 @@ static void vx_body(const vxf_t *f, const vxb_t *g, int32_t r, int32_t ri, uint3
 }
 /* text s centred on (x, its capitals' top y) Q4 px */
 static uint8_t vx_small;                                 /* (V10.8) LARGE's strip: the creatures small, no labels */
-static void vx_text(int32_t x, int32_t y, const char *s, uint16_t c)
-{
-    if (vx_small) return;
-    cv_text((x >> 4) - text_w(&AF_X, s) / 2, (y >> 4) - AF_X_CAP_Y, &AF_X, s, c);
-}
 
 /* --------------------------------------------------------------------------------------------- LOFI --- */
 /* ORGANISMO DE CIRCUITO */
@@ -568,14 +538,6 @@ static VX_SEG void vx_lofi(const track_t *t, const int32_t *A, int32_t en_home)
     vxs.kc = 0;
 }
 
-/* ------------------------------------------------------------------------------------------------ the glue --- */
-/* the engine's own creature in the rectangle x y w h (px: EDIT's left panel 8 14 108 112, HOME's middle 146 x 112, or a
- * whole panel: each fits itself to it), en_home: HOME's level for the track (-1: its own); 0 when the engine has none
- * (its being then) */
-static int32_t vx_fit(int32_t w, int32_t h, int32_t uw, int32_t uh)   /* a unit's px (Q8): uw x uh units in w x h px */
-{
-    return w * 256 / uw < h * 256 / uh ? w * 256 / uw : h * 256 / uh;
-}
 typedef struct { const engine_t *e; void (*f)(const track_t *, const int32_t *, int32_t); } vxe_t;
 static const vxe_t VX_F[] = {{&ENG_LOFI, vx_lofi}, {&ENG_WAVE, vx_lofi}};   /* (JIANT BYTE:
                                                          * WEST PHASE STRING retired; WAVE drawn as MATH's) */   /* (0.9.9-snd5; V10.7.13+: ADD's gone, room for

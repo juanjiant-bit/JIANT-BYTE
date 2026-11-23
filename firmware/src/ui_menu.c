@@ -278,7 +278,6 @@ static int32_t menu_scroll_max(void)
 /* (V10.58) the panel's top: under the cards (COLORS, AIR), or, BOTTOM and HUD (their cards at the foot), right under the
  * tabs (the panel at COLORS' place covered BOTTOM's and HUD's cards and left a blank band over it) */
 static uint32_t menu_py(void) { return LZ_GRAPH_Y; }
-static int menu_large(void) { return (ui_prefs & PREF_LARGE) != 0u; }
 static uint32_t menu_tab(void) { return MI_TAB[ui.menu_sel % MI_COUNT]; }
 static uint32_t menu_set(void) { return (ui.menu_sel - mtab_first(menu_tab())) / 4u; }   /* ROWS 1-4: 0, 5-6: 1 */
 static void menu_val(uint32_t row, char *b)          /* the row's value as it reads ("0.4 s"; OCT+ rows: "OPEN") */

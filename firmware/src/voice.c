@@ -223,13 +223,13 @@ static __attribute__((noinline)) void fn_tick(const track_t *t, const engine_t *
     static const uint16_t RAT[8] = {128, 256, 361, 384, 512, 707, 768, 1024};   /* METAL's ratios, Q8 */
     fnst_t *s = &fns[ti];
     fnb_t *b = &fnb[ti];
-    int32_t d = ok ? fn_inv(t->p, P_FNZ) : 0, r = fn_inv(t->p, P_FNRT), v, dep;
+    int32_t d = 0 /* (BYTE, the owner: FILTER 2's NOISE gone, its CPU with it; was fn_inv(P_FNZ)) */, r = fn_inv(t->p, P_FNRT), v, dep;
     uint32_t o = s->ph, m = fn_mode(t->p), z, pw;
     b->kq = !ok ? 0 : (int32_t)(e == &ENG_ANA_GONE ? fkey_rank(t->p[P_FKEY]) : (uint32_t)fn_inv(t->p, P_FKEY)) * 1024 / 27;
     b->drv = (uint8_t)(e == &ENG_ANA_GONE ? t->p[P_E6] & 127 : ok ? fn_inv(t->p, P_FDRV) : 0);
     b->cut = b->span = b->pit = b->pmd = s->mdep = s->src = 0;
     b->amt = (uint8_t)((d * (d + 127)) >> 8);
-    if (!ok)
+    if (!ok || !d)                                       /* (BYTE: no NOISE, nothing to run) */
         return;
     pw = e == &ENG_VOX_GONE ? 0 : (4 - (((uint32_t)t->p[P_FDST] & 127u) * 5u >> 7)) * 32u;   /* (DEST: the pitch's share,
                                                          * Q7; VOICE's FILTER, its CONS there) */
@@ -324,9 +324,9 @@ static __attribute__((noinline)) int32_t fn_voice(const track_t *t, int32_t p16,
     const engine_t *e = ENGINES[t->engine];
     if (e == &ENG_DRUM || e == &ENG_EXT_GONE)
         return 0;
-    if ((p[P_FNZ] & p[P_FDRV] & p[P_FKEY]) < 127 && !tf_on[ti])
+    if ((p[P_FDRV] & p[P_FKEY]) < 127 && !tf_on[ti])
         tf_on[ti] = 2;
-    return e != &ENG_ANA_GONE && e != &ENG_LOFI ? 0 : (p[P_FNZ] < 127 ? fnb[ti].cut : 0) +
+    return e != &ENG_ANA_GONE && e != &ENG_LOFI ? 0 : 
            (p[P_FKEY] < 127 ? ((p16 - 60 * 16) * (fnb[ti].kq - (e == &ENG_ANA_GONE ? 1024 : 0))) >> 8 : 0);
 }
 /* (codex/filters2) FILTER's DRIVE on a part (every engine but ANALOG, whose DRIVE drives each voice): its sum into the
@@ -1479,16 +1479,6 @@ static int32_t trk_trans(const track_t *t)
 {
     const engine_t *e = ENGINES[t->engine % NENGINES];
     return e->oneshot || e->keys ? 0 : t->p[P_TRANS];
-}
-/* (V10.7.22) the velocity voice v's note takes before UNISON's level (FM6, eng_fm6.c; mvel 0: vel), VEL applied: mvel is the
- * matrix's, the one as played (seq.c vel_note) or, where that was not the note's, the note's own; the one of the two
- * UNISON's level turns into the voice's vel (as trk_note_on) */
-static __attribute__((noinline)) uint32_t vel_sound(const track_t *t, const voice_t *v)
-{
-    uint32_t nv = t->p[P_VOICE] == V_UNISON ? trk_nvoice(t) : 1u, s = tvel_of(t, v->mvel);
-    if (!v->mvel)
-        return v->vel;
-    return (nv >= NVOICE ? s * 36u / 100u : nv > 1u ? s / 2u : s) == v->vel ? s : v->mvel;
 }
 static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int glide, uint32_t age)
 {

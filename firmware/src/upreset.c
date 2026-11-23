@@ -449,14 +449,12 @@ static int up_load(uint32_t k)
     up_values(r, v);
     load_begin(t, LOAD_SOUND);
     panic_req |= (uint8_t)(1u << song.sel);
-#if !FELUCCA_FM4
     if (r->engine == ENGI_DIGITAL) {                    /* a DIGITAL sound (kept as it was stored): FM6 */
         int16_t p[P_COUNT];
         for (i = 0; i < P_COUNT; i++)
             p[i] = param_kept(i) ? t->p[i] : v[i];
         fm4_apply(t, p);
     } else
-#endif
     {
         fm1_irq_off();                                  /* the audio ISR must not see half a sound */
         t->eng_req = r->engine;

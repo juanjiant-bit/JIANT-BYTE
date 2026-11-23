@@ -279,7 +279,7 @@ static uint16_t kx_amt[NTRK][2] KX_BSS, kx_ph[NTRK] KX_BSS;   /* the ramps (vibr
  * played; 0: 100). (V10.7.22) the matrix's VEL follows the velocity as played: seq.c tvel, vel_note; voice.c vel_sound */
 static inline uint32_t tvel_of(const track_t *t, uint32_t v)
 {
-    return FELUCCA_FM4 && t->eng_req % NENGINES == ENGI_DIGITAL ? v : (uint32_t)(100 + ((int32_t)v - 100) * t->p[P_TVEL] / 127);
+    return (uint32_t)(100 + ((int32_t)v - 100) * t->p[P_TVEL] / 127);
 }
 static void vel_note(track_t *t, uint32_t vel);   /* (seq.c) */
 /* track i's bend (k 1: smoothstep of its ramp, Q12 0..4096) or vibrato's wave (k 0: a sine near enough, Q15) */

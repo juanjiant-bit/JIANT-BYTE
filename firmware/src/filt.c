@@ -23,7 +23,7 @@ static inline uint32_t ft_of(const int16_t *p)
  * (codex/filter2-mod) open under FILTER 2's METAL too (NOISE on, MODE METAL: voice.c fn_mode, FN_METAL_ON), the part's */
 static __attribute__((noinline)) uint32_t fn_metal(const int16_t *p)   /* (voice.c FN_METAL_ON: one copy) */
 {
-    return p[P_FNZ] < 127 && ((uint32_t)(p[P_FNMD] & 127) * 5u >> 7) == 2u;
+    (void)p; return 0;   /* (BYTE: FILTER 2's NOISE gone) */
 }
 static inline uint32_t ft_voice(const int16_t *p)
 {

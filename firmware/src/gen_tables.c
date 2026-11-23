@@ -530,47 +530,6 @@ static const grecipe_t RECIPE[SR_N] = {
  * sounds beside the others of its role (V10.6z9: a SUB BASS 9 dB over a FAT BASS or a REESE, a STRINGS or a DARK PAD
  * 10 over a stab, the 808 COWBELL and the CHANT 11 .. 15 under the other leads) */
 #define RT(a, b, c) (uint16_t)(((a) & 15) | ((b) & 15) << 4 | ((c) & 15) << 8)
-static const uint16_t RTRIM[SR_N] = {
-    [SR_SUB] = RT(-4, -3, 0),
-    [SR_ACID] = RT(-1, -1, 0),
-    [SR_REESE] = RT(1, 1, 0),
-    [SR_FMBASS] = RT(0, -1, 0),
-    [SR_ROCKBASS] = RT(-1, 0, 0),
-    [SR_HOOK] = RT(1, 2, 0),
-    [SR_WOW] = RT(0, 0, 0),
-    [SR_PAD] = RT(-1, -2, -1),
-    [SR_STRINGS] = RT(-4, -3, -4),
-    [SR_CHOIR] = RT(-1, -2, 0),
-    [SR_ORGAN] = RT(0, -1, -2),
-    [SR_EP] = RT(0, -1, -1),
-    [SR_STAB] = RT(2, 0, 2),
-    [SR_DUBCHORD] = RT(3, 3, 3),
-    [SR_PLUCK] = RT(2, -3, 1),
-    [SR_BELL] = RT(-1, -2, 2),
-    [SR_LEAD] = RT(-1, -1, -2),
-    [SR_VOXLEAD] = RT(0, 1, -4),
-    [SR_CHIP] = RT(-1, 2, -1),
-    [SR_KEYS] = RT(-1, -1, 2),
-    [SR_DRONE] = RT(-4, -4, -4),
-    [SR_NOISE] = RT(0, -2, 0),
-    [SR_TEXTURE] = RT(3, 1, 0),
-    [SR_HOOVER] = RT(-1, 0, -2),
-    [SR_WALL] = RT(-4, -4, -3),
-    [SR_GTR] = RT(-2, -1, 2),
-    [SR_SINEKEY] = RT(0, 1, 0),
-    [SR_EBMBASS] = RT(3, 0, 0),
-    [SR_808] = RT(-2, -3, 0),
-    [SR_UPRIGHT] = RT(0, 2, 0),
-    [SR_TECHBASS] = RT(1, 2, 0),
-    [SR_SUPERSAW] = RT(0, 0, 0),
-    [SR_PIANO] = RT(1, -2, 0),
-    [SR_HARPSI] = RT(2, 1, 0),
-    [SR_DIST] = RT(1, 1, 0),
-    [SR_COWBELL] = RT(6, 0, 0),
-    [SR_FLUTE] = RT(0, 3, 0),
-    [SR_CHANT] = RT(4, 5, 6),
-    [SR_MALLET] = RT(4, 4, 4),   /* (V10.7.2: STRING's mallet and nylon ~15 dB under the plucks, measured) */
-};
 /* (the GENE mix pass) the pads' and the strings' second option PHASE's STRING and ANALOG's DARK PAD, the drones' third
  * PHASE's GLASS PAD, FM6's SOFT PAD's place: its operators' slow attacks (~1 s) under GEN's chords, stabbed or sparse,
  * left a chord's part 27 .. 34 dB under (DRUM & BASS's pad gone one throw in three); the stabs' third WHEEL's GOSPEL
@@ -590,8 +549,6 @@ static const uint8_t ENV_RULE[6][4] = {
 };
 #define GSTAB(p) ((0x3C7Cu >> (p)) & 1u)                /* CS_STAB PULSE DUB SKANK COMP BROKEN TRANCE CHUG CHARL: the chords short */
 /* the names the song generator never picks (the cheerful, the odd), whatever the role */
-static const char *const GEN_NEVER[] = {"ARCADE", "BYTEBEAT", "GOSPEL", "ROCK DRIVE", "METAL", "BYTE VAR", "FLOAT ARP",
-                                        "BYTE TONE", "INIT"};   /* (V10.6p: FLOAT FM gone, no preset's name now) */
 
 /* -------------------------------------------------------------------------------------------------- forms --- */
 enum { FM_LOOP, FM_PARTS, FM_CLUB, FM_ARC };            /* one loop; A B A C; the club plan (gen_parts' rows, in PARTS

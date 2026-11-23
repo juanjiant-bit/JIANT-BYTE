@@ -262,16 +262,6 @@ static void cv_blit(uint32_t x, uint32_t y)
     lcd_blit(x, y, cv_w, cv_h, cv_px);
 }
 
-/* canvas rows r0 .. cv_h-1 only, to screen row y + r0 */
-static void cv_blit_from(uint32_t x, uint32_t y, uint32_t r0)
-{
-    GFX_HOOK_BLIT(x, y, r0);
-    dc_touch(x, y);
-    if (r0 < cv_h) {
-        GFX_HOOK_SENT(cv_w * (cv_h - r0));
-        lcd_blit(x, y + r0, cv_w, cv_h - r0, cv_px + r0 * cv_w);
-    }
-}
 
 /* (0.9.0) SKIN HUD's HOME (ui_draw.c ui_draw_page): every strip is drawn whole each frame, the beings swimming under all of
  * them, but only what changed goes to the panel (at 12 MHz the whole screen took ~77 ms, the UI ~12 frames a second). Each
@@ -774,13 +764,12 @@ static int32_t text_w(const aafont_t *f, const char *s)
 static int32_t text_run(int32_t x, int32_t y, const aafont_t *f, const char *s, const uint16_t *rv, int32_t *bb)
 {
     int32_t pen = 0, err = 0, x0 = 0x7FFF, y0 = 0x7FFF, x1 = -0x7FFF, y1 = -0x7FFF;
-    const int32_t step = 16 >> f->psh;
     uint32_t prev = 0;
     for (; *s; s++) {
         uint32_t c = fold(f, (uint8_t)*s), gi;
         aag_t gv;
         const aag_t *g = &gv;
-        int32_t pos, d0, d1;
+        int32_t pos;
         if (prev)
             pen += kern(f, prev, c);
         gi = glyph(f, c);

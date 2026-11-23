@@ -61,7 +61,6 @@ static volatile uint8_t load_tight;              /* (voice.c: the guard tripped)
 #define HURRY_LVL 3277                           /* (voice.c) */
 static fm6_lfo_t fm6_lfo[NTRK];
 static int32_t fm6_lfo_v[NTRK], fm6_lfo_d[NTRK]; /* this block's LFO value and delay (Q24) */
-static fm6_note_t fm6_note[NTRK][FM6_POLY];
 /* the voice bank (fm6_vbank.c; in the pool, zeroed at boot: no bank without the store) */
 static uint32_t fm6_bank_used __attribute__((section(".pool")));   /* bit k: B k+1 holds a voice */
 static int (*fm6_bank_read)(uint32_t k, uint8_t *pk) __attribute__((section(".pool")));   /* voice k -> pk, 0 = read */
@@ -377,32 +376,7 @@ static void fm6_sync(const track_t *t)
     fm6_eff[tr].ok = 1;
 }
 
-/* --------------------------------------------------------------- voice --- */
-static fm6_note_t *fm6_note_of(track_t *t, voice_t *v)
-{
-    uint32_t i;
-    if (t < &trk[0] || t >= &trk[NPART])
-        return 0;
-    i = (uint32_t)(v - t->v);
-    return i < FM6_POLY ? &fm6_note[t - trk][i] : 0;
-}
 
-static uint32_t vel_sound(const track_t *t, const voice_t *v);   /* (voice.c: VEL, the velocity the sound takes) */
-static void fm6_note_on(track_t *t, voice_t *v)
-{
-    fm6_note_t *n = fm6_note_of(t, v);
-    uint32_t tr = (uint32_t)(t - trk);
-    const uint8_t *p;
-    if (!n)
-        return;
-    fm6_sync(t);
-    p = fm6_eff[tr].p;
-    fm6_note_init(n, p, (int32_t)v->note + p[FP_TRNSP] - 24, vel_sound(t, v),   /* (VEL) */
-                  (!v->env && !v->env_out) || !n->live);    /* from silence: phases and gains from 0 */
-    n->trim = 255;                                      /* (its first block: the track's trim at once) */
-    v->s[0] = 32767;                                    /* (codex/voices) its level for the budget (voice.c voice_lvl) */
-    fm6_lfo_key(&fm6_lfo[tr]);
-}
 
 static void fm6_block(track_t *t)       /* once a block and part: the macros, the LFO */
 {
@@ -420,73 +394,9 @@ static void fm6_block(track_t *t)       /* once a block and part: the macros, th
     fm6_lfo_d[tr] = fm6_lfo_delay(&fm6_lfo[tr]);
 }
 
-/* every carrier has gone silent for good: the voice ends (voice.c, engine_t.done) */
-static int fm6_done(track_t *t, voice_t *v)
-{
-    fm6_note_t *n = fm6_note_of(t, v);
-    uint32_t tr = (uint32_t)(t - trk);
-    if (!n || !n->live)
-        return 1;
-    if (!fm6_note_done(n, fm6_eff[tr].p, fm6_eff[tr].alg))
-        return 0;
-    n->live = 0;
-    return 1;
-}
 
-static void fm6_render(track_t *t, voice_t *v, int32_t *out, uint32_t len, const vmod_t *m)
-{
-    fm6_note_t *n = fm6_note_of(t, v);
-    uint32_t tr = (uint32_t)(t - trk), i;
-    const uint8_t *p;
-    int32_t bus[FM6_N], lf, fb, lvl, k, a, da, pk = 0;
-    uint32_t tb, hf = len == FM6_N / 2u;                /* (codex/voices) half the rate: voice.c voice_half */
-    if (!n || !n->live || (len != FM6_N && !hf))
-        return;
-    p = fm6_eff[tr].p;
-    if (!v->gate && n->down)
-        fm6_note_key(n, p, 0);
-    if (rel_hurry[tr] && !v->gate && (v->s[0] < HURRY_LVL || load_tight))   /* (codex/voices) the budget nearly full: its
-                                                         * release sooner, once it is under -20 dB (voice.c VSOFT 1) */
-        fm6_note_hurry(n, 100000 << rel_hurry[tr]);     /* (-40 dB in 0.8 s, 0.4 s, 0.2 s at least) */
-    n->penv.half = (uint8_t)(hf | (hf != n->penv.half) << 1);   /* (the rate, and its change: fm6_note_compute) */
-    v->s[0] = 0;
-    lf = fm6_note_logfreq(m->pitch16 + (p[FP_TRNSP] - 24) * 16, m->fine);
-    fb = clamp(fm6_eff[tr].fb + ((m->shape - (64 << 8)) >> 11), 0, 7);
-    lvl = clamp(t->p[P_E2], -64, 63) * 24 + clamp(m->cutoff >> 8, -150, 150) * 16 +   /* microsteps */
-          clamp((m->shape - (64 << 8)) >> 8, -150, 150) * 16;   /* (0.6.81) SHAPE: the modulators' depth too (the
-                                                         * feedback alone was silent where its operator is quiet) */
-    if (!fm6_note_compute(n, p, bus, fm6_lfo_v[tr], fm6_lfo_d[tr], lf, fm6_eff[tr].alg, fb, fm6_eff[tr].dt, lvl << 16))
-        return;                                         /* every carrier below the threshold */
-    /* the voice's amplitude ramp x VOICE_FS (one carrier at full: VOICE_FS / 2), six voices in unison ~ one */
-    k = t->p[P_VOICE] == V_UNISON ? VOICE_FS * 2 / 5 : VOICE_FS;
-    for (i = 0; i < len; i++) {                         /* the block's peak first: its trim from this block on */
-        int32_t x = bus[i] - n->dc, ax = x < 0 ? -x : x;   /* (as it goes out: past the DC blocker) */
-        pk = ax > pk ? ax : pk;
-    }
-    pk >>= 10;                                            /* (2^26 >> 10 = 2^16: the products fit 32 bits) */
-    v->s[0] = pk >> 1;
-    if ((uint32_t)pk * (256u - fm6_trim[tr]) > (uint32_t)(FM6_TRIM_REF >> 10) << 8) {   /* over: down to there */
-        uint32_t g = ((uint32_t)(FM6_TRIM_REF >> 10) << 8) / (uint32_t)pk;   /* the gain that would sit there */
-        fm6_trim[tr] = (uint8_t)(256u - (g < 8u ? 8u : g));   /* (-30 dB at most) */
-    }
-    if (n->trim == 255u)                                /* (255: never a trim, -30 dB is 248) */
-        n->trim = fm6_trim[tr];
-    tb = 256u - fm6_trim[tr];                           /* the trim from the note's last block to the track's now */
-    a = (mulq15(m->amp0, k) * (int32_t)(256u - n->trim)) >> 8;
-    da = (((mulq15(m->amp1, k) * (int32_t)tb) >> 8) - a) >> FM6_LG_N;
-    n->trim = fm6_trim[tr];
-    for (i = 0; i < len; i++) {
-        int32_t x = bus[i] - n->dc;
-        n->dc += x >> (10u - hf);                         /* a one-pole high-pass, ~7 Hz: FM puts sidebands at 0 Hz */
-        a += da;
-        out[i] += (int32_t)(((int64_t)x * a) >> 26);
-    }
-}
 
 /* --------------------------------------------------------- the engine --- */
-static const char *const N_FM6_ALG[] = {"PAT", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
-                                        "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25",
-                                        "26", "27", "28", "29", "30", "31", "32", 0};
 static const char *const N_FM6_PATCH[] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "OWN",
                                           "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "B12",
                                           "B13", "B14", "B15", "B16", "B17", "B18", "B19", "B20", "B21", "B22", "B23",
@@ -539,29 +449,3 @@ static const preset_t FM6_PRESETS[] = {
 static const uint8_t FM6_ORDER[] = {0, 1, 5, 7, 6, 4, 3, 8, 9, 2, 13, 10, 12, 14, 11};
 _Static_assert(sizeof FM6_ORDER == NELEM(FM6_PRESETS), "FM6's browsing order: every preset once");
 
-static const engine_t ENG_FM6 = {
-    .name = "FM6",
-    .page_title = {"ALGO", "PATCH"},                    /* (codex/coherence: ALGO, was OPS, the OPERATOR group's tab) */
-    .edit = {
-        {"ALG", F_INT, 0, 32, 0, N_FM6_ALG},
-        {"FB", F_INT, -7, 7, 0, 0},
-        {"MOD", F_BIPCT, -64, 63, 0, 0},
-        {"RATIO", F_INT, -16, 16, 0, 0},
-        {"MEG", F_BIPCT, -64, 63, 0, 0},
-        {"VMOD", F_INT, -7, 7, 0, 0},
-        {"SPREAD", F_PCT, 0, 127, 0, 0},                 /* (codex/coherence) the carriers apart (was DETUNE: OPERATOR 2's
-                                                         * is the operator's own) */
-        {"SLOT", F_INT, 0, FM6_OWN + FM6_NBANK, 0, N_FM6_PATCH},
-    },
-    .presets = FM6_PRESETS,
-    .npresets = NELEM(FM6_PRESETS),
-    .note_on = fm6_note_on,
-    .render = fm6_render,
-    .whole = 1,                                         /* (ctl64) its operators render FM6_N at a time */
-    .knob = {P_E2, P_E3, P_E4, P_E7},
-    .poly = FM6_POLY,
-    .block = fm6_block,
-    .ownenv = 1,
-    .done = fm6_done,
-    .half = 2,                                          /* (codex/voices) */
-};

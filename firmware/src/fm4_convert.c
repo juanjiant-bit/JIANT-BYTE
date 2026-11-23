@@ -68,8 +68,6 @@
 #endif
 
 /* ------------------------------------------------- DIGITAL's tables --- */
-static const char *const N_FMALG[] = {"1", "2", "3", "4", "5", "6", "7", "8"};
-static const char *const N_RATIO[] = {".5", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "14", "16"};
 
 /* the factory presets (the stores' preset numbers of engine 1 index this table) */
 static const preset_t DIGITAL_PRESETS[] = {
@@ -94,7 +92,6 @@ static const uint8_t FM4_TO_FM6[FM4_NPRESETS] = {0, 1, 2, 3, 6, 4, 5, 7};
         {l4, F_PCT, 0, 127, 60, 0}, {l5, f1, 0, 127, 60, 0}, {l6, F_PCT, 0, 127, 0, 0},               \
         {"-", F_INT, 0, 0, 0, 0}}
 
-#if !FELUCCA_FM4
 /* engine 1 without the DSP: never selectable, no presets, silent (a track never keeps it: fm4_convert) */
 static void fm4_gone_note_on(struct track *t, voice_t *v) { (void)t; (void)v; }
 static void fm4_gone_render(struct track *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
@@ -109,7 +106,6 @@ static const engine_t ENG_FM4_GONE = {
     .render = fm4_gone_render,
     .knob = {P_E4, P_E5, P_E6, P_REL},
 };
-#endif
 
 /* ------------------------------------------------------- conversion --- */
 #if FM4_CONVERT

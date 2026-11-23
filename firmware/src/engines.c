@@ -17,9 +17,6 @@
 #include "eng_fm6.c"            /* FM6: 6-operator FM, msfa ported (fm6_core.c, Apache-2.0) */
 #include "eng_input.c"          /* (V10.54) INPUT: the audio input on a track (engine 15) */
 #include "fm4_convert.c"        /* DIGITAL's tables, and its sounds -> FM6 */
-#if FELUCCA_FM4
-#include "eng_digital.c"        /* DIGITAL: four-operator FM (retired; FELUCCA_FM4=1 builds it) */
-#endif
 
 /* PHYS (engine 9): retired in TONIC (its 50 KB of voice state went to the song and the drums); SAMPLE (4), GRAIN (8) and
  * SLICE (13): retired in JIANT (core.h eng_gone). The numbers stay reserved, as DIGITAL's: the stores name engines by
@@ -56,11 +53,7 @@ static const engine_t ENG_EXT_GONE = {.name = "-", .page_title = {"-", "-"}, .no
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
 static const engine_t *const ENGINES[NENGINES] = {
     &ENG_WAVE,                   /* 0: (JIANT BYTE) ANALOG retired: plays as WAVE (a bad number too: eng_idx) */
-#if FELUCCA_FM4
-    &ENG_DIGITAL,                /* 1 (ENGI_DIGITAL) */
-#else
     &ENG_FM4_GONE,               /* 1: reserved (DIGITAL, retired: its sounds convert to FM6, fm4_convert.c) */
-#endif
     &ENG_WAVE,                   /* 2: (JIANT BYTE) PHASE retired: plays as WAVE */
     &ENG_LOFI,                   /* 3 */
     &ENG_GONE,                   /* 4: reserved (SAMPLE, retired in JIANT) */
@@ -97,17 +90,11 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE */
     ENGI_LOFI,                   /* MATH (BYTE FLOAT) */
     /* (JIANT BYTE) retired, their numbers MATH's or WAVE's (ENG_LIVE): WHEEL ADD FM6 PHASE STRING WEST ANIMAL */
-#if FELUCCA_FM4
-    ENGI_DIGITAL,                /* DIGITAL (retired, FELUCCA_FM4 builds only): after the rest */
-#endif
 };
 /* (0.9.9) PROGRAM CHANGE n loads the n + 1-th sound of the PRESETS list in the order of 0.9.8 (ANIMAL last: 0.8.3's
  * numbers kept), so a MIDI rig's program numbers name the sounds they named before the display order changed; the
  * PRESETS list itself follows ENGINE_ORDER (ui.c preset_all_at_in) */
 static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
-#if FELUCCA_FM4
-    ENGI_DIGITAL,
-#endif
     ENGI_LOFI, ENGI_DRUM,        /* (JIANT BYTE: every engine of JIANT FM's out but DRUM-X; MATH's place kept first) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE: after the rest */
     ENGI_FORM,
@@ -115,7 +102,7 @@ static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them
  * eng_vis(n), e's place among them eng_rank(e), the next / previous one eng_step(e, dir) (wraps) */
-static int eng_ok(uint32_t e) { return e < NENGINES && (FELUCCA_FM4 || e != ENGI_DIGITAL) && !eng_gone(e); }
+static int eng_ok(uint32_t e) { return e < NENGINES && e != ENGI_DIGITAL && !eng_gone(e); }
 /* the engine a stored engine number plays on: DIGITAL (without FELUCCA_FM4) FM6, a retired one ANALOG, a bad number ANALOG */
 static uint32_t eng_live(uint32_t e)
 {

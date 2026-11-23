@@ -45,13 +45,6 @@ static void draw_rec_mark(int32_t x, uint16_t bg)
         cv_rrect(x + 5, HEAD_MID - 2, 5, 5, 2, bg, T_REC);
 }
 
-/* the battery: (0.8.5, as the mock-up) an outline 13 x 9 (rows 7..15) and its charge inside, 0..3 thirds of 9 px
- * (the stock thresholds); USB power (4): full, THEME. One third left: the accent; else MID */
-static uint32_t batt_icon(int32_t lvl)
-{
-    static const uint8_t I[5] = {ICON_X_BAT0, ICON_X_BAT1, ICON_X_BAT3, ICON_X_BAT4, ICON_X_BAT_CHG};
-    return I[clamp(lvl, 0, 4)];
-}
 /* (JIANT 0.5) the load: how much of the audio's time the sound takes now (audio.c song.cpu_q8, averaged); 0..5.
  * (0.8.5, the mock-up) five bars 3 x 7 side by side left of the battery, lit THEME from the left, the rest RAISE */
 static uint32_t head_load(void)

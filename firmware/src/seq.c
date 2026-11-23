@@ -2812,7 +2812,6 @@ static uint32_t hum_rs = 0x2545F491u;
 static uint32_t hum_rnd(void) { hum_rs ^= hum_rs << 13; hum_rs ^= hum_rs >> 17; hum_rs ^= hum_rs << 5; return hum_rs; }
 static uint32_t hum_amt(const track_t *t, uint32_t id)
 {
-    if (FELUCCA_FM4 && t->eng_req % NENGINES == ENGI_DIGITAL) return 0;
     return 127u - (uint32_t)clamp(t->p[id], 0, 127);
 }
 static int32_t hum_pm(uint32_t r) { return (int32_t)(hum_rnd() % (2u * r + 1u)) - (int32_t)r; }   /* -r .. r */

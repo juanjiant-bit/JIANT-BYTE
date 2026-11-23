@@ -1526,13 +1526,6 @@ BTAPP_FN static void gen_texture(track_t *t, uint32_t len)   /* (V10.7.34: the s
     }
 }
 
-/* -------------------------------------------------------------------------------------------------- sounds --- */
-static int gnever(const char *s)
-{
-    uint32_t i;
-    for (i = 0; i < NELEM(GEN_NEVER); i++) if (dname_has(s, GEN_NEVER[i])) return 1;
-    return 0;
-}
 /* (0.9.9-gen1) a value from a packed range (gen_tables.c GR, GR4) */
 static int16_t grg(uint32_t b, uint32_t u) { return (int16_t)grr((int32_t)(b >> 4) * (int32_t)u, (int32_t)(b & 15u) * (int32_t)u + (int32_t)u - 1); }
 

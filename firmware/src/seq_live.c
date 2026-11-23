@@ -33,7 +33,6 @@ static void live_heads(track_t *t, uint32_t ti, uint32_t len);   /* (seq.c, afte
 enum { LV_X1 = 4, LV_NRATE = 9, LV_NCUT = 11, LV_MINPART = 64 };
 static const uint8_t LV_RN[LV_NRATE] = {1, 1, 1, 2, 1, 3, 2, 3, 4};   /* rate - LV_X1 .. : its multiplier as num / den */
 static const uint8_t LV_RD[LV_NRATE] = {4, 3, 2, 3, 1, 2, 1, 1, 1};
-static const uint8_t LV_CUT[LV_NCUT] = {0, 32, 24, 16, 12, 8, 6, 4, 3, 2, 1};   /* LOOP: the steps (0 OFF) */
 enum { LVD_FWD, LVD_REV, LVD_PING, LVD_RND };
 enum { LQ_NONE, LQ_BEAT, LQ_NOW };                     /* a request (lv.rk): RETURN, BYPASS */
 #define LF_HERE 1u                                      /* the window from where the playhead is (LOOP), not step 1 */

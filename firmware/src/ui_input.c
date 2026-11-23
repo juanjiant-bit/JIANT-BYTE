@@ -2675,11 +2675,9 @@ static void ui_input_frame(void)
         if ((rt == 2u || rt == 4u) && song.g[G_RPRE] > 24) song.g[G_RPRE] = 24;
         rt0 = (uint8_t)rt;
     }
-#if !FELUCCA_FM4
     for (k = 0; k < NTRK; k++)                          /* a DIGITAL sound any other way (the paths convert it */
         if (trk[k].eng_req == ENGI_DIGITAL)             /* already): FM6 (fm4_convert.c) */
             fm4_track(&trk[k]);
-#endif
     for (k = 0; k < NTRK; k++)                          /* a retired engine's sound any other way (core.h): ANALOG */
         if (eng_gone(trk[k].eng_req))
             set_engine_of(&trk[k], ENGI_PHYS_TO);

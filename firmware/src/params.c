@@ -68,7 +68,6 @@ static const char *const N_CLOCK[] = {"INT", "USB+BT", "TRS"};   /* (V10.37) USB
 static const char *const N_MIDI_INPUT[] = {"USB", "TRS"};
 static const char *const N_ROUTE[] = {"CH1-6", "SEL"};   /* MIDI IN (seq.c): 1..6 -> parts, 7..16 ignored / all -> selected */
 static const char *const N_NOTE[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-static const char *const N_DASH[] = {"--"};
 static const char *const N_RTYPE[] = {"ROOM", "SPRING", "SHIMR", "RESO", "CLOUD"};   /* (JIANT 0.5: + 3) */   /* G_RTYPE: the reverb bus's model (fx.c) */
 static const char *const N_GO[] = {"--", "GO"};
 static const char *const N_SLCR[] = {"OFF", "GATE", "STUT"};             /* SL_OFF .. SL_STUT (slicer.c) */
@@ -86,7 +85,7 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                      "M1 AMT", "M1 DEC", "M2 AMT", "M2 DEC", "M3 AMT", "M3 DEC", "M4 AMT", "M4 DEC"};   /* (BYTE 0.17: FORM's modulators, mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
-static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
+static const char *const N_ENGNAME[] = {"ANALOG", "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
                                              "DRUM", "WEST", "FM6", "ADD", "ANIMAL", "EXT", "FORM"};   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired; 0.8.3 ANIMAL;
                                                          * 0.9.9-snd5 STRING ADD; V10.7.36 WEST, NOISE's 11) */
 
@@ -302,8 +301,6 @@ static const param_desc_t MATH_CAOS[2] = {          /* (JIANT BYTE) MATH's CAOS 
     {"CAOS", F_PCT, 0, 127, 0, 0},
     {"TIME", F_ENUM, 0, 2, 0, N_KEY},
 };
-static const param_desc_t WROT_DESC[2] = {               /* (0.7.8) WHEEL's ROTOR: P_WRDEP (127 = 100 %, as before), P_WDUST */
-    {"DEPTH", F_PCT, 0, 127, 127, 0}, {"DUST", F_PCTINV, 0, 127, 127, 0}};
 static const param_desc_t VLANG_DESC = {"LANG", F_ENUM, 0, LG_N - 1, 0, N_LANG};   /* (0.8.5) VOICE's words: */
 static const char *const N_DKEYMODE[] = {"CLASSIC", "EXTENDED"};
 static const param_desc_t DKEYMODE_DESC = {"KEY MAP",F_ENUM,0,1,1,N_DKEYMODE};   /* (2..9: EXTENDED, eng_drum.c drum_chrom) */
@@ -352,9 +349,9 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
     }
     if (id == P_LRTRG && en == &ENG_LOFI)             /* (0.6.12) LOFI's RTRG in DIGITAL's slot */
         return &LOFI_RTRG;
-    if (id == P_TCHAN && !(FELUCCA_FM4 && t->eng_req % NENGINES == ENGI_DIGITAL))   /* (0.6.37) SHIFT's CHANCE */
+    if (id == P_TCHAN)   /* (0.6.37) SHIFT's CHANCE */
         return &TRK_CHANCE;
-    if (!(FELUCCA_FM4 && t->eng_req % NENGINES == ENGI_DIGITAL))   /* (0.6.43) MUTATE's four */
+    /* (0.6.43) MUTATE's four */
         switch (id) {
         case P_MORPH: return &MORPH_DESC;
         case P_CLEN: return &CLEN_DESC;
@@ -417,9 +414,9 @@ static int param_kept(uint32_t i)
 {
     return i == P_LEVEL || i == P_PAN || i == P_MUTE || (i >= P_AMODE && i <= P_SGATE) ||
            (i >= P_SLCR && i <= P_SLDEPTH) || i == P_SOFS || i == P_POFS ||
-           (!FELUCCA_FM4 && (i == P_HVEL || i == P_HTIM || i == P_HGAT || i == P_HRQ)) ||   /* (0.6.87) HUMAN: the sequencer's, a sound
+           (i == P_HVEL || i == P_HTIM || i == P_HGAT || i == P_HRQ) ||   /* (0.6.87) HUMAN: the sequencer's, a sound
                                                          * keeps it (FELUCCA_FM4: DIGITAL's OP SUS / LEVEL there) */
-           (!FELUCCA_FM4 && (i == P_CHRD || i == P_CVOI || i == P_CSTR || i == P_CLEN || i == P_TCHAN));   /* (0.7.0)
+           (i == P_CHRD || i == P_CVOI || i == P_CSTR || i == P_CLEN || i == P_TCHAN);   /* (0.7.0)
                                                          * SCL > CHORD, C.LEN, CHANCE: the sequencer's too (a community
                                                          * report: browsing presets switched CHORD off); (V10.6i) MUTATE's
                                                          * old slots are ENV 2's now, (VEL) its P_MCFG the sound's VEL: a

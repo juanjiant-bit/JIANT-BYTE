@@ -20,7 +20,6 @@ static const char *const N_BYTE[] = {"B01", "B02", "B03", "B04", "B05", "B06", "
 /* (JIANT 0.5) BYTE's own: RES the filter's resonance (VIB's slot), LOOP (MASK's slot) t held in a window of 2^17 ..
  * 2^5 steps: the formula's long evolution (0: free) folded into a short cycle repeating at the note: a pitched tone */
 /* (JIANT 0.5) E4 (CUT) left: the filter is the FILTER page's (TYPE, CUT, RES: P_FTYPE P_FCUT P_FRES), on every engine */
-static const param_desc_t LOFI_NONE = {"-", F_INT, 0, 0, 0, 0};
 /* (JIANT 0.5.1) each formula's start, in 512 steps of t: where it is already moving (some sit silent for up to
  * ~2 s from t = 0); a note starts there, LOOP's window too. The first 17 were rewritten in 0.5.1, away from the
  * well-worn one-liners (t * (42 & t >> 10), t & t >> 8 ..): rhythms and arpeggios after Tejeez, xpansive's

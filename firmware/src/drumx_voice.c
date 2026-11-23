@@ -78,9 +78,7 @@ enum { DWT_OFF, DWT_PULSE, DWT_SAW, DWT_RECT, DWT_BURST, DWT_HF, DWT_CLICK };
 #define DW_NRAT 12u
 static const char *const N_DWS[] = {"MIX", "FM", "RING", "SYNC", "FOLD", 0};
 static const char *const N_DWD[] = {"POS A", "POS B", "POS AB", "B AMT", "PITCH", "NOISE", 0};
-static const char *const N_DWL[] = {"TRI", "SINE", "SQR", "RAMP", "S&H", 0};
 static const char *const N_DWN[] = {"WHITE", "PINK", "BROWN", "VIOLET", "RESON", 0};
-static const char *const N_DWT[] = {"OFF", "PULSE", "SAW", "RECT", "BURST", "HF", "CLICK", 0};
 static const char *const N_DWR[] = {"1/2", "1", "1.41", "1.5", "2", "2.76", "3", "3.5", "4", "5.4", "7", "8", 0};
 static const uint16_t DW_RAT[DW_NRAT] = {2048, 4096, 5793, 6144, 8192, 11305, 12288, 14336, 16384, 22118, 28672, 32768};   /* Q12 */
 /* the factory kit's pads: KICK SNARE CLAP HAT C HAT O TOM RIM BELL
@@ -359,15 +357,6 @@ static uint8_t dx_form[8];                           /* (JIANT BYTE) 0, or 1 + t
 /* (JIANT BYTE) the factory: every lane its floatbeat (KICK SNARE CLAP HATC HATO TOM RIM BELL: FKICK .. FCOW) */
 static const uint8_t DX_FORM_DEF[8] = {0};   /* (DRUM-W: none; its tables are the formulas) */
 static uint8_t dx_fid[8];                            /* the formula compiled in dx_fprg (0: none yet) */
-static const char *dx_formula_text(uint32_t ln)
-{
-    uint32_t f = dx_form[ln & 7u];
-    return f == DX_USER ? dx_text[ln & 7u] : "sin(w)";
-}
-static const char *dx_formula_name(uint32_t f)
-{
-    return f == DX_USER ? "USER" : f && f <= DX_NFORM ? N_DXFORM[f - 1u] : "CLASSIC";
-}
 #define DX_LAY_L(x) ((uint32_t)(x) & 15u)
 #define DX_LAY_FB(x) ((uint32_t)(x) >> 4)
 #define DX_TONE_BP(t) ((uint32_t)(t) & 15u)

@@ -559,7 +559,6 @@ enum { LK_OFF, LK_LABEL, LK_TALL };
 static int lens_on(void);
 static uint32_t lz_on(void);
 static uint32_t lz_fam(void);
-static int lz_mock_cards(void);
 static int name_on(void);                       /* (ui_name.c) */
 static uint32_t large_kind(void)
 {
@@ -661,8 +660,7 @@ static int page_visible(uint32_t i)
         return PAGES[i].id[0] == P_LN0 || PAGES[i].id[0] == P_LN4 ? te == ENGI_DRUM : te != ENGI_DRUM &&
                te != ENGI_INPUT && (PAGES[i].id[0] == P_FKEY || (te == ENGI_VOICE) == (PAGES[i].id[3] == 0xFFu));
     if (PAGES[i].graph == GR_FOCUS)                     /* (0.8.5) FOCUS: a synth's (FM6: OPERATOR, DRUM: SOUND; V10.54 not INPUT's) */
-        return te != ENGI_DRUM && te != ENGI_INPUT &&
-               !(FELUCCA_FM4 && te == ENGI_DIGITAL);
+        return te != ENGI_DRUM && te != ENGI_INPUT;
     if (PAGES[i].id[0] == ID_CRU)                       /* (V10.7.35) VOICES 3: a kit's and EXT's MORE (a synth's CRUSH on TONE) */
         return te == ENGI_DRUM || te == ENGI_INPUT;
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == ID_VMAX)   /* (JIANT FM V10.7.60) MORE: a synth's (BYTE 0.16: VOICES
@@ -693,7 +691,7 @@ static int page_visible(uint32_t i)
                (te == ENGI_DRUM || te == ENGI_INPUT) == (PAGES[i].id[3] == P_DIST);
     }
     return !(PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] >= P_FM1_ATK &&
-             PAGES[i].id[0] <= P_FM4_LEVEL) || (FELUCCA_FM4 && te == ENGI_DIGITAL);
+             PAGES[i].id[0] <= P_FM4_LEVEL);
 }
 
 static uint32_t page_first(uint32_t fam)
@@ -783,7 +781,6 @@ static uint32_t lz_fam(void)                            /* which lens */
         return LZ_EDIT + pd_cur();
     return save_on() ? LZ_SAVE : fx_on() ? LZ_FX : LZ_SEQ;
 }
-static int lz_mock_cards(void) { return lz_on() && lz_fam() <= LZ_FX; }
 /* the tab lit: the section's group shown, the menu's tab, a layer's view */
 static uint32_t menu_tab(void);
 static uint32_t lz_level(void)
@@ -1634,7 +1631,6 @@ static uint32_t preset_nth(const engine_t *e, uint32_t n)
 }
 #define preset_shown(e) (ENGINES[e]->npresets)
 
-#if !FELUCCA_FM4
 /* DIGITAL (engine 1, retired): t's sound = p, values as DIGITAL has them, converted to FM6 with a patch of its own
  * (fm4_convert.c). Every path that brings a DIGITAL sound into a track ends here: a track never keeps engine 1 */
 static void fm4_apply(track_t *t, int16_t *p)
@@ -1674,7 +1670,6 @@ static void fm4_load_preset(track_t *t, uint32_t k)
     fm4_apply(t, p);
     load_end(t);
 }
-#endif
 
 static void set_engine_of(track_t *t, uint32_t ei);
 /* preset pi of the engine the track asked for: the sound only (not the steps, not param_kept) */
@@ -1682,12 +1677,10 @@ static void apply_preset_to(track_t *t, uint32_t pi)
 {
     const engine_t *e = trk_engp(t);
     uint32_t i;
-#if !FELUCCA_FM4
     if (trk_eng(t) == ENGI_DIGITAL) {
         fm4_load_preset(t, pi);
         return;
     }
-#endif
     if (trk_eng(t) == ENGI_SAMPLE && pi == SMP_SET_PERC) {   /* SAMPLE preset 4 was PERC (retired, a stored */
         set_engine_of(t, ENGI_DRUM);                  /* number: the editor's PRESET, a favourite): DRUM's kit */
         return;                                       /* (core.h drum_from_perc) */
@@ -1755,18 +1748,14 @@ static void set_engine_of(track_t *t, uint32_t ei)
     uint32_t i;
     if (eng_gone(ei % NENGINES))                     /* PHYS SAMPLE GRAIN SLICE (retired, core.h): ANALOG */
         ei = ENGI_PHYS_TO;
-#if !FELUCCA_FM4
     ei = eng_idx(ei % NENGINES);                     /* (JIANT BYTE) a retired engine asked for (GEN's picks, the dice, an
                                                       * old store): the one that plays it, so no part keeps a retired
                                                       * number (FM6's patch hooks, its pages) */
-#endif
     e = ENGINES[ei % NENGINES];
-#if !FELUCCA_FM4
     if (ei % NENGINES == ENGI_DIGITAL) {             /* DIGITAL (retired): its first preset, as FM6 */
         fm4_load_preset(t, 0);
         return;
     }
-#endif
     load_begin(t, LOAD_SOUND);
     fm1_irq_off();
     if (e == &ENG_DRUM)                               /* (V10.6r) DRUM-X: the EXTENDED key map (a kit's load keeps it) */

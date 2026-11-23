@@ -94,21 +94,6 @@ static void ub_text_draw(int32_t x, int32_t y, const char *s, uint32_t cols, uin
         cv_text(x, y + (int32_t)r * 9 - AF_F_CAP_Y, &AF_F, b, c);
     }
 }
-/* Large readable formula: the existing lower-case bitmap font, exactly 2x pixels.
- * At 18 columns four rows contain the entire 63-character editable expression. */
-static void ub_formula_large(const char *s)
-{
-    uint32_t n, gx, gy;
-    for (n = 0; s[n] && n < 72u; n++) {
-        aag_t g = ag(&AF_F, glyph(&AF_F, (uint8_t)s[n]));
-        const uint8_t *d = AF_F.data + g.off;
-        int32_t x = 12 + (int32_t)(n % 18u) * 12, y = 26 + (int32_t)(n / 18u) * 18;
-        for (gy = 0; gy < g.bh; gy++) for (gx = 0; gx < g.bw; gx++) {
-            uint32_t k = gy * g.bw + gx, v = (d[k >> 1] >> ((k & 1u) ? 0 : 4)) & 15u;
-            if (v) cv_rect(x + ((int32_t)gx + g.bx) * 2, y + ((int32_t)gy + g.by - AF_F_CAP_Y) * 2, 2, 2, T_TEXT);
-        }
-    }
-}
 /* a being of bits: n x n cells of px each from (x, y) (n odd, 7 .. 11), row gy's bits from v[gy], mirrored; squash
  * (0 .. 3) rows pressed out of its top (a hit); fr the pose (its feet); c its body, e its eyes */
 static void ub_bits(const uint8_t *v, uint32_t n, int32_t x, int32_t y, int32_t px, uint32_t fr, uint32_t squash,
@@ -170,45 +155,6 @@ static void ub_portrait(gq_work_t *w, int32_t cx, int32_t cy, int32_t r, uint32_
     }
     cv_rect(cx - r * 3 / 10 - 1, cy - 2, 2, 2, e);
     cv_rect(cx + r * 3 / 10 - 1, cy - 2, 2, 2, e);
-}
-/* MATH's raster from (x, y): UB_COLS x UB_ROWS cells of 3 px, t a row 256, the rows climbing with the frames */
-static void ub_raster(gq_work_t *w, int32_t x, int32_t y, uint32_t fr)
-{
-    uint32_t tq[UB_COLS], r, c, t0 = fr * 256u;
-    uint8_t v[UB_COLS];
-    uint16_t sh[8];
-    for (c = 0; c < 8u; c++)
-        sh[c] = c < 6u ? ux_mix(T_BG, T_THEME, (int32_t)(c * 20u)) : ux_mix(T_THEME, T_TEXT, (int32_t)((c - 5u) * 30u));
-    for (r = 0; r < UB_ROWS; r++) {
-        for (c = 0; c < UB_COLS; c++)
-            tq[c] = (t0 + r * 256u + c * 256u / UB_COLS) << 8;
-        memset(w->st, 0, sizeof w->st);
-        ub_run(w, tq, UB_COLS, 0, v);
-        for (c = 0; c < UB_COLS; c++)
-            if (v[c] >= 32u)
-                cv_rect(x + (int32_t)c * 3, y + (int32_t)r * 3, 3, 3, sh[v[c] >> 5]);
-    }
-    cv_rect(x, y + UB_ROWS * 3 - 1, UB_COLS * 3, 1, T_TEXT);   /* t, now: the foot */
-}
-/* WAVE's table as a wire terrain from (x, y), w x h px: 12 rows of POS (back to front), POS's own lit */
-static void ub_terrain(gq_work_t *w, int32_t x, int32_t y, int32_t wd, int32_t ht, int32_t pos)
-{
-    enum { NR = 12u, NP = 48u };
-    uint32_t tq[NP], r, i, sel = (uint32_t)clamp(pos, 0, 127) * (NR - 1u) / 127u;
-    uint8_t v[NP];
-    for (r = 0; r < NR; r++) {
-        int32_t y0 = y + 14 + (int32_t)r * (ht - 30) / (int32_t)(NR - 1u), x0 = x + (int32_t)(NR - 1u - r) * 2, px = 0, py = 0;
-        uint16_t c = r == sel ? T_TEXT : ux_mix(T_BG, T_THEME, 25 + (int32_t)(r * 60u / NR));
-        for (i = 0; i < NP; i++)
-            tq[i] = i * 8192u / NP;
-        memset(w->st, 0, sizeof w->st);
-        ub_run(w, tq, NP, r * 65535u / (NR - 1u), v);
-        for (i = 0; i < NP; i++) {
-            int32_t xx = x0 + (int32_t)i * (wd - 26) / (int32_t)(NP - 1u), yy = y0 - ((int32_t)v[i] - 128) * 14 / 128;
-            if (i) cv_line(px, py, xx, yy, c);
-            px = xx; py = yy;
-        }
-    }
 }
 /* ---- (BYTE, the owner's references: the census, the flight recorder) the engines' panels as instruments ---- */
 #define HUD_BL 0x29FFu
@@ -469,8 +415,6 @@ static void ub_kit(const track_t *t, const int32_t *A, int32_t sel)
     }
 }
 
-/* a part's colour among the six (the palette's four knobs, then its ACCENT and its TEXT) */
-static uint16_t ub_tcol(uint32_t tr) { return tr < 4u ? T_K(tr) : tr == 4u ? T_ACCENT : T_TEXT; }
 /* HOME: part t's being about (cx, cy) px, about rad px across its half, its level lv (0 .. 256); off: muted, asleep
  * (dim, still). A formula part's from its formula; a kit's from its first lane's bytebeat */
 static void ub_being_at(const track_t *t, int32_t cx, int32_t cy, int32_t rad, int32_t lv, int off)
@@ -500,34 +444,4 @@ static void ub_being_at(const track_t *t, int32_t cx, int32_t cy, int32_t rad, i
         ub_bits(v, 11u, cx - px * 11 / 2, cy - px * 11 / 2, px, fr, lv > 200 ? 1u : 0u, c, e);
     }
 }
-/* HOME's ground: a plasma in blocks of 6 px under the beings, its swirl quickened by the mix's level (en 0 .. 256),
- * four shades of THEME on SURF, faint */
-static void ub_plasma(int32_t bot, int32_t en, uint32_t still)
-{
-    int32_t x, y;
-    uint32_t f = still ? 0u : anim_fr * (2u + (uint32_t)en / 64u);
-    uint16_t sh[4];
-    for (x = 0; x < 4; x++)
-        sh[x] = ux_mix(T_SURF, T_THEME, 2 + x * 3);
-    for (y = 0; y < bot + 12; y += 6)
-        for (x = 0; x < 240; x += 6) {
-            int32_t v = sine_i((uint32_t)(x * 300 + (int32_t)f * 211) << 16) + sine_i((uint32_t)(y * 410 - (int32_t)f * 157) << 16) +
-                        sine_i((uint32_t)((x + y) * 190 + (int32_t)f * 97) << 16);   /* (three waves: -98301 .. 98301) */
-            v = (v + 98304) * 4 / 196608;
-            if (v > 0)
-                cv_rect(x, y, 6, 6, sh[v > 3 ? 3 : v]);
-        }
-}
 
-/* HOME's space: three depths of stars, with no ground or fixed track slots.
- * Motion belongs to eco_at / LIFE, the same physics as JIANT FM. */
-static void ub_scene(int32_t bot, int32_t en, uint32_t still)
-{
-    uint32_t i, sp = still ? 0u : anim_fr * (1u + (uint32_t)en / 48u);
-    for (i = 0; i < 48u; i++) {
-        uint32_t h = i * 2654435761u, d = 1u + (h >> 30);
-        int32_t sx = (int32_t)(((h >> 8) % 240u + 960u - sp * d / 4u % 240u) % 240u);
-        int32_t sy = 14 + (int32_t)((h >> 16) % (uint32_t)(bot > 28 ? bot - 28 : 1));
-        cv_rect(sx, sy, 1, 1, ux_mix(T_SURF, heat_col(40 + (int32_t)d * 40), 25 + (int32_t)d * 8));
-    }
-}

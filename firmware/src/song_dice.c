@@ -42,15 +42,6 @@ static int euclid(uint32_t i, uint32_t k, uint32_t n, uint32_t rot)
     return (i * k) % n < k;
 }
 
-static int dname_has(const char *s, const char *w)
-{
-    uint32_t i, j;
-    for (i = 0; s[i]; i++) {
-        for (j = 0; w[j] && s[i + j] == w[j]; j++) {}
-        if (!w[j]) return 1;
-    }
-    return 0;
-}
 /* a part that sits high plays quieter: its level down with its average note above E4 (and its highest) */
 static void dlevel(track_t *t, uint32_t len)
 {

@@ -11,21 +11,6 @@
  *   FOCUS   the parameter as a gauge, its value large, the MOD slot that moves it ("M1 -> +63%"); E1..E8 as tabs
  * The others (MORPH, RETRIG, ROTOR, the kit's, the operators') keep their panels. */
 #define ED_CH 17                                        /* a chip's height (two lines of AF_X) */
-/* a chip: the stripe, the label, the value (on: the page's) */
-static void ed_chip(int32_t x, int32_t y, int32_t w, const param_desc_t *d, int16_t v, int on)
-{
-    char b[24];
-    const char *u = "";
-    uint16_t bg = on ? T_TINT : T_RAISE;
-    cv_rect(x, y, w, ED_CH - 1, bg);
-    cv_rect(x, y, 2, ED_CH - 1, on ? T_THEME : T_LINE);
-    if (!d || !d->label || d->label[0] == '-')
-        return;
-    param_format(d, v, b, &u);
-    str_cpy(b + str_len(b), u, 24 - str_len(b));
-    cv_clip_text(x + 5, y - AF_X_CAP_Y + 1, &AF_X, d->label, T_TEXT, bg, w - 6);
-    cv_clip_text(x + 5, y - AF_X_CAP_Y + 9, &AF_X, b, on ? T_TEXT : T_DIM, bg, w - 6);
-}
 static void ed_cap(int32_t x, int32_t y, const char *s, uint16_t c)   /* a caption, its capitals from y */
 {
     cv_text(x, y - AF_X_CAP_Y, &AF_X, s, c);
@@ -160,45 +145,58 @@ static void graph_voice_lz(const track_t *t, const page_t *pg)
 /* (V10.7.33, the owner) EDIT > AUTO KNOBS (was FOCUS): "pick a knob and what moves it". On top the knob picked (KNOB 1) and its
  * value (KNOB 2) as a bar of the thermal ramp (heat_col); under it what moves it and how much (KNOB 3 SRC, KNOB 4 AMT: the
  * MOD slot aimed at it, the same MATRIX shows); the eight knobs at the foot, the one picked lit. (The gauge's circle gone) */
-static void focus_bar(int32_t y, int32_t f)             /* a track 220 px, 0..f (0..1000) of it in the ramp (heat_bar) */
-{
-    int32_t k, n = f * 40 / 1000;                       /* (BYTE, MATRIZ) 40 cells, lit to it in the thermal palette */
-    for (k = 0; k < 40; k++)
-        cv_rect(10 + k * 55 / 10, y, 4, 12, k < n ? heat_col(40 + k * 210 / 39) : T_SURF);
-}
+/* (as JIANT FM V10.8.17, the owner) FOCUS: the parameter's name and value large, its place (OSC 1/4) small; a thermal bar to
+ * its value, a yellow marker there, a MOD slot aimed at it its reach in the track's colour over the bar and its words; the
+ * eight as two rows of four, their names whole, the one picked a tag in the track's colour, each a small bar of its value */
 static void graph_focus_lz(const track_t *t)
 {
-    uint32_t k = focus_k(), i;
-    int32_t j = focus_slot(k), a = 0;
+    const engine_t *e = trk_engp(t);
+    uint32_t k = focus_k(), i, tr = (uint32_t)(t - trk) % 6u;
+    int32_t j = focus_slot(k), r, fill, px;
     const param_desc_t *d = track_desc(t, P_E0 + k);
-    const char *u = "";
+    const char *u = "", *pt = e->page_title[k >> 2];
+    uint16_t tc = TRK_COL[tr], ink = tr >= 4u ? 0xFFFFu : 0x0000u;
     char b[24];
     param_format(d, t->p[P_E0 + k], b, &u);
     str_cpy(b + str_len(b), u, 24 - str_len(b));
-    cv_text(10, 6, &AF_M, d->label, T_TEXT);
-    cv_text_r(230, 6, &AF_M, b, HUD_YE, T_SURF);
-    focus_bar(28, clamp(RATIO(d, enum_rank(d, t->p[P_E0 + k])), 0, 1000));
-    ed_cap(10, 54, "MOVED BY", T_TEXT);
-    if (j >= 0) {
+    cv_text(8, 4, &AF_M, d->label, T_TEXT);
+    cv_text_r(232, 2, large_face_has(b) ? &AF_L : &AF_M, b, HUD_YE, T_SURF);
+    str_cpy(b, pt && pt[0] != '-' ? pt : e->name, 16);
+    str_cpy(b + str_len(b), " ", 2);
+    fmt_int(b + str_len(b), (int32_t)(k & 3u) + 1);
+    str_cpy(b + str_len(b), "/4", 3);
+    cv_text(8, 26, &AF_X, b, T_DIM);
+    r = clamp(RATIO(d, enum_rank(d, t->p[P_E0 + k])), 0, 1000);
+    fill = r * 220 / 1000;
+    for (px = 0; px < 220; px += 2)                     /* the bar: thermal to the value, dotted past it */
+        if (px < fill) cv_rect(10 + px, 50, 2, 18, heat_col(px * 256 / 220));
+        else if (!(px % 6)) cv_pset(10 + px, 59, T_LINE);
+    cv_rect(9 + fill, 45, 2, 28, HUD_YE);
+    if (j >= 0) {                                       /* MOD: its reach over the bar, its words */
         const param_desc_t *da = track_desc(t, P_M1AMT + 3u * (uint32_t)j);
-        a = t->p[P_M1AMT + 3u * (uint32_t)j];
-        str_cpy(b, N_MSRC[clamp(t->p[P_M1SRC + 3u * (uint32_t)j], 0, MS_N - 1)], 24);
-        cv_text_r(230, 64, &AF_M, b, HUD_YE, T_SURF);
-        param_format(da, a, b, &u);
+        int32_t am = t->p[P_M1AMT + 3u * (uint32_t)j], sp = (am < 0 ? -am : am) * 220 / (da->max > 0 ? 2 * da->max : 1);
+        int32_t x0 = clamp(fill - sp, 0, 220), x1 = clamp(fill + sp, 0, 220);
+        char a[16];
+        cv_rect(10 + x0, 42, x1 - x0 + 1, 3, tc);
+        cv_rect(10 + x0, 40, 1, 5, tc); cv_rect(10 + x1, 40, 1, 5, tc);
+        str_cpy(b, "MOD: ", 24);
+        str_cpy(b + 5, N_MSRC[clamp(t->p[P_M1SRC + 3u * (uint32_t)j], 0, MS_N - 1)], 19);
+        str_cpy(b + str_len(b), " \xB7 ", 4);
+        param_format(da, am, a, &u);
+        str_cpy(b + str_len(b), a, 24 - str_len(b));
         str_cpy(b + str_len(b), u, 24 - str_len(b));
-        cv_text(10, 64, &AF_M, b, T_TEXT);
-        a = RATIO(da, a < 0 ? -a : a);
-        a = a * 2 - 1000;                               /* (as much as it moves: a bipolar AMT's size) */
+        cv_text(10, 74, &AF_X, b, tc);
     } else
-        cv_text(10, 64, &AF_M, "NOTHING", T_DIM);
-    focus_bar(86, a);
-    for (i = 0; i < 8u; i++) {                          /* E1..E8 */
+        cv_text(10, 74, &AF_X, "NO MOD", T_DIM);
+    for (i = 0; i < 8u; i++) {                          /* the eight: two rows of four */
         const param_desc_t *di = track_desc(t, P_E0 + i);
-        int32_t x = 8 + (int32_t)i * 28;
-        uint16_t bg = i == k ? TRK_COL[(uint32_t)(t - trk) % 6u] : HUD_BL;   /* (BYTE, the HUD: tags) */
-        cv_rect(x, 118, 26, 11, bg);
+        int32_t x = 6 + (int32_t)(i & 3u) * 57, y = 90 + (int32_t)(i >> 2) * 24;
+        uint16_t bg = i == k ? tc : T_RAISE;
+        r = di ? clamp(RATIO(di, enum_rank(di, t->p[P_E0 + i])), 0, 1000) : 0;
+        cv_rect(x, y, 54, 16, bg);
         if (di && di->label && di->label[0] != '-')
-            cv_clip_text(x + 2, 119 - AF_X_CAP_Y, &AF_X, di->label, i == k ? 0x0000u : T_TEXT, bg, 23);
+            cv_clip_text(x + 2, y + 3 - AF_X_CAP_Y + 2, &AF_X, di->label, i == k ? ink : T_TEXT, bg, 50);
+        cv_rect(x, y + 18, 54 * r / 1000 + 1, 3, heat_col(r * 256 / 1000));
     }
 }
 /* FORM visual language: equations, event masks, arrangement and harmony, not a repeated preset list. */
@@ -282,7 +280,7 @@ static int graph_edit_lz(const track_t *t, const page_t *pg)
     uint32_t e = trk_eng(t);
     if(e==ENGI_FORM&&(pg->scope==SC_ENGINE||pg->scope==SC_FORM))
         graph_form_lz(t);
-    else if ((pg->scope == SC_ENGINE && e != ENGI_DRUM && !(FELUCCA_FM4 && e == ENGI_DIGITAL)) || pg->graph == GR_SWARM)
+    else if ((pg->scope == SC_ENGINE && e != ENGI_DRUM) || pg->graph == GR_SWARM)
         graph_sound_lz(t);
     else if (pg->id[0] == P_FTYPE)
         graph_filter_lz(t, pg);

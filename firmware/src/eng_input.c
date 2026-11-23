@@ -19,8 +19,6 @@ static volatile uint8_t uin_on;
 static int32_t sw_l[CTL], sw_r[CTL];                    /* (SWARM) its own block, beside the input's (both can play) */
 static uint8_t sw_on;
 enum { AIN_IN1, AIN_IN2, AIN_SUM, AIN_ST, AIN_SW, AIN_N };   /* (SWARM: the drone of the surroundings) */
-static const char *const N_AIN_SRC[] = {"IN 1", "IN 2", "1+2", "STEREO", "SWARM"};
-static const char *const N_AIN_PLAY[] = {"THRU", "KEYS"};
 static const int16_t SW_FULL[P_COUNT] = {[P_E4] = 127};   /* (SWARM's fill: WIDTH whole, DIST none) */
 static int16_t ain_gg[NTRK];                             /* GATE's gain now, Q15 */
 static uint8_t ain_upd[NTRK];                            /* this block's GATE not yet stepped (ain_block) */
@@ -526,13 +524,7 @@ static __attribute__((noinline)) void ain_swarm(uint32_t n)
 static void (*const volatile AIN_SWARM)(uint32_t) = ain_swarm;   /* (mod.c macro_master: RAM code) */
 #endif
 /* SWARM's knobs on the INPUT pages (the stored values the same slots, 0..127; PLAY as it is) */
-static const param_desc_t SW_DESC[8] = {
-    {"SOURCE", F_ENUM, 0, AIN_N - 1, AIN_IN1, N_AIN_SRC}, {"PLUCK", F_PCT, 0, 127, 0, 0}, {"FM", F_PCT, 0, 127, 0, 0},
-    {"MODE", F_ENUM, 0, 1, 0, N_AIN_PLAY}, {"IMAGE", F_PCT, 0, 127, 0, 0}, {"DRIFT", F_PCT, 0, 127, 0, 0},
-    {"OCTAVE", F_PCT, 0, 127, 0, 0}, {"CHAOS", F_PCT, 0, 127, 0, 0}};   /* (V10.6v: CHAOS in SELF's place) */
-static const param_desc_t *input_desc(const track_t *t, uint32_t k) { return t->p[P_E0] == AIN_SW && k < 8u ? &SW_DESC[k] : 0; }
 
-static void ain_block(struct track *t) { ain_upd[(uint32_t)(t - trk) % NTRK] = 1; }
 
 /* THRU (voice.c track_render, after the voices): the input into the part, 1 = it sounds */
 static __attribute__((noinline)) uint32_t ain_thru(track_t *t, int32_t *out, uint32_t n)
@@ -546,67 +538,5 @@ static __attribute__((noinline)) uint32_t ain_thru(track_t *t, int32_t *out, uin
 /* (called through a pointer: track_render is inlined in RAM code, out of a direct call's reach of the image's end) */
 static uint32_t (*const volatile AIN_THRU)(track_t *, int32_t *, uint32_t) = ain_thru;
 
-static void ain_note_on(struct track *t, voice_t *v)
-{
-    v->ph[0] = 0;
-    if (t->p[P_E0] == AIN_SW)                            /* (SWARM, KEYS: the key transposes the swarm, C4 as it is) */
-        sw_key = (int8_t)clamp((int32_t)v->note - 60, -36, 36);
-}
-/* KEYS: a note's voice plays the input at its envelope, RING at its pitch */
-static void ain_render(struct track *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
-{
-    int32_t b[CTL], ring = t->p[P_E0] == AIN_SW ? 0 : clamp(t->p[P_E5], 0, 127) * 258;
-    uint32_t i, ph = v->ph[0];
-    if (!t->p[P_E3] || !(t->p[P_E0] == AIN_SW ? sw_on : uin_on) || n > CTL)
-        return;
-    ain_fill(t, b, n, 0);
-    for (i = 0; i < n; i++) {
-        int32_t x = b[i];
-        if (ring) {
-            x += mulq15(mulq15(x, osc_sine(ph)) - x, ring);
-            ph += m->inc;
-        }
-        out[i] += mulq15(x, amp_at(m, i));
-    }
-    v->ph[0] = ph;
-}
 
-static const preset_t INPUT_PRESETS[] = {
-    {"IN 1", {AIN_IN1, 64, 0, 0, 127, 0, 0, 0}, {0, 64, 127, 20}, 0, TAG(FX) | 1, FX(0, 0, 0, 0)},
-    {"IN 2", {AIN_IN2, 64, 0, 0, 127, 0, 0, 0}, {0, 64, 127, 20}, 0, TAG(FX) | 1, FX(0, 0, 0, 0)},
-    {"IN 1+2", {AIN_SUM, 64, 0, 0, 127, 0, 0, 0}, {0, 64, 127, 20}, 0, TAG(FX) | 1, FX(0, 0, 0, 0)},
-    {"STEREO IN", {AIN_ST, 64, 0, 0, 127, 0, 0, 0}, {0, 64, 127, 20}, 0, TAG(FX) | 1, FX(0, 0, 0, 0)},
-    {"MIC GATE", {AIN_IN1, 80, 24, 0, 127, 0, 0, 0}, {0, 64, 127, 20}, 0, TAG(VOX) | 1, FX(0, 0, 15, 25)},
-    {"SPACE IN", {AIN_ST, 64, 0, 0, 127, 0, 0, 0}, {0, 64, 127, 20}, 0, TAG(PAD) | 1, FX(0, 30, 35, 60)},
-    {"TRANCE GATE", {AIN_ST, 64, 0, 1, 127, 0, 0, 0}, {0, 40, 0, 10}, 0, TAG(FX) | 1, FX(0, 0, 20, 20)},
-    {"RING IN", {AIN_IN1, 64, 0, 1, 127, 90, 0, 0}, {0, 64, 127, 30}, 0, TAG(FX) | 1, FX(0, 0, 20, 30)},
-    {"CRUSH IN", {AIN_SUM, 72, 0, 0, 127, 0, 90, 60}, {0, 64, 127, 20}, 0, TAG(FX) | 1, FX(10, 0, 0, 15)},
-    /* (SWARM) SOURCE PLUCK FM PLAY IMAGE DRIFT OCTAVE CHAOS (V10.6v: OCTAVE's octaves in its first half, CHAOS SELF's x2;
-     * V10.6z6: CHAOS the ceiling of the depth the proximity and the devices give, FAR / NEAR the factory pair) */
-    {"SWARM", {AIN_SW, 0, 20, 0, 40, 20, 0, 100}, {0, 64, 127, 20}, 0, TAG(PAD) | 1, FX(0, 30, 35, 60)},
-    {"SWARM PLUCK", {AIN_SW, 110, 50, 0, 90, 40, 20, 70}, {0, 64, 127, 20}, 0, TAG(PLUCK) | 1, FX(0, 20, 40, 50)},
-    {"SWARM CHOIR", {AIN_SW, 20, 0, 0, 60, 60, 15, 90}, {0, 64, 127, 20}, 0, TAG(PAD) | 1, FX(0, 50, 25, 80)},
-};
 
-static const engine_t ENG_INPUT = {
-    .name = "EXT",                                   /* (V10.6d: EXT, external signals: the audio input and SWARM) */
-    .page_title = {"INPUT", "COLOR"},
-    .edit = {
-        {"SOURCE", F_ENUM, 0, AIN_N - 1, AIN_IN1, N_AIN_SRC},
-        {"GAIN", F_INT, 0, 127, 64, 0},
-        {"GATE", F_PCT, 0, 127, 0, 0},
-        {"MODE", F_ENUM, 0, 1, 0, N_AIN_PLAY},          /* (codex/coherence: THRU / KEYS, was PLAY: EDIT > PLAY is the group) */
-        {"WIDTH", F_PCT, 0, 127, 127, 0},
-        {"RING", F_PCT, 0, 127, 0, 0},
-        {"BITS", F_PCT, 0, 127, 0, 0},
-        {"RATE", F_PCT, 0, 127, 0, 0},
-    },
-    .presets = INPUT_PRESETS,
-    .npresets = NELEM(INPUT_PRESETS),
-    .poly = 1,
-    .note_on = ain_note_on,
-    .render = ain_render,
-    .block = ain_block,
-    .knob = {P_E0, P_E1, P_E2, P_E3},
-    .desc = input_desc,
-};

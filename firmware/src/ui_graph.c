@@ -827,29 +827,6 @@ static uint32_t str_hash(uint32_t h, const char *s)
 
 /* The FM charts' parts: an operator box 21 x 17 (rows 23 px apart, columns 24), junction dots, Manhattan routes */
 #define FM_BH 17
-static void fm_dot(int32_t x, int32_t y, uint16_t c) { cv_rect(x - 1, y - 1, 3, 3, c); }
-/* a Manhattan route, 1 px: down from (x0, y0) to the jog row jy, across to x1, down to y1 */
-static void fm_route(int32_t x0, int32_t y0, int32_t x1, int32_t jy, int32_t y1, uint16_t c)
-{
-    cv_rect(x0, y0, 1, jy - y0, c);
-    cv_rect(x0 < x1 ? x0 : x1, jy, (x0 < x1 ? x1 - x0 : x0 - x1) + 1, 1, c);
-    cv_rect(x1, jy, 1, y1 - jy, c);
-}
-/* a feedback loop on the operator box at (x, y): out of its right side, up, back in on top with an arrow */
-static void fm_loop(int32_t x, int32_t y, uint16_t c)
-{
-    cv_rect(x + 11, y + 5, 5, 1, c);
-    cv_rect(x + 15, y - 4, 1, 9, c);
-    cv_rect(x, y - 4, 15, 1, c);
-    cv_rect(x, y - 4, 1, 4, c);
-    cv_line(x - 2, y - 3, x - 1, y - 2, c); cv_line(x + 2, y - 3, x + 1, y - 2, c);
-}
-/* the output bus under the carriers (the leftmost at cl, the rightmost at cr) at y bus, an arrow out on the right */
-static void fm_bus(int32_t cl, int32_t cr, int32_t bus)
-{
-    cv_rect(cl, bus, cr + 24 - cl, 1, T_MID);
-    cv_line(cr + 20, bus - 3, cr + 23, bus, T_MID); cv_line(cr + 20, bus + 3, cr + 23, bus, T_MID);
-}
 
 /* FM6's 32 algorithms as charts (0.9.6: as the colony, ui_engvis.c vx_fm6). FM6_CELL: per operator 1..6 its cell, the column in 24 px steps (bits 0..2) and
  * the row above the output bus (bits 4..5; row 0 = the carriers). The routes, the carriers and the feedback
@@ -858,18 +835,6 @@ static void fm_bus(int32_t cl, int32_t cr, int32_t bus)
  * operator per cell) and the routes against the 32 algorithms written out; ui_render.c lints every colony as drawn
  * (no two bichos overlapping, all inside the panel). The cells:
  * a search for the fewest and shortest bends, the operators numbered left to right. */
-static const uint8_t FM6_CELL[32][6] = {
-    {0x00, 0x10, 0x01, 0x11, 0x21, 0x31}, {0x00, 0x10, 0x02, 0x12, 0x22, 0x32}, {0x00, 0x10, 0x20, 0x01, 0x11, 0x21},
-    {0x00, 0x10, 0x20, 0x01, 0x11, 0x21}, {0x00, 0x10, 0x01, 0x11, 0x02, 0x12}, {0x00, 0x10, 0x01, 0x11, 0x02, 0x12},
-    {0x00, 0x10, 0x01, 0x11, 0x12, 0x22}, {0x00, 0x10, 0x01, 0x12, 0x11, 0x21}, {0x00, 0x10, 0x02, 0x12, 0x13, 0x23},
-    {0x00, 0x10, 0x20, 0x01, 0x11, 0x12}, {0x00, 0x10, 0x20, 0x01, 0x11, 0x12}, {0x00, 0x10, 0x03, 0x12, 0x13, 0x14},
-    {0x00, 0x10, 0x02, 0x11, 0x12, 0x13}, {0x00, 0x10, 0x01, 0x11, 0x20, 0x21}, {0x00, 0x10, 0x02, 0x12, 0x21, 0x22},
-    {0x01, 0x10, 0x11, 0x21, 0x12, 0x22}, {0x01, 0x12, 0x10, 0x20, 0x11, 0x21}, {0x01, 0x10, 0x12, 0x11, 0x21, 0x31},
-    {0x00, 0x10, 0x20, 0x01, 0x02, 0x11}, {0x00, 0x01, 0x10, 0x02, 0x12, 0x13}, {0x00, 0x01, 0x10, 0x02, 0x03, 0x12},
-    {0x00, 0x10, 0x01, 0x02, 0x03, 0x12}, {0x00, 0x01, 0x11, 0x02, 0x03, 0x12}, {0x00, 0x01, 0x02, 0x03, 0x04, 0x13},
-    {0x00, 0x01, 0x02, 0x03, 0x04, 0x13}, {0x00, 0x01, 0x11, 0x02, 0x12, 0x13}, {0x00, 0x01, 0x11, 0x03, 0x13, 0x14},
-    {0x00, 0x10, 0x01, 0x11, 0x21, 0x02}, {0x00, 0x01, 0x02, 0x12, 0x03, 0x13}, {0x00, 0x01, 0x02, 0x12, 0x22, 0x03},
-    {0x00, 0x01, 0x02, 0x03, 0x04, 0x14}, {0x00, 0x01, 0x02, 0x03, 0x04, 0x05}};
 /* algorithm a's routes: m[i] bit j: operator j + 1 modulates operator i + 1. FM6_ALG runs the operators sixth
  * first, each reading a bus (or none) and writing one (or adding to it): who wrote a bus modulates its reader */
 static void fm6_routes(uint32_t a, uint8_t *m)
@@ -899,67 +864,6 @@ static uint32_t fm6_car_ops(uint32_t a)
         r |= (c >> (5u - k) & 1u) << k;
     return r;
 }
-/* the algorithm FM6 plays on track t (0..31): ALG, or the patch's at PAT */
-static uint32_t fm6_alg_of(const track_t *t)
-{
-    return t->p[P_E0] >= 1 && t->p[P_E0] <= 32 ? (uint32_t)t->p[P_E0] - 1u : fm6_patch[(t - trk) % NTRK][FP_ALG] & 31u;
-}
-#if FELUCCA_FM4
-/* DIGITAL's eight algorithms as FM charts, read from src/eng_digital.c's switch (alg) (ui_test.c checks
- * these tables against it). FM_CELL: per operator 1..4 its grid cell, the column in 24 px steps (bits 0..2)
- * and the row above the output bus (bits 4..5; row 0 = the carriers). FM_MOD: per destination operator d a
- * nibble at bit 4 d of the operators modulating it (bit k = operator k + 1). Operator 4 feeds itself (FB). */
-static const uint8_t FM_CELL[8][4] = {
-    {0x00, 0x10, 0x20, 0x30}, {0x01, 0x11, 0x20, 0x22}, {0x01, 0x10, 0x20, 0x12}, {0x01, 0x12, 0x10, 0x20},
-    {0x00, 0x10, 0x02, 0x12}, {0x00, 0x02, 0x04, 0x12}, {0x00, 0x02, 0x04, 0x14}, {0x00, 0x02, 0x04, 0x06}};
-static const uint16_t FM_MOD[8] = {0x0842, 0x00C2, 0x004A, 0x0806, 0x0802, 0x0888, 0x0800, 0x0000};
-/* Modulators above what they modulate, the carriers on the bottom row over the output bus (an arrow out).
- * Carriers THEME with INK numerals, modulators RAISE with THEME ones; an operator at LEVEL 0: DIM numeral.
- * Routes by IDX: DIM at 0, MID, THEME from 64; op 4's feedback loop MID (DIM at FB 0). The knob just turned
- * (an operator's ratio or level, IDX, FB): ACCENT. Junction dots where routes split or merge. */
-static void graph_fm(const track_t *t, uint16_t c)
-{
-    uint32_t alg = (uint32_t)t->p[P_E0] & 7u, k, j, mods = FM_MOD[alg], car = 0, hop = 9;
-    uint32_t hot = ui.hot_t ? (uint32_t)cur_page()->id[ui.hot_col & 3u] : 0u;
-    int32_t x[4], y[4], lo = 7, hi = 0, top = 0, bus, cl = 240, cr = 0, idx = t->p[P_E4];
-    uint16_t ec = hot == P_E4 ? T_ACCENT : !idx ? T_DIM : idx < 64 ? T_MID : c;
-    if (hot >= P_E1 && hot <= P_E3) hop = hot - P_E1 + 1u;
-    else if (hot >= P_FM1_ATK && hot < P_E0) hop = (hot - P_FM1_ATK) / 5u;
-    for (k = 0; k < 4u; k++) {
-        int32_t col = FM_CELL[alg][k] & 7, row = FM_CELL[alg][k] >> 4;
-        lo = col < lo ? col : lo; hi = col > hi ? col : hi; top = row > top ? row : top;
-    }
-    bus = 50 + (27 + 23 * top) / 2;                  /* the chart centred on the 100 px scale */
-    for (k = 0; k < 4u; k++) {
-        x[k] = 120 + (FM_CELL[alg][k] & 7) * 24 - (lo + hi) * 12;
-        y[k] = bus - 6 - FM_BH - 23 * (FM_CELL[alg][k] >> 4);
-        if (FM_CELL[alg][k] < 0x10) { car |= 1u << k; cl = x[k] < cl ? x[k] : cl; cr = x[k] > cr ? x[k] : cr; }
-    }
-    for (k = 0; k < 4u; k++) {                       /* into k: sources down to its jog row, across, down */
-        uint32_t m = (mods >> (4u * k)) & 15u;
-        for (j = 0; j < 4u; j++) if (m >> j & 1u) {
-            uint32_t fan = mods & (0x1111u << j);
-            fm_route(x[j], y[j] + FM_BH, x[k], y[k] - 3, y[k], ec);
-            if (fan & (fan - 1u)) fm_dot(x[j], y[k] - 3, ec);   /* one operator modulating several */
-        }
-        if (m & (m - 1u)) fm_dot(x[k], y[k] - 3, ec);           /* several modulating one */
-        if (car >> k & 1u) {
-            cv_rect(x[k], y[k] + FM_BH, 1, bus - y[k] - FM_BH, T_MID);
-            if (x[k] != cl) fm_dot(x[k], bus, T_MID);
-        }
-    }
-    fm_bus(cl, cr, bus);                             /* the output bus and its arrow */
-    fm_loop(x[3], y[3], hot == P_E6 ? T_ACCENT : t->p[P_E6] ? T_MID : T_DIM);   /* op 4's feedback */
-    for (k = 0; k < 4u; k++) {
-        char b[2] = {(char)('1' + k), 0};
-        uint32_t on = t->p[P_FM1_LEVEL + k * 5u] != 0, fill_c = (car >> k & 1u) && on;
-        uint16_t f = k == hop ? T_ACCENT : c, fill = fill_c ? f : T_RAISE;
-        cv_rrect(x[k] - 10, y[k], 21, FM_BH, 3, fill, T_SURF);
-        GFX_HOOK_ALIGN(x[k] - 10, y[k], x[k] + 11, y[k] + FM_BH, AL_HV, "DIGITAL operator number in its box");
-        cv_text_in(x[k] - 10, y[k] + CAP_IN(S, FM_BH), 21, &AF_S, b, fill_c ? T_INK : on ? f : T_DIM, fill);
-    }
-}
-#endif
 /* Save-bank validity is expensive (CRC/import). Refresh it once per redraw or
  * twice per second, rather than parsing four projects on every UI frame. */
 static char graph_pname[4][13];                       /* .. and the slots' names ("" none) */
@@ -1053,30 +957,6 @@ static uint16_t heat_col(int32_t v)
     return ux_mix(H[k], H[k + 1], (v * 6 - k * 256) * 100 / 256);
 }
 
-/* DRUM (DRUM-X): the eight sounds as columns, each as high and as hot as its hit now (a muted one crossed); the MORPH
- * A .. B above. sel: the sound edited (EDIT > SOUND), its name in the theme colour; -1 none */
-static void graph_drum(const track_t *t, int32_t sel)
-{
-    const drum_lane_t *K = drum_kit_of(t);
-    int32_t morph = clamp(t->p[P_E0] + dx_mot_v, 0, 127), mx = 30 + morph * 180 / 127;   /* (0.5.1: X-MOD live) */
-    uint32_t l;
-    cv_rect(30, 12, 180, 1, T_LINE);
-    cv_rect(30, 11, mx - 30, 3, heat_col(morph * 2));
-    cv_text(12, 8, &AF_S, "A", morph < 64 ? T_THEME : T_DIM);
-    cv_text_r(226, 8, &AF_S, "B", morph >= 64 ? T_THEME : T_DIM, T_SURF);
-    for (l = 0; l < 8u; l++) {
-        int32_t x = 18 + (int32_t)l * 26, e = K && K[l].x.live ? K[l].x.ea >> 22 : 0, h = 4 + e * 66 / 256;
-        int muted = dx_lane_muted(l);
-        cv_rect(x, 94 - 70, 16, 70, T_SURF);
-        cv_rect(x + 7, 24, 2, 70, T_LINE);
-        if (!muted)
-            cv_rect(x, 94 - h, 16, h, e ? heat_col(e) : T_DIM);
-        else {
-            cv_rect(x + 2, 58, 12, 1, T_DIM);
-        }
-        cv_text_in(x - 4, 100, 24, &AF_S, drum_lane_abbr(t, l), sel == (int32_t)l ? T_THEME : muted ? T_DIM : T_TEXT, T_SURF);
-    }
-}
 
 static void graph_title(void)
 {
@@ -1471,8 +1351,7 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
         h = (h ^ ((uint32_t)cs->carg2 | (uint32_t)cs->cnm[0] << 8 | (uint32_t)cs->cnm[1] << 16 | comp_slot() << 24)) *
             16777619u;                                  /* (0.6.82) COMP 2; (seq2d) the N:Ms */
     }
-    if (pg->scope == SC_ENGINE && (trk_eng(t) == ENGI_FM6 ||
-                                   (FELUCCA_FM4 && trk_eng(t) == ENGI_DIGITAL)))
+    if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_FM6)
         h ^= (ui.hot_t ? ui.hot_col + 1u : 0u) * 65537u;
     if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_DRUM)
         h ^= anim_fr * 2654435761u;                  /* DRUM-X: the specimen moves every frame (codex/anim: tick) */
@@ -1564,9 +1443,6 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
 static const char *eng_abbr(const char *name)
 {
     static const char *const A[][2] = {{"ANALOG", "ANLG"},
-#if FELUCCA_FM4
-                                       {"DIGITAL", "DGTL"},
-#endif
                                        {"PHASE", "PHAS"}, {"MATH", "MATH"},
                                        {"SAMPLE", "SMPL"}, {"VOICE", "VOCL"}, {"TRIO", "TRIO"}, {"WHEEL", "WHEL"},
                                        {"GRAIN", "GRAN"}, {"PHYS", "PHYS"}, {"DRUM", "DRUM"},
@@ -2199,10 +2075,6 @@ static void draw_graph(void)
                 else
                     graph_colony(t, -1);
             }
-#if FELUCCA_FM4
-            else if ((pg->scope == SC_ENGINE || pg->id[0] == P_FM1_LEVEL) && trk_eng(t) == ENGI_DIGITAL)
-                graph_fm(t, c);                      /* (OP LEVEL too: the levels on the chart) */
-#endif
             else if (pg->scope == SC_ENGINE) { cv_oy = 0; graph_being(t); }   /* (JIANT 0.5: the being, was the scope) */
             else {                                   /* the FX, DEST, VOICE, GLOBAL pages: their graphs (else the scope) */
                 cv_oy = 0;
