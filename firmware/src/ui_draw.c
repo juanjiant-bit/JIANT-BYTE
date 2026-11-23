@@ -1990,58 +1990,67 @@ static void splash_sig(uint32_t n)
     cv_blit(0, SPL_SY);
 }
 #if FELUCCA_PIXEL
-/* (JIANT BYTE) the power-on as a cracktro: copper bars rolling behind JIANT BYTE in the 10 x 20 pixel face scaled 4 x
- * (ui_byte_logo.h: a gradient down it, its shadow), a starfield, the version and the name under it; while it moves, a
- * sine scroller of formulas at the foot. Drawn in two strips of 120 rows (the canvas: 240 x 150), the two lines in
- * the second only (drawn once). ms: the time since the start (ANIM OFF, or before the loop: still, at 0) */
-#include "ui_byte_logo.h"
-static const char SPL_SCROLL[] = "   t*(42&t>>10)   sin(w*3)   t>>4|t>>8   sat(sin(w*2)*5)   CAOS 127 ...   ";
-static void spl_word(const uint8_t *bm, int32_t w, int32_t h, int32_t x0, int32_t y0, int32_t k)
+/* (JIANT BYTE, the owner's ORBIT) the power-on: HOME's sphere assembled point by point as it turns, the six tracks'
+ * satellites flying in to their orbit (dotted) in their colours, the yellow reticle closing on it, JIANT BYTE typed
+ * under it with a yellow cursor, then the version and the name in a yellow tag. Drawn in two strips of 120 rows.
+ * ms: the time since the start (ANIM OFF: the last frame) */
+#define SPL_END (SPL_WRITE + SPL_HOLD)
+static int32_t spl_ease(int32_t t0, int32_t len, uint32_t ms)   /* 0..1024: a cubic ease-out from t0 over len ms */
 {
-    int32_t x, y, nb = (w + 7) / 8;
-    for (y = 0; y < h; y++) {
-        uint16_t c = heat_col(244 - y * 180 / (h - 1));   /* (yellow to the accent, down) */
-        for (x = 0; x < w; x++)
-            if (bm[y * nb + x / 8] >> (7 - x % 8) & 1u) {
-                cv_rect(x0 + x * k + 3, y0 + y * k + 3, k, k, ux_mix(T_BG, T_ACCENT, 30));   /* (the shadow) */
-                cv_rect(x0 + x * k, y0 + y * k, k, k, c);
-            }
-    }
+    int32_t u = clamp(((int32_t)ms - t0) * 1024 / len, 0, 1024), v = 1024 - u;
+    return 1024 - (int32_t)((int64_t)v * v * v >> 20);
 }
 static void spl_frame(uint32_t ms, uint32_t moving)
 {
-    int32_t y0, k, y;
-    uint32_t i;
+    enum { CX = 120, CY = 96, R = 52, NP = 160 };
+    int32_t y0, i, rr = R + 18, n = NP * spl_ease(0, 800, ms) >> 10;
+    uint32_t ph = ms * 73u / 1000u * 159u;                 /* (a turn in ~5.6 s: 65536 a turn) */
+    (void)moving;
     for (y0 = 0; y0 < 240; y0 += 120) {
         cv_begin(240, 120, T_BG);
         cv_oy = -y0;
-        for (i = 0; i < 70u; i++) {                     /* the stars, drifting left */
-            uint32_t h = i * 2654435761u;
-            int32_t sx = (int32_t)((h >> 8) % 240u) - (int32_t)(ms * (1u + (h >> 30)) / 40u % 240u);
-            cv_rect(sx < 0 ? sx + 240 : sx, (int32_t)((h >> 16) % 240u), 1, 1, h >> 31 ? T_TEXT : T_DIM);
+        for (i = 0; i < NP; i++) {                       /* the sphere: a Fibonacci lattice, the near side bright */
+            int32_t z = 1024 - (2 * i + 1) * 1024 / NP, rxy = (int32_t)form_isqrt((uint32_t)(1048576 - z * z));
+            uint32_t lo = (uint32_t)i * 25033u + ph;
+            int32_t x = R * rxy / 1024 * og_cos(lo) >> 15, d = og_sin(lo), y = -R * z / 1024 * 92 / 100;
+            if (i >= n) continue;
+            if (d > 0) cv_rect(CX + x, CY + y, 2, 2, T_MID);
+            else cv_pset(CX + x, CY + y, ux_mix(T_BG, T_MID, 45));
         }
-        for (k = 0; k < 3; k++) {                       /* the copper bars */
-            static const int16_t PH[3] = {0, 21000, 43000};
-            uint16_t bc = k == 0 ? T_ACCENT : k == 1 ? T_THEME : T_K(3);
-            int32_t cy = 128 + (sine_i((uint32_t)(PH[k] + (int32_t)(ms * 60u)) << 16) * 76 >> 15);
-            for (y = -8; y <= 8; y++)
-                cv_rect(0, cy + y, 240, 1, ux_mix(T_BG, bc, (9 - (y < 0 ? -y : y)) * 100 / 9));
+        for (i = 0; i < 64; i += 2)                      /* the orbit, dotted */
+            cv_pset(CX + (rr * og_cos((uint32_t)i * 1024u) >> 15), CY + (rr * 35 / 100 * og_sin((uint32_t)i * 1024u) >> 15), T_DIM);
+        for (i = 0; i < 6; i++) {                        /* the six, flying in */
+            int32_t p = spl_ease(500 + i * 70, 600, ms), r = rr + (1024 - p) * 120 / 1024;
+            uint32_t a = (uint32_t)i * 65536u / 6u + ph * 14u / 10u;
+            if (p <= 0) continue;
+            cv_rect(CX + (r * og_cos(a) >> 15) - 2, CY + (r * 35 / 100 * og_sin(a) >> 15) - 2, 5, 5, TRK_COL[i]);
         }
-        spl_word(LOGO_JIANT, LOGO_JIANT_W, LOGO_JIANT_H, (240 - LOGO_JIANT_W * 4) / 2, 34, 4);
-        spl_word(LOGO_BITE, LOGO_BITE_W, LOGO_BITE_H, (240 - LOGO_BITE_W * 4) / 2, 100, 4);
-        if (y0) {
-            for (k = 0; k < 2; k++)
-                cv_text_in(0, 166 + k * 12, 240, &AF_S, SPLASH_LINES[k], T_TEXT, T_BG);
-            if (moving) {                               /* the sine scroller */
-                int32_t off = (int32_t)(ms / 12u), n = (int32_t)sizeof SPL_SCROLL - 1;
-                char ch[2] = {0, 0};
-                for (i = 0; i < 36u; i++) {
-                    int32_t ci = (off / 7 + (int32_t)i) % n, x = (int32_t)i * 7 - off % 7;
-                    ch[0] = SPL_SCROLL[ci];
-                    if (ch[0] != ' ' && x > -7 && x < 240)
-                        cv_text(x, 210 + (sine_i((uint32_t)(ci * 5000 + (int32_t)ms * 40) << 16) * 6 >> 15) - AF_F_CAP_Y,
-                                &AF_F, ch, ux_mix(T_THEME, T_K(2), (int32_t)(i * 3u % 100u)));
+        {   /* the reticle, closing */
+            int32_t q = spl_ease(1100, 300, ms), sz = 70 - 30 * q / 1024, k;
+            if (q > 0)
+                for (k = 0; k < 4; k++) {
+                    int32_t sx = k & 1 ? 1 : -1, sy = k & 2 ? 1 : -1, x = CX + sx * sz, y = CY + sy * sz;
+                    cv_rect(sx < 0 ? x : x - 7, y, 8, 1, HUD_YE);
+                    cv_rect(x, sy < 0 ? y : y - 7, 1, 8, HUD_YE);
                 }
+        }
+        if (y0) {
+            static const char NM[] = "JIANT BYTE";
+            char b[12];
+            int32_t nc = (int32_t)(sizeof NM - 1) * spl_ease(1150, 400, ms) / 1024, w = text_w(&AF_L, NM), x = (240 - w) / 2, k;
+            for (k = 0; k < nc; k++) b[k] = NM[k];
+            b[nc] = 0;
+            if (nc) cv_text(x, 170 - AF_L_CAP_Y, &AF_L, b, T_TEXT);
+            if (ms >= 1150u && nc < (int32_t)sizeof NM - 1)
+                cv_rect(x + (nc ? text_w(&AF_L, b) : 0) + 2, 168, 3, AF_L_CAP_H + 4, HUD_YE);
+            if (ms >= 1500u) {                           /* the version, the name: a yellow tag */
+                char t[40];
+                str_cpy(t, SPLASH_LINES[0], sizeof t);
+                str_cpy(t + str_len(t), " \xB7 ", sizeof t - str_len(t));
+                str_cpy(t + str_len(t), SPLASH_LINES[1], sizeof t - str_len(t));
+                w = text_w(&AF_X, t) + 6;
+                cv_rect((240 - w) / 2, 200, w, 12, HUD_YE);
+                cv_text_on((240 - w) / 2 + 3, 201 + 1 - AF_X_CAP_Y, &AF_X, t, 0x0000u, HUD_YE);
             }
         }
         cv_oy = 0;
@@ -2051,13 +2060,13 @@ static void spl_frame(uint32_t ms, uint32_t moving)
 }
 static void draw_splash(void)
 {
-    spl_frame(0, 0);
+    spl_frame(spl_anim && !(ui_prefs & PREF_ANIM_OFF) ? 0u : SPL_END, 0);
 }
 static void splash_write(uint32_t ms)
 {
     if (!spl_anim || (ui_prefs & PREF_ANIM_OFF))
         return;
-    spl_frame(ms, 1);
+    spl_frame(ms < SPL_END ? ms : SPL_END, 1);
 }
 #else
 static void draw_splash(void)
