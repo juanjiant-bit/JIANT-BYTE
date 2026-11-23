@@ -168,7 +168,11 @@ static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_en
                                               uint32_t n, uint32_t *out, const fvm_patch_t *patch)
 {
     if(p->func){if(!fvm_func_block(p,e,sc,n,out))fvm_func_run(p,e,n,out);return;}
-    uint32_t pc, sp = 0u, i, injected[FVM_BLK];
+    uint32_t pc, sp = 0u, i, nn, injected[FVM_BLK];
+    /* (byte-cpu-light) a slot made of numbers and uniforms alone (A's "1+A*7"): its first lane computed, the rest the
+     * same; spread when it meets a sample's value or a filter. The same results, lane for lane (not with a patch) */
+    uint8_t uf[FVM_DEPTH];
+    const int uo = !patch;
     if (n > FVM_BLK)
         n = FVM_BLK;
     if (!p->n) {
@@ -183,7 +187,8 @@ static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_en
         const uint32_t *R = 0;
         if (patch && pc + 1u == patch->number) b = patch->value;
         if (op == FO_PUSH) {
-            L = sc->s[sp++];
+            L = sc->s[sp];
+            uf[sp++] = 0;
             if (md == FM_ARR && e->arr[b]) {
                 R = e->arr[b];
                 for (i = 0; i < n; i++)
@@ -193,6 +198,7 @@ static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_en
                     md = FM_IMM, b = 0u;
                 if (md == FM_UNI)
                     b = e->u[b];
+                if (uo) { L[0] = b; uf[sp - 1u] = 1; continue; }
                 for (i = 0; i < n; i++)
                     L[i] = b;
             }
@@ -203,6 +209,7 @@ static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_en
         if (FO_ISBIN(op) || op == FO_LP || op == FO_HP) {
             if (md == FM_STK) {
                 R = sc->s[--sp];
+                if (uf[sp]) { b = R[0]; R = 0; }         /* (a uniform operand: as a number) */
             } else if (md == FM_ARR) {
                 R = e->arr[b];
                 if (!R)                                  /* (a variable the host did not make: 0) */
@@ -214,6 +221,26 @@ static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_en
         if (patch && pc + 1u == patch->input) {
             for(i=0;i<n;i++)injected[i]=(R?R[i]:b)+(uint32_t)patch->offset[i];
             R=injected;
+        }
+        nn = n;
+        if (op == FO_SEL) {
+            if (uf[sp - 3u] && uf[sp - 2u] && uf[sp - 1u])
+                nn = 1u;
+            else
+                for (i = sp - 3u; i < sp; i++)
+                    if (uf[i]) { uint32_t *S = sc->s[i], v = S[0], k; for (k = 1; k < n; k++) S[k] = v; uf[i] = 0; }
+        } else if (uf[sp - 1u]) {
+            if (!R && (FO_ISBIN(op) || FO_ISUN(op))) {  /* (stays uniform: its one lane, the scalar ops) */
+                uint32_t *S = sc->s[sp - 1u];
+                S[0] = FO_ISBIN(op) ? fvm_op2(op, S[0], b) : fvm_op1(op, S[0]);
+                continue;
+            } else if (op == FO_TAB)
+                nn = 1u;
+            else {
+                uint32_t *S = sc->s[sp - 1u], v = S[0];
+                for (i = 1; i < n; i++) S[i] = v;
+                uf[sp - 1u] = 0;
+            }
         }
         L = sc->s[sp - 1u];
         switch (op) {
@@ -229,7 +256,7 @@ static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_en
         case FO_SEL: {                               /* c ? x : y: [.. c x y] -> [.. r] */
             const uint32_t *X = sc->s[sp - 2u], *Y = sc->s[sp - 1u];
             uint32_t *C = sc->s[sp - 3u];
-            for (i = 0; i < n; i++)
+            for (i = 0; i < nn; i++)
                 C[i] = C[i] ? X[i] : Y[i];
             sp -= 2u;
             break;
@@ -237,7 +264,7 @@ static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_en
         case FO_TAB: {                               /* a string as a table: its byte at the index, modulo its length */
             const uint8_t *tb = p->pool + (b >> 8);
             uint32_t len = b & 255u;
-            for (i = 0; i < n; i++)
+            for (i = 0; i < nn; i++)
                 L[i] = tb[L[i] % len];
             break;
         }
@@ -265,8 +292,14 @@ static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_en
         }
         }
     }
-    for (i = 0; i < n; i++)
-        out[i] = sc->s[0][i];
+    if (uf[0]) {
+        uint32_t v = sc->s[0][0];
+        for (i = 0; i < n; i++)
+            out[i] = v;
+    }
+    else
+        for (i = 0; i < n; i++)
+            out[i] = sc->s[0][i];
 }
 
 static __attribute__((noinline)) void fvm_run(const fvm_prog_t *p,const fvm_env_t *e,fvm_scratch_t *s,uint32_t n,uint32_t *out)
