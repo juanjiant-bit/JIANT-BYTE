@@ -123,18 +123,19 @@ static const ng_t CG_FX[] = {{"TRACK", "TRK"}, {"BUSES", "BUS"}, {"DELAY", "DLY"
                              {"SLICER", "SLC"}, {"MASTER", "MST"}};
 #if FELUCCA_LIVE
 static const nv_t CE_GLO[] = {NV("KEYS", 0, 0, 0), NV("RAILS", 0, 0, 0), NV("MIXER", 0, 1, 0), NV("BUS SENDS", 0, 1, 0),
-                              NV("GLOBAL", 0, 2, 1),
-                              NV("SYSTEM", 0, 2, 2), NV("PORTS", 0, 2, 2)
+                              NV("PUNCH SEQ", 0, 2, 3), NV("GLOBAL", 0, 3, 1),
+                              NV("SYSTEM", 0, 3, 2), NV("PORTS", 0, 3, 2)
 #if FELUCCA_SPLIT
-                              , NV("KEY SPLIT", 0, 2, 2), NV("KEY SPLIT 2", 0, 2, 2)
+                              , NV("KEY SPLIT", 0, 3, 2), NV("KEY SPLIT 2", 0, 3, 2)
 #endif
                              };
 #else
 static const nv_t CE_GLO[] = {NV("MIXER", 0, 0, 0), NV("BUS SENDS", 0, 0, 0),
-                              NV("GLOBAL", 0, 1, 1),
-                              NV("SYSTEM", 0, 1, 2), NV("PORTS", 0, 1, 2)
+                              NV("PUNCH SEQ", 0, 1, 3),   /* (BYTE) the punch-ins on the transport (pfx.c psq) */
+                              NV("GLOBAL", 0, 2, 1),
+                              NV("SYSTEM", 0, 2, 2), NV("PORTS", 0, 2, 2)
 #if FELUCCA_SPLIT
-                              , NV("KEY SPLIT", 0, 1, 2), NV("KEY SPLIT 2", 0, 1, 2)   /* (V10.7.32: out, core.h) */
+                              , NV("KEY SPLIT", 0, 2, 2), NV("KEY SPLIT 2", 0, 2, 2)   /* (V10.7.32: out, core.h) */
 #endif
                              };
 #endif   /* (V10.37) the performing pages first, the
@@ -143,7 +144,7 @@ static const ng_t CG_GLO[] = {
 #if FELUCCA_LIVE
                                {"LIVE", 0},
 #endif
-                               {"MIXER", "MIX"}, {"SETUP", 0}};   /* (codex/coherence: SETUP, the
+                               {"MIXER", "MIX"}, {"PUNCH SEQ", "PUNCH"}, {"SETUP", 0}};   /* (codex/coherence: SETUP, the
                                                          * settings in one group: GLOBAL, SYSTEM, SYSTEM 2, KEY SPLIT) */   /* (five tabs of 44 px in the labels' face) */
 static const nv_t CE_ENV[] = {NV("ENV", 0, 0, 1), NV("ENV DEST", 0, 0, 1), NV("ENV 2", 0, 0, 1)
 #if FELUCCA_ENVX

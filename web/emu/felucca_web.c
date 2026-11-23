@@ -256,6 +256,7 @@ static uint32_t web_seed_v = 1u;          /* (JIANT 0.4) the page's random seed 
 /* main.c fm1_main's boot, up to the main loop (no USB, no UART, no panel setup) */
 static void web_power_on(void)
 {
+    psq_boot();                           /* (main.c: PUNCH SEQ's state, before the project's load) */
     persist_boot();
     settings_init();
     prefs_update();                       /* main.c (JIANT 0.6.44): FX LATCH ON by default (0.6.58: here too) */

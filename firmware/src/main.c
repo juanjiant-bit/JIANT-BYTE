@@ -321,6 +321,7 @@ static void fm1_main(void)
     uint32_t said;
     clay_boot();                                        /* (DRONE CLAY's state: RAMTEXT's room, not zeroed; before the
                                                          * project's load) */
+    psq_boot();                                         /* (PUNCH SEQ's, pfx.c: empty, before the project's load) */
     persist_boot();
 #if FELUCCA_OTA
     if (flash_ok)

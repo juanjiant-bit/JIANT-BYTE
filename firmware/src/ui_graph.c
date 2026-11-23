@@ -1361,6 +1361,12 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
     if (pg->graph == GR_SWARM) h ^= anim_fr * 2654435761u;   /* (V10.6z6: the morph, live) */
     if (pg->graph == GR_CLAY)
         h ^= anim_fr * 2654435761u;                  /* (DRONE CLAY: its telemetry, live) */
+    if (pg->graph == GR_PUNCH) {                     /* (BYTE) PUNCH SEQ: its rows, the row edited, the playhead */
+        const uint8_t *q = (const uint8_t *)&psq;
+        for (i = 0; i < sizeof psq; i++)
+            h = (h ^ q[i]) * 16777619u;
+        h = (h ^ (psq_row * 7919u + psq_at * 40503u)) * 16777619u;
+    }
     if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_FM6)   /* the patch (PAT's algorithm, levels, FB) */
         h ^= (fm6_pgen[(t - trk) % NTRK] + 1u) * 2246822519u;
     if (fop_page(pg->graph))                         /* (0.6.77) OPERATOR, OP ENV (track pages): the patch, the operator */
@@ -1880,6 +1886,47 @@ static uint16_t sec_col(uint32_t s)
 #include "ui_lzhome.c"                              /* (0.8.5) HOME's lens: MACROS' beings, SCOPE */
 #include "ui_lzedit.c"                               /* (0.8.5) EDIT's lens panels */
 #include "ui_lzpage.c"                               /* (0.8.5) ENV's, LFO . MOD's, SCL . ARP's, GLO's */
+/* (BYTE) GLO > PUNCH SEQ (the owner's GRILLA DE 4, pfx.c psq): each row its effect's tag on the left (the row edited
+ * yellow), its 16 steps as cells (lit its effect's colour, the one at the playhead white; the beats' first a shade up;
+ * past LEN a rule), the playhead a yellow bar over the grid, and what the rows hold now at the foot */
+static const uint16_t PSQ_COL[PSQ_NFX] = {0x3C7F, 0xA2FF, 0xF9D6, 0xF9C7, 0xFC45, 0xFE87, 0xEF8B, 0x3E9F, 0x7FF3, 0xFFFF,
+                                          0x2E94, 0x25F2, 0x1D50, 0xFAFA, 0x9FE7};   /* (the mock-up's, in RGB565) */
+static __attribute__((noinline)) void graph_psq(void)
+{
+    uint32_t r, i, h = graph_h(), at = psq_at, len = (uint32_t)clamp(psq.len, 4, 16), seen = 0;
+    int32_t rh = ((int32_t)h - 24) / (int32_t)PSQ_ROWS, ch = rh - 4 > 22 ? 22 : rh - 4, y0 = 6;
+    char b[48];
+    if (at < 16u)
+        cv_rect(44 + (int32_t)at * 12, y0 - 4, 10, 2, HUD_YE);
+    for (r = 0; r < PSQ_ROWS; r++) {
+        uint32_t e = psq.fx[r] % PSQ_NFX;
+        int32_t y = y0 + (int32_t)r * rh;
+        hud_tag(4, y + (ch - 11) / 2, PSQ_NM[e], 0x0000, r == psq_row % PSQ_ROWS ? HUD_YE : PSQ_COL[e]);
+        for (i = 0; i < 16u; i++) {
+            int32_t x = 44 + (int32_t)i * 12;
+            uint32_t lit = (psq.st[r] >> i) & 1u;
+            if (i >= len)
+                cv_rect(x, y + ch / 2, 10, 1, T_LINE);
+            else
+                cv_rect(x, y, 10, ch, lit ? (i == at ? 0xFFFFu : PSQ_COL[e]) : (i & 3u) ? T_SURF : T_RAISE);
+        }
+    }
+    str_cpy(b, "NOW: ", sizeof b);
+    if (at >= 16u)
+        str_cpy(b + 5, "STOPPED", sizeof b - 5);
+    for (r = 0; at < 16u && r < PSQ_ROWS; r++) {      /* (the rows lit at the playhead, each effect once) */
+        uint32_t e = psq.fx[r] % PSQ_NFX;
+        if (!((psq.st[r] >> at) & 1u) || ((seen >> e) & 1u))
+            continue;
+        if (seen)
+            str_cpy(b + str_len(b), " + ", sizeof b - str_len(b));
+        str_cpy(b + str_len(b), PSQ_NM[e], sizeof b - str_len(b));
+        seen |= 1u << e;
+    }
+    if (at < 16u && !seen)
+        str_cpy(b + 5, "NONE", sizeof b - 5);
+    cv_text(6, (int32_t)h - 14 - AF_M_CAP_Y, text_w(&AF_M, b) <= 228 ? &AF_M : &AF_X, b, HUD_YE);
+}
 /* (codex/anim) the panel sent where it changed (gfx.c cv_blit_cells: a being swimming, not the water round it; was all of
  * it each frame: 33600 px, ~45 ms of the SPI at 12 MHz); under load whole (a frame each 50 / 100 ms outlasts the transfer,
  * and the cells' hashes would be work taken from the sound) */
@@ -1963,6 +2010,9 @@ static void draw_graph(void)
     } else if (pg->graph == GR_SCENE) {              /* (V10.25) SCL > SCENE: the six tracks' roles */
         cv_oy = 0;
         graph_scene();
+    } else if (pg->graph == GR_PUNCH) {              /* (BYTE) GLO > PUNCH SEQ: the four rows */
+        cv_oy = 0;
+        graph_psq();
     } else if (pg->graph == GR_CLAY) {               /* (BYTE) SEQ > DRONE CLAY: the modulators' telemetry (ui_lzedit.c) */
         cv_oy = 0;
         graph_clay_lz(t);

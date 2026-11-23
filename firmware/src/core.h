@@ -321,6 +321,12 @@ enum {                          /* global parameters */
     G_COUNT
 };
 #define G_SL_N (G_SLP15 + 1 - G_SLMODE)     /* the SLICER's globals (stored together: project.c, song_chain.c) */
+/* (BYTE) GLO > PUNCH SEQ (pfx.c psq): four rows, each a punch-in on 16 steps; stored as psq_t, PSQ_BYTES (project.c 'P' 'Q':
+ * the steps, little-endian, the rows' effects, LEN, RES); PSQ_DEF_BYTES an empty one (an older project's) */
+#define PSQ_ROWS 4u
+#define PSQ_NFX 15u                    /* the punch-ins a row can hold (pfx.c PSQ_FX) */
+#define PSQ_BYTES 14u
+#define PSQ_DEF_BYTES {0, 0, 0, 0, 0, 0, 0, 0, 4, 1, 2, 9, 16, 1}   /* no step; REP OCT+ HALF SCR; 16 steps of 1/16 */
 #define G_CSTER G_DHPF                 /* (JIANT 0.6.9) CHORUS STEREO -64..63: 0 as before (G_DHPF's 0), - narrower .. mono */
 #define G_SYNC G_DREL                   /* (the old names, for the formats' importers and their tests) */
 #define G_ENGGO G_CLIP

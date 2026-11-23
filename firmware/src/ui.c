@@ -1079,6 +1079,40 @@ static int keys_pg(uint32_t g) { return !ui.home && !ui.menu && !ui.confirm && !
 static int ckeys_on(void) { return keys_pg(GR_COMP); }   /* (seq2g) */
 /* (V10.6o) PARTS, TIMELINE: the keys are the page's (silent): F3..B3 the parts; T1..T6's mutes, F4..B4 a track's FROM */
 static int skeys_on(void) { return keys_pg(GR_SONG) && cur_page()->title[0] != 'A'; }
+/* (BYTE) GLO > PUNCH SEQ (pfx.c psq): KNOB 1 ROW, 2 its EFFECT, 3 LEN (4..16 steps), 4 RES (1/32 1/16 1/8 1/4); the 16
+ * white keys toggle the row's steps, black keys 1..4 pick the row (the keys silent: keys_mode) */
+static int psq_on(void) { return keys_pg(GR_PUNCH); }
+static const char *const PSQ_RESN[4] = {"1/32", "1/16", "1/8", "1/4"};
+static __attribute__((noinline)) void psq_knob(uint32_t slot, int32_t steps)
+{
+    int32_t d = clamp(steps, -16, 16);
+    uint32_t r = psq_row % PSQ_ROWS;
+    if (slot == 0u)
+        psq_row = (uint8_t)clamp((int32_t)r + d, 0, (int32_t)PSQ_ROWS - 1);
+    else if (slot == 1u)
+        psq.fx[r] = (uint8_t)clamp((int32_t)(psq.fx[r] % PSQ_NFX) + d, 0, (int32_t)PSQ_NFX - 1);
+    else if (slot == 2u)
+        psq.len = (uint8_t)clamp((int32_t)psq.len + d, 4, 16);
+    else
+        psq.res = (uint8_t)clamp((int32_t)(psq.res & 3u) + d, 0, 3);
+    ui.force = 1;
+}
+static void psq_keys(uint32_t pressed)
+{
+    uint32_t k;
+    for (k = 0; k < 27u; k++) {
+        uint32_t p = key_place(k);
+        if (!((pressed >> k) & 1u))
+            continue;
+        if (!key_black(k)) {
+            if (p < 16u)
+                psq.st[psq_row % PSQ_ROWS] ^= (uint16_t)(1u << p);
+        } else if (p < PSQ_ROWS) {
+            psq_row = (uint8_t)p;
+        }
+        ui.force = 1;
+    }
+}
 static void step_clear(step_t *st)
 {
     st->n = 0;

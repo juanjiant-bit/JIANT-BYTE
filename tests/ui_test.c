@@ -199,6 +199,7 @@ static void ui_power_on(void)
     scn_on = 0; scn_keys = 0;                     /* (V10.25: SCENE off at power-on, its roles the defaults) */
     memset(eu, 0, sizeof eu);                     /* (EUCLID / MUTATE: the session's, none at power-on) */
     memset(macro_v, 0, sizeof macro_v);           /* (a fresh power-on's 0) */
+    psq_boot();                                   /* (PUNCH SEQ empty, as main.c's power-on) */
     ndg_step = 0;
     memset(scn_role, 0, sizeof scn_role); sc_trk = 5;
     memset(&chain, 0, sizeof chain);

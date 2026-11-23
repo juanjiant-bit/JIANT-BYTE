@@ -891,6 +891,8 @@ static const page_t PAGES[] = {
     {"KEY SPLIT 2", FAM_GLO, SC_GLOBAL, GR_SPLIT2, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"LYRICS", FAM_SEQ, SC_TRACK, GR_LYRSTEP, {0xFF,0xFF,0xFF,0xFF}},
     {"TRACK GEN", FAM_SEQ, SC_TRACK, GR_TRACKGEN, {0xFF,0xFF,0xFF,0xFF}},   /* (codex/coherence: was GENERATE, beside HOME's GENE) */
+    {"PUNCH SEQ", FAM_GLO, SC_GLOBAL, GR_PUNCH, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (BYTE) four rows of punch-ins on the
+                                                         * transport: ROW EFFECT LEN RES (ui.c psq_knob, pfx.c psq) */
     {"PRESETS", FAM_SAVE, SC_GLOBAL, GR_BROWSE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* browser: PRESETS knob / KNOB 1 */
     {"USER", FAM_SAVE, SC_GLOBAL, GR_USER, {0xFF, 0xFF, 0xFF, 0xFF}},       /* user presets: SLOT LOAD ERASE SAVE */
     {"PROJECT", FAM_SAVE, SC_GLOBAL, GR_SLOTS, {0xFF, G_LOAD, G_SLOT, G_SAVE}},   /* (0.6.12) PROJECT 1-6 (V10.6p; 1-8 before), PART A-D;

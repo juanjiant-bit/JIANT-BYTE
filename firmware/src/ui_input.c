@@ -1462,6 +1462,10 @@ static void edit_param(uint32_t slot, int32_t steps)
         comp_knob(slot, steps);
         return;
     }
+    if (pg->graph == GR_PUNCH) {                        /* (BYTE) GLO > PUNCH SEQ: ROW EFFECT LEN RES (ui.c) */
+        psq_knob(slot, steps);
+        return;
+    }
     if (pg->graph == GR_SHAPE) {                        /* (0.6.85) STRETCH, REPEAT (picked, OCT+ does it), NUDGE (now) */
         shape_knob(slot, steps);
         return;
@@ -3022,6 +3026,7 @@ static void ui_input_frame(void)
                         load_end(&trk[k]);
                         latch_drop_req |= (uint8_t)(1u << k);   /* (the held / latched notes: events_block) */
                     }
+                    psq_clear();                        /* (BYTE) PUNCH SEQ's steps too */
                     ui_message("ALL CLEARED");
                 }
             } else if (kind == CF_INIT_SOUND) {         /* (DRUM: the factory DRUM-X kit too) */
@@ -3205,6 +3210,8 @@ static void ui_input_frame(void)
     lock_keys();                                        /* (a grid key on a hit let go: the hit goes) */
     if (ckeys_on()) {                            /* (seq2g) SEQ > COMP: the keys pick the step */
         comp_keys(notes);
+    } else if (psq_on()) {                              /* (BYTE) GLO > PUNCH SEQ: the row's steps, the row */
+        psq_keys(notes);
     } else if (skeys_on()) {                            /* (V10.6o) PARTS, TIMELINE: theirs */
         tl_keys(notes);
     } else if (song.grid && song.grid != 3u) {         /* (p2: 3, LIVE's KEYS: its board, ui_live.c) */
@@ -3273,7 +3280,7 @@ static void ui_input_frame(void)
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_MSEQ || pg->graph == GR_PATS || BAR_PAGE(pg)) &&
              k == 0u)
             || FIT_PAGE(pg) || SPLIT_PAGE(pg) || pg->graph == GR_SONG || pg->graph == GR_DXSND || pg->graph == GR_SWARM || pg->graph == GR_FOCUS || STAGE_PAGE(pg) ||
-            pg->graph == GR_LIVE) {   /* (not an empty column) */
+            pg->graph == GR_LIVE || pg->graph == GR_PUNCH) {   /* (not an empty column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40, ui.knob_ms = fm1_ms;
         }

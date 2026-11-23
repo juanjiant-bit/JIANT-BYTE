@@ -99,12 +99,66 @@ static __attribute__((noinline)) void pfx_fire(track_t *t, int arp)
 static int16_t pfx_keep[NTRK];
 static uint32_t pfx_qon;            /* (JIANT) the effects in (quantized to the 1/16) */
 
+/* (BYTE) GLO > PUNCH SEQ (ui.c psq_*): four rows, each one punch-in (PSQ_FX, the keys' own) on up to 16 steps of RES,
+ * free to overlap. While the transport plays, a row's step lit at the playhead holds its punch-in on every track as if
+ * its key were held (pfx_block: OR'd with the keys, after their 1/16 quantize; a key held live keeps its effect on
+ * whatever the rows say, nothing restarts under it); the step off, or STOP: let go. The state in the pool (.bss is
+ * full; the pool got back more than this from project_t, GLO > COMPS' 80 bytes out), set at power-on (main.c
+ * psq_boot, before the project's load); written on core 0 only (the pages, a load, the audio's psq_at psq_now) */
+static const uint8_t PSQ_FX[PSQ_NFX] = {PF_OCTD, PF_OCTU, PF_HALF, PF_WOB, PF_D16, PF_S8, PF_S16, PF_ATK, PF_ARP, PF_RND,
+                                        PF_LP3, PF_LP5, PF_LP7, PF_RING, PF_LMAX};
+static const char *const PSQ_NM[PSQ_NFX] = {"OCT-", "OCT+", "HALF", "WOB", "REP", "S8", "S16", "BITS", "MIR", "SCR",
+                                            "LOOP3", "LOOP5", "LOOP7", "CAOS", "LIFE"};
+typedef struct { uint16_t st[PSQ_ROWS]; uint8_t fx[PSQ_ROWS], len, res; } psq_t;   /* st bit s: step s lit; len 4..16;
+                                                         * res 0 1/32, 1 1/16, 2 1/8, 3 1/4 */
+_Static_assert(sizeof(psq_t) == PSQ_BYTES, "PUNCH SEQ as stored (project.c 'P' 'Q')");
+static psq_t psq __attribute__((section(".pool")));
+static volatile uint8_t psq_at __attribute__((section(".pool")));    /* the step at the playhead (0xFF: stopped) */
+static volatile uint32_t psq_now __attribute__((section(".pool")));  /* the PF bits the rows hold now */
+static uint8_t psq_row __attribute__((section(".pool")));            /* the row the page edits */
+static void psq_fix(psq_t *q)                           /* a stored one in range */
+{
+    static const uint8_t D[PSQ_BYTES] = PSQ_DEF_BYTES;
+    uint32_t r;
+    for (r = 0; r < PSQ_ROWS; r++)
+        if (q->fx[r] >= PSQ_NFX) q->fx[r] = D[2u * PSQ_ROWS + r];
+    q->len = (uint8_t)clamp(q->len, 4, 16);
+    q->res = q->res > 3u ? 1u : q->res;
+}
+static void psq_clear(void)                             /* empty (CLEAR ALL, CLEAR PROJECT, an older project) */
+{
+    static const uint8_t D[PSQ_BYTES] = PSQ_DEF_BYTES;
+    memcpy(&psq, D, sizeof psq);
+}
+static void psq_boot(void) { psq_clear(); psq_at = 0xFF; psq_now = 0; psq_row = 0; }
+/* the PF bits the rows hold this block: the step the block ends in (as the keys' quantize: a step starting inside the
+ * block holds it whole), on the transport's 1/32s (before events_block clk_pos is the last block's start) */
+static __attribute__((noinline)) uint32_t psq_block(uint32_t n)
+{
+    uint32_t s16, p32, st, r, m = 0;
+    if (!song.playing) {
+        psq_at = 0xFF;
+        psq_now = 0;
+        return 0;
+    }
+    s16 = div_samples(2);
+    s16 = s16 ? s16 : 1u;
+    p32 = clk_pos == CLK_START ? (n - 1u) * 2u / s16 : clk_n * 2u + (clk_pos + 2u * n - 1u) * 2u / s16;
+    st = (p32 >> (psq.res & 3u)) % (uint32_t)clamp(psq.len, 4, 16);
+    for (r = 0; r < PSQ_ROWS; r++)
+        if ((psq.st[r] >> st) & 1u)
+            m |= PF_BIT(PSQ_FX[psq.fx[r] % PSQ_NFX]);
+    psq_at = (uint8_t)st;
+    psq_now = m;
+    return m;
+}
+
 /* each block, before the events (fx.c mix_block). held: the effects held (PF_* bits) */
 static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
 {
-    uint32_t k, b = beat_samples(), nw;
+    uint32_t k, b = beat_samples(), nw, sq = psq_block(n);   /* (BYTE) PUNCH SEQ's */
     pfx_blk++;
-    if (held & PF_BIT(PF_RING)) {                       /* (JIANT BYTE) CAOS MAX: every formula part at CAOS 127 for this
+    if ((held | sq) & PF_BIT(PF_RING)) {                /* (JIANT BYTE) CAOS MAX: every formula part at CAOS 127 for this
                                                          * block (pfx_end: back) */
         for (k = 0; k < NTRK; k++) {
             uint32_t e = eng_idx(trk[k].engine);
@@ -115,7 +169,7 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
         pfx_caos.on = 1;
         held &= ~PF_BIT(PF_RING);
     }
-    if (held & PF_BIT(PF_LMAX)) {                       /* (V10.7.36) LIFE MAX: 100 % for this block (pfx_end: back) */
+    if ((held | sq) & PF_BIT(PF_LMAX)) {                /* (V10.7.36) LIFE MAX: 100 % for this block (pfx_end: back) */
         for (k = 0; k < 4u; k++) {
             pfx_life.keep[k] = life_v[k];
             life_v[k] = 100;
@@ -131,7 +185,7 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
         if (!song.playing || !ph || s16 - ph < n)
             pfx_qon |= nw;
     }
-    held = pfx_qon;
+    held = pfx_qon | (sq & ~(PF_BIT(PF_RING) | PF_BIT(PF_LMAX)));   /* (PUNCH SEQ's on the step: not quantized again) */
     pt_ops = (held & PF_FORMULA) >> PF_OCTD;    /* (BYTE 0.16) the white keys: the formulas' time (formula_perf.c) */
     formula_punch = 0;
     held &= ~(PF_FORMULA & ~(PF_BIT(PF_OCTD) | PF_BIT(PF_OCTU)));   /* (G5: COMB again, perform.c's, not the exchange) */

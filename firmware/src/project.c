@@ -133,8 +133,9 @@ typedef struct {
     uint8_t pfx_lane[32], pfx_ltgt;            /* the punch-in lane (pfx.c), in FUN9's spare bytes (PROJ_PFX_OFF) */
     uint8_t macro[4];                          /* the macros M1..M4 (mod.c macro_v), 0..127: after the lane's tracks */
     char lyr[NTRK][LYR_LEN];                   /* (0.8.5) VOICE's lyrics (sing.c lyr_txt): FUNC's 'L' 'Y' blocks, "" before */
-    uint8_t gl[16][5];                       /* (0.9.9-seq2f) GLO > COMPS, the global lane (seq.c glane): FUNC's 'G' 'C'
-                                                * block, empty before */
+    uint8_t psq[PSQ_BYTES];                    /* (BYTE) GLO > PUNCH SEQ (pfx.c psq_t): FUNC's 'P' 'Q' after the CY blocks,
+                                                * when not empty (PSQ_DEF_BYTES: none, an older project's). Was GLO >
+                                                * COMPS' 80 bytes ('G' 'C', still read past, ignored) */
     char name[PROJ_NAME_LEN];                  /* the project's name: upper-case ASCII 32..126, 0-padded; "" = none */
     uint8_t split[8];                         /* optional KS extension, absent = OFF */
     uint8_t fit[NTRK];                         /* FIT/SPAN per track; optional RF extension */
@@ -635,13 +636,8 @@ static uint32_t proj_bits(uint32_t m)
         n += m & 1u;
     return n;
 }
-static int proj_gl_used(const project_t *q)            /* (0.9.9-seq2f) a global component, or MONO: its block */
-{
-    uint32_t i;
-    for (i = 0; i < 16u; i++)
-        if (q->gl[i][0]) return 1;
-    return q->gmode != 0u;
-}
+static const uint8_t PROJ_PSQ_DEF[PSQ_BYTES] = PSQ_DEF_BYTES;
+static int proj_psq_used(const project_t *q) { return memcmp(q->psq, PROJ_PSQ_DEF, PSQ_BYTES) != 0; }   /* (BYTE) PUNCH SEQ's block */
 static uint32_t proj_packed_size(const project_t *q)
 {
     uint32_t n = (proj_sc_used(q) ? 6u : 0u) + (q->g[G_DRTIM] ? 3u : 0u) + 68u + sizeof q->chain + 4u + q->motion.count * sizeof q->motion.event[0] + 2u + G_SL_N, t, i;
@@ -649,8 +645,8 @@ static uint32_t proj_packed_size(const project_t *q)
         n += 3u;
     if (proj_mf_tracks(q))                              /* (0.9.1) MICRO's 64ths: their block */
         n += 3u + 16u * proj_bits(proj_mf_tracks(q));
-    if (proj_gl_used(q))                                /* (seq2f) the global lane's */
-        n += 3u + sizeof q->gl;
+    if (proj_psq_used(q))                               /* (BYTE) PUNCH SEQ's */
+        n += 2u + PSQ_BYTES;
     if (q->dx_hands >> 4)                               /* (snd1) the kit's GLUE, when on */
         n += 3u;
     if (q->g[G_DDRV])                                   /* (snd2) the delay's DRIVE, when on */
@@ -868,12 +864,6 @@ static int proj_pack(project_store_t *out, const project_t *q)
             pos += 16u;
         }
     }
-    if (proj_gl_used(q)) {                              /* (0.9.9-seq2f) the global lane, last: firmware before stops
-                                                         * reading at it, the rest loads */
-        b[pos++] = 'G'; b[pos++] = 'C'; b[pos++] = (uint8_t)(q->gmode & 1u);
-        memcpy(b + pos, q->gl, sizeof q->gl);
-        pos += sizeof q->gl;
-    }
     if (q->dx_hands >> 4) {                             /* (0.9.9-snd1) the kit's GLUE, when on (after the lane: seq2h
                                                          * stops at it, the rest loads; a project without it as before) */
         b[pos++] = 'D'; b[pos++] = 'G'; b[pos++] = (uint8_t)(q->dx_hands >> 4);
@@ -919,6 +909,12 @@ static int proj_pack(project_store_t *out, const project_t *q)
             memcpy(b + pos, q->clay[t], CLAY_NF);
             pos += CLAY_NF;
         }
+    if (proj_psq_used(q)) {                             /* (BYTE) PUNCH SEQ, after the CY blocks (before it, the reading
+                                                         * stops: an older firmware loads the rest without it) */
+        b[pos++] = 'P'; b[pos++] = 'Q';
+        memcpy(b + pos, q->psq, PSQ_BYTES);
+        pos += PSQ_BYTES;
+    }
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
     for (i = 0; i < 4u; i++)
@@ -1212,15 +1208,15 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
             pos += 16u;
         }
     }
-    if (pos + 3u + sizeof q->gl <= room && b[pos] == 'G' && b[pos + 1u] == 'C') {   /* (0.9.9-seq2f) the global lane
-                                                         * (else empty, POLY) */
+    if (pos + 3u + 80u <= room && b[pos] == 'G' && b[pos + 1u] == 'C') {   /* (0.9.9-seq2f) GLO > COMPS' lane (16 x 5
+                                                         * bytes): checked as before, ignored (BYTE: gone) */
         if (b[pos + 2u] > 1u) return 0;
-        q->gmode = b[pos + 2u];
-        memcpy(q->gl, b + pos + 3u, sizeof q->gl);
-        for (i = 0; i < 16u; i++)
-            if (CO_ACT(q->gl[i][0]) >= CA_N || CO_COND(q->gl[i][0]) >= CC_N || q->gl[i][2] >= CL_MAX ||
-                (q->gl[i][4] >> NTRK)) return 0;
-        pos += 3u + sizeof q->gl;
+        for (i = 0; i < 16u; i++) {
+            const uint8_t *g = b + pos + 3u + 5u * i;
+            if (CO_ACT(g[0]) >= CA_N || CO_COND(g[0]) >= CC_N || g[2] >= CL_MAX || (g[4] >> NTRK)) return 0;
+        }
+        q->gmode = 0;
+        pos += 3u + 80u;
     }
     if (pos + 3u <= room && b[pos] == 'D' && b[pos + 1u] == 'G') {   /* (0.9.9-snd1) the kit's GLUE (else OFF) */
         glue = b[pos + 2u] > 15u ? 15u : b[pos + 2u];
@@ -1293,6 +1289,7 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
     }
     memset(q->voice_limit, NVOICE, sizeof q->voice_limit);
     memset(q->clay, 0, sizeof q->clay);
+    memcpy(q->psq, PROJ_PSQ_DEF, PSQ_BYTES);            /* (BYTE) PUNCH SEQ: empty, unless its block follows */
     if (pos + 2u <= room && b[pos]=='V' && b[pos+1u]=='L') {
         if (pos + 2u + NTRK > room) return 0;
         for (i=0;i<NTRK;i++) q->voice_limit[i]=(uint8_t)clamp(b[pos+2u+i],1,NVOICE);
@@ -1301,6 +1298,12 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
             if (b[pos + 2u] >= NTRK) return 0;
             for (i = 0; i < CLAY_NF; i++) q->clay[b[pos + 2u]][i] = b[pos + 3u + i] & 127u;
             pos += 3u + CLAY_NF;
+        }
+        if (pos + 2u + PSQ_BYTES <= room && b[pos] == 'P' && b[pos + 1u] == 'Q') {   /* (BYTE) PUNCH SEQ */
+            memcpy(q->psq, b + pos + 2u, PSQ_BYTES);
+            for (i = 0; i < PSQ_ROWS; i++)              /* (in range: pfx.c psq_fix again on the restore) */
+                if (q->psq[2u * PSQ_ROWS + i] >= PSQ_NFX) q->psq[2u * PSQ_ROWS + i] = PROJ_PSQ_DEF[2u * PSQ_ROWS + i];
+            pos += 2u + PSQ_BYTES;
         }
     }
     for (i = 0; i < 8u; i++) if (q->dx_form[i] == DX_USER && !q->dx_text[i][0]) q->dx_form[i] = 0;
@@ -1526,7 +1529,7 @@ static void project_capture(project_t *p)
     memset(p->pfx_lane, 0, sizeof p->pfx_lane);         /* (the punch-in lane, out: zeros; an old one ignored on load) */
     p->pfx_ltgt = 0;
     memcpy(p->macro, macro_v, sizeof p->macro);
-    memset(p->gl, 0, sizeof p->gl);                     /* (BYTE: GLO > COMPS gone; its block empty) */
+    memcpy(p->psq, &psq, PSQ_BYTES);                    /* (BYTE) PUNCH SEQ */
     p->gmode = 0;
     for (i = 0; i < NTRK; i++)                          /* (0.8.5) VOICE's lyrics */
         memcpy(p->lyr[i], lyr_get(i), LYR_LEN);
@@ -1762,6 +1765,12 @@ static int project_restore_runtime(const project_t *input)
     fg_load(p);                                         /* (0.6.52: its FUGUE) */
     for (i = 0; i < 4u; i++)
         macro_v[i] = p->macro[i] & 127u;            /* (the macros: a load sets them; a section jump keeps them) */
+    {   /* (BYTE) PUNCH SEQ (none: an older project, empty) */
+        psq_t q;
+        memcpy(&q, p->psq, sizeof q);
+        psq_fix(&q);
+        psq = q;
+    }
     for (k = 0; k < NTRK; k++) {                        /* (0.8.5) VOICE's lyrics (none: an older project) */
         char ly[LYR_LEN];
         memcpy(ly, p->lyr[k], LYR_LEN);
@@ -1889,6 +1898,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     memset(song_idx.tsrc[song_cur], 0, sizeof song_idx.tsrc[song_cur]);
     memset(song_idx.tvar[song_cur], 0, sizeof song_idx.tvar[song_cur]);
     for (i = 0; i < 4u; i++) macro_v[i] = 0;
+    psq_clear();                                        /* (BYTE) PUNCH SEQ empty */
     for (i = 0; i < NTRK; i++) trk[i].seq_fit = 0;
     for (i = 0; i < NTRK; i++) lyr_set(i, "");          /* (0.8.5) no lyrics */
     memcpy(dx_kit, DX_KIT_DEF, sizeof dx_kit);
@@ -2182,6 +2192,7 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, lyr_txt, sizeof lyr_txt);             /* (0.8.5) VOICE's lyrics */
+    h = as_mix(h, &psq, sizeof psq);                    /* (BYTE) PUNCH SEQ */
     h = as_mix(h, &scn_on, 1);
     h = as_mix(h, scn_role, sizeof scn_role);           /* (V10.31) SCENE */
     h = as_mix(h, scn_pat, sizeof scn_pat);

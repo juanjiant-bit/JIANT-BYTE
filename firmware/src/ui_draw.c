@@ -1100,7 +1100,7 @@ static int clip_tag(char *b)
  * an action page its OCT+ / OCT- (foot_hint); else its picture's (GR_*), HOME's MACROS (250) and LIVE MIX (251), GEN (252),
  * LIFE (253), TRACKS (254: GLO's mute and solo keys, as MIXER's; its panel shows the line too),
  * or its section's (100 + SEC_*); none: the breadcrumb. One string, the lines one after another */
-static const uint8_t HELP_K[] = {250, 251, 252, 253, 254, GR_BROWSE, GR_FOCUS, GR_ROLL, GR_COMP, GR_EUCLID, GR_SHAPE, GR_SCENE, GR_TRK, 100u + SEC_EDIT, 100u + SEC_SEQ, 100u + SEC_FX, 100u + SEC_GLO, 100u + SEC_LFO, 100u + SEC_SCL};
+static const uint8_t HELP_K[] = {250, 251, 252, 253, 254, GR_BROWSE, GR_FOCUS, GR_ROLL, GR_COMP, GR_EUCLID, GR_SHAPE, GR_SCENE, GR_PUNCH, GR_TRK, 100u + SEC_EDIT, 100u + SEC_SEQ, 100u + SEC_FX, 100u + SEC_GLO, 100u + SEC_LFO, 100u + SEC_SCL};
 static const char HELP_S[] =
     "HOME+SELECT DICE  HOME+PRESETS BPM\0"
     "HOME+PRESETS BPM  HOME+SELECT GEN\0"
@@ -1114,6 +1114,7 @@ static const char HELP_S[] =
     "OCT+ NEW  OCT- THE ONE BEFORE\0"
     "OCT- NUDGE ALL  OCT+ THE STEP\0"
     "OCT+ DICE ROLES  OCT- ALL KEEP\0"
+    "KEYS TOGGLE STEPS  BLACK 1-4: ROW\0"
     "GLO+BLACK KEYS MUTE  GLO+SELECT BPM\0"
     "EDIT+SELECT DICE  EDIT+PRESETS ENGINE\0"
     "SEQ+SELECT DICE  SEQ+PRESETS STEP\0"
@@ -1511,6 +1512,16 @@ static void draw_columns(void)
     }
     if (cur_page()->graph == GR_GCOMP || cur_page()->graph == GR_COMP) {
         comp_columns();
+        return;
+    }
+    if (cur_page()->graph == GR_PUNCH) {               /* (BYTE) GLO > PUNCH SEQ: ROW, its EFFECT, LEN, RES */
+        uint32_t r = psq_row % PSQ_ROWS;
+        fmt_int(val, (int32_t)r + 1);
+        hot_text_column(0, "ROW", val);
+        hot_text_column(1, "EFFECT", PSQ_NM[psq.fx[r] % PSQ_NFX]);
+        fmt_int(val, clamp(psq.len, 4, 16));
+        hot_unit_column(2, "LEN", val, "ST");
+        hot_text_column(3, "RES", PSQ_RESN[psq.res & 3u]);
         return;
     }
     if (cur_page()->graph == GR_CHANCE) {              /* STEP CHANCE RATCH: the cursor step's, of all of it */
