@@ -620,3 +620,7 @@ EXPORT uint32_t web_func_apply(uint32_t track){
 }
 
 EXPORT uint32_t web_func_mode(uint32_t track,int32_t mode){track%=NTRK;track_t*t=&trk[track];if(mode>=0){t->p[P_E0]=mode?5:4;if(mode)t->p[P_SUS]=127;ui.force=1;}return t->p[P_E1]!=RW_FUNC||func_song(t);}
+#if FELUCCA_WEB_EDITOR                                   /* (studio) the whole web editor into this emulator: web/emu/build.sh's
+                                                          * felucca.wasm only */
+#include "editor-api.h"
+#endif
