@@ -32,5 +32,55 @@ int main(void){
  reject("func{return - - - - - - - - - - - - - - - - - - - - 1.0;}");
  { const char*const fixed[]={MATH_FUNC_DEFAULT,MATH_FUNC_BEAT,MATH_FUNC_GROWL,MATH_FUNC_HALF}; /* every recipe in the FORM list compiles, and stateless (they run by blocks) */
    for(unsigned i=0;i<NELEM(fixed)+NELEM(MATH_FUNC_R);i++){compile(i<NELEM(fixed)?fixed[i]:MATH_FUNC_R[i-NELEM(fixed)]);assert(i<2||!code.p.nstate);} }
+ { /* (func-tame, the owner: "B moves the drums out of tempo, out of phase") every drum hit of every recipe, at every
+    * value of every knob, on the 1/32 grid of the song's beat: the program run as fvm_func_run runs it, a sample at a
+    * time, kick() snare() hat()'s age read where they are called; a hit where the age falls back */
+   const char*const all[]={MATH_FUNC_DEFAULT,MATH_FUNC_BEAT,MATH_FUNC_GROWL,MATH_FUNC_HALF};
+   unsigned checked=0;
+   for(unsigned f=0;f<NELEM(all)+NELEM(MATH_FUNC_R);f++){
+     compile(f<NELEM(all)?all[f]:MATH_FUNC_R[f-NELEM(all)]);
+     unsigned drums=0;for(unsigned i=0;i<code.p.n;i++)drums|=code.p.ins[i].op==FO_MUSIC&&code.p.ins[i].k>=2u;
+     if(!drums)continue;
+     for(unsigned kn=0;kn<4;kn++)for(unsigned val=0;val<128;val=val<126u?val+3u:val+1u){
+       uint32_t u[FU_N]={0},Pq=0,prevP=0,age[3]={0},last[3]={0};int32_t st8[8]={0};
+       for(unsigned k=0;k<4;k++){unsigned a=k==kn?val:(unsigned)(64>>k);u[FU_A+k]=a*2u;u[FU_AF+k]=a*65536u/127u;}
+       u[FU_NOTE]=48;u[FU_BPS]=FS/2u;
+       for(unsigned step=0;step<48u*256u;step++){
+         uint32_t T0=step,Tz=0;Pq=step*256u;const uint32_t*ar[FA_N]={0};ar[FA_T]=&T0;ar[FA_W]=&Tz;ar[FA_TS]=&Tz;ar[FA_BEAT]=&Pq;
+         uint32_t stack[FVM_DEPTH],local[10]={0},sp=0;
+         for(uint32_t pc=0;pc<code.p.n;pc++){
+           const fvm_ins_t*in=&code.p.ins[pc];uint32_t op=in->op,b=in->k,a;
+           if(op==FO_SAVE){local[b]=stack[--sp];continue;}
+           if(in->md==FM_ARR)b=ar[b]?ar[b][0]:0;else if(in->md==FM_UNI)b=u[b];else if(in->md==FM_LOCAL)b=local[b];
+           if(op==FO_PUSH){stack[sp++]=b;continue;}
+           if(FO_ISBIN(op)&&in->md==FM_STK)b=stack[--sp];
+           a=stack[sp-1];
+           if(FO_ISBIN(op)){stack[sp-1]=fvm_op2(op,a,b);continue;}
+           if(FO_ISUN(op)){stack[sp-1]=fvm_op1(op,a);continue;}
+           if(op==FO_MUSIC){if(in->k<2u){sp-=2;stack[sp-1]=0;}else{age[in->k-2u]=stack[sp-1];stack[sp-1]=0;}}
+           else if(op==FO_SEL){uint32_t y=stack[--sp],x=stack[--sp];stack[sp-1]=stack[sp-1]?x:y;}
+           else if(op==FO_TAB)stack[sp-1]=code.p.pool[(in->k>>8)+a%(in->k&255u)];
+         }
+         for(unsigned d=0;d<3;d++){
+           if(step&&(int32_t)age[d]<(int32_t)last[d]){   /* a hit between the sample before and this one: a 1/32 there */
+             int ok=(Pq&~2047u)>prevP||!(Pq&2047u);
+             if(!ok)printf("FORM %u knob %c=%u: drum %u off the grid at beat %.4f\n",f+1,'A'+kn,val,d,Pq/65536.);
+             assert(ok);checked++;}
+           last[d]=age[d];}
+         prevP=Pq;
+       }
+     }
+   }
+   assert(checked>1000u);
+   /* every FORM its four names (the cards' six letters) and a line of help each; CUSTOM, and a LOOP past them, A B C D */
+   static track_t ft;ft.p[P_E1]=RW_FUNC;
+   for(int f=0;f<=20;f++){ft.p[P_E7]=(int16_t)(f==20?127:f);
+     for(unsigned k=0;k<4;k++){const param_desc_t*d=lofi_desc(&ft,2u+k);const char*tip=func_knob_tip(d);
+       assert(d&&d->label[0]&&strlen(d->label)<=6u&&d->min==0&&d->max==127&&tip&&strlen(d->label)+2u+strlen(tip)<=26u);
+       for(const char*c=d->label;*c;c++)assert((*c>='A'&&*c<='Z')||(*c>='0'&&*c<='9'));
+       if(f==0||f>14)assert(d->label[0]=='A'+(int)k&&!d->label[1]);else assert(strlen(d->label)>1u);}
+     assert(!func_knob_tip(lofi_desc(&ft,0))&&!func_knob_tip(lofi_desc(&ft,7)));}
+   ft.p[P_E7]=5;assert(!strcmp(lofi_desc(&ft,2)->label,"CUTOFF")&&!strcmp(lofi_desc(&ft,5)->label,"SEED")); }
+ puts("funcbeat: FORM drums on the beat's grid at every knob value, every FORM's knobs named PASS");
  puts("funcbeat: ordered state, chunk invariance, voice isolation, helpers, controls, sample rate and rejection PASS");return 0;
 }

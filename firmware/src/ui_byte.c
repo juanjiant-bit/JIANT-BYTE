@@ -302,6 +302,104 @@ static void hud_wave(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
     cv_text_on(rx, y + ht - 46 - AF_X_CAP_Y, &AF_X, "MIX", T_MID, T_BG);
     scope_at(rx, x + wd - rx, y + ht - 19, 12, T_TEXT);
 }
+/* (func-tame, the owner: "I want a bit more idea of what is going on") FUNC: its program read at a moment of the song,
+ * on the UI's side (the work space's copy, as CENSUS): one sample, the sounds not made, what it asks for kept: kick()
+ * snare() hat()'s age, eu()'s answer (the recipes' action), the first note()'s or chord()'s pitch, the first table's
+ * pick. The audio is not looked into; the same text, the same knobs, the same P */
+typedef struct { uint32_t age[3], eu[3], note, tab; uint8_t neu, has; } fpeek_t;
+static void func_peek(const fvm_prog_t *p, const uint32_t *u, uint32_t P, uint32_t tq, fpeek_t *o)
+{
+    uint32_t stack[FVM_DEPTH], local[10] = {0}, sp = 0, pc, zero = 0, T = (uint32_t)((uint64_t)tq * 65536u / FS);
+    const uint32_t *ar[FA_N] = {0};
+    ar[FA_T] = &tq; ar[FA_W] = &zero; ar[FA_TS] = &T; ar[FA_BEAT] = &P;
+    o->neu = 0; o->has = 0;
+    for (pc = 0; pc < p->n; pc++) {
+        const fvm_ins_t *in = &p->ins[pc];
+        uint32_t op = in->op, b = in->k, a;
+        if (op == FO_SAVE) { local[b % 10u] = stack[--sp]; continue; }
+        if (in->md == FM_ARR) b = b < FA_N && ar[b] ? ar[b][0] : 0;
+        else if (in->md == FM_UNI) b = u[b];
+        else if (in->md == FM_LOCAL) b = local[b % 10u];
+        else if (in->md == FM_STATE) b = 0;
+        if (op == FO_PUSH) { if (sp < FVM_DEPTH) stack[sp++] = b; continue; }
+        if ((FO_ISBIN(op) || op == FO_LP || op == FO_HP) && in->md == FM_STK) b = stack[--sp];
+        if (!sp) return;
+        a = stack[sp - 1u];
+        if (FO_ISBIN(op)) {
+            stack[sp - 1u] = fvm_op2(op, a, b);
+            if (op == FO_EU && o->neu < 3u) o->eu[o->neu++] = stack[sp - 1u] & 1u;
+        } else if (FO_ISUN(op)) stack[sp - 1u] = fvm_op1(op, a);
+        else if (op == FO_MUSIC) {
+            if (in->k < 2u) { sp -= 2u; if (!(o->has & 8u)) o->note = stack[sp - 1u]; o->has |= 8u; }
+            else { o->age[in->k - 2u] = a; o->has |= 1u << (in->k - 2u); }
+            stack[sp - 1u] = 0;
+        } else if (op == FO_SEL) { uint32_t y = stack[--sp], x = stack[--sp]; stack[sp - 1u] = stack[sp - 1u] ? x : y; }
+        else if (op == FO_TAB) { stack[sp - 1u] = p->pool[(in->k >> 8) + a % (in->k & 255u)]; if (!(o->has & 16u)) { o->tab = stack[sp - 1u]; o->has |= 16u; } }
+        else if (op == FO_LP || op == FO_HP || op == FO_PH) stack[sp - 1u] = 0;
+    }
+}
+/* the bar now: 16 steps (the one playing outlined), a lane for each drum the program calls and each eu() action, the
+ * note (or the table's pick: the recipes' w * x), the four knobs by their FORM's names */
+static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32_t wd, int32_t ht, uint16_t tc)
+{
+    static const char *const LN[6] = {"KICK", "SNARE", "HAT", "ACT", "ACT2", "ACT3"};
+    uint32_t u[FU_N] = {0}, i, k, pos = 0, live = 0, lanes = 0, hit[6] = {0}, bps = (uint32_t)FS * 60u / (uint32_t)clamp(song.g[G_BPM], 20, 300);
+    uint32_t form = func_form(t);
+    int32_t lx = x + 34, cw = (wd - 36) / 16, row = 12, yy;
+    fpeek_t pk = {{0}, {0}, 0, 0, 0, 0}, now = pk;
+    char b[24];
+    if (cw < 4) return;
+    for (k = 0; k < 4u; k++) { uint32_t a = (uint32_t)clamp(t->p[P_E2 + k], 0, 127); u[FU_A + k] = a * 2u; u[FU_AF + k] = a * 65536u / 127u; }
+    u[FU_NOTE] = (uint32_t)clamp(60 + t->p[P_E6], 0, 127); u[FU_VEL] = 100; u[FU_BPS] = bps;
+    if (func_bar(t)) { pos = func_clock_end; live = 1; }
+    else for (i = 0; i < NVOICE; i++)
+        if (t->v[i].active) { pos = (uint32_t)(((uint64_t)(uint32_t)t->v[i].s[2] << 16) / bps); u[FU_NOTE] = t->v[i].note; live = 1; }
+    pos &= 0x7fffffffu;
+    for (k = 0; k < 16u; k++) {                         /* a step's start (and a hair): what begins there */
+        uint32_t P = (pos & ~0x3FFFFu) + k * 16384u + 64u;
+        func_peek(&w->pg.p, u, P, (uint32_t)((uint64_t)P * bps >> 16), &pk);
+        for (i = 0; i < 3u; i++) if ((pk.has >> i & 1u) && pk.age[i] < 1024u) hit[i] |= 1u << k;
+        for (i = 0; i < pk.neu; i++) if (pk.eu[i]) hit[3u + i] |= 1u << k;
+        lanes |= (pk.has & 7u) | ((1u << pk.neu) - 1u) << 3;
+    }
+    func_peek(&w->pg.p, u, pos, (uint32_t)((uint64_t)pos * bps >> 16), &now);
+    b[0] = 0; str_cpy(b, "BAR ", sizeof b); fmt_int(b + 4, (int32_t)(pos >> 18) + 1);
+    str_cpy(b + str_len(b), "  STEP ", sizeof b - str_len(b)); fmt_int(b + str_len(b), (int32_t)(pos >> 14 & 15u) + 1);
+    hud_tag(x, y, "FUNC", 0x0000, tc);
+    cv_text_on(x + 34, y + 2 - AF_X_CAP_Y, &AF_X, b, live ? T_TEXT : T_DIM, T_BG);
+    yy = y + 14;
+    for (k = 0; k < 16u; k++)                           /* the steps: the beats a little brighter */
+        cv_rect(lx + (int32_t)k * cw, yy, cw - 1, 3, k % 4u ? T_SURF : T_MID);
+    yy += 5;
+    for (i = 0; i < 6u && yy + row <= y + ht - 22; i++) {
+        if (!(lanes >> i & 1u)) continue;
+        cv_text_on(x, yy + 1 - AF_X_CAP_Y, &AF_X, form == 13u && i >= 3u ? LN[i - 3u] : LN[i], T_MID, T_BG);   /* (DRUMS: its
+                                                         * three eu() its kick, snare and hats) */
+        for (k = 0; k < 16u; k++)
+            cv_rect(lx + (int32_t)k * cw, yy, cw - 1, row - 2, hit[i] >> k & 1u ? tc : T_SURF);
+        yy += row;
+    }
+    if (live) {                                         /* the step playing */
+        int32_t cx = lx + (int32_t)(pos >> 14 & 15u) * cw;
+        cv_rect(cx - 1, y + 12, cw + 1, 1, HUD_YE); cv_rect(cx - 1, yy, cw + 1, 1, HUD_YE);
+        cv_rect(cx - 1, y + 12, 1, yy - y - 12, HUD_YE); cv_rect(cx + cw - 1, y + 12, 1, yy - y - 12, HUD_YE);
+    }
+    yy = y + ht - 20;
+    if (now.has & 8u) { str_cpy(b, "NOTE ", sizeof b); note_name(b + 5, clamp((int32_t)now.note, 0, 127)); }
+    else if ((now.has & 16u) && (0xE68u >> form & 1u)) {   /* (GROWL ACID REESE JUST PLUCK NIBBLE: w * x / 4, the table's
+                                                         * pick a harmonic, as a ratio) */
+        int32_t q = ((int32_t)now.tab - 48) * 25;
+        str_cpy(b, "TONE X", sizeof b); fmt_int(b + 6, q / 100); str_cpy(b + str_len(b), ".", 2); fmt_int(b + str_len(b), q % 100 / 10);
+        fmt_int(b + str_len(b), q % 10);
+    } else { str_cpy(b, "KEY ", sizeof b); note_name(b + 4, u[FU_NOTE]); }
+    cv_text_on(x, yy - AF_X_CAP_Y, &AF_X, b, live ? HUD_YE : T_MID, T_BG);
+    for (k = 0; k < 4u; k++) {                          /* the knobs by their names, as on their cards */
+        const param_desc_t *d = &FUNC_KNOBS[form][k];
+        str_cpy(b, d->label, sizeof b); str_cpy(b + str_len(b), " ", 2);
+        fmt_int(b + str_len(b), clamp(t->p[P_E2 + k], 0, 127) * 100 / 127);
+        cv_text_on(x + (int32_t)(1u + k % 2u) * (wd / 3), yy + (int32_t)(k / 2u) * 10 - AF_X_CAP_Y, &AF_X, b, T_TEXT, T_BG);
+    }
+}
 /* the panel at A {x, y, w, h} (px), en_home HOME's level (-1: the part's own): 0 when t plays no formula */
 static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
 {
@@ -348,7 +446,10 @@ static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
             uint32_t i, tt = 0, age = 0;
             for (i = 0; i < NVOICE; i++)
                 if (t->v[i].active && t->v[i].age >= age) { age = t->v[i].age; tt = (uint32_t)t->v[i].s[2]; }
-            hud_census(w, x + 2, y + 20, age ? tt : anim_fr * 64u, tc);
+            if (t->p[P_E1] == RW_FUNC)                  /* (func-tame) FUNC: the bar, its lanes, the note, the knobs */
+                hud_func(t, w, x + 2, y + 20, wd - 4, ht - 20, tc);
+            else
+                hud_census(w, x + 2, y + 20, age ? tt : anim_fr * 64u, tc);
         }
     }
     return 1;

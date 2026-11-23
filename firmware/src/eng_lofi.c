@@ -623,8 +623,8 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     v->ph[1] = ts;
 }
 
-static const char MATH_FUNC_DEFAULT[] = "func{let bt=P%64;let r=bt*(1+int(D*3));return sat(chord(n-12+\"0573\"[int(bt/8)]-48,bt%8,A)*.5+note(n+\"0247\"[int(r)]-48,r%1,A)*.5+(bt>8&&bt<48)*(kick(bt%1)*.75+snare((bt+1)%(2-B))*.5+hat(bt*(2+int(C*3)*2)%1)*.75));}";
-static const char MATH_FUNC_BEAT[] = "func{let bt=P%32;let st=int(bt*4);return sat(note(n-24+(st^(st>>2))%5*3,bt*4%1,A)*.8+(bt<24)*(kick(bt%(1.5+D*.5))*.8+snare((bt+1)%(2-B))*.4+hat(bt*(2+int(C*3)*2)%1)*.6));}";
+static const char MATH_FUNC_DEFAULT[] = "func{let bt=P%64;let r=bt*(1<<int(D*2.99));return sat(chord(\"0573\"[int(bt/8)]+n-60,bt%8,A)*.5+note(\"0247\"[int(r)]+n-48,r%1,A)*.5+(int(bt)-8<40)*(kick(bt%1)*.75+snare((bt+1)%(2-(B>.5)))*.5+hat(bt*(2<<int(C*2.99))%1)*.75));}";
+static const char MATH_FUNC_BEAT[] = "func{let bt=P%32;let st=int(bt*4);return sat(note(n-24+(st^(st>>2))%5*3,bt*4%1,A)*.8+(bt<24)*(kick(bt%4%((\"324\"[int(D*2.99)]-48)*.5))*.8+snare((bt+1)%(2-(B>.5)))*.4+hat(bt*(2<<int(C*2.99))%1)*.6));}";
 /* (BYTE 0.16, FORM 4's first recipes, the owner's references 12 and 4, docs/FORM-REFERENCIAS.md) GROWL: two formants by
  * sync on the note's cycle, a trapezoid wobble moving the vowel (A the vowel, B the wobble 1/4 .. 1/16, C the drive),
  * the notes from a table fused by the seed (D) and the section, its action eu(): two euclidean rhythms drawn and joined.
@@ -692,13 +692,48 @@ static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32
     v->s[2]=(int32_t)(q+(n<<sh));v->ph[0]=ph;v->s[4]=y1;v->s[5]=y2;
 }
 
+/* (func-tame) FUNC's A B C D by FORM: their names on the cards, the matrix, the editor (all through lofi_desc), and a
+ * line each in the header while one turns (ui_input.c knob_hint, MENU > DISPLAY > HELP). CUSTOM (and a LOOP past the
+ * recipes', as math_func_text) the program's own A B C D. Flash only; the stored values the same (0 .. 127) */
+#define FK(a,b,c,d) {{a,F_PCT,0,127,64,0},{b,F_PCT,0,127,32,0},{c,F_PCT,0,127,16,0},{d,F_PCT,0,127,0,0}}
+static const param_desc_t FUNC_KNOBS[15][4]={FK("A","B","C","D"),FK("COLOR","SNARE","HATS","STEPS"),
+    FK("COLOR","SNARE","HATS","KICK"),FK("VOWEL","WOBBLE","DRIVE","SEED"),FK("DEPTH","RING","DRIVE","SEED"),
+    FK("CUTOFF","RESO","DRIVE","SEED"),FK("DETUNE","TONE","DRIVE","SEED"),FK("CHORD","BASS","KICK","SEED"),
+    FK("COLOR","CHORD","DRIVE","SEED"),FK("BRIGHT","FM","DRIVE","SEED"),FK("SHAPE","TONE","DRIVE","SEED"),
+    FK("PWM","SUB","DRIVE","SEED"),FK("SLOW","KICK","DRIVE","SEED"),FK("HATS","SNARE","KICK","SEED"),
+    FK("INDEX","RATIO","FOLD","CRUSH")};
+#undef FK
+#define FUNC_SEED "PICKS NOTES + RHYTHM"
+static const char *const FUNC_TIPS[15][4]={
+    {"CONTROL A, 0 TO 1","CONTROL B, 0 TO 1","CONTROL C, 0 TO 1","CONTROL D, 0 TO 1"},
+    {"CHORD + MELODY TONE","EVERY 2 BEATS OR 1","2, 4 OR 8 A BEAT","1, 2 OR 4 A BEAT"},
+    {"BASS HARMONICS","EVERY 2 BEATS OR 1","2, 4 OR 8 A BEAT","3-3-2, 4 OR 2 A BAR"},
+    {"FORMANT OPENING","2, 4, 6, 8 A BAR","SATURATION",FUNC_SEED},
+    {"WOBBLE DEPTH","RING MOD PITCH","SATURATION",FUNC_SEED},
+    {"ACID FILTER OPEN","RESONANCE SQUELCH","SATURATION",FUNC_SEED},
+    {"SAW SPREAD","FOLD BRIGHTNESS","SATURATION",FUNC_SEED},
+    {"MINOR, MAJOR, 7TH","BASS FM GROWL","KICK LEVEL",FUNC_SEED},
+    {"NOTE HARMONICS","MINOR, MAJOR, SUS4","SATURATION",FUNC_SEED},
+    {"PHASE BEND","FM AMOUNT","SATURATION",FUNC_SEED},
+    {"PLUCK SHARPNESS","FM BODY","SATURATION",FUNC_SEED},
+    {"PULSE WIDTH SWEEP","SUB LEVEL","SATURATION",FUNC_SEED},
+    {"BYTEBEAT SLOWER","KICK LEVEL","SATURATION",FUNC_SEED},
+    {"HATS LEVEL","SNARE PITCH","PUNCH, FOLDED",FUNC_SEED},
+    {"FM SCREAM","MODULATOR 1 TO 7","WAVEFOLD GRIT","3 TO 15 LEVELS"}};
+#undef FUNC_SEED
+static uint32_t func_form(const track_t*t){return t->p[P_E7]>=1&&t->p[P_E7]<5+(int)NELEM(MATH_FUNC_R)?(uint32_t)t->p[P_E7]:0u;}
+_Static_assert(NELEM(FUNC_KNOBS)==5+NELEM(MATH_FUNC_R)&&NELEM(FUNC_TIPS)==NELEM(FUNC_KNOBS),"FUNC: a name for every FORM's knobs");
+/* its line of help: one of FUNC_KNOBS's, else 0 (knob_hint's own table) */
+static const char *func_knob_tip(const param_desc_t*d){
+    uintptr_t o=(uintptr_t)d-(uintptr_t)&FUNC_KNOBS[0][0];
+    return o<sizeof FUNC_KNOBS?FUNC_TIPS[o/sizeof FUNC_KNOBS[0]][o%sizeof FUNC_KNOBS[0]/sizeof(param_desc_t)]:0;
+}
 static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
     if(t->p[P_E1]==RW_FUNC){
-        static const param_desc_t control[4]={{"A",F_PCT,0,127,64,0},{"B",F_PCT,0,127,32,0},{"C",F_PCT,0,127,16,0},{"D",F_PCT,0,127,0,0}};
         static const char*const runs[]={"-","-","-","-","TRIG","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK","NIBBLE","BITS","DRUMS","SCREECH"};
         static const param_desc_t run={"RUN",F_ENUM,4,6,5,runs},form={"FORM",F_ENUM,0,14,1,forms},root={"ROOT",F_INT,-24,24,0,0};
-        return k==0u?&run:k>=2u&&k<=5u?&control[k-2u]:k==6u?&root:k==7u?&form:0;
+        return k==0u?&run:k>=2u&&k<=5u?&FUNC_KNOBS[func_form(t)][k-2u]:k==6u?&root:k==7u?&form:0;
     }
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */
         return &LOFI_MOTN;

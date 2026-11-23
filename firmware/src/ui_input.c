@@ -7,19 +7,23 @@
  * turns (its card keeps the value), MENU > DISPLAY > HELP OFF silences it. One string: label, meaning, label, .. */
 static const char KNOB_HINT[] =
     "CUT\0FILTER CUTOFF\0""RES\0FILTER RESONANCE\0""Q\0RESONANCE\0""DRIVE\0SATURATION\0""DIST\0DISTORTION\0""DLY\0DELAY SEND\0""REV\0REVERB SEND\0""CHORUS\0CHORUS SEND\0""ATK\0ATTACK TIME\0""DEC\0DECAY TIME\0""SUS\0SUSTAIN LEVEL\0""REL\0RELEASE TIME\0""GLIDE\0GLIDE TIME\0""UNISON\0DETUNED STACK\0""VOICES\0VOICE MODE\0""VEL\0VELOCITY AMOUNT\0""IMAGE\0STEREO WIDTH\0""LEN\0PATTERN LENGTH\0""DIV\0STEP SPEED\0""GATE\0NOTE LENGTH\0""CHANCE\0STEP PROBABILITY\0""HUMAN\0TIMING HUMANIZE\0""FEEDBK\0DELAY REPEATS\0""FB\0FEEDBACK\0""DAMP\0HIGH DAMPING\0""PRE\0PRE-DELAY\0""CLIP\0MASTER CLIPPER\0""PUNCH\0DRUM PUNCH\0""DUCK\0SIDECHAIN DUCK\0""WOW\0TAPE WOBBLE\0""ROOT\0SCALE ROOT\0""STRUM\0STRUM TIME\0""PROB\0PROBABILITY\0""FADE\0LFO FADE IN\0""SLEW\0SMOOTHING\0""SPREAD\0STEREO SPREAD\0""FOLD\0WAVEFOLDER\0""DUST\0CRACKLE NOISE\0""RTRG\0PHASE RESET\0""VAR\0FORMULA VARIANT\0""CAOS\0CHAOS AMOUNT\0""LIFE\0LIFE DEPTH\0""CRUSH\0BIT CRUSH\0""KEY TRK\0CUTOFF FOLLOWS KEY\0""WARP\0TIME WARP\0""FORM A\0STATE A\0""FORM B\0STATE B\0""MORPH\0A TO B, BY TIMBRE\0""STYLE\0FUNCBEAT FLAVOUR\0""DEF A\0DEFORM A\0""DEF B\0DEFORM B\0""OCT A\0OCTAVE A\0""OCT B\0OCTAVE B\0""RATE A\0STEP RATE A\0""RATE B\0STEP RATE B\0""PROG\0CHORD PROGRESSION\0""LENGTH\0BARS A CHORD\0""CHORD\0CHORD TYPE\0""VOICING\0CHORD SPREAD\0""MOD A\0EQUATION ON DEF A\0""MOD B\0EQUATION ON DEF B\0""DEPTH\0HOW FAR\0""SPEED\0HOW FAST\0""HITS\0EUCLID HITS\0""SWING\0SWING AMOUNT\0" "FUSION\0" "DRUMS AND FORMULA MIXED\0" "KIT\0" "DRUM SOUND\0" "GROOVE\0" "DRUM PATTERN\0" "GL MODE\0GLIDE: RATE OR TIME\0""AMOUNT\0HOW MUCH\0""DEST\0WHAT IT MOVES\0""TUNE\0TUNING\0";
-static void knob_hint(const char *label)
+static void knob_hint(const char *label, const char *meaning)   /* (func-tame) meaning: the knob's own (FUNC's A..D by
+                                                         * FORM, eng_lofi.c func_knob_tip), else 0: the table's */
 {
     const char *p = KNOB_HINT;
     char b[40];
     if (!label || (ui_help_off & 1u))
         return;
-    while (p < KNOB_HINT + sizeof KNOB_HINT - 1u && !str_eq(p, label))
-        p += str_len(p) + 1u, p += str_len(p) + 1u;
-    if (p >= KNOB_HINT + sizeof KNOB_HINT - 1u)
-        return;
+    if (!meaning) {
+        while (p < KNOB_HINT + sizeof KNOB_HINT - 1u && !str_eq(p, label))
+            p += str_len(p) + 1u, p += str_len(p) + 1u;
+        if (p >= KNOB_HINT + sizeof KNOB_HINT - 1u)
+            return;
+        meaning = p + str_len(p) + 1u;
+    }
     str_cpy(b, label, sizeof b);
     str_cpy(b + str_len(b), ": ", sizeof b - str_len(b));
-    str_cpy(b + str_len(b), p + str_len(p) + 1u, sizeof b - str_len(b));
+    str_cpy(b + str_len(b), meaning, sizeof b - str_len(b));
     if (ui.msg_t && str_eq(ui.msg, b)) { ui.msg_t = 40; return; }   /* (still turning: it stays) */
     ui_say(b, "");
 }
@@ -3286,7 +3290,7 @@ static void ui_input_frame(void)
         }
         if (!ui.home && !ui.menu && !ui.confirm) {      /* (JIANT FM V10.7.60) its meaning in the header */
             const param_desc_t *hd = page_desc(pg, k, &hv);
-            if (hd) knob_hint(hd->label);
+            if (hd) knob_hint(hd->label, func_knob_tip(hd));
         }
         if (home_macros()) {                            /* (0.8.5) HOME's MACROS: M1..M4 */
             macro_turn(k, s, accel(EN_K1 + k, s, 127));   /* (JIANT BYTE: left past 0, an equation) */

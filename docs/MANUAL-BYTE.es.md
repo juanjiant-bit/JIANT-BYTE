@@ -495,11 +495,43 @@ fórmulas del instrumento. No es JavaScript. Para empezar, elegí el preset **FU
 entera) o arranca en cada nota (para instrumentos y texturas); cuatro perillas **A–D** son controles del programa y
 destinos de la matriz.
 
-> FUNC se está rehaciendo en otra rama: las perillas A–D van a tener nombres propios según la composición y los
-> patrones van a ser menos azarosos. Por eso este manual no detalla qué hace cada una.
+| Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
+| --- | --- | --- | --- | --- |
+| EDIT 1 | RUN (NOTE / SONG) | WAVE | A | B |
+| EDIT 2 | C | D | ROOT (−24…+24) | FORM (CUSTOM, SONG, BEAT y las recetas) |
 
-**OCT+** en la página del motor abre el editor del programa; **OCT+** aplica, **OCT−** cancela. Un programa con error
-muestra el error y conserva el anterior. El emulador tiene además un editor de texto debajo del instrumento.
+- **RUN SONG** sigue a PLAY / STOP con una voz por pista: el teclado no duplica la pieza (usá ROOT para transponerla).
+  **RUN NOTE** corre la función desde cada nota, para instrumentos y texturas.
+- **FORM** explora las dos composiciones (SONG, BEAT) y vuelve a tu código (**CUSTOM**). Cambiar FORM o de preset no
+  borra el texto CUSTOM.
+- **A–D** son controles del programa (0–100 %) y destinos de la matriz. Cada FORM les pone nombre (en las tarjetas, la
+  matriz y el editor) y, con MENU > DISPLAY > HELP, una línea arriba que dice qué hace la perilla mientras la girás. En
+  CUSTOM se llaman A B C D. Todo lo que cambia un ritmo va por pasos de la grilla (nunca se desfasa de la secuencia):
+
+  | FORM | A | B | C | D |
+  | --- | --- | --- | --- | --- |
+  | SONG | COLOR (voicing y color) | SNARE (cada 2 tiempos o cada 1) | HATS (2, 4 u 8 por tiempo) | STEPS (1, 2 o 4 notas por tiempo) |
+  | BEAT | COLOR (armónicos del bajo) | SNARE (cada 2 o cada 1) | HATS (2, 4 u 8) | KICK (3-3-2, en negras o cada 2) |
+  | GROWL | VOWEL | WOBBLE (2, 4, 6 u 8 por compás) | DRIVE | SEED |
+  | HALFTIME | DEPTH | RING | DRIVE | SEED |
+  | ACID | CUTOFF | RESO | DRIVE | SEED |
+  | REESE | DETUNE | TONE | DRIVE | SEED |
+  | HOUSE | CHORD | BASS | KICK | SEED |
+  | STRUM | COLOR | CHORD (menor, mayor, sus4) | DRIVE | SEED |
+  | JUST | BRIGHT | FM | DRIVE | SEED |
+  | PLUCK | SHAPE | TONE | DRIVE | SEED |
+  | NIBBLE | PWM | SUB | DRIVE | SEED |
+  | BITS | SLOW | KICK | DRIVE | SEED |
+  | DRUMS | HATS | SNARE | KICK | SEED |
+  | SCREECH | INDEX | RATIO | FOLD | CRUSH (y semilla) |
+
+  **SEED** elige qué notas de la tabla y qué ritmo (eu()) toca la receta: cada valor, otra pieza.
+- La página del motor muestra, debajo del código, el compás que suena: los 16 pasos con el actual marcado, una fila por
+  cada tambor del programa (KICK, SNARE, HAT) y por cada ritmo eu() (ACT), la nota (NOTE, o TONE: el armónico que eligió
+  la tabla) y las cuatro perillas con su nombre.
+- **OCT+** en la página del motor abre el editor del programa; **OCT+** aplica, **OCT−** cancela. Un programa con error
+  muestra el error y conserva el anterior. Editar una plantilla y aplicarla la convierte en CUSTOM. El emulador tiene
+  además un editor de texto debajo del instrumento.
 
 Lo que tiene un programa:
 
