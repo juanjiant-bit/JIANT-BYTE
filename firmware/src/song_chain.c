@@ -158,7 +158,7 @@ static uint32_t rec_src[CHAIN_ROWS] __attribute__((section(".lowbuf")));   /* SO
 static void song_mode_restore(void)
 {
     if ((chain_config.rsv[2] & 0xFEu) == SONG_MODE_TAG)
-        live.mode = chain_config.rsv[2] & 1u;
+        live.mode = (chain_config.rsv[2] & 1u) && chain_config.count;   /* (the owner: no rows, the loop: PLAY plays) */
 }
 
 static void chain_start(void);                   /* song_play.c (end of seq.c) */

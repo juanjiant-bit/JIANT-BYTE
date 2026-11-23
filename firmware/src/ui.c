@@ -865,6 +865,10 @@ static void chain_play_ui(void)
         char b[8] = "A EMPTY";
         b[0] = (char)('A' + rc - 3u);
         ui_say("PATTERN ", b);
+    } else if (rc == 1u && !(!ui.home && cur_page()->graph == GR_SONG)) {   /* (the owner: SONG mode with no rows would
+                                                         * not play: off the song's page, the loop) */
+        live.mode = 0;
+        transport_req = 1;
     } else {
         ui_message(rc == 1u ? "ADD A SONG ROW" : "STOP FIRST");
     }

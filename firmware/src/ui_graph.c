@@ -1343,6 +1343,15 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
             h = (h ^ ((uint32_t)t->v[i].stage << 24 | (uint32_t)t->v[i].env >> 16)) * 16777619u;
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
+    if (pg->id[0] == P_CHRD || pg->graph == GR_SCALE) {   /* (the owner: CHORD and SCALE follow the key played, the
+                                                      * voices sounding; SCALE's sphere turns) */
+        h ^= (uint32_t)last_note * 2654435761u;
+        for (i = 0; i < NVOICE; i++) h = (h ^ (uint32_t)(t->v[i].active && t->v[i].gate) << i) * 16777619u;
+        if (pg->graph == GR_SCALE && !ANIM_OFF()) h ^= anim_fr / 2u * 2246822519u;
+    }
+    if (pg->scope == SC_GLOBAL && pg->id[0] == G_BPM && (song.playing || bg_energy() > 2))   /* (the owner: GLOBAL's
+                                                      * scope, live while it sounds) */
+        h ^= anim_fr / 2u * 2246822519u;
     if (pg->scope == SC_GLOBAL)                      /* (codex/anim) GLOBAL's pictures: the song's values (they were seen
                                                       * a frame late, when the animation drew the panel again) */
         for (i = 0; i < G_COUNT; i++)
