@@ -642,12 +642,6 @@ static int page_visible(uint32_t i)
         return te == ENGI_INPUT && TSEL->p[P_E0] == AIN_SW;
     if (PAGES[i].graph == GR_LYRIC || PAGES[i].graph == GR_LYRSTEP)
         return trk_engp(TSEL) == &ENG_VOX_GONE;
-    if(PAGES[i].scope==SC_FORM)return te==ENGI_FORM;
-    if(te==ENGI_FORM&&PAGES[i].scope==SC_ENGINE&&PAGES[i].fam==FAM_EDIT)return 0;   /* (BYTE 0.17) FORM's EDIT 1, 2: its own pages */
-    if (te == ENGI_FORM && PAGES[i].fam == FAM_EDIT && (PAGES[i].id[0] == P_VOICE || PAGES[i].id[0] == P_FKEY))
-        return 0;                                       /* (BYTE 0.16, the owner) FORM: no PLAY (its voices), no TONE (its CRUSH
-                                                         * on PULSE) */
-    if(PAGES[i].fam==FAM_ARP&&te==ENGI_FORM)return 0;    /* (FORM 2) no arpeggio on FORM: its ARP slots are its GENES */
     if (PAGES[i].graph == GR_PATS_ || PAGES[i].graph == GR_CHANCE_)   /* (0.6.37) PHRASES, a step's CHANCE: out of the */
         return FELUCCA_PHRASES && !ui.home && ui.page == i;   /* SEQ pages' cycle (only where code put the screen;
                                                          * V10.7.33: out, core.h) */
@@ -665,7 +659,7 @@ static int page_visible(uint32_t i)
         return te == ENGI_DRUM || te == ENGI_INPUT;
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == ID_VMAX)   /* (JIANT FM V10.7.60) MORE: a synth's (BYTE 0.16: VOICES
                                                          * alone), MATH BYTE / FLOAT its own (RESTART) */
-        return te != ENGI_DRUM && te != ENGI_INPUT && te != ENGI_FORM && !(trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE);
+        return te != ENGI_DRUM && te != ENGI_INPUT && !(trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE);
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)   /* (0.6.10) OPERATOR, OP ENV, OPERATOR 2: FM6's
                                                          * (JIANT BYTE: retired) */
         return 0;
@@ -785,7 +779,7 @@ static uint32_t lz_fam(void)                            /* which lens */
 static uint32_t menu_tab(void);
 static uint32_t lz_level(void)
 {
-    uint8_t cnt[8], gi[8];
+    uint8_t cnt[12], gi[12];
     uint32_t f = lz_fam(), g, p, i, m;
     if (f == LZ_MENU)
         return menu_tab();
@@ -877,7 +871,7 @@ static void chain_play_ui(void)
 static int lock_page_ok(uint32_t i)
 {
     uint32_t k;
-    if (i >= NPAGES || (PAGES[i].scope != SC_TRACK && PAGES[i].scope != SC_ENGINE && PAGES[i].scope != SC_FORM) || PAGES[i].graph == GR_MOD ||
+    if (i >= NPAGES || (PAGES[i].scope != SC_TRACK && PAGES[i].scope != SC_ENGINE) || PAGES[i].graph == GR_MOD ||
         PAGES[i].graph == GR_MSEQ)
         return 0;
     for (k = 0; k < 4u; k++)
@@ -1734,8 +1728,6 @@ static void apply_preset_to(track_t *t, uint32_t pi)
             t->p[P_DIST + i] = (int16_t)(pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);
         preset_mods(t, pr);                           /* (V10.6i) its movement: LFO, ENV 2, MOD, FILTER */
     }
-    if (e == &ENG_FORM)                               /* (BYTE) FORM's modulators: DEST+SHAPE+RATE in full */
-        form_preset_ds(t, pi);
     fm6_track_loaded(t);                              /* FM6: the preset's patch (its SLOT) */
     load_end(t);
 }
@@ -1760,11 +1752,6 @@ static void set_engine_of(track_t *t, uint32_t ei)
     fm1_irq_off();
     if (e == &ENG_DRUM)                               /* (V10.6r) DRUM-X: the EXTENDED key map (a kit's load keeps it) */
         t->p[P_DKEYMODE] = 1;
-    if (t->eng_req == ENGI_FORM && e != &ENG_FORM)     /* (BYTE 0.16) out of FORM: the slots it owned (RATE B in the
-                                                         * pattern's LEN, DRUMS in UNISON ..) back to their own defaults */
-        for (i = 0; i < P_COUNT; i++)
-            if (form_owned_param(i) && TP[i].label)
-                t->p[i] = TP[i].def;
     t->eng_req = (uint8_t)(ei % NENGINES);
     for (i = 0; i < 8u; i++)
         t->p[P_E0 + i] = e->edit[i].def;

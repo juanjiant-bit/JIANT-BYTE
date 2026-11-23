@@ -278,6 +278,9 @@ static const param_desc_t DXIMG_DESC = {"IMAGE", F_INT, 0, 127, 0, 0};       /* 
 #define ID_EU0 0xF0u
 #define ID_SC0 0xE8u                                    /* (V10.25) SCL > SCENE's four (ui_scene.c sc_desc) */
 #define ID_MU0 0xE4u                                    /* (V10.16) SEQ > MUTATE's four (EK_U0 + 0..3) */
+#define ID_CL0 0xC0u                                    /* (BYTE) DRONE CLAY's CL_N (eng_form.c CL_*, seq.c clay_desc) */
+_Static_assert(ID_CL0 + CL_N <= 0xE0u && P_COUNT < ID_CL0, "DRONE CLAY's ids between the parameters and EQ's");
+static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **valp);   /* (seq.c) */
 static const param_desc_t *eu_desc(uint32_t k, int16_t **valp);
 static const param_desc_t *sc_desc(uint32_t k, int16_t **valp);   /* (V10.25) ui_scene.c */
 static const char *const N_CHRD[] = {"OFF", "TRIAD", "7TH", "ADD9", "SUS2", "SUS4", "MAJ", "MIN", "7", "MAJ7", "MIN7",
@@ -324,7 +327,6 @@ static const param_desc_t FN_DESC[9] = {{"KEY TRK", F_PCTINV, 0, 127, 127, 0}, {
 static const param_desc_t *track_desc(const track_t *t, uint32_t id)
 {
     const engine_t *en = ENGINES[eng_idx(t->eng_req)];   /* (filters2: once) */
-    if(en==&ENG_FORM){const param_desc_t*d=form_common_desc(id);if(d)return d;}
     if (id == MOT_DJF)                                /* (0.9.1) a DJ FILTER record (motion.c): the global's */
         return &GP[G_DJF];
     if (id == P_SIMG && en != &ENG_DRUM)              /* (V10.49) a synth's STEREO IMAGE (codex/coherence:
@@ -380,7 +382,6 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
  * only; range and default are the same): what the editor protocol, user presets and projects use */
 static const param_desc_t *param_desc_of(uint32_t e, uint32_t id)
 {
-    if(e==ENGI_FORM){const param_desc_t*d=form_common_desc(id);if(d)return d;}
     return id >= P_E0 ? &ENGINES[e]->edit[id - P_E0] : &TP[id];
 }
 /* (V10.6z4) the default a store (projects, user presets) leaves out or fills in: GATE's 50 % as every store before
@@ -679,12 +680,12 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
 /* ------------------------------------------------------------ pages --- */
 enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE, FAM_ARP, FAM_SEQ, FAM_TRK,
        FAM_COUNT };
-enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK, SC_FORM };   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
+enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK };   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
        GR_SLCR, GR_MOD, GR_PATS_, GR_SONG, GR_TOOLS, GR_CHANCE_, GR_MOTION, GR_EVENTS, GR_DXSND, GR_MSEQ, GR_SLPIT,
        GR_FMOP, GR_FMOP2, GR_FMENV,
        GR_COMP, GR_EUCLID, GR_MORPH, GR_DXIMG, GR_FUGUE, GR_SHAPE, GR_PUNCH, GR_BUSES, GR_FOCUS, GR_STAGE,
-       GR_LYRIC, GR_GCOMP, GR_LIVE, GR_SCENE, GR_SONGSAVE, GR_SPLIT, GR_SPLIT2, GR_LYRSTEP, GR_TRACKGEN, GR_SWARM };   /* append only */   /* (0.8.5:
+       GR_LYRIC, GR_GCOMP, GR_LIVE, GR_SCENE, GR_SONGSAVE, GR_SPLIT, GR_SPLIT2, GR_LYRSTEP, GR_TRACKGEN, GR_SWARM, GR_CLAY };   /* append only */   /* (0.8.5:
                                                          * LENTE's EDIT > FOCUS, ENV > STAGE) */   /* (0.6.99) FX > PUNCH: the punch-in lane */   /* (JIANT 0.6.39) SEQ > COMP: the step components (ui_input.c comp_*, ui_graph.c graph_comp) */   /* (JIANT 0.6.10, from Felucca 1.5: FM6's operator pages, ui_fm6op.c) */
 
 /* (V10.7.33) PHRASES and CHANCE out (core.h FELUCCA_PHRASES): a value no page's byte holds, every test of them false */
@@ -821,16 +822,15 @@ static const page_t PAGES[] = {
                                                          * mode: SCENE, TRACK, ROLE, CHORD (ui_scene.c) */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
-    /* (FORM 2, the owner: by importance, no DELAY) after STATES and RULES (the engine's): the timbre (STYLE DRIVE TONE
-     * WOBBLE, in its ARP slots), the harmony, the layers, the clock */
-    /* (BYTE 0.17, the owner: "a monophonic entity, a drone the modulators turn into every stage of the beat") FORM:
-     * RUN ROOT RATE SEED; DRONE: SHAPE FM FOLD CRUSH; MOD 1 .. 4: DEST EUCLID AMOUNT DECAY (eng_form.c FORM_MF) */
-    {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_ROOT,P_E0,P_FRA}},   /* (RUN FREQ RATE PALET: the owner, every page its four) */
-    {"DRONE", FAM_EDIT, SC_FORM, GR_NONE, {P_E2,P_E3,P_E4,P_E5}},   /* (SHAPE FM FOLD FEEDBK) */
-    {"DRONE 2", FAM_EDIT, SC_FORM, GR_NONE, {P_FRA,0xFF,0xFF,0xFF}},   /* (PALET) */
-    {"MOD", FAM_EDIT, SC_FORM, GR_NONE, {ID_FV0,ID_FV0+1u,ID_FV0+2u,ID_FV0+4u}},   /* (KNOB 1 the modulator, DEST SHAPE EUCLID
-                                                         * its own: eng_form.c form_view, form_page_id) */
-    {"MOD AMT", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,ID_FV0+3u,P_E1}},   /* (+ its RATE; SEED: FUSE's) */
+    /* (BYTE, the owner: FORM out as an engine) SEQ > DRONE CLAY: ON, the drone's OCT, its RATE, RUN; CLAY MOD 1 .. 4: DEST
+     * SHAPE EUCLID AMOUNT; CLAY DECAY: the four's; CLAY TIME: STEP SEED (eng_form.c CL_*, seq.c clay_desc) */
+    {"DRONE CLAY", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_ON, ID_CL0 + CL_OCT, ID_CL0 + CL_RATE, ID_CL0 + CL_RUN}},
+    {"CLAY MOD 1", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + 4u, ID_CL0 + 5u, ID_CL0 + 6u, ID_CL0 + 7u}},
+    {"CLAY MOD 2", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + 8u, ID_CL0 + 9u, ID_CL0 + 10u, ID_CL0 + 11u}},
+    {"CLAY MOD 3", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + 12u, ID_CL0 + 13u, ID_CL0 + 14u, ID_CL0 + 15u}},
+    {"CLAY MOD 4", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + 16u, ID_CL0 + 17u, ID_CL0 + 18u, ID_CL0 + 19u}},
+    {"CLAY DECAY", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_DEC, ID_CL0 + CL_DEC + 1u, ID_CL0 + CL_DEC + 2u, ID_CL0 + CL_DEC + 3u}},
+    {"CLAY TIME", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_STEP, ID_CL0 + CL_SEED, 0xFF, 0xFF}},
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
@@ -1034,11 +1034,6 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         *valp = 0;
         return 0;
     }
-    if (pg->scope == SC_FORM) {                       /* (BYTE 0.17) FORM's MOD page: KNOB 1 the modulator the rest edit */
-        if (id >= ID_FV0 && id < ID_FV0 + 5u)
-            return form_view_desc(TSEL, id - ID_FV0, valp);
-        id = form_page_id(id);
-    }
     if (id == ID_ALLTR) {                             /* (0.7.6) SCL's KNOB 4: the global ALL TR on the track page */
         *valp = &song.g[G_STRN];
         return &GP[G_STRN];
@@ -1078,6 +1073,8 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return eu_desc(id - ID_MU0 + 8u, valp);
     if (id >= ID_SC0 && id < ID_SC0 + 4u)            /* (V10.25) SCENE's */
         return sc_desc(id - ID_SC0, valp);
+    if (id >= ID_CL0 && id < ID_CL0 + CL_N)          /* (BYTE) DRONE CLAY's (seq.c clay_desc) */
+        return clay_desc(TSEL, id - ID_CL0, valp);
     *valp = &TSEL->p[id];
     if (id == P_APRATE && TSEL->p[P_APSYNC])         /* (0.6.9) AUTO PAN on the tempo: a division */
         return &AP_BEAT;

@@ -924,7 +924,7 @@ static void tabs_paint(uint32_t n, uint32_t lv, const char *const *nm, const cha
 static uint32_t tabs_now(const char **nm, const char **tab, uint8_t *cnt, uint32_t *lv, uint32_t *at)
 {
     uint32_t f = lz_fam(), n, k, i, m;
-    uint8_t gi[8];
+    uint8_t gi[12];
     if (f == LZ_MENU) {                                 /* the menu: its four tabs, a dot a row */
         for (k = 0; k < MTAB_COUNT; k++) {
             nm[k] = MTAB_NAME[k];
@@ -963,8 +963,8 @@ static uint32_t tab_first(uint32_t n, uint32_t lv)
 static void draw_tabs(void)
 {
     static uint32_t drawn;
-    const char *nm[8], *tab[8];
-    uint8_t cnt[8];
+    const char *nm[12], *tab[12];
+    uint8_t cnt[12];
     uint32_t lv, at, n = tabs_now(nm, tab, cnt, &lv, &at), k,
              sig = (lv + 1u) * 2654435761u + at * 40503u + ux.gen * 977u + lz_fam() * 131u + 1u +
                    n * 7919u + (song.sel + 1u) * 101u * (head_trk + 1u);
@@ -1019,7 +1019,7 @@ static __attribute__((noinline)) void foot_crumbs(char *b, uint32_t n)   /* b ho
         return;
     }
     {
-        uint8_t cnt[8], gi[8];
+        uint8_t cnt[12], gi[12];
         uint32_t g, p, i, m;
         (void)nav_groups(cnt, gi, &g, &p, &i, &m);
         str_cpy(b, SEC_NAME[nav_sec()], n);
@@ -1050,7 +1050,7 @@ static int32_t crumb_count(char *b)
         k = ui.lylv % 3u;
         n = 3;
     } else {
-        uint8_t cnt[8], gi[8];
+        uint8_t cnt[12], gi[12];
         uint32_t g, p;
         (void)nav_groups(cnt, gi, &g, &p, &k, &n);
     }

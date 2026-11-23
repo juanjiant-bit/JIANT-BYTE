@@ -199,32 +199,6 @@ static void graph_focus_lz(const track_t *t)
         cv_rect(x, y + 18, 54 * r / 1000 + 1, 3, heat_col(r * 256 / 1000));
     }
 }
-/* FORM visual language: equations, event masks, arrangement and harmony, not a repeated preset list. */
-/* (BYTE 0.17) FORM's panel: the drone playing (its scope), the four modulators as lanes of 16 steps (each its euclid's
- * hits, the step now lit, those that struck hot), their DEST, the page's modulator singled out */
-static void form_cap(int32_t x,int32_t y,const char*s,uint16_t c){cv_text_on(x,y-AF_S_CAP_Y,&AF_S,s,c,T_BG);}
-static const char *const FORM_HOW[55]={"SWAYS UP AND DOWN|EVERY 4 STEPS","JUMPS TO RANDOM|VALUES EACH STEP","WANDERS SLOWLY|TO RANDOM POINTS","BOUNCES ONCE|AND SETTLES","CLIMBS 4 STAIRS|EVERY 16 STEPS","BOUNCES FASTER|AND SMALLER","RISES SLOW|THEN FAST","FALLS FAST|THEN SLOW","RANDOM EVERY|HALF STEP","ONE LONG RAMP|OVER 64 STEPS","OPENS AT RANDOM|ONE IN FOUR","A GATE IN|TRIPLETS","DROPS OCTAVES,|SINE, LOUDER","MID PITCH,|DIRTY PHASE","VERY HIGH,|METALLIC FM","HIGH, METALLIC,|LONG TAIL","BURSTS OF|DIRTY PHASE","A SHORT HIGH|WOODEN CLICK","A LOW FALLING|SINE BODY","FALLS FROM|VERY HIGH","HIGH AND|FED BACK, GRITTY","DIRT THAT|FADES SLOWLY","DIRT THAT GROWS|OVER 8 STEPS","A HIGH METALLIC|WASH, LONG","RISES EVERY|4 STEPS, LOOPS","FALLS EVERY|4 STEPS, LOOPS","UP AND DOWN|EVERY 4 STEPS","ON AND OFF|EVERY 2 STEPS","RISES IN 4 STEPS|AND STAYS","JUMPS UP,|THEN FADES","A SLOW BUILD|OVER 16 STEPS","ON AND OFF|EVERY HALF STEP","A STUTTER THAT|SPEEDS UP","PUSHES DOWN|WHILE HELD","PUSHES UP|WHILE HELD","SINKS UNDER|HEARING: SILENCE","TO THE ROOT,|0 3 7 12 UP","TO THE ROOT,|12 7 3 0 DOWN","TO THE ROOT,|UP AND DOWN","TO THE ROOT,|RANDOM NOTES","A MINOR CHORD|STRUMMED FAST","A MAJOR CHORD|STRUMMED FAST","A SUS4 CHORD|STRUMMED FAST","A MINOR 7TH|STRUMMED FAST","4 NEIGHBOURS|STRUMMED FAST","TO THE ROOT,|AN OCTAVE UP","TO THE ROOT,|A FIFTH UP","SLIDES DOWN|AN OCTAVE","FM PARTNER|AT x1/2","FM PARTNER|AT x1","FM PARTNER|AT x1.5","FM PARTNER|AT x2","FM PARTNER|AT x3","FM PARTNER|AT x5","FM PARTNER|AT x7"};   /* (the owner: what it does, how) */
-/* the mass: the sound as a ribbon of clay, as thick as it is loud, bent as the audio bends (the scope's 64 points) */
-static void form_mass(int32_t y0,int32_t amp){
- int32_t i,px=6,py=y0;cv_rect(6,y0,228,1,ux_mix(T_BG,T_DIM,40));
- for(i=0;i<64;i++){int32_t v=form_scope[i],a=v<0?-v:v,x=6+i*228/63,y=y0-v*amp/32768,th=2+a*7/32768;
-  cv_rect(x-2,y-th,5,th*2+1,heat_col(80+a*170/32768));if(i)cv_line_t(px,py,x,y,T_TEXT,1);px=x;py=y;}
-}
-/* a modulator's card, large: its shape, MOD and DEST, RATE, what it does in two lines; the eight on the right */
-static void form_card(const track_t*t,const form_st_t*st,uint32_t mm,uint32_t sh,int live){
- static const char NM8[8][3]={"PI","FM","FO","FB","NO","SH","LV","RA"};
- int32_t ds=(int32_t)form_vds(t->p,mm),k;char b[24];const char*h=FORM_HOW[sh%FORM_NSH],*bar=h;uint32_t pg=sh/12u;
- cv_text_on(6,52-AF_L_CAP_Y,&AF_L,FORM_SHAPE[sh%FORM_NSH],live?T_THEME:T_TEXT,T_BG);
- b[0]='M';b[1]=(char)('1'+mm);b[2]=' ';b[3]='>';b[4]=' ';b[5]=0;
- str_cpy(b+5,pg==FPG_GES||pg==FPG_TAB?FORM_DEST[ds&7]:pg==FPG_HIT?"ALL OF IT":pg==FPG_NOTE?"PITCH":"FM",12);
- form_cap(6,72,b,T_TEXT);
- while(*bar&&*bar!='|')bar++;
- {char l1[20];uint32_t n=(uint32_t)(bar-h);if(n>19u)n=19u;memcpy(l1,h,n);l1[n]=0;form_cap(6,88,l1,T_MID);}
- if(*bar)form_cap(6,100,bar+1,T_MID);
- str_cpy(b,"RATE ",8);str_cpy(b+5,FORM_MRATE[ds>>9],8);form_cap(6,112,b,T_DIM);
- for(k=0;k<8;k++){int32_t x=112+k*16,v=st->dv[k],hh=(v<0?-v:v)*18/1024;
-  cv_rect(x,76,11,1,T_DIM);cv_rect(x,v<0?76:76-hh,11,hh?hh:1,v?heat_col(110+(v<0?-v:v)*140/1024):T_SURF);form_cap(x-2,(k&1)?110:98,NM8[k],T_DIM);}
-}
 /* (BYTE, the owner's references: telemetry) the panel a flight recorder: OUT the drone's wave in its track's colour;
  * under it the four modulators, each a trace of what it adds now, swept left to right; a yellow cursor reads it; each
  * its tag (lit when it strikes), its shape > DEST; the MOD page's one white */
@@ -239,48 +213,44 @@ static void ft_frame(int32_t y,int32_t h){int32_t x;
  cv_rect(32,y,206,1,T_SURF);cv_rect(32,y+h-1,206,1,T_SURF);
  for(x=32;x<238;x+=3)cv_rect(x,y+h/2,1,1,T_LINE);
  for(x=32;x<238;x+=34)cv_rect(x,y+h-4,1,3,T_DIM);}
-static __attribute__((noinline)) void graph_form_lz(const track_t*t){
+/* (BYTE) DRONE CLAY's panel: OUT the track's level as it sounds; under it the four modulators, each a trace of what it
+ * adds now, swept left to right, a strike colouring its line; each its tag (lit when it strikes), its SHAPE > DEST
+ * (the destination's own name: a sound knob's label); the page's modulator white; OFF: the four dim, CLAY OFF */
+static __attribute__((noinline)) void graph_clay_lz(const track_t*t){
  uint32_t tr=(uint32_t)(t-trk)%NTRK,m,i,sel=4u;
- const form_st_t*st=&form_st[tr];const form_g_t*kg=0;uint16_t tc=TRK_COL[tr%6u];
- const page_t*pg=cur_page();if(pg->id[0]==ID_FV0||pg->id[0]==P_CAOS)sel=(uint32_t)form_view[0]&3u;
+ const int16_t*c=clay[tr];uint16_t tc=TRK_COL[tr%6u];
+ const page_t*pg=cur_page();
+ if(pg->id[0]>=ID_CL0+CL_M0&&pg->id[0]<ID_CL0+CL_DEC)sel=(pg->id[0]-ID_CL0-CL_M0)/4u;
  cv_oy=0;form_scope_tr=(uint8_t)tr;
- for(i=0;i<FORM_G;i++)if((st->g[i].fl&11u)==9u&&st->g[i].key&&(!kg||st->g[i].t0>kg->t0))kg=&st->g[i];   /* (the newest key held) */
- {static uint32_t cms;static uint8_t cmod,csh,cv;        /* (the owner: a moment's card: while held, 0.6 s after) */
-  if(kg){cms=fm1_ms;cv=1;cmod=(uint8_t)(kg->mod&3u);csh=kg->sh;}
-  if(cv&&fm1_ms-cms>=600u)cv=0;
-  if(cv){form_mass(24,18);form_card(t,st,cmod,csh,kg!=0);return;}}
  if(hud_tick(0x20u|tr))
-  for(m=0;m<4u;m++){hud_put(m,hud_x,(uint32_t)(clamp(st->mv[m]>>4,-8,7)+8));hud_put(4u+m,hud_x,((form_lit[tr]>>m)&1u)*15u);}
- {int32_t px=0,py=0,pk=2048;ft_frame(1,22);ft_tag(1,6,"OUT",0x0000,tc);   /* OUT (as loud as it is, to the lane) */
+  for(m=0;m<4u;m++){hud_put(m,hud_x,(uint32_t)(clamp(clay_v[tr][m]>>11,-8,7)+8));hud_put(4u+m,hud_x,((form_lit[tr]>>m)&1u)*15u);}
+ {int32_t px=0,py=0,pk=16;ft_frame(1,22);ft_tag(1,6,"OUT",0x0000,tc);
   for(i=0;i<64u;i++){int32_t v=form_scope[i]<0?-form_scope[i]:form_scope[i];if(v>pk)pk=v;}
-  for(i=0;i<64u;i++){int32_t x=32+(int32_t)i*205/63,y=12-form_scope[i]*10/pk;if(i)cv_line_t(px,py,x,y,tc,1);px=x;py=y;}}
+  for(i=0;i<64u;i++){uint32_t j=(form_sc_i+i)&63u;int32_t x=32+(int32_t)i*205/63,y=20-form_scope[j]*18/pk;if(i)cv_line_t(px,py,x,y,c[CL_ON]?tc:T_DIM,1);px=x;py=y;}}
  for(m=0;m<4u;m++){
-  int32_t y=26+(int32_t)m*24,mid=y+11,ds=(int32_t)form_vds(t->p,m),px=0,py=0,cx=32+(int32_t)ft_x*3;
-  uint32_t d=(uint32_t)(ds&511)>>3,lit=(form_lit[tr]>>m)&1u,on=sel==m;char b[20];
-  uint16_t c=on?T_TEXT:FT_BL;
+  int32_t y=26+(int32_t)m*24,mid=y+11,px=0,py=0,cx=32+(int32_t)ft_x*3;
+  uint32_t lit=(form_lit[tr]>>m)&1u,on=sel==m;char b[24];int16_t*dv;
+  const param_desc_t*dd=clay_desc(t,CL_MF(m,0u),&dv);
+  uint16_t cl=!c[CL_ON]?T_DIM:on?T_TEXT:FT_BL;
   ft_frame(y,23);
-  b[0]='M';b[1]=(char)('1'+m);b[2]=0;ft_tag(1,y+1,b,lit?0x0000:on?0x0000:T_TEXT,lit?FT_YE:on?T_TEXT:FT_BL);
-  str_cpy(b,FORM_SHAPE[d],12);
-  {uint32_t pq=d/12u,n=0;while(b[n])n++;
-   if(pq==FPG_GES||pq==FPG_TAB){b[n]='>';str_cpy(b+n+1,FORM_DEST[ds&7],8);}}
-  {int32_t pk=2;for(i=0;i<FT_N;i++){int32_t a=ft_v(m,i)<0?-ft_v(m,i):ft_v(m,i);if(a>pk)pk=a;}   /* (its swing, to the lane) */
+  b[0]='M';b[1]=(char)('1'+m);b[2]=0;ft_tag(1,y+1,b,lit||on?0x0000:T_TEXT,lit?FT_YE:on?T_TEXT:FT_BL);
+  str_cpy(b,FORM_SHAPE[clay_sh(c[CL_MF(m,1u)])],12);
+  {uint32_t n=str_len(b);b[n]='>';str_cpy(b+n+1,dd&&dd->names?dd->names[clamp(c[CL_MF(m,0u)],dd->min,dd->max)]:"-",10);}
+  {int32_t pk=2;for(i=0;i<FT_N;i++){int32_t a=ft_v(m,i)<0?-ft_v(m,i):ft_v(m,i);if(a>pk)pk=a;}
   for(i=0;i<FT_N;i++){int32_t v=ft_v(m,i),x=32+(int32_t)i*3,yy=mid-v*10/pk;
-   {uint32_t j,hot=0;for(j=0;j<4u&&!hot;j++)hot=hud_get(4u+m,(i+FT_N-j)%FT_N)!=0u;   /* (the owner: a strike colours its line) */
-    if(i&&(i<=ft_x||i>ft_x+3u))cv_line_t(px,py,x,yy,hot?tc:c,on||hot?2:1);}px=x;py=yy;
-   if(hud_get(4u+m,i)&&!hud_get(4u+m,(i+FT_N-1u)%FT_N))cv_rect(x,y+19,2,3,T_TEXT);}}   /* (a strike: a tick) */
-  {int32_t w=text_w(&AF_X,b)+4;cv_rect(237-w,y+1,w,11,T_BG);cv_text_on(239-w,y+2-AF_X_CAP_Y,&AF_X,b,on?T_TEXT:T_DIM,T_BG);}   /* (its shape > DEST, right) */
+   {uint32_t j,hot=0;for(j=0;j<4u&&!hot;j++)hot=hud_get(4u+m,(i+FT_N-j)%FT_N)!=0u;
+    if(i&&(i<=ft_x||i>ft_x+3u))cv_line_t(px,py,x,yy,hot&&c[CL_ON]?tc:cl,on||hot?2:1);}px=x;py=yy;
+   if(hud_get(4u+m,i)&&!hud_get(4u+m,(i+FT_N-1u)%FT_N))cv_rect(x,y+19,2,3,T_TEXT);}}
+  {int32_t w=text_w(&AF_X,b)+4;cv_rect(237-w,y+1,w,11,T_BG);cv_text_on(239-w,y+2-AF_X_CAP_Y,&AF_X,b,on?T_TEXT:T_DIM,T_BG);}
   cv_rect(cx,y,1,23,FT_YE);cv_rect(cx-2,y,5,1,FT_YE);cv_rect(cx-1,y+1,3,1,FT_YE);
-  {int32_t v=ft_v(m,ft_x)*99/8,n=0;char q[6];if(v<0){q[n++]='-';v=-v;}if(v>9)q[n++]=(char)('0'+v/10);q[n++]=(char)('0'+v%10);q[n]=0;
-   cv_text_on(cx+3<210?cx+3:cx-22,y+12-AF_X_CAP_Y,&AF_X,q,FT_YE,T_BG);}
  }
+ if(!c[CL_ON]){int32_t w=text_w(&AF_M,"CLAY OFF")+8;cv_rect(120-w/2,52,w,20,T_BG);cv_text_on(124-w/2,56-AF_M_CAP_Y,&AF_M,"CLAY OFF",T_TEXT,T_BG);}
 }
 /* the lens's panel for EDIT's page pg (1), else 0 (its own) */
 static int graph_edit_lz(const track_t *t, const page_t *pg)
 {
     uint32_t e = trk_eng(t);
-    if(e==ENGI_FORM&&(pg->scope==SC_ENGINE||pg->scope==SC_FORM))
-        graph_form_lz(t);
-    else if ((pg->scope == SC_ENGINE && e != ENGI_DRUM) || pg->graph == GR_SWARM)
+    if ((pg->scope == SC_ENGINE && e != ENGI_DRUM) || pg->graph == GR_SWARM)
         graph_sound_lz(t);
     else if (pg->id[0] == P_FTYPE)
         graph_filter_lz(t, pg);
@@ -288,13 +258,9 @@ static int graph_edit_lz(const track_t *t, const page_t *pg)
         graph_voice_lz(t, pg);
     else if (pg->graph == GR_FOCUS)
         graph_focus_lz(t);
-    else if (pg->fam == FAM_EDIT && pg->graph == GR_NONE && (e == ENGI_FORM || trk_engp(t) == &ENG_WAVE || trk_engp(t) == &ENG_LOFI)) {
-        if (e == ENGI_FORM)                             /* (the owner: the pages FORM, WAVE, MATH inherit, FILTER 2, TONE, MORE:
-                                                         * their engine's own panel, not an empty one) */
-            graph_form_lz(t);
-        else
-            graph_sound_lz(t);
-    } else
+    else if (pg->fam == FAM_EDIT && pg->graph == GR_NONE && (trk_engp(t) == &ENG_WAVE || trk_engp(t) == &ENG_LOFI))
+        graph_sound_lz(t);                              /* (the owner: the pages WAVE, MATH inherit: their engine's panel) */
+    else
         return 0;
     return 1;
 }

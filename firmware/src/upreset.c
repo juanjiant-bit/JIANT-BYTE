@@ -459,13 +459,17 @@ static int up_load(uint32_t k)
         fm1_irq_off();                                  /* the audio ISR must not see half a sound */
         t->eng_req = r->engine;
         for (i = 0; i < P_COUNT; i++)
-            if (!param_kept(i) || (r->engine==ENGI_FORM&&form_owned_param(i)))
+            if (!param_kept(i))
                 t->p[i] = v[i];
         t->preset = 0;
         fm1_irq_on();
         upf_track_load(t, k);                           /* FM6: the preset's own patch (up_fm6.c) */
         if (eng_gone(r->engine))                        /* a retired engine (core.h): ANALOG's first preset */
             set_engine_of(t, ENGI_PHYS_TO);
+        if (r->engine == ENGI_FORM) {                   /* (BYTE) a FORM sound: WAVE's first, its modulators DRONE CLAY's */
+            clay_from_form(song.sel % NTRK, v);
+            set_engine_of(t, ENGI_WAVE);
+        }
     }
     if (r->packed[UP_DT_AT] == UP_DT_MARK && r->packed[UP_CRU_AT])   /* (V10.7.33) a DIST TYPE CRUSH sound: its CRUSH */
         cru_v[song.sel % NTRK] = (int16_t)(r->packed[UP_CRU_AT] & 127u);

@@ -731,12 +731,6 @@ static int vh_always(const track_t *t)               /* (a formula with state, U
     return e == &ENG_WAVE || (e == &ENG_LOFI && (t->p[P_E1] < RW_USER || !lofi_prg[(uint32_t)(t - trk) % NTRK].nstate));
 }
 #define VH_ALWAYS(t) vh_always(t)
-#ifndef FORM_QUART
-#define FORM_QUART 0u                                  /* (11 kHz dulled the hats 5x: FORM at 22 kHz, its quarter the guard's) */
-#endif
-#ifndef FORM_HALF
-#define FORM_HALF 1u
-#endif
 #ifndef VPOL
 #define VPOL 0u                                        /* (JIANT BYTE, byte-cpu-light) off: BYTE's song asks more voices
                                                          * than the half rate gives back (cpu_vg song/cputest 2951, .vpol
@@ -1018,7 +1012,7 @@ static uint32_t load_cost_q8(const track_t *t)          /* a voice more of part 
         uint32_t half = mc_tk[ti] * (HALF_FRAMES / CTL) / nv;
         c = half * 25600u / (HALF_FRAMES * LOAD_FRAME_TICKS);
     } else
-        c = (e == &ENG_LOFI ? math_music_cost(t) : t->engine==ENGI_FORM?form_cost(t):3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
+        c = (e == &ENG_LOFI ? math_music_cost(t) : 3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
     return load_cores2 ? (c * LOAD_SHARE_Q8) >> 8 : c;
 }
 static void load_take(const track_t *t)                 /* a voice added: into the prediction */
@@ -1143,7 +1137,7 @@ static __attribute__((noinline)) void voice_soft(void)
                 continue;
             }
             if (voice_held(t, v)) {
-                if (((vh_held >> p) & 1u) || (FORM_HALF && ENGINES[t->engine] == &ENG_FORM) || VH_ALWAYS(t))   /* (byte-cpu-light)
+                if (((vh_held >> p) & 1u) || VH_ALWAYS(t))   /* (byte-cpu-light)
                                                          * FORM always at half the rate: its song, 22 kHz (-23 % of
                                                          * FORM alone; above 11 kHz lost) */
                     s = s ? s : VH_IN;
@@ -1239,7 +1233,7 @@ static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, 
         vh_c[vi] = (int32_t)(st == VH_ON ? VH_RE : st == VH_OUT ? VH_OFF : st);
         return;
     }
-    if (e->half == 2u && (((vh_quart >> (vi / NVOICE)) & 1u) || (FORM_QUART && e == &ENG_FORM))) {   /* (V10.7.56) FM6 at a quarter: 11 kHz, CTL / 4
+    if (e->half == 2u && ((vh_quart >> (vi / NVOICE)) & 1u)) {   /* (V10.7.56) FM6 at a quarter: 11 kHz, CTL / 4
                                                          * samples, each the last of its four, the others on the line */
         int32_t hq[CTL / 4];
         h.amp1 = 4 * m->amp1 - 3 * m->amp0;
@@ -1497,7 +1491,7 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
     {   /* (BYTE 0.16) MATH, WAVE and FORM at their own rate from the note's first sample: the same samples of t whatever
          * block voice_soft's pass falls on (a chaotic formula sampled odd or even is another sound) */
         int32_t *vc = &vh_c[((uint32_t)(t - trk) % NTRK) * NVOICE + (uint32_t)(v - t->v) % NVOICE];
-        if ((VH_ALWAYS(t) || (FORM_HALF && e == &ENG_FORM)) && (!sounding || !VH_ST(*vc)))
+        if (VH_ALWAYS(t) && (!sounding || !VH_ST(*vc)))
             *vc = VH_IN;                                /* (a new note: from its first sample; a legato one keeps on) */
     }
     if (e == &ENG_VOX_GONE)

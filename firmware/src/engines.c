@@ -69,12 +69,12 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_WAVE,                   /* 13: (JIANT BYTE) WAVE (eng_wave.c), in the retired ADD's number */
     &ENG_LOFI,                   /* 14: (JIANT BYTE) ANIMAL retired: plays as MATH */
     &ENG_LOFI,                   /* 15: (JIANT BYTE) INPUT (EXT, SWARM) retired: plays as MATH */
-    &ENG_FORM,                   /* 16: FORM, a distinct procedural composition engine */
+    &ENG_WAVE,                   /* 16: (BYTE) FORM retired (its composer is DRONE CLAY, a sequencer): plays as WAVE */
 };
 
 /* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
  * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
-static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 16};   /* (13: WAVE) */
+static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 13};   /* (13: WAVE) */
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
 static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 0u]; }
 
@@ -85,7 +85,6 @@ static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 
  * LOFI ANALOG FM6); 0.9.8's ANALOG FM6 PHASE LOFI VOICE WHEEL NOISE (WEST now) DRUM ANIMAL is what PROGRAM CHANGE keeps
  * (ENGINE_PC_ORDER) */
 static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
-    ENGI_FORM,                   /* FORM: primary composition engine */
     ENGI_DRUM,                   /* DRUM (DRUM-X, its formula lanes) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE */
     ENGI_LOFI,                   /* MATH (BYTE FLOAT) */
@@ -97,7 +96,6 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
 static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
     ENGI_LOFI, ENGI_DRUM,        /* (JIANT BYTE: every engine of JIANT FM's out but DRUM-X; MATH's place kept first) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE: after the rest */
-    ENGI_FORM,
 };
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them
@@ -180,9 +178,9 @@ static const struct {
 #define TRK_PR_FM6 2u            /* FM BASS (eng_fm6.c); was 0 TINE EP */
 #define TRK_PR_VOICE 5u          /* CHANT (eng_formant.c); was 0 CHOIR AAH */
 #define TRK_PR_ANIMAL 24u        /* WHISTLE (eng_animal.c) */
-/* Fresh projects start with FORM's composition, then DRUM-X, WAVE and MATH.
+/* Fresh projects start with WAVE (DRONE CLAY: SEQ, off), then DRUM-W, WAVE and MATH.
  * Persisted projects and MIDI program numbering retain their existing IDs. */
-static const uint8_t TRK_DEF[NPART][3] = {{ENGI_FORM, 0, 0}, {ENGI_DRUM, TRK_PR_DRUM, 0}, {ENGI_WAVE, 4, 0},
+static const uint8_t TRK_DEF[NPART][3] = {{ENGI_WAVE, 0, 0}, {ENGI_DRUM, TRK_PR_DRUM, 0}, {ENGI_WAVE, 4, 0},
                                           {ENGI_LOFI, 3, 0}, {ENGI_WAVE, 2, 0}, {ENGI_LOFI, 0, 0}};
 /* (V10.7.11, the owner's choice) ACOUSTIC, ANALOG PLUCK, PHASE INIT SAW, FM BASS, CHANT, WHISTLE (was FAT BASS,
  * GLASS PAD, TINE EP, CHOIR AAH) */

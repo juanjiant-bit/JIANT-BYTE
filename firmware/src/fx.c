@@ -968,6 +968,7 @@ static uint32_t div_samples(uint32_t div)
 #include "perform.c"                                 /* the FX hold layer's effects (the master) */
 static void seq_note_on(track_t *t, uint32_t note, uint32_t vel);   /* (0.6.72: seq.c, a note MIDI OUT ALL sends) */
 static void seq_note_off(track_t *t, uint32_t note);
+static void clay_tick(uint32_t n);                      /* (BYTE: seq.c clay.c) DRONE CLAY, a block */
 #include "pfx.c"                                   /* .. its punch-in MIDI effects (on the notes) */
 #include "click.c"                                   /* the metronome's click (after the master: audio.c) */
 
@@ -3030,7 +3031,7 @@ static __attribute__((noinline)) void mc_job(uint32_t a)  /* core 1: the buses (
 static uint32_t mc_cost(const track_t *t)               /* a part's share of the work, roughly: its voices by engine */
 {
     const engine_t *e = ENGINES[t->engine];
-    uint32_t k, v = 0, w = e == &ENG_LOFI ? math_music_cost(t) : e==&ENG_FORM?form_cost(t):3u;   /* (JIANT BYTE: FM6 retired) */   /* (V10.7.36: WEST 3) */
+    uint32_t k, v = 0, w = e == &ENG_LOFI ? math_music_cost(t) : 3u;   /* (JIANT BYTE: FM6 retired) */   /* (V10.7.36: WEST 3) */
     for (k = 0; k < NVOICE; k++)
         v += t->v[k].active;
     return v ? 1u + v * w : 0u;
@@ -3281,6 +3282,7 @@ static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (
     pfx_rec_held = perf_kill ? 0u : perf_held & PF_MIDI;
     pfx_block(n, (perf_kill ? 0u : (perf_held | perf_latched) & PF_NOTES) | scene_pfx);   /* (V10.7.36: LIFE MAX too) */
     mac_tick(n);                                        /* (JIANT BYTE) the macros' equations (below, in flash) */
+    clay_tick(n);                                       /* (BYTE) DRONE CLAY: its modulators, its drone (seq.c clay.c) */
     events_block(n);
     if (song.playing)                                   /* (JIANT) the modulation sequences' clock (mod.c): the block's end on
                                                          * the transport's grid (through tempo changes, an external clock) */

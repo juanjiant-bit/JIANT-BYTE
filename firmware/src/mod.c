@@ -57,6 +57,11 @@ enum { MD_OFF, MD_PITCH, MD_CUT, MD_SHP, MD_AMP, MD_PAN, MD_DIST, MD_CHO, MD_DLY
        MD_CLIP = MD_E1 + 8, MD_PNCH, MD_DTIME, MD_DFDBK, MD_DCOL, MD_DMIX, MD_RSIZE, MD_RDAMP, MD_CRATE, MD_CDEPTH, MD_MASTER_END,
        MD_FCUT = MD_MASTER_END, MD_LEVEL, MD_LIFE, MD_X1, MD_N = MD_X1 + 8 };
 /* (FORM 2) MD_X1..: FORM's own beyond its eight (a FORM part's only, per block): every one of its pages' values */
+/* (BYTE) DRONE CLAY's DEST knob -> the matrix's destination: every per-voice and per-track one but the master's */
+static const uint8_t CLAY_MD[] = {MD_OFF, MD_PITCH, MD_FCUT, MD_SHP, MD_AMP, MD_PAN, MD_DIST, MD_CHO, MD_DLY, MD_REV, MD_RATE,
+                                  MD_VIB, MD_E1, MD_E1 + 1, MD_E1 + 2, MD_E1 + 3, MD_E1 + 4, MD_E1 + 5, MD_E1 + 6, MD_E1 + 7,
+                                  MD_CUT, MD_LEVEL, MD_LIFE};   /* (CUTOFF: the part's filter, every engine's; VOICE CUT: a voice's own) */
+#define CLAY_ND ((int32_t)sizeof CLAY_MD)
 static const uint8_t FORM_XDST[MD_N - MD_X1] = {P_CAOS, P_ASWING, P_AORDER, P_AGATE, P_CVOI, P_CSTR, P_FRB, P_KEY};   /* (BYTE 0.17) the modulators' AMOUNT and DECAY */
 /* (V10.7.34) LIFE (life.c), appended: the sources LIFE (the track's breath: its being's pulse, bipolar) and BEING (its being's
  * height in HOME > LIFE's water, bipolar, up +), the destination LIFE (per block: the track's LIFE, AMT 64 at a full source
@@ -206,8 +211,9 @@ typedef struct {                 /* the part in mix_part (one at a time) */
     int32_t pit, cut, shp, gain; /* per voice, from the per-track sources (gain Q15) */
     uint8_t vsrc[NMSLOT], vdst[NMSLOT];
     int8_t vamt[NMSLOT];
-    uint8_t kid[NMSLOT + 3u];    /* per-block: the parameter, its stored value (V10.7.34: and LIFE's three sends) */
-    int16_t keep[NMSLOT + 3u];
+    uint8_t kid[NMSLOT + 7u];    /* per-block: the parameter, its stored value (V10.7.34: and LIFE's three sends; BYTE:
+                                  * DRONE CLAY's four) */
+    int16_t keep[NMSLOT + 7u];
     int16_t lof;                 /* (V10.7.34) the slots on LIFE this block (0..100 more or less: life.c life_pt) */
 } mod_t;
 static mod_t mod_c[2];                      /* (JIANT 0.6.71) one a core: each renders its own parts at once (fx.c mix_block) */
@@ -381,15 +387,15 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
 {
     mod_t *const mp = &MOD;                          /* (0.6.71) this core's */
     const int16_t *p = t->p;
-    int32_t lfo, off[NMSLOT + 3u];
-    uint32_t k, j;
+    int32_t lfo, off[NMSLOT + 7u];
+    uint32_t k, j, tr = (uint32_t)(t - trk) % NTRK, cl = clay[tr][CL_ON] != 0;
     mp->on = 0;
     math_request[(uint32_t)(t-trk)]=0;
     math_request_base[(uint32_t)(t-trk)]=(uint32_t)clamp(t->p[P_E2],0,191)|((uint32_t)clamp(t->p[P_E3],0,127)<<8);
     for (k = 0; k < NMSLOT; k++)
         if (p[P_M1SRC + 3u * k] && p[P_M1DST + 3u * k] && p[P_M1AMT + 3u * k])
             break;
-    if (k == NMSLOT)
+    if (k == NMSLOT && !cl)
         return 0;
     lfo = mulq15(t->lfo_val, t->lfo_fade);              /* (the LFO of the block before: track_render ticks it) */
     for (j = k; j < NMSLOT; j++)
@@ -441,6 +447,34 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
             off[j] += (((x * a) >> 6) * (id == P_LRATE ? 127 : pd->max - pd->min)) >> 15;   /* (0.6.51: RATE's free span,
                                                                                                * as before its in-time values) */
         }
+    }
+    for (k = 0; cl && k < 4u; k++) {                   /* (BYTE) DRONE CLAY's four: what each adds now on its DEST, as a
+                                                         * slot of the whole range (seq.c clay_tick; its AMOUNT in it) */
+        uint32_t d = CLAY_MD[clamp(clay[tr][CL_MF(k, 0u)], 0, CLAY_ND - 1)], id;
+        int32_t x = clay_v[tr][k];
+        const param_desc_t *pd;
+        if (!d || !x)
+            continue;
+        if (d <= MD_AMP) {
+            mp->amp |= d == MD_AMP;
+            mod_voice_add(MS_LFO, d, x, 64, &mp->pit, &mp->cut, &mp->shp, &mp->gain);
+            continue;
+        }
+        if (d == MD_LIFE) {
+            mp->lof = (int16_t)clamp(mp->lof + ((x * 100) >> 15), -100, 100);
+            continue;
+        }
+        id = mod_param(d);
+        pd = mod_track_desc(t, id);
+        for (j = 0; j < mp->nk && mp->kid[j] != id; j++)
+            ;
+        if (j == mp->nk) {
+            mp->kid[j] = (uint8_t)id;
+            mp->keep[j] = p[id];
+            off[j] = 0;
+            mp->nk++;
+        }
+        off[j] += (x * (id == P_LRATE ? 127 : pd->max - pd->min)) >> 15;
     }
     for (j = 0; j < mp->nk; j++) {
         uint32_t id = mp->kid[j];
@@ -587,7 +621,7 @@ BTAPP_FN static int mod_dst_ok(const track_t *t, uint32_t d)
     if (d == MD_CUT) {
     }
     if (d == MD_SHP && e == ENGI_DRUM) return 0;
-    if (d >= MD_X1) return e == ENGI_FORM;                /* (FORM 2) */
+    if (d >= MD_X1) return 0;                            /* (FORM's own: retired, DRONE CLAY routes the matrix's) */
     if (d == MD_PITCH && e == ENGI_DRUM) return 0;
     if (d >= MD_E1 && d < MD_CLIP) {
         const param_desc_t *pd = track_desc(t, P_E0 + (k = d - MD_E1));
@@ -608,7 +642,7 @@ BTAPP_FN static int mod_dst_offer_bt(const track_t *t, uint32_t d)
  * packages retain the generic selector; never call an unmatched segment. */
 static int mod_dst_offer(const track_t *t, uint32_t d)
 {
-    return bt_hw_seg() ? mod_dst_offer_bt(t, d) : d < MD_N && (d < MD_X1 || eng_idx(t->eng_req) == ENGI_FORM);
+    return bt_hw_seg() ? mod_dst_offer_bt(t, d) : d < MD_X1;
 }
 
 /* Bounded, clamped navigation. An old unavailable route survives until edited. */

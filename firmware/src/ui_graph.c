@@ -926,7 +926,7 @@ static void page_title(char *ti)
     str_cpy(nb, pg->title, sizeof nb);
     if (!page_over && !ui.home) {                       /* (0.9.2) the page within its group ("ENV DEST 2/2", FX: the
                                                          * effect's name, "DELAY 2/3") */
-        uint8_t cnt[8], gi[8];
+        uint8_t cnt[12], gi[12];
         uint32_t g, m;
         (void)nav_groups(cnt, gi, &g, &k, &i, &m);
         n = cnt[g];
@@ -991,7 +991,7 @@ static void graph_title(void)
 static int seq_roll_view(const page_t *pg)
 {
     return pg == &PAGES[ui.page] && lens_on() && pg->graph != GR_PATS && pg->graph != GR_SONG && pg->graph != GR_EUCLID &&
-           pg->graph != GR_EVENTS;                      /* (V10.7.32: LOCKS, its list) */
+           pg->graph != GR_EVENTS && pg->graph != GR_CLAY;                      /* (V10.7.32: LOCKS, its list) */
 }
 static int roll_view(const page_t *pg)
 {
@@ -1367,8 +1367,8 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
         h ^= anim_fr * 2654435761u;                  /* DRUM-X: the specimen moves every frame (codex/anim: tick) */
     if (pg->graph == GR_DXSND) h ^= anim_fr * 2654435761u ^ dx_sig();
     if (pg->graph == GR_SWARM) h ^= anim_fr * 2654435761u;   /* (V10.6z6: the morph, live) */
-    if ((pg->scope == SC_ENGINE || pg->scope == SC_FORM) && trk_eng(t) == ENGI_FORM)
-        h ^= anim_fr * 2654435761u;                  /* (FORM 3: its scopes, the chord and the step, live) */
+    if (pg->graph == GR_CLAY)
+        h ^= anim_fr * 2654435761u;                  /* (DRONE CLAY: its telemetry, live) */
     if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_FM6)   /* the patch (PAT's algorithm, levels, FB) */
         h ^= (fm6_pgen[(t - trk) % NTRK] + 1u) * 2246822519u;
     if (fop_page(pg->graph))                         /* (0.6.77) OPERATOR, OP ENV (track pages): the patch, the operator */
@@ -1999,6 +1999,9 @@ static void draw_graph(void)
     } else if (pg->graph == GR_SCENE) {              /* (V10.25) SCL > SCENE: the six tracks' roles */
         cv_oy = 0;
         graph_scene();
+    } else if (pg->graph == GR_CLAY) {               /* (BYTE) SEQ > DRONE CLAY: the modulators' telemetry (ui_lzedit.c) */
+        cv_oy = 0;
+        graph_clay_lz(t);
     } else if (pg->graph == GR_EUCLID) {             /* (V10.6) SEQ > EUCLID / MODES: the ring, the lanes or the notes */
         cv_oy = 0;
         graph_euclid(t);

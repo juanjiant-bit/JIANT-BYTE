@@ -439,7 +439,7 @@ static uint32_t chord_build_mode(const track_t *t, uint32_t root, uint8_t *out, 
     uint32_t vc = (uint32_t)t->p[P_CVOI], n = 0, i, j, ti = trk_index(t) % NTRK, any = mode & 0x80u, peek = mode & 0x40u;
     int32_t nt[KB_CH + 1], r = (int32_t)root;           /* (V10.25 SCENE any: any voice; V10.27 peek: the screen's, */
     mode &= 0x3Fu;                                      /* LEAD's last chord not written: drawing changed the voicing) */
-    if (!mode || mode > CD_POW || e == &ENG_FORM || e->oneshot || (e->keys && e->keys(t, 0) >= 0) || ((t->p[P_VOICE] & 3) != V_POLY && !any)) {   /* (DRONE: as POLY) */
+    if (!mode || mode > CD_POW || e->oneshot || (e->keys && e->keys(t, 0) >= 0) || ((t->p[P_VOICE] & 3) != V_POLY && !any)) {   /* (DRONE: as POLY) */
         out[0] = (uint8_t)root;
         return 1;
     }
@@ -1519,25 +1519,8 @@ static void key_next(uint32_t k, track_t *t)
     }
     kb_on[k]++;
 }
-/* (BYTE 0.17) FORM's keys (eng_form.c form_key): out of the keys' RAM code (its headroom). op 1 down, 0 up, 2 only
- * whether the track takes them; 1 if it did */
-static __attribute__((noinline)) int form_kb(uint32_t k, track_t *t, int op)
-{
-    if (!form_keys(t))
-        return 0;
-    if (op == 1) {
-        uint32_t r = form_key(t, k, KB_VEL(k), 1);
-        kb_on[k] = 1; kb_sn[k] = 0;
-        if (r) func_pitch[trk_index(t) % NTRK] = (uint8_t)r;
-    } else if (op == 0) {
-        kb_on[k] = 0; form_key(t, k, 0, 0);
-    }
-    return 1;
-}
 static void key_on(uint32_t k, track_t *t)
 {
-    if (form_kb(k, t, 1))                             /* (BYTE 0.17) FORM PLAY / FREE: the keys are gestures */
-        return;
     uint32_t n = chord_build(t, kb_note[k], kb_snd[k]), gap = n > 1u ? chord_gap(t) : 0u, i;
     kb_on[k] = 0;
     kb_sn[k] = (uint8_t)n;
@@ -1577,8 +1560,6 @@ static void key_off(uint32_t k, track_t *t)
 {
     uint32_t n = kb_on[k], i;
     if (!n)
-        return;
-    if (form_kb(k, t, 0))
         return;
     dxo_off(t, DXO_KEY + k);                         /* the held performance ends */
     kb_on[k] = 0;                                   /* (the strum's notes not in yet: never) */
@@ -3229,11 +3210,11 @@ static __attribute__((noinline)) int func_song_tick(track_t*t)
     if((func_song_mask&bit)&&!func_song(t)&&!fr){seq_release(t);func_song_mask&=(uint8_t)~bit;}
     if(func_song(t)||fr){
         if(song.playing||fr){                           /* (FREE: always, its own clock) */
-            uint32_t fp=func_pitch[trk_index(t)%NTRK],root=(uint32_t)clamp((fp?(int32_t)fp:60)+(t->eng_req==ENGI_FORM?0:t->p[P_E6]),24,96),active=0;
+            uint32_t fp=func_pitch[trk_index(t)%NTRK],root=(uint32_t)clamp((fp?(int32_t)fp:60)+t->p[P_E6],24,96),active=0;
             if(t->seq_n&&t->seq_notes[0]!=root)seq_release(t);
             for(uint32_t k=0;k<NVOICE;k++)active|=t->v[k].active&&t->v[k].gate&&t->v[k].note==root;
             if(!active&&!t->xp_n&&!t->p[P_MUTE]&&trk_index(t)<trk_live){func_seq=2;seq_note_on(t,root,110);func_seq=0;t->seq_notes[0]=(uint8_t)root;t->seq_n=1;t->seq_hold=1;}
-            func_song_mask|=(uint8_t)bit;if(fr)t->seq_idx=(uint16_t)((lofi_sync(&active)>>11)%(t->eng_req==ENGI_FORM?16u:(uint32_t)clamp(t->p[P_SLEN],1,256)));   /* (FORM: P_SLEN its RATE B, 0 AUTO) */
+            func_song_mask|=(uint8_t)bit;if(fr)t->seq_idx=(uint16_t)((lofi_sync(&active)>>11)%(uint32_t)clamp(t->p[P_SLEN],1,256));
             if(!fr){fs_sn=t->seq_n;fs_sh=t->seq_hold;fs_s0=t->seq_notes[0];t->seq_n=0;t->seq_hold=0;func_seq=1;return 2;}   /* PLAY: the steps, the formula's pitch; its voice's notes kept */
         }
         return 1;
@@ -3622,6 +3603,4 @@ static void events_block(uint32_t n)
 }
 
 #include "song_play.c"                           /* the song: the ISR's part (song_chain.c) */
-
-
-
+#include "clay.c"                                 /* (BYTE) DRONE CLAY: FORM's composer, a track's sequencer */

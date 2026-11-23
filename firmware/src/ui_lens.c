@@ -70,7 +70,7 @@ static const ng_t CG_HOME[] = {
 #endif
                                {"MACROS", "MACRO"}, {"LIVE MIX", "LIVE"}, {"TRACKS", "TRK"}, {"TIMELINE", "TIME"},
                                {"ARRANGE", "ARR"}, {"PARTS", 0}, {"GEN", 0}};
-static const nv_t CE_SYN[] = {NV("FORM", 0, 0, 0), NV("DRONE",0,0,1), NV("MOD",0,0,1), NV("MOD AMT",0,0,1), NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0),
+static const nv_t CE_SYN[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0),
                               NV("WORDS", 0, 0, 1), NV("SWARM", 0, 0, 1), NV("SWARM 2", 0, 0, 1),
                               NV("FILTER", 0, 1, 1), NV("TONE", 0, 1, 1), NV("AUTO KNOBS", "FOCUS", 2, 2),
                               NV("VOICES", "PLAY", 3, 1), NV("MORE", 0, 3, 1), NV("VOICES 3", "MORE", 3, 1)};   /* (JIANT FM V10.7.60,
@@ -101,10 +101,13 @@ static const nv_t CE_SEQ[] = {NV("STEP", 0, 0, LV_BAR), NV("PATTERN", "LENGTH", 
                               NV("EUCLID", 0, 2, LV_PAT), NV("MODES", 0, 2, LV_PAT), NV("MUTATE", 0, 2, LV_PAT),
                               NV("PLAYHEADS", 0, 3, LV_PAT), NV("STRETCH", 0, 4, LV_PAT),
                               NV("STEP COND", 0, 5, LV_STEP), NV("COND 2", 0, 5, LV_STEP), NV("AUTO LIST", "LOCKS", 6, LV_BAR),
-                              NV("LYRICS",0,6,LV_BAR),NV("TRACK GEN",0,7,LV_BAR)};   /* (V10.7.32, the owner) LOCKS:
+                              NV("LYRICS",0,6,LV_BAR),NV("TRACK GEN",0,7,LV_BAR),
+                              NV("DRONE CLAY", 0, 8, LV_PAT), NV("CLAY MOD 1", 0, 8, LV_PAT), NV("CLAY MOD 2", 0, 8, LV_PAT),
+                              NV("CLAY MOD 3", 0, 8, LV_PAT), NV("CLAY MOD 4", 0, 8, LV_PAT), NV("CLAY DECAY", 0, 8, LV_PAT),
+                              NV("CLAY TIME", 0, 8, LV_PAT)};   /* (BYTE) DRONE CLAY: FORM's composer, a sequencer */   /* (V10.7.32, the owner) LOCKS:
                                                          * AUTOMATION and AUTO LIST one page (AUTO LIST's PAGES entry; ui_events.c) */
 static const ng_t CG_SEQ[] = {{"STEP", 0}, {"PATTERN", "PAT"}, {"EUCLID", "EUCL"}, {"PLAYHEADS", "HEAD"}, {"STRETCH", "STR"},
-                              {"STEP COND", "COND"}, {"LOCKS", "LOCK"}, {"TRACK GEN", "GEN"}};   /* (codex/coherence: PATTERN, was LENGTH: its
+                              {"STEP COND", "COND"}, {"LOCKS", "LOCK"}, {"TRACK GEN", "GEN"}, {"DRONE CLAY", "CLAY"}};   /* (codex/coherence: PATTERN, was LENGTH: its
                                                          * LENGTH RHYTHM TRACK; TRACK GEN, was GENERATE) */
 enum { FXL_TRACK, FXL_BUSES, FXL_EFFECT };
 static const nv_t CE_FX[] = {NV("FX", "SENDS", 0, FXL_TRACK), NV("DIST", 0, 0, FXL_TRACK), NV("AUTO PAN", 0, 0, FXL_TRACK),

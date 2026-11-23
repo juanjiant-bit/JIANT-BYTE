@@ -201,7 +201,7 @@ static void live_reset(void)
 static uint32_t pt_walk(const track_t *t)
 {
     uint32_t e = eng_idx(t->engine);
-    return e == ENGI_DRUM || e == ENGI_FORM ? pt_ops & PT_TIME_OPS : 0u;
+    return e == ENGI_DRUM || clay_on(trk_index(t)) ? pt_ops & PT_TIME_OPS : 0u;
 }
 static __attribute__((noinline)) void live_q(uint32_t n)
 {

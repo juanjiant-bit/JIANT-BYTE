@@ -123,6 +123,8 @@ typedef struct {
     uint8_t dx_form[8];                        /* (JIANT BYTE) its sounds' formulas (drumx_voice.c dx_form): 'D' 'F', 0 before */
     dw_lane_t dw[8];                           /* (DRUM-W) its sounds' tables, scans, noises, ticks (drumx_voice.c dw_kit): 'D' 'W' */
     uint8_t voice_limit[NTRK];                 /* VL tail: per-track voice budget */
+    uint8_t clay[NTRK][CL_N];                  /* (BYTE) DRONE CLAY's settings (eng_form.c CL_*): 'C' 'Y' after VL, a block a
+                                                * track ON (a project before it: all OFF) */
     char dx_text[8][DX_TEXT];                 /* DU: editable bounded formula text per instrument */
     int8_t dx_fmod[8][DFM_N];                 /* DQ tail extension: RATE/BEND/CRUSH, absent = exact bypass */
     uint8_t mac_form[4];                       /* (JIANT BYTE) the macros' equations (mod.c macro_f): 'M' 'F', 0 before */
@@ -673,6 +675,9 @@ static uint32_t proj_packed_size(const project_t *q)
         if (q->mac_form[i]) { n += 2u + sizeof q->mac_form; break; }
     if (proj_fg_used(q))                                /* (0.6.52) FUGUE's */
         n += 2u + sizeof q->fugue;
+    for (t = 0; t < NTRK; t++)                          /* (BYTE) DRONE CLAY's */
+        if (q->clay[t][CL_ON])
+            n += 3u + CL_N;
     for (t = 0; t < NTRK; t++)                          /* (0.8.5) the lyrics' */
         if (proj_lyr_len(q->lyr[t]))
             n += 4u + proj_lyr_len(q->lyr[t]);
@@ -909,6 +914,12 @@ static int proj_pack(project_store_t *out, const project_t *q)
     }
     b[pos++] = 'V'; b[pos++] = 'L';
     for (i=0;i<NTRK;i++) b[pos++] = (uint8_t)clamp(q->voice_limit[i] ? q->voice_limit[i] : NVOICE,1,NVOICE);
+    for (t = 0; t < NTRK; t++)                          /* (BYTE) DRONE CLAY, a track ON: after VL (before it, the reading stops) */
+        if (q->clay[t][CL_ON]) {
+            b[pos++] = 'C'; b[pos++] = 'Y'; b[pos++] = (uint8_t)t;
+            memcpy(b + pos, q->clay[t], CL_N);
+            pos += CL_N;
+        }
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
     for (i = 0; i < 4u; i++)
@@ -1282,9 +1293,16 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         }
     }
     memset(q->voice_limit, NVOICE, sizeof q->voice_limit);
+    memset(q->clay, 0, sizeof q->clay);
     if (pos + 2u <= room && b[pos]=='V' && b[pos+1u]=='L') {
         if (pos + 2u + NTRK > room) return 0;
         for (i=0;i<NTRK;i++) q->voice_limit[i]=(uint8_t)clamp(b[pos+2u+i],1,NVOICE);
+        pos += 2u + NTRK;
+        while (pos + 3u + CL_N <= room && b[pos] == 'C' && b[pos + 1u] == 'Y') {   /* (BYTE) DRONE CLAY */
+            if (b[pos + 2u] >= NTRK) return 0;
+            for (i = 0; i < CL_N; i++) q->clay[b[pos + 2u]][i] = b[pos + 3u + i] & 127u;
+            pos += 3u + CL_N;
+        }
     }
     for (i = 0; i < 8u; i++) if (q->dx_form[i] == DX_USER && !q->dx_text[i][0]) q->dx_form[i] = 0;
     if (b[65] != PROJ_DT_MARK)                          /* (V10.7.33) DIST TYPE CRUSH: CRUSH */
@@ -1473,6 +1491,7 @@ static void project_capture(project_t *p)
         p->t[i].engine = trk[i].eng_req;
         p->t[i].preset = trk[i].preset;
         memcpy(p->t[i].step, trk[i].step, sizeof trk[i].step);
+        for (uint32_t j = 0; j < CL_N; j++) p->clay[i][j] = (uint8_t)clamp(clay[i][j], 0, 127);
         fm6_pack(fm6_patch[i], p->fm6[i]);
     }
     p->motion = motion;
@@ -1800,6 +1819,12 @@ static int project_restore_runtime(const project_t *input)
             fm6_adopt(k);
         }
     }
+    for (k = 0; k < NTRK; k++) {                        /* (BYTE) DRONE CLAY: the project's (a project before it: OFF) */
+        for (i = 0; i < CL_N; i++) clay[k][i] = (int16_t)(p->clay[k][i] & 127u);
+        if (p->t[k].engine == ENGI_FORM)                /* (a FORM part: its modulators as stored, below WAVE) */
+            clay_from_form(k, p->t[k].p);
+        clay_dn[k] = clay_nn[k] = 0;
+    }
     song.sel = (uint8_t)(p->sel < NTRK ? p->sel : 0u);
     if (!proj_lfo_keep)
         lfo_fade_restart((1u << NTRK) - 1u);            /* (0.9.18) the LFOs' FADE from 0 (MODE FREE: only now) */
@@ -1821,6 +1846,13 @@ static int project_restore_runtime(const project_t *input)
             for (i = P_AMODE; i <= P_TRANS; i++)        /* the drum part had no arp or scale */
                 t->p[i] = TP[i].def;
             fm1_irq_on();
+        }
+        if (t->eng_req == ENGI_FORM) {                  /* (BYTE) a FORM part (the engine retired): WAVE's first, its
+                                                         * modulators in DRONE CLAY, ON (clay.c clay_from_form) */
+            set_engine_of(t, ENGI_WAVE);
+            for (i = 0; i < P_COUNT; i++)
+                if (form_owned_param(i) && TP[i].label)
+                    t->p[i] = TP[i].def;
         }
         pat_sig[k] = ~steps_sig(t);                     /* a project's steps are the user's */
     }
@@ -1853,6 +1885,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     memset(dnz_v, 0, sizeof dnz_v);
     memset(cru_v, 0, sizeof cru_v);                     /* (V10.7.33) no CRUSH */
     life_defaults(); voice_limits_default();                                    /* (V10.7.34) LIFE as at power-on */
+    memset(clay, 0, sizeof clay);                       /* (BYTE) no DRONE CLAY */
     for (i = 0; i < 5u; i++) song.g[KEEP[i]] = kept[i];
     kept[0] = dice_secs;
     chain_defaults(&chain_config);
