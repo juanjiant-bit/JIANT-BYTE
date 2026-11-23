@@ -344,6 +344,7 @@ static void fm1_main(void)
     felucca_init();
     master_boot();
     kb_boot_hold = 1;                         /* #137: no notes from the keys before the UI (seq.c keyboard_block) */
+    mf_on = 1;                                          /* (the output off until zeros have played: master.c) */
     audio_init();
     usb_start();
 #if FELUCCA_UART

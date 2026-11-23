@@ -277,7 +277,6 @@ static const param_desc_t DXIMG_DESC = {"IMAGE", F_INT, 0, 127, 0, 0};       /* 
 /* (V10.6) SEQ > EUCLID / MODES' knobs (ui_euclid.c: ids ID_EU0 + EK_*, the views of the selected track's settings) */
 #define ID_EU0 0xF0u
 #define ID_SC0 0xE8u                                    /* (V10.25) SCL > SCENE's four (ui_scene.c sc_desc) */
-#define ID_MU0 0xE4u                                    /* (V10.16) SEQ > MUTATE's four (EK_U0 + 0..3) */
 #define ID_CL0 0xC0u                                    /* (BYTE) DRONE CLAY's CL_N (eng_form.c CL_*, seq.c clay_desc) */
 _Static_assert(ID_CL0 + CL_N <= 0xE0u && P_COUNT < ID_CL0, "DRONE CLAY's ids between the parameters and EQ's");
 static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **valp);   /* (seq.c) */
@@ -959,7 +958,6 @@ static const page_t PAGES[] = {
                                                          * (codex/coherence: KEYS RAILS, were MANO RIELES) */
     {"TIMELINE", FAM_SAVE, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (add15) the song as lanes (was ARRANGE 2): a row's tracks, the section each
                                                          * plays from (song_chain.c row_src; ui_input.c song_trk_knob) */
-    {"MUTATE", FAM_SEQ, SC_TRACK, GR_EUCLID, {ID_MU0, ID_MU0 + 1u, ID_MU0 + 2u, ID_MU0 + 3u}},
     {"ENV 2", FAM_ENV, SC_TRACK, GR_ADSR, {P_E2ATK, P_E2DEC, P_E2SUS, P_E2REL}},   /* (V10.22) a second ADSR, a MOD
                                                          * source (SRC ENV2) */   /* (V10.16) EUCLID's
                                                          * mutations on the bar: EVERY AMOUNT MODE WHAT */
@@ -1069,8 +1067,6 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         id += ms_ui_step & 15u;
     if (id >= ID_EU0 && id < ID_EU0 + 8u)            /* (V10.6) EUCLID's and MODES' views (ui_euclid.c eu_put) */
         return eu_desc(id - ID_EU0, valp);
-    if (id >= ID_MU0 && id < ID_MU0 + 4u)            /* (V10.16) MUTATE's */
-        return eu_desc(id - ID_MU0 + 8u, valp);
     if (id >= ID_SC0 && id < ID_SC0 + 4u)            /* (V10.25) SCENE's */
         return sc_desc(id - ID_SC0, valp);
     if (id >= ID_CL0 && id < ID_CL0 + CL_N)          /* (BYTE) DRONE CLAY's (seq.c clay_desc) */

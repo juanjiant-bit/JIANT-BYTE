@@ -65,14 +65,14 @@ FM1_INLINE void fm1_audio_init(int32_t *buf, uint32_t half_words, void (*isr)(vo
     FM1_ALNK_CON1 |= 1u << 12;
     FM1_ALNK_CON1 |= 1u << 14;
     FM1_ALNK_ADR3 = (uint32_t)(uintptr_t)buf;
-    fm1__pc_out(6, 1);
     FM1_ALNK_CON1 &= ~(1u << 15);
     FM1_ALNK_CON2 = 0x0Fu;
     fm1_irq_attach(FM1_IRQ_ALNK0, isr, prio);
     FM1_ALNK_CON0 |= 0x800u;
-    fm1_delay_ms(5);
-    fm1__pc_out(6, 1);
+    fm1_delay_ms(5);                                /* (BYTE, as JIANT FM V10.8.19: the output PC6 stays off; master.c
+                                                     * turns it on once the ISR has played ~100 ms of zeros: the power-on click) */
 }
+FM1_INLINE void fm1_audio_unmute(void) { fm1__pc_out(6, 1); }
 
 FM1_INLINE uint8_t fm1_audio_pending(void) { return FM1_ALNK_CON2; }
 FM1_INLINE void fm1_audio_ack_aux(uint8_t p)   /* the other three pendings */

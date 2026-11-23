@@ -3162,7 +3162,7 @@ static void ui_input_frame(void)
                 break;
             }
             if (!ui.home && !ui.menu && !ui.confirm && cur_page()->graph == GR_EUCLID) {   /* (V10.6) EUCLID / MODES: */
-                eu_oct(b == B_OCTUP, cur_page()->id[0] == ID_MU0);   /* OCT+ a new variation, OCT- the one before;
+                eu_oct(b == B_OCTUP, 0);   /* OCT+ a new variation, OCT- the one before;
                                                          * (V10.16) MUTATE: a mutation now, back to the anchor */
                 break;
             }

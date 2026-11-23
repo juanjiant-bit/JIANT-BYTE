@@ -281,30 +281,32 @@ static __attribute__((noinline)) void graph_key(const track_t *t, const page_t *
         k++;
     }
 }
-/* (BYTE) a chord's name from its notes (pn[0] the root): long "D MIN ADD9", short the quality alone "MIN9" */
+/* (BYTE, JIANT FM V10.8.20's table) a chord's name from its notes (pn[0] the root): long "D MIN ADD9", short the quality
+ * alone "MIN9" */
 static void chord_label(const uint8_t *pn, uint32_t n, char *o, int lng)
 {
-    static const char *const NN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-    uint32_t m = 0, k;
+    static const char NN12[12][3] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+    static const char LQ[12][10] = {" DIM7", " HALF-DIM", " DIM", " AUG", " SUS4", " SUS2", " MIN7", " MIN MAJ7", " MIN", " MAJ7",
+                                    " 7", " MAJ"};
+    static const char SQ[15][5] = {"DIM7", "M7B5", "DIM", "AUG", "SUS4", "SUS2", "MIN7", "MIN", "MIN", "MAJ7", "7", "MAJ",
+                                   "MIN9", "MAJ9", "9"};   /* (the last three: 6, 9, 10 with a ninth) */
+    uint32_t m = 0, k, q;
+    int mi, dim, aug, s4, s2, b7, M7, six, nine, d7;
     for (k = 1; k < n && k < 8u; k++) m |= 1u << (((uint32_t)pn[k] + 120u - pn[0]) % 12u);
-    {
-        int mi = (m >> 3 & 1) && !(m >> 4 & 1), dim = mi && (m >> 6 & 1) && !(m >> 7 & 1), aug = (m >> 4 & 1) && (m >> 8 & 1) && !(m >> 7 & 1);
-        int s4 = !(m >> 3 & 1) && !(m >> 4 & 1) && (m >> 5 & 1), s2 = !(m >> 3 & 1) && !(m >> 4 & 1) && !s4 && (m >> 2 & 1);
-        int b7 = m >> 10 & 1, M7 = m >> 11 & 1, six = (m >> 9 & 1) && !dim, nine = (m >> 2 & 1) && !s2, d7 = dim && (m >> 9 & 1);
-        str_cpy(o, NN[pn[0] % 12u], 24);
-        if (lng) {
-            str_cpy(o + str_len(o), dim ? (d7 ? " DIM7" : b7 ? " HALF-DIM" : " DIM") : aug ? " AUG" : s4 ? " SUS4" : s2 ? " SUS2" :
-                    mi ? (b7 ? " MIN7" : M7 ? " MIN MAJ7" : " MIN") : M7 ? " MAJ7" : b7 ? " 7" : " MAJ", 24 - str_len(o));
-            if (six && !d7) str_cpy(o + str_len(o), " 6", 24 - str_len(o));
-            if (nine) str_cpy(o + str_len(o), b7 || M7 ? " 9" : " ADD9", 24 - str_len(o));
-        } else {                                        /* (short: the quality alone, the numeral names the root) */
-            o[0] = 0;
-            str_cpy(o, dim ? (d7 ? "DIM7" : b7 ? "M7B5" : "DIM") : aug ? "AUG" : s4 ? "SUS4" : s2 ? "SUS2" :
-                    mi ? (nine && b7 ? "MIN9" : b7 ? "MIN7" : "MIN") : nine && M7 ? "MAJ9" : M7 ? "MAJ7" : nine && b7 ? "9" : b7 ? "7" : "MAJ", 12);
-            if (six && !d7) str_cpy(o + str_len(o), "6", 12 - str_len(o));
-            if (nine && !b7 && !M7) str_cpy(o, mi ? "MI+9" : dim ? "DIM+9" : "ADD9", 12);
-        }
+    mi = (m >> 3 & 1) && !(m >> 4 & 1); dim = mi && (m >> 6 & 1) && !(m >> 7 & 1); aug = (m >> 4 & 1) && (m >> 8 & 1) && !(m >> 7 & 1);
+    s4 = !(m >> 3 & 1) && !(m >> 4 & 1) && (m >> 5 & 1); s2 = !(m >> 3 & 1) && !(m >> 4 & 1) && !s4 && (m >> 2 & 1);
+    b7 = m >> 10 & 1; M7 = m >> 11 & 1; six = (m >> 9 & 1) && !dim; nine = (m >> 2 & 1) && !s2; d7 = dim && (m >> 9 & 1);
+    q = dim ? (d7 ? 0u : b7 ? 1u : 2u) : aug ? 3u : s4 ? 4u : s2 ? 5u : mi ? (b7 ? 6u : M7 ? 7u : 8u) : M7 ? 9u : b7 ? 10u : 11u;
+    if (lng) {
+        str_cpy(o, NN12[pn[0] % 12u], 24);
+        str_cpy(o + str_len(o), LQ[q], 24);
+        if (six && !d7) str_cpy(o + str_len(o), " 6", 24);
+        if (nine) str_cpy(o + str_len(o), b7 || M7 ? " 9" : " ADD9", 24);
+        return;
     }
+    str_cpy(o, SQ[nine && (q == 6u || q == 9u || q == 10u) ? (q == 6u ? 12u : q == 9u ? 13u : 14u) : q], 12);
+    if (six && !d7) str_cpy(o + str_len(o), "6", 12);
+    if (nine && !b7 && !M7) str_cpy(o, mi ? "MI+9" : dim ? "DIM+9" : "ADD9", 12);
 }
 /* (BYTE) note k of a chord: its interval over the root on a key (R 3 5 7 9 ..) */
 static void chord_ivl(int32_t x, int32_t y, const uint8_t *pn, uint32_t k)
@@ -318,17 +320,21 @@ static __attribute__((noinline)) void graph_chord(const track_t *t)
     static const char *const RN[7] = {"I", "II", "III", "IV", "V", "VI", "VII"};
     uint32_t mask = scale_mask(t), deg[12], c = 0, i, d, rt = (uint32_t)clamp(t->p[P_ROOT], 0, 11);
     const char *u = "";
-    char b[32], v[12];
+    char b[48], v[12];
     for (i = 0; i < 12u; i++)
         if (mask >> i & 1u && c < 7u)
             deg[c++] = i;
     if (t->p[P_CHRD]) {
         param_format(&CHORD_DESC[0], t->p[P_CHRD], b, &u);
-        str_cpy(b + str_len(b), " \xB7 ", 32 - str_len(b));
+        str_cpy(b + str_len(b), " \xB7 ", 48 - str_len(b));
         param_format(&CHORD_DESC[1], t->p[P_CVOI], v, &u);
-        str_cpy(b + str_len(b), v, 32 - str_len(b));
+        str_cpy(b + str_len(b), v, 48 - str_len(b));
     } else
-        str_cpy(b, "CHORD OFF \xB7 ONE NOTE A KEY", 32);
+        str_cpy(b, "CHORD OFF \xB7 ONE NOTE A KEY", 48);
+    if (drum_track(t))                                   /* (as JIANT FM V10.8.20) where a chord never sounds */
+        str_cpy(b, "DRUM TRACK \xB7 CHORDS PLAY ON SYNTH TRACKS", 48);
+    else if (t->p[P_CHRD] && (t->p[P_VOICE] & 3) != V_POLY)
+        str_cpy(b, "NOT POLY \xB7 CHORDS NEED EDIT > PLAY > POLY", 48);
     {   /* (BYTE, the owner: "the graph does not change with the chord") the chord the last key plays named whole, large
          * (yellow while it sounds); under it its type and voicing; its notes on two octaves of keys, each with its
          * interval (the root in the track's colour); the scale's seven degrees as tags, each with its chord's short name,
