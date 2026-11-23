@@ -232,9 +232,10 @@ static __attribute__((noinline)) void graph_form_lz(const track_t*t){
  const page_t*pg=cur_page();if(pg->id[0]==ID_FV0||pg->id[0]==P_CAOS)sel=(uint32_t)form_view[0]&3u;
  cv_oy=0;form_scope_tr=(uint8_t)tr;
  for(i=0;i<FORM_G;i++)if((st->g[i].fl&11u)==9u&&st->g[i].key&&(!kg||st->g[i].t0>kg->t0))kg=&st->g[i];   /* (the newest key held) */
- {static uint32_t cms;static uint8_t cmod,csh;           /* (the owner: a moment's card: while held, 0.6 s after) */
-  if(kg){cms=fm1_ms|1u;cmod=(uint8_t)(kg->mod&3u);csh=kg->sh;}
-  if(cms&&fm1_ms-cms<600u){form_mass(24,18);form_card(t,st,cmod,csh,kg!=0);return;}}
+ {static uint32_t cms;static uint8_t cmod,csh,cv;        /* (the owner: a moment's card: while held, 0.6 s after) */
+  if(kg){cms=fm1_ms;cv=1;cmod=(uint8_t)(kg->mod&3u);csh=kg->sh;}
+  if(cv&&fm1_ms-cms>=600u)cv=0;
+  if(cv){form_mass(24,18);form_card(t,st,cmod,csh,kg!=0);return;}}
  if(hud_tick(0x20u|tr))
   for(m=0;m<4u;m++){hud_put(m,hud_x,(uint32_t)(clamp(st->mv[m]>>4,-8,7)+8));hud_put(4u+m,hud_x,((form_lit[tr]>>m)&1u)*15u);}
  {int32_t px=0,py=0,pk=2048;ft_frame(1,22);ft_tag(1,6,"OUT",0x0000,tc);   /* OUT (as loud as it is, to the lane) */
