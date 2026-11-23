@@ -920,36 +920,57 @@ static inline int32_t spk_bass(int32_t m)
     return sb_hl * 3;
 }
 
-static inline void master_out(int32_t *l, int32_t *r)
+/* (byte-cpu-light) the master's chain over a block: its state in registers the block through (was a call a sample,
+ * every state loaded and stored each time; fx_lowcut, volatile, read once), the same arithmetic. pre: the level from
+ * mix_l / mix_r + wet x mg (mix_block), else mix_l / mix_r as they are (perf_master) */
+static inline __attribute__((always_inline)) void master_run(int32_t *out, uint32_t n, int32_t mg, int pre)
 {
-    int32_t al, ar, a;
-    *l = dc_block(*l, &dc_l, &dce_l);
-    *r = dc_block(*r, &dc_r, &dce_r);
-    if (fx_lowcut) {                  /* two one-pole high-passes, error feedback as dc_block (the */
-        uint32_t sh = fx_lowcut == 2u ? 5u : 6u;    /* rounded step stopped at |x - lc| < 32: an offset) */
-        int32_t b = fx_lowcut == 2u ? spk_bass((*l + *r) >> 1) : 0;
-        *l = lowcut1(*l, &lc_l1, &lce[0], sh);
-        *l = lowcut1(*l, &lc_l2, &lce[1], sh) + b;
-        *r = lowcut1(*r, &lc_r1, &lce[2], sh);
-        *r = lowcut1(*r, &lc_r2, &lce[3], sh) + b;
+    uint32_t i, lc = fx_lowcut, sh = lc == 2u ? 5u : 6u;
+    int32_t dl = dc_l, dr = dc_r, el = dce_l, er = dce_r, lv = lev_cur, ldg = lev_dg, le = lim_env;
+    for (i = 0; i < n; i++) {
+        int32_t l, r, al, ar, a, e, d;
+        if (pre) {
+            l = (((mix_l[i] + wet[i]) >> 2) * mg) >> 10;
+            r = (((mix_r[i] + wet[i]) >> 2) * mg) >> 10;
+        } else {
+            l = mix_l[i];
+            r = mix_r[i];
+        }
+        e = (l << 6) - dl + el; d = e >> 12; el = e - (d << 12); dl += d; l -= (dl + 32) >> 6;   /* dc_block */
+        e = (r << 6) - dr + er; d = e >> 12; er = e - (d << 12); dr += d; r -= (dr + 32) >> 6;
+        if (lc) {                                       /* two one-pole high-passes, error feedback as dc_block (the */
+            int32_t b = lc == 2u ? spk_bass((l + r) >> 1) : 0;   /* rounded step stopped at |x - lc| < 32: an offset) */
+            l = lowcut1(l, &lc_l1, &lce[0], sh);
+            l = lowcut1(l, &lc_l2, &lce[1], sh) + b;
+            r = lowcut1(r, &lc_r1, &lce[2], sh);
+            r = lowcut1(r, &lc_r2, &lce[3], sh) + b;
+        }
+        l = (clamp(l, -262143, 262143) * (lv >> 4)) >> 11;   /* (JIANT 0.5) the leveler's gain (lev_block) */
+        r = (clamp(r, -262143, 262143) * (lv >> 4)) >> 11;
+        lv += ldg;
+        al = l < 0 ? -l : l;
+        ar = r < 0 ? -r : r;
+        a = al > ar ? al : ar;
+        if (a > le)
+            le += (a - le) >> 2;
+        else if (le > LIM_T)
+            le -= ((le - LIM_T) >> 11) + 1;             /* (0.5.1: ~45 ms back, was ~90) */
+        if (le > LIM_T) {
+            int32_t g = (int32_t)(((uint32_t)LIM_T << 15) / (uint32_t)le);   /* < 32768 */
+            l = ((l >> 4) * g) >> 11;                   /* >> 4 first: |l| may be far above Q15 */
+            r = ((r >> 4) * g) >> 11;
+        }
+        out[2u * i] = softclip(l);
+        out[2u * i + 1u] = softclip(r);
     }
-    *l = (clamp(*l, -262143, 262143) * (lev_cur >> 4)) >> 11;   /* (JIANT 0.5) the leveler's gain (lev_block) */
-    *r = (clamp(*r, -262143, 262143) * (lev_cur >> 4)) >> 11;
-    lev_cur += lev_dg;
-    al = *l < 0 ? -*l : *l;
-    ar = *r < 0 ? -*r : *r;
-    a = al > ar ? al : ar;
-    if (a > lim_env)
-        lim_env += (a - lim_env) >> 2;
-    else if (lim_env > LIM_T)
-        lim_env -= ((lim_env - LIM_T) >> 11) + 1;   /* (0.5.1: ~45 ms back, was ~90) */
-    if (lim_env > LIM_T) {
-        int32_t g = (int32_t)(((uint32_t)LIM_T << 15) / (uint32_t)lim_env);   /* < 32768 */
-        *l = ((*l >> 4) * g) >> 11;                      /* >> 4 first: |l| may be far above Q15 */
-        *r = ((*r >> 4) * g) >> 11;
-    }
-    *l = softclip(*l);
-    *r = softclip(*r);
+    dc_l = dl; dc_r = dr; dce_l = el; dce_r = er; lev_cur = lv; lim_env = le;
+}
+static inline void master_out(int32_t *l, int32_t *r)   /* a sample of it (tests/speaker_test.c; mix_l[0] / mix_r[0]) */
+{
+    int32_t o[2];
+    mix_l[0] = *l; mix_r[0] = *r;
+    master_run(o, 1, 0, 0);
+    *l = o[0]; *r = o[1];
 }
 
 /* length of one division (N_DIV order) in samples at the song tempo */
@@ -2964,12 +2985,7 @@ static __attribute__((noinline)) void perf_master(int32_t *out, uint32_t n)
         mix_r[i] = (((mix_r[i] + wet[i]) >> 2) * mg) >> 10;
     }
     perf_block(mix_l, mix_r, n);
-    for (i = 0; i < n; i++) {
-        int32_t l = mix_l[i], r = mix_r[i];
-        master_out(&l, &r);
-        out[2u * i] = l;
-        out[2u * i + 1u] = r;
-    }
+    master_run(out, n, mg, 0);
 }
 
 /* (JIANT 0.6.71) the second core (hal/fm1_multicore.h). Each block, while core 0 renders its parts, core 1 renders
@@ -3369,12 +3385,6 @@ static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (
         perf_master(out, n);
         return;
     }
-    for (i = 0; i < n; i++) {
-        int32_t l = (((mix_l[i] + wet[i]) >> 2) * mg) >> 10;
-        int32_t r = (((mix_r[i] + wet[i]) >> 2) * mg) >> 10;
-        master_out(&l, &r);
-        out[2u * i] = l;
-        out[2u * i + 1u] = r;
-    }
+    master_run(out, n, mg, 1);
 }
 
