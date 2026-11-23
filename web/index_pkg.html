@@ -219,8 +219,37 @@ const log = (t) => { $("log").textContent += t + "\n"; };
 let image = null;
 const meta = /*META*/;
 
+/* (studio, from JIANT FM's installer) the other pages of this site that use MIDI (the editors of JIANT BYTE and JIANT FM,
+ * their emulators, the studio: /JIANT-BYTE/ and /JIANT/ are one origin) let the FM-1 go while this page writes or
+ * backs up: "installer" busy (again every 20 s), each answers "released"; letGo waits for them before the first byte */
+let bc = null, midiTabs = 0, released = 0, busyBeat = null;
+try {
+  bc = new BroadcastChannel("jiant-midi");
+  bc.onmessage = (e) => {
+    const m = e.data || {};
+    if (["editor", "emulator", "studio"].includes(m.type)) { midiTabs++; log(`${m.type} tab: ${m.connected ? "connected" : "idle"}`); }
+    if (m.type === "released") { released++; log(`${m.who || "a tab"}: MIDI let go`); }
+  };
+} catch (_) {}
+const tellEditors = (busy) => {
+  if (!bc) return;
+  try { bc.postMessage({ type: "installer", busy }); } catch (_) {}
+  clearInterval(busyBeat);
+  if (busy) busyBeat = setInterval(() => { try { bc.postMessage({ type: "installer", busy: true }); } catch (_) {} }, 20000);
+};
+async function letGo() {
+  if (!bc) return;
+  midiTabs = 0; released = 0;
+  try { bc.postMessage({ type: "who" }); } catch (_) {}
+  await new Promise((r) => setTimeout(r, 250));
+  const asked = midiTabs;
+  tellEditors(true);
+  for (let t = 0; t < 1500 && released < asked; t += 50) await new Promise((r) => setTimeout(r, 50));
+  if (asked) log(`${released} of ${asked} MIDI tab(s) let go before writing`);
+}
+
 let writing = false, stock = null, stockFileEpoch = 0;
-const lockInstaller = (on) => { writing = on; $("ver").disabled = on; $("go").disabled = on || !image; $("stock-go").disabled = on || !stock; $("stock-file").disabled = on; $("stock-recovery").disabled = on; $("backup-go").disabled = on; };
+const lockInstaller = (on) => { writing = on; if (!on) tellEditors(false); $("ver").disabled = on; $("go").disabled = on || !image; $("stock-go").disabled = on || !stock; $("stock-file").disabled = on; $("stock-recovery").disabled = on; $("backup-go").disabled = on; };
 /* (V10.6p) backupFirst: Install asks for a backup saved here (or official V15: nothing to save) or a go without one */
 let backedUp = false;
 window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault(); e.returnValue = t("leave"); } });
@@ -304,6 +333,7 @@ $("go").addEventListener("click", async () => {
   if (nk && !confirm(t(nk + "Confirm"))) { $("notice").scrollIntoView({ behavior: "smooth" }); return; }
   if (!backedUp && !confirm(t("sixConfirm"))) { $("six").scrollIntoView({ behavior: "smooth" }); return; }
   lockInstaller(true);
+  await letGo();
   let midi;
   try { midi = await navigator.requestMIDIAccess({ sysex: true }); }
   catch (e) { await midiRefused(e); lockInstaller(false); return; }
@@ -368,6 +398,7 @@ function archiveInfo(a) {
 $("backup-go").addEventListener("click", async () => {
   if (writing) return;
   lockInstaller(true);
+  await letGo();
   let link = null;
   try {
     let midi;
@@ -393,6 +424,7 @@ $("backup-go").addEventListener("click", async () => {
 $("stock-go").addEventListener("click", async () => {
   if (!stock || writing) return;
   const selected = stock; lockInstaller(true);
+  await letGo();
   let link = null;
   try {
     let midi;
