@@ -86,7 +86,7 @@ static uint8_t wt_bi[NTRK][1], wt_bn[NTRK][1], wt_go[NTRK];   /* .. its next poi
                                                          * this block (wave_block), a bit an oscillator */
 static void wave_block(track_t *t) { wt_go[(uint32_t)(t - trk) % NTRK] = 3u; }
 static int wt_smooth(uint32_t f) { return f != 10u && f != 11u && f != 13u; }   /* (SAWSQ PULSE too: their edge a 1/128 turn ramp) */
-static const int16_t *wt_get(uint32_t tr, uint32_t o, const fvm_prog_t *pg, uint32_t f, uint32_t pos, uint32_t many,
+static const int16_t *wt_get(uint32_t tr, uint32_t r, uint32_t o, const fvm_prog_t *pg, uint32_t f, uint32_t pos, uint32_t many,
                              const fvm_env_t *e0, lofi_work_t *wk)
 {
     uint16_t key = (uint16_t)(1u + f * 128u + pos);
@@ -96,18 +96,18 @@ static const int16_t *wt_get(uint32_t tr, uint32_t o, const fvm_prog_t *pg, uint
     if (!many || (f == 3u && o))                        /* (one voice, no unison: the formula as written; B's TRISY: its
                                                          * sync edges exact) */
         return 0;
-    if (wt_key[tr][o] == key)
-        return wt_tab[tr][o];
+    if (wt_key[r][0] == key)
+        return wt_tab[r][0];
     /* (BYTE, CPU: the owner, "one WAVE voice 453 us") a new POS redrawn a quarter a block (32 points), read meanwhile as
      * it is (the old POS's points and the new's: neighbours, alike); the first one whole. Was the whole table in one
      * block each time POS moved (an envelope, an LFO on it: every block) */
-    if (wt_key[tr][o] && !(wt_go[tr] >> o & 1u))   /* (one quarter a part a block, whichever voice asks first) */
-        return wt_tab[tr][o];
+    if (wt_key[r][0] && !(wt_go[tr] >> o & 1u))   /* (one quarter a part a block, whichever voice asks first) */
+        return wt_tab[r][0];
     wt_go[tr] = (uint8_t)(wt_go[tr] & ~(1u << o));
-    if (wt_bkey[tr][o] != key) { wt_bkey[tr][o] = key; wt_bn[tr][o] = 0; }   /* (a POS moving every block: the points
+    if (wt_bkey[r][0] != key) { wt_bkey[r][0] = key; wt_bn[r][0] = 0; }   /* (a POS moving every block: the points
                                                          * redrawn round and round, each at most four blocks old) */
-    k0 = wt_key[tr][o] ? wt_bi[tr][o] : 0u;
-    k1 = wt_key[tr][o] ? k0 + 32u : WT_N;
+    k0 = wt_key[r][0] ? wt_bi[r][0] : 0u;
+    k1 = wt_key[r][0] ? k0 + 32u : WT_N;
     {
         fvm_env_t e = *e0;
         e.arr[FA_T] = T; e.arr[FA_W] = W;
@@ -115,15 +115,28 @@ static const int16_t *wt_get(uint32_t tr, uint32_t o, const fvm_prog_t *pg, uint
         for (k = k0; k < k1; k += FVM_BLK) {
             for (i = 0; i < FVM_BLK; i++) W[i] = (k + i) % WT_N * (65536u / WT_N);
             fvm_run(pg, &e, &wk->s, FVM_BLK, y);
-            for (i = 0; i < FVM_BLK; i++) wt_tab[tr][o][(k + i) % WT_N] = (int16_t)clamp((int32_t)y[i] >> 1, -32768, 32767);
+            for (i = 0; i < FVM_BLK; i++) wt_tab[r][0][(k + i) % WT_N] = (int16_t)clamp((int32_t)y[i] >> 1, -32768, 32767);
         }
     }
-    wt_tab[tr][o][WT_N] = wt_tab[tr][o][0];
-    wt_bi[tr][o] = (uint8_t)(k1 % WT_N);
-    wt_bn[tr][o] = (uint8_t)(wt_bn[tr][o] + 32u > 255u ? 255u : wt_bn[tr][o] + 32u);
-    if (!wt_key[tr][o] || wt_bn[tr][o] >= WT_N)
-        wt_key[tr][o] = key;
-    return wt_tab[tr][o];
+    wt_tab[r][0][WT_N] = wt_tab[r][0][0];
+    wt_bi[r][0] = (uint8_t)(k1 % WT_N);
+    wt_bn[r][0] = (uint8_t)(wt_bn[r][0] + 32u > 255u ? 255u : wt_bn[r][0] + 32u);
+    if (!wt_key[r][0] || wt_bn[r][0] >= WT_N)
+        wt_key[r][0] = key;
+    return wt_tab[r][0];
+}
+/* (byte-cpu-light) B's table: a row of a track that is not WAVE (its own row idle), the k-th such for the k-th WAVE
+ * track (no RAM: who has which is the tracks' engines); none free, B exact as before. Only where the table's error is
+ * under -60 dB (SINE, STEP: wave_part); a sharper B (FM2, DRIVE ..) stays exact */
+static uint32_t wt_brow(uint32_t tr)
+{
+    uint32_t j, k = 0;
+    for (j = 0; j < tr; j++)
+        k += trk[j].engine == ENGI_WAVE;
+    for (j = 0; j < NTRK; j++)
+        if (trk[j].engine != ENGI_WAVE && !k--)
+            return j;
+    return NTRK;
 }
 static inline void wt_read(const int16_t *t, const uint32_t *W, uint32_t n, uint32_t *y)
 {
@@ -195,8 +208,10 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
     {   /* (byte-cpu-light) the parts' tables, CAOS off (POS still in the block) */
         uint32_t many = nu > 1u || trk_nvoice(t) > 1u, exact = caos || warp == WW_QUANT || (pt_ops & PT_TIME_OPS);   /* (the white punch-ins move t: the formula itself) */   /* (QUANT's steps land on the edges) */
         uint32_t q0 = PROF_T();
-        ta = exact ? 0 : wt_get(tr, 0, pa, fa, (uint32_t)pos, many, &ea, wk);
-        tb = 0;                                      /* (B exact: its table would need RAM there is not) */
+        uint32_t rb = pb && !exact && (fb == 0u || fb == 8u) ? wt_brow(tr) : NTRK;   /* (B's table: SINE, STEP
+                                                         * alone, under -60 dB of the formula's own; the rest exact) */
+        ta = exact ? 0 : wt_get(tr, tr, 0, pa, fa, (uint32_t)pos, many, &ea, wk);
+        tb = rb < NTRK ? wt_get(tr, rb, 1, pb, fb, (uint32_t)pos, many, &eb, wk) : 0;   /* (B: a borrowed row, wt_brow) */
         PROF_ADD(PQ_WTAB, q0);
     }
     {
@@ -248,10 +263,14 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
                 else (u ? fvm_run : formula_run)(pa, &ea, &wk->s, c, ya + o);
                 PROF_ADD(ta || tb ? PQ_WRD : PQ_WVM, q1);
             }
-            for (i = 0; i < n; i++) {
-                int32_t a = (int32_t)ya[i], b = pb ? (int32_t)yb[i] : 0;
-                acc[i] += mix ? a + (int32_t)(((int64_t)(b - a) * (int32_t)mix) >> 7) : a;   /* (Q16: A .. B) */
-            }
+            if (!mix)                                    /* (Q16: A .. B; byte-cpu-light: the choice a block, and */
+                for (i = 0; i < n; i++)                  /* (d x MIX) >> 7 in 32 bits, exactly the 64-bit product's) */
+                    acc[i] += (int32_t)ya[i];
+            else
+                for (i = 0; i < n; i++) {
+                    uint32_t d = (pb ? yb[i] : 0u) - ya[i];
+                    acc[i] += (int32_t)(ya[i] + (uint32_t)((int32_t)d >> 7) * mix + ((d & 127u) * mix >> 7));
+                }
             v->ph[u] = ph;
         }
     }
