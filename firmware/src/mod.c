@@ -622,6 +622,13 @@ static __attribute__((noinline)) void mod_midi(track_t *t, uint32_t st, uint32_t
     }
 }
 
+/* (BYTE) F.NOISE retired: FILTER 2's NOISE is gone (voice.c fn_tick: its value always 0), so a SRC turn steps over it
+ * (was the value before the turn, v after); an old route on it stays, shown, until edited */
+static int32_t mod_src_turn(int32_t was, int32_t v)
+{
+    return v == MS_FNZ && v != was ? v + (v > was ? 1 : -1) : v;
+}
+
 /* Selection policy only: stored IDs and DSP semantics never change here. */
 BTAPP_FN static int mod_dst_ok(const track_t *t, uint32_t d)
 {
@@ -691,7 +698,8 @@ BTAPP_FN static const char *mod_dst_name_bt(const track_t *t, int32_t v)
     }
     if (v == MD_SHP) {
         static const uint8_t SHP_ID[NENGINES] = {P_MORPH, P_MORPH, P_E2, P_MORPH, P_MORPH, P_E4, P_MORPH, P_E6,
-                                                P_E2, P_MORPH, P_MORPH, P_E1, P_MORPH, P_E5, P_MORPH, P_MORPH, P_E3};
+                                                P_E2, P_MORPH, P_MORPH, P_E1, P_MORPH, P_E1, P_MORPH, P_MORPH, P_E3};   /* (BYTE:
+                                                         * WAVE's 13 POS, eng_wave.c wave_part: SHAPE moves POS; was MIX) */
         k = e == ENGI_LOFI && t->p[P_E1] >= RW_BYTE ? P_E3 : SHP_ID[e];
         return track_desc(t, k)->label;
     }

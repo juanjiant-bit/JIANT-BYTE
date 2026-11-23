@@ -6,26 +6,116 @@
 /* (JIANT FM V10.7.60, normalized: the users' "I don't know what I turned") a knob's plain meaning in the header while it
  * turns (its card keeps the value), MENU > DISPLAY > HELP OFF silences it. One string: label, meaning, label, .. */
 static const char KNOB_HINT[] =
-    "CUT\0FILTER CUTOFF\0""RES\0FILTER RESONANCE\0""Q\0RESONANCE\0""DRIVE\0SATURATION\0""DIST\0DISTORTION\0""DLY\0DELAY SEND\0""REV\0REVERB SEND\0""CHORUS\0CHORUS SEND\0""ATK\0ATTACK TIME\0""DEC\0DECAY TIME\0""SUS\0SUSTAIN LEVEL\0""REL\0RELEASE TIME\0""GLIDE\0GLIDE TIME\0""UNISON\0DETUNED STACK\0""VOICES\0VOICE MODE\0""VEL\0VELOCITY AMOUNT\0""IMAGE\0STEREO WIDTH\0""LEN\0PATTERN LENGTH\0""DIV\0STEP SPEED\0""GATE\0NOTE LENGTH\0""CHANCE\0STEP PROBABILITY\0""HUMAN\0TIMING HUMANIZE\0""FEEDBK\0DELAY REPEATS\0""FB\0FEEDBACK\0""DAMP\0HIGH DAMPING\0""PRE\0PRE-DELAY\0""CLIP\0MASTER CLIPPER\0""PUNCH\0DRUM PUNCH\0""DUCK\0SIDECHAIN DUCK\0""WOW\0TAPE WOBBLE\0""ROOT\0SCALE ROOT\0""STRUM\0STRUM TIME\0""PROB\0PROBABILITY\0""FADE\0LFO FADE IN\0""SLEW\0SMOOTHING\0""SPREAD\0STEREO SPREAD\0""FOLD\0WAVEFOLDER\0""DUST\0CRACKLE NOISE\0""RTRG\0PHASE RESET\0""VAR\0FORMULA VARIANT\0""CAOS\0CHAOS AMOUNT\0""LIFE\0LIFE DEPTH\0""CRUSH\0BIT CRUSH\0""KEY TRK\0CUTOFF FOLLOWS KEY\0""WARP\0TIME WARP\0""FORM A\0STATE A\0""FORM B\0STATE B\0""MORPH\0A TO B, BY TIMBRE\0""STYLE\0FUNCBEAT FLAVOUR\0""DEF A\0DEFORM A\0""DEF B\0DEFORM B\0""OCT A\0OCTAVE A\0""OCT B\0OCTAVE B\0""RATE A\0STEP RATE A\0""RATE B\0STEP RATE B\0""PROG\0CHORD PROGRESSION\0""LENGTH\0BARS A CHORD\0""CHORD\0CHORD TYPE\0""VOICING\0CHORD SPREAD\0""MOD A\0EQUATION ON DEF A\0""MOD B\0EQUATION ON DEF B\0""DEPTH\0HOW FAR\0""SPEED\0HOW FAST\0""HITS\0EUCLID HITS\0""SWING\0SWING AMOUNT\0" "FUSION\0" "DRUMS AND FORMULA MIXED\0" "KIT\0" "DRUM SOUND\0" "GROOVE\0" "DRUM PATTERN\0" "GL MODE\0GLIDE: RATE OR TIME\0""AMOUNT\0HOW MUCH\0""DEST\0WHAT IT MOVES\0""TUNE\0TUNING\0";
+    "CUT\0FILTER CUTOFF\0""RES\0FILTER RESONANCE\0""Q\0RESONANCE\0""DRIVE\0SATURATION\0""DIST\0DISTORTION\0""DLY\0DELAY SEND\0""REV\0REVERB SEND\0""CHORUS\0CHORUS SEND\0""ATK\0ATTACK TIME\0""DEC\0DECAY TIME\0""SUS\0SUSTAIN LEVEL\0""REL\0RELEASE TIME\0""GLIDE\0GLIDE TIME\0""UNISON\0DETUNED STACK\0""VOICES\0VOICE MODE\0""VEL\0VELOCITY AMOUNT\0""IMAGE\0STEREO WIDTH\0""LEN\0PATTERN LENGTH\0""DIV\0STEP SPEED\0""GATE\0NOTE LENGTH\0""CHANCE\0STEP PROBABILITY\0""HUMAN\0TIMING HUMANIZE\0""FEEDBK\0DELAY REPEATS\0""FB\0FEEDBACK\0""DAMP\0HIGH DAMPING\0""PRE\0PRE-DELAY\0""CLIP\0MASTER CLIPPER\0""PUNCH\0DRUM PUNCH\0""DUCK\0SIDECHAIN DUCK\0""WOW\0TAPE WOBBLE\0""ROOT\0SCALE ROOT\0""STRUM\0STRUM TIME\0""PROB\0PROBABILITY\0""FADE\0LFO FADE IN\0""SLEW\0SMOOTHING\0""SPREAD\0STEREO SPREAD\0""FOLD\0WAVEFOLDER\0""DUST\0CRACKLE NOISE\0""RTRG\0PHASE RESET\0""VAR\0FORMULA VARIANT\0""CAOS\0CHAOS AMOUNT\0""LIFE\0LIFE DEPTH\0""CRUSH\0BIT CRUSH\0""KEY TRK\0CUTOFF FOLLOWS KEY\0""WARP\0PHASE WARP MODE\0""FORM A\0STATE A\0""FORM B\0STATE B\0""MORPH\0A TO B, BY TIMBRE\0""STYLE\0FUNCBEAT FLAVOUR\0""DEF A\0DEFORM A\0""DEF B\0DEFORM B\0""OCT A\0OCTAVE A\0""OCT B\0OCTAVE B\0""RATE A\0STEP RATE A\0""RATE B\0STEP RATE B\0""PROG\0CHORD PROGRESSION\0""LENGTH\0BARS A CHORD\0""CHORD\0CHORD TYPE\0""VOICING\0CHORD SPREAD\0""MOD A\0EQUATION ON DEF A\0""MOD B\0EQUATION ON DEF B\0""DEPTH\0HOW FAR\0""SPEED\0HOW FAST\0""HITS\0EUCLID HITS\0""SWING\0SWING AMOUNT\0" "FUSION\0" "DRUMS AND FORMULA MIXED\0" "KIT\0" "DRUM SOUND\0" "GROOVE\0" "DRUM PATTERN\0" "GL MODE\0GLIDE: RATE OR TIME\0""AMOUNT\0HOW MUCH\0""DEST\0WHAT IT MOVES\0""TUNE\0TUNING\0""AMT\0AMOUNT\0""SUB\0SUB OSCILLATOR\0";
+static const char *knob_meaning(const char *label)    /* label's plain meaning in KNOB_HINT, 0 none */
+{
+    const char *p = KNOB_HINT;
+    while (p < KNOB_HINT + sizeof KNOB_HINT - 1u && !str_eq(p, label))
+        p += str_len(p) + 1u, p += str_len(p) + 1u;
+    return p < KNOB_HINT + sizeof KNOB_HINT - 1u ? p + str_len(p) + 1u : 0;
+}
 static void knob_hint(const char *label, const char *meaning)   /* (func-tame) meaning: the knob's own (FUNC's A..D by
                                                          * FORM, eng_lofi.c func_knob_tip), else 0: the table's */
 {
-    const char *p = KNOB_HINT;
     char b[40];
     if (!label || (ui_help_off & 1u))
         return;
-    if (!meaning) {
-        while (p < KNOB_HINT + sizeof KNOB_HINT - 1u && !str_eq(p, label))
-            p += str_len(p) + 1u, p += str_len(p) + 1u;
-        if (p >= KNOB_HINT + sizeof KNOB_HINT - 1u)
-            return;
-        meaning = p + str_len(p) + 1u;
-    }
+    if (!meaning && !(meaning = knob_meaning(label)))
+        return;
     str_cpy(b, label, sizeof b);
     str_cpy(b + str_len(b), ": ", sizeof b - str_len(b));
     str_cpy(b + str_len(b), meaning, sizeof b - str_len(b));
     if (ui.msg_t && str_eq(ui.msg, b)) { ui.msg_t = 40; return; }   /* (still turning: it stays) */
     ui_say(b, "");
+}
+/* (BYTE, the owner: "the matrix's names are short, nobody knows what F.NOISE is") every SRC and DEST in full, in flash:
+ * "NAME|what it is" (the part after '|' optional). Checked against mod.c (mod_tsrc, mod_begin, macro_master). The
+ * engine's own (CUT SHP E1..E8) are named by the engine at the card (mod_full): ENGINE + its label's meaning */
+static const char *const MSRC_FULL[] = {
+    "OFF|THIS SLOT DOES NOTHING", "LFO|THE TRACK'S LOW FREQ OSCILLATOR", "AMP ENVELOPE|THE VOICE'S VOLUME ENVELOPE",
+    "VELOCITY|HOW HARD THE NOTE WAS PLAYED", "KEYBOARD NOTE|ABOVE C4 UP, BELOW C4 DOWN", "RANDOM|NEW VALUE EACH NOTE",
+    "MOD WHEEL|MIDI CC1", "AFTERTOUCH|MIDI CHANNEL PRESSURE", "EXPRESSION|MIDI CC11",
+    "MACRO 1|HOME > MACROS, KNOB 1", "MACRO 2|HOME > MACROS, KNOB 2", "MACRO 3|HOME > MACROS, KNOB 3",
+    "MACRO 4|HOME > MACROS, KNOB 4", "MOD SEQUENCE|LFO > MSEQ, ITS STEP NOW", "SMOOTH NOISE|A SLOW RANDOM WANDER",
+    "BLUETOOTH PROXIMITY|A HAND NEAR THE ANTENNA", "ENVELOPE 2|ENV > ENV 2, PER VOICE", "INPUT FOLLOWER|AUDIO IN LOUDNESS",
+    "TRACK 1 FOLLOWER|TRACK 1 LOUDNESS", "TRACK 2 FOLLOWER|TRACK 2 LOUDNESS", "TRACK 3 FOLLOWER|TRACK 3 LOUDNESS",
+    "TRACK 4 FOLLOWER|TRACK 4 LOUDNESS", "TRACK 5 FOLLOWER|TRACK 5 LOUDNESS", "TRACK 6 FOLLOWER|TRACK 6 LOUDNESS",
+    "OCT+ KEY BEND|THE EXPRESSION KEY'S BEND", "OCT- KEY VIBRATO|THE EXPRESSION KEY'S VIBRATO",
+    "FILTER 2 NOISE|RETIRED: ALWAYS 0", "LIFE BREATH|HOME > LIFE: ITS PULSE", "LIFE BEING|HOME > LIFE: HOW HIGH IT SWIMS"};
+static const char *const MDST_FULL[] = {
+    "OFF|THIS SLOT DOES NOTHING", "PITCH|AN OCTAVE AT FULL AMT", "VOICE CUTOFF|PER VOICE", "VOICE SHAPE|PER VOICE",
+    "VOLUME|PER VOICE", "PAN|LEFT / RIGHT", "DISTORTION SEND", "CHORUS SEND", "DELAY SEND", "REVERB SEND", "LFO RATE",
+    "VIBRATO DEPTH|LFO TO PITCH", "ENGINE PARAM 1|EDIT 1, KNOB 1", "ENGINE PARAM 2|EDIT 1, KNOB 2",
+    "ENGINE PARAM 3|EDIT 1, KNOB 3", "ENGINE PARAM 4|EDIT 1, KNOB 4", "ENGINE PARAM 5|EDIT 2, KNOB 1",
+    "ENGINE PARAM 6|EDIT 2, KNOB 2", "ENGINE PARAM 7|EDIT 2, KNOB 3", "ENGINE PARAM 8|EDIT 2, KNOB 4",
+    "MASTER CLIPPER|FX > MASTER, ALL TRACKS", "MASTER PUNCH|FX > MASTER, ALL TRACKS", "DELAY TIME|FX BUS, ALL TRACKS",
+    "DELAY FEEDBACK|FX BUS, ALL TRACKS", "DELAY TONE|FX BUS, ALL TRACKS", "DELAY MIX|FX BUS, ALL TRACKS",
+    "REVERB SIZE|FX BUS, ALL TRACKS", "REVERB DAMPING|FX BUS, ALL TRACKS", "CHORUS RATE|FX BUS, ALL TRACKS",
+    "CHORUS DEPTH|FX BUS, ALL TRACKS", "FILTER CUTOFF|THE TRACK'S FILTER", "TRACK LEVEL", "LIFE DEPTH|HOME > LIFE",
+    "OLD FORM M1 AMOUNT|RETIRED", "OLD FORM M1 DECAY|RETIRED", "OLD FORM M2 AMOUNT|RETIRED", "OLD FORM M2 DECAY|RETIRED",
+    "OLD FORM M3 AMOUNT|RETIRED", "OLD FORM M3 DECAY|RETIRED", "OLD FORM M4 AMOUNT|RETIRED", "OLD FORM M4 DECAY|RETIRED"};
+_Static_assert(NELEM(MSRC_FULL) == MS_N && NELEM(MDST_FULL) == MD_N, "a full name for every SRC and DEST");
+/* SRC (src 1) or DEST v of track t in full into b (n), what it is into w (wn) when w */
+static void mod_full(const track_t *t, uint32_t src, int32_t v, char *b, uint32_t n, char *w, uint32_t wn)
+{
+    const char *f, *q;
+    uint32_t k = 0;
+    b[0] = 0;
+    if (w) w[0] = 0;
+    if (src) {
+        f = MSRC_FULL[clamp(v, 0, MS_N - 1)];
+    } else {
+        v = clamp(v, 0, MD_N - 1);
+        f = MDST_FULL[v];
+        if (bt_hw_seg() && (v == MD_CUT || v == MD_SHP || (v >= MD_E1 && v < MD_CLIP))) {   /* (the engine's own) */
+            const char *l = mod_dst_name(t, v), *m;
+            if (str_eq(l, N_MDST[MD_FCUT])) {
+                f = MDST_FULL[MD_FCUT];
+            } else if (str_eq(l, "N/A")) {
+                if (w) str_cpy(w, "NOT ON THIS ENGINE", wn);
+                w = 0;
+            } else if (l[0]) {
+                m = knob_meaning(l);
+                for (q = m; q && *q && *q != ','; q++)
+                    ;
+                if (m && (*q == ',' || (m[0] == 'H' && m[1] == 'O' && m[2] == 'W') || (m[0] == 'W' && m[1] == 'H')))
+                    m = 0;                              /* (HOW FAR, WHAT IT MOVES, A TO B, BY ..: the label itself) */
+                str_cpy(b, trk_engp(t)->name, n);
+                str_cpy(b + str_len(b), " ", n - str_len(b));
+                str_cpy(b + str_len(b), m ? m : l, n - str_len(b));
+            }
+        }
+    }
+    if (b[0])                                           /* (the engine named it: only what it is from the table) */
+        k = n;
+    for (q = f; *q && *q != '|'; q++)
+        if (k + 1u < n) b[k++] = *q, b[k] = 0;
+    if (w && *q == '|') str_cpy(w, q + 1, wn);
+}
+/* (BYTE, the owner: always, whatever HELP) LFO > MATRIX's SRC (knob 1) or DEST (2) turned: its name in full as HELP's
+ * line (knob_hint: the header's message, ~1.5 s after the last detent); then, a moment: SRC what it is ("NEW VALUE EACH
+ * NOTE"), DEST the slot's route in full ("MOD WHEEL > WAVE POS"), each the other when it has none */
+#define MOD_CARD_W 160                                  /* (ui_graph.c toast_pill: a pill this wide fits LFO > MATRIX) */
+static void mod_card(uint32_t knob)
+{
+    const int16_t *p = &TSEL->p[P_M1SRC + 3u * (mod_ui_slot & 3u)];
+    char a[40], s[28], d[28], w[40];
+    mod_full(TSEL, 1u, p[0], s, sizeof s, knob == 1u ? w : 0, sizeof w);
+    mod_full(TSEL, 0u, p[1], d, sizeof d, knob == 2u ? w : 0, sizeof w);
+    str_cpy(a, knob == 1u ? "SOURCE: " : "DEST: ", sizeof a);
+    str_cpy(a + str_len(a), knob == 1u ? s : d, sizeof a - str_len(a));
+    if (!(ui.msg_t && str_eq(ui.msg, a)))
+        ui_say(a, "");
+    ui.msg_t = 40;                                      /* (still turning: it stays) */
+    if ((!w[0] || knob == 2u) && p[0] && p[1]) {        /* (DEST: the route first, its note when no route) */
+        char r[40];
+        str_cpy(r, s, sizeof r);
+        str_cpy(r + str_len(r), " > ", sizeof r - str_len(r));
+        str_cpy(r + str_len(r), d, sizeof r - str_len(r));
+        if (text_w(&AF_S, r) <= MOD_CARD_W)            /* (if room: the toast's pill clear of the page's words) */
+            str_cpy(w, r, sizeof w);
+    }
+    str_cpy(ui.msg2, w, sizeof ui.msg2);
 }
 /* ----------------------------------------------------------- LEDs --- */
 /* The LED picture is built off-line and copied one byte per column: clearing
@@ -1268,7 +1358,7 @@ static void shape_knob(uint32_t slot, int32_t steps)
 static __attribute__((noinline)) void focus_knob(uint32_t slot, int32_t steps)
 {
     uint32_t k = focus_k(), f = k, n;
-    int32_t j = focus_slot(k);
+    int32_t j = focus_slot(k), v;
     int16_t *p;
     const param_desc_t *d;
     if (slot == 0u) {                                   /* (a named one a detent) */
@@ -1312,7 +1402,8 @@ static __attribute__((noinline)) void focus_knob(uint32_t slot, int32_t steps)
         return;
     p = &TSEL->p[P_M1SRC + 3u * (uint32_t)j + (slot == 2u ? 0u : 2u)];
     d = track_desc(TSEL, P_M1SRC + 3u * (uint32_t)j + (slot == 2u ? 0u : 2u));
-    *p = (int16_t)param_turn(d, *p, slot == 2u ? (steps > 0 ? 1 : -1) : accel(EN_K1 + 3u, steps, d->max - d->min));
+    v = param_turn(d, *p, slot == 2u ? (steps > 0 ? 1 : -1) : accel(EN_K1 + 3u, steps, d->max - d->min));
+    *p = (int16_t)(slot == 2u ? mod_src_turn(*p, v) : v);
 }
 /* Preserve fractional progress when FIT/SPAN changes during playback; never catch up thousands of tiny steps.
  * This runs only on a knob turn, outside the audio ISR. */
@@ -1719,6 +1810,8 @@ sect:
     if (!d || !vp || d->max == d->min)
         return;
     v = param_turn(d, *vp, accel(EN_K1 + slot, steps, d->fmt == F_ENUM ? 0 : d->max - d->min));
+    if (d->names == N_MSRC)                             /* (BYTE) a matrix SRC: F.NOISE stepped over */
+        v = mod_src_turn(*vp, v);
     int32_t was_clay = *vp;
     {
         int32_t was = *vp;
@@ -3303,6 +3396,8 @@ static void ui_input_frame(void)
         } else {
             edit_param(k, s);
         }
+        if (!ui.home && !ui.menu && !ui.confirm && pg->graph == GR_MOD && (k == 1u || k == 2u))
+            mod_card(k);                                /* (BYTE) the SRC / DEST in full, whatever HELP */
     }
     ui_notices();
 }
