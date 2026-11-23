@@ -141,8 +141,10 @@ static int form_hit(const int16_t*p,uint32_t m,uint32_t s,uint32_t seed)
  uint32_t e=(uint32_t)clamp(p[FORM_MF[m][1]]+64,0,174)%25u;
  if(!e)return 0;
  if(e==1u)return (int)fvm_eu(s,seed+m*37u);
- uint32_t k=FORM_EUK[e][0],n=FORM_EUK[e][1],r=fvm_hash(seed*0x9E3779B1u+m*0x85EBCA77u)%n,q=(s+r)%n;
- return ((q+1u)*k/n)!=(q*k/n);
+ uint32_t k=FORM_EUK[e][0],n=FORM_EUK[e][1],q=s%n;   /* (the owner: on the step, with the others: a hit on the
+                                                         * cycle's first step, no rotation by the seed) */
+ (void)m;
+ return (q*k)%n<k;
 }
 static int32_t form_fold(int32_t x){uint32_t q=((uint32_t)(x+32768)<<15)>>16;int32_t d=(int32_t)q-32768;return 32767-2*(d<0?-d:d);}
 /* 2^(-x/256), Q15 */
