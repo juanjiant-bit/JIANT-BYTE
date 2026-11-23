@@ -309,6 +309,7 @@ static __attribute__((noinline)) void form_render(track_t*t,voice_t*v,int32_t*ou
  uint32_t q=(uint32_t)v->s[2],bps=(uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300),end;
  if(func_bar(t))end=func_clock_end;
  else end=(uint32_t)(((uint64_t)(q+(n<<sh))<<16)/bps);
+ if(pt_ops&PT_TIME_OPS)end=pt_time(end>>4,0u)<<4;   /* (BYTE) the white punch-ins: the composition's time (formula_perf.c) */
  st->clk+=(uint32_t)((((n<<sh))<<18)/(bps?bps:1u));
  st->last=(int32_t)(end>>(16-clamp(p[P_E0],0,3)));
  for(k=0;k<4u;k++){                                     /* each modulator on its own RATE's steps */

@@ -63,7 +63,8 @@ static struct {
     lv_mod_t cur[NTRK];
     uint8_t act, rs[NTRK], pd[NTRK], rem[NTRK];         /* modified (a bit a track); rq seen; PING going down; RATE's
                                                          * remainder */
-    uint8_t pfo[NTRK], pfa;                             /* the FX layer's 1/2 TEMPO / LOOP on it last block; a bit a track */
+    uint16_t pfo[NTRK];                                 /* the FX layer's 1/2 TEMPO / LOOP (and the white keys, << 6) last block */
+    uint8_t pfa, pws[NTRK];                             /* a bit a track; (BYTE) the white keys' window: its first step */
     int8_t rj[NTRK];                                    /* GIRO moved: steps the next one is on / back */
     uint16_t gidx[NTRK];                                /* the ghost: its step, samples into it */
     uint32_t gpos[NTRK];
@@ -196,11 +197,17 @@ static void live_reset(void)
 /* each block, before the sequencer (events_block): what the main loop asked for goes in, on the transport's 1/16 (RATE
  * on the beat), RETURN on the beat, BYPASS, COMMIT and the FX layer's at once; back in phase, the playhead onto the
  * ghost (and the PLAYHEADS on by what they missed) */
+/* (BYTE) the white punch-ins on a track whose engine has no formula time (formula_perf.c pt_ops): DRUM-W, FORM */
+static uint32_t pt_walk(const track_t *t)
+{
+    uint32_t e = eng_idx(t->engine);
+    return e == ENGI_DRUM || e == ENGI_FORM ? pt_ops & PT_TIME_OPS : 0u;
+}
 static __attribute__((noinline)) void live_q(uint32_t n)
 {
     uint32_t s16, i, st, b16, bb, pa = 0;
-    for (i = 0; i < NTRK; i++)                          /* (the FX layer's 1/2 TEMPO, LOOP: pfx.c) */
-        pa |= (trk[i].pfx & (PFX_HALF | PFX_LOOP) ? 1u : 0u) << i;
+    for (i = 0; i < NTRK; i++)                          /* (the FX layer's 1/2 TEMPO, LOOP: pfx.c; BYTE: the white keys) */
+        pa |= (trk[i].pfx & (PFX_HALF | PFX_LOOP) || pt_walk(&trk[i]) ? 1u : 0u) << i;
     if (!(lv.busy | lv.act | pa | lv.pfa))
         return;
     lv.pfa = (uint8_t)pa;
@@ -212,6 +219,22 @@ static __attribute__((noinline)) void live_q(uint32_t n)
         track_t *t = &trk[i];
         lv_mod_t *c = &lv.cur[i], w = lv.want[i];
         uint32_t bit = 1u << i, rq = lv.rq[i] != lv.rs[i] ? lv.rk[i] : LQ_NONE, po = t->pfx & (PFX_HALF | PFX_LOOP);
+        uint32_t wk = pt_walk(t), cut = wk & (1u << PT_S16) ? 1u : wk & (1u << PT_S8) ? 2u : wk & (1u << PT_REP) ? 4u : 0u;
+        po |= wk << 6;
+        if (po != lv.pfo[i] && cut)                     /* (the white keys' window: from the step playing) */
+            lv.pws[i] = (uint8_t)(t->seq_idx % (uint32_t)(t->p[P_SLEN] > 0 ? t->p[P_SLEN] : 1));
+        if (wk) {                                       /* (BYTE, the owner: "the punch-ins do nothing on the engines")
+                                                         * the white keys on an engine with no formula time of its own
+                                                         * (DRUM-W, FORM): how its steps are walked. HALF /2, WOBBLE 2/3,
+                                                         * STEP 16 / 8 a step / two again, REPEAT four, MIRROR back,
+                                                         * SCRAMBLE at random, BITS each step x3 */
+            if (wk & (1u << PT_WOB)) w.rate = (int8_t)(w.rate < -1 ? w.rate : -1);
+            if (wk & (1u << PT_HALF)) w.rate = (int8_t)(w.rate < -2 ? w.rate : -2);
+            if (cut) { w.cut = (uint8_t)cut; w.ws = lv.pws[i]; w.fl |= LF_HERE; }
+            if (wk & (1u << PT_MIR)) w.fl = (uint8_t)((w.fl & ~6u) | LVD_REV << 1);
+            if (wk & (1u << PT_SCR)) w.fl = (uint8_t)((w.fl & ~6u) | LVD_RND << 1);
+            if (wk & (1u << PT_BITS)) w.rat = 3;
+        }
         if (po & PFX_HALF)                              /* (the FX layer's: on the modifiers, at once) */
             w.rate = (int8_t)(w.rate < -2 ? w.rate : -2);
         if (po & PFX_LOOP) {                            /* (LOOP N: the last N steps, pfx_block's) */
@@ -220,7 +243,7 @@ static __attribute__((noinline)) void live_q(uint32_t n)
             w.fl |= LF_HERE;
         }
         if (po != lv.pfo[i]) {
-            lv.pfo[i] = (uint8_t)po;
+            lv.pfo[i] = (uint16_t)po;
             rq = LQ_NOW;
         }
         if (rq != LQ_NOW && !bb && (!b16 || rq == LQ_BEAT))
