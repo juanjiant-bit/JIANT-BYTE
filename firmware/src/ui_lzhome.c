@@ -490,7 +490,7 @@ static __attribute__((noinline)) void graph_tracks(void)
             cv_rect(68, y + 2, 166, h - 4, ux_mix(T_BG, hc, en * 30 / 256));
             cv_rect(62, y + h - 1 - (h - 1) * en / 256, 2, (h - 1) * en / 256 + 1, hc);
         }
-        cv_text(4, ty, &AF_X, b, sel ? T_THEME : off ? T_DIM : T_TEXT);
+        cv_text(4, ty, &AF_X, b, off ? T_DIM : sel ? TRK_COL[c % 6u] : ux_mix(T_BG, TRK_COL[c % 6u], 70));
         cv_clip_text(19, ty, &AF_X, ENGINES[trk_eng(t)]->name, off ? T_DIM : T_TEXT, T_SURF, 42);
         pat_range(t, &lo, &hi);
         for (i = 0; i < len; i++) {                     /* (a note its pitch's height and heat; a kit's hit the lane's) */

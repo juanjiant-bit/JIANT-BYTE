@@ -142,7 +142,7 @@ static const ng_t CG_GLO[] = {
 #if FELUCCA_LIVE
                                {"LIVE", 0},
 #endif
-                               {"MIX", 0}, {"COMP", 0}, {"SETUP", 0}};   /* (codex/coherence: SETUP, the
+                               {"MIXER", "MIX"}, {"GLOBAL COMP", "COMP"}, {"SETUP", 0}};   /* (codex/coherence: SETUP, the
                                                          * settings in one group: GLOBAL, SYSTEM, SYSTEM 2, KEY SPLIT) */   /* (five tabs of 44 px in the labels' face) */
 static const nv_t CE_ENV[] = {NV("ENV", 0, 0, 1), NV("ENV DEST", 0, 0, 1), NV("ENV 2", 0, 0, 1)
 #if FELUCCA_ENVX

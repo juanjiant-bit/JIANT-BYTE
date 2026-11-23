@@ -238,8 +238,9 @@ static uint16_t head_title(char *b)
 {
     head_trk = 0;
     const page_t *pg = cur_page();
-    int glob = !ui.home && !ly_drawn() && !song_pg(ui.page) && (pg->graph == GR_SLOTS || pg->graph == GR_TOOLS ||
-                                                              pg->fam == FAM_GLO || pg->fam == FAM_SAVE);   /* (V10.7.32:
+    int glob = ui.home || ly_drawn() || song_pg(ui.page) || pg->graph == GR_SLOTS || pg->graph == GR_TOOLS ||
+               pg->fam == FAM_GLO || pg->fam == FAM_TRK || pg->fam == FAM_SAVE;   /* (as JIANT FM V10.8.10: the track's bar on its pages only;
+                                                         * HOME, the layers, GLO, SAVE, the song's: the project) */   /* (V10.7.32:
                                                          * the song's pages HOME's, its header) */
     if (ui.menu) {                                      /* (0.8.5) the menu: "MENU . DISPLAY", "ABOUT / CREDITS" */
         str_cpy(b, ui.menu == 2 ? "ABOUT / CREDITS" : "MENU \xB7 ", 40);
@@ -656,6 +657,11 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     }
     if (!gk)
         vc = value_col(vc, ratio);
+    /* (BYTE, the owner's MATRIZ) a lens card: no box; its label a tag (blue; the knob just turned its track's colour),
+     * the value white, under it a matrix of 20 cells lit to the value in the thermal palette */
+    int mx = lz_on() && kind != LK_TALL && kid < 0;
+    if (mx && vc != T_DIM)
+        vc = T_TEXT;
     oc = label[0] || val[0] ? vc : T_LINE;              /* (V10.7.23, the owner) no box: the card's line in its value's
                                                          * colour (none: LINE), */
     lw = 1 + (hot && vc != T_DIM);                      /* 2 px the knob just turned (it was framed) */
@@ -706,8 +712,10 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
     if (strip) {                                        /* rolling: the value strip only */
         cv_begin(COL_W, ROLL_H, cb);
         cv_oy = -ry;
-        cv_rect(0, ry, lw, ROLL_H, oc);                 /* (V10.7.23) the card's line, its sides */
-        cv_rect(COL_W - lw, ry, lw, ROLL_H, oc);
+        if (!mx) {
+            cv_rect(0, ry, lw, ROLL_H, oc);             /* (V10.7.23) the card's line, its sides */
+            cv_rect(COL_W - lw, ry, lw, ROLL_H, oc);
+        }
     } else {
         char ov[16];                                    /* the value drawn before (in the cache key) */
         const char *k = ui.col[c];
@@ -728,7 +736,8 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
             return;
         }
         cv_begin(COL_W, (uint32_t)ch, T_BG);
-        card_line(0, 0, COL_W, ch, lz_on() ? 5 : 0, oc, lw);   /* (the lens's rounded, the others' square) */
+        if (!mx)
+            card_line(0, 0, COL_W, ch, lz_on() ? 5 : 0, oc, lw);   /* (the lens's rounded, the others' square) */
     }
     if (label[0] || val[0]) {
         cv_scroll = (uint8_t)strip;                     /* (0.9.0) rolling: the label again where it reaches into the value's
@@ -743,7 +752,14 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
             int32_t cy = ly + (lf == &AF_M ? AF_M_CAP_Y : lf == &AF_X ? AF_X_CAP_Y : AF_S_CAP_Y);
             {
             int32_t ic = lf == &AF_X && lz_on() && kind != LK_TALL ? card_ico(label) : -1;
-            if (ic >= 0 && 10 + text_w(lf, label) <= COL_W - 2 - 5) {   /* (0.8.9) its mark, then the label */
+            if (mx) {                                   /* (MATRIZ) the label a tag */
+                uint32_t tr = song.sel % 6u;
+                uint16_t tb = hot ? TRK_COL[tr] : arm || mot ? T_THEME : 0x29FFu, tf = hot ? (tr >= 4u ? 0xFFFFu : 0x0000u) : arm || mot ? T_INK : T_TEXT;
+                int32_t tw = text_w(lf, label) + 4;
+                if (tw > COL_W - 2) tw = COL_W - 2;
+                cv_rect(1, 1, tw, 11, tb);
+                cv_text_fit(3, ly, lf, label, tf, tb, tw - 3);
+            } else if (ic >= 0 && 10 + text_w(lf, label) <= COL_W - 2 - 5) {   /* (0.8.9) its mark, then the label */
                 card_ico_draw(lx, cy, (uint32_t)ic, lc);
                 cv_text_fit(lx + 10, ly, lf, label, lc, cb, COL_W - 2 - 15);
             } else
@@ -773,7 +789,14 @@ static void draw_column(uint32_t c, const char *label, const char *val, const ch
         } else if (!strip && ratio >= 0) {              /* the gauge: a 2 px LINE track, the value THEME on it */
             int32_t gw = COL_W - 10, fx = ratio * gw / 1000;
             uint16_t gc = hot && !lz_on() ? T_ACCENT : vc == T_DIM ? T_DIM : lz_on() ? (gk ? gk : vc) : gauge_col(ratio);
-            if (lz_on() && kind != LK_TALL) {   /* COLORS: 3 px, rounded, as the 0.6's */
+            if (mx) {                                   /* (MATRIZ) 10 x 2 cells, lit to the value (bipolar: from the middle) */
+                int32_t k, n = ratio * 20 / 1000, a = card_bip ? (n < 10 ? n : 10) : 0, b = card_bip ? (n < 10 ? 10 : n) : n;
+                for (k = 0; k < 20; k++) {
+                    int32_t col = k % 10, row = k / 10, q = col * 2 + row, on = q >= a && q < b;
+                    cv_rect(5 + col * gw / 10, ch - 7 + row * 4, gw / 10 - 1, 3,
+                            on ? (vc == T_DIM ? T_DIM : heat_col(40 + q * 210 / 19)) : T_SURF);
+                }
+            } else if (lz_on() && kind != LK_TALL) {   /* COLORS: 3 px, rounded, as the 0.6's */
                 gauge_bar(5, ch - 6, gw, 3, fx, gc, T_LINE, cb);
             } else {
                 cv_rect(5, ch - 5, gw, 2, T_LINE);
@@ -888,14 +911,19 @@ static void tabs_paint(uint32_t n, uint32_t lv, const char *const *nm, const cha
     for (l = 0; l < n; l++) {
         int32_t x = TAB_X(l, n), w = TAB_X(l + 1u, n) - 2 - x, nd = cnt ? cnt[l] : 0, dx = x + HALF_UP(w - (nd * 4 - 2));
         const char *s = nm[l];
-        uint16_t bg = l == lv ? T_THEME : T_RAISE;
+        /* (BYTE, the HUD) the group lit a tag in its track's colour (a track's page; else THEME), the others their
+         * name dim over a thin rule */
+        uint32_t tr = song.sel % 6u;
+        uint16_t lit = head_trk ? TRK_COL[tr] : T_THEME, bg = l == lv ? lit : T_BG,
+                 ink = l == lv ? (head_trk && tr >= 4u ? 0xFFFFu : T_INK) : T_MID;
         if (tab && tab[l] && text_w(&AF_X, s) > w - 8)     /* (3 px clear at either side) */
             s = tab[l];
-        cv_rrect(x, 0, w, LT_H, 4, bg, T_BG);
+        cv_rect(x, 0, w, LT_H - 1, bg);
+        cv_rect(x, LT_H - 1, w, 1, l == lv ? lit : T_SURF);
         GFX_HOOK_ALIGN(x, 0, x + w, LT_H, AL_HV, "group tab name centred in its tab");
-        cv_text_in(x, CAP_IN(X, LT_H), w, &AF_X, s, l == lv ? T_INK : T_TEXT, bg);
+        cv_text_in(x, CAP_IN(X, LT_H), w, &AF_X, s, ink, bg);
         for (d = 0; d < (uint32_t)nd; d++)
-            cv_rect(dx + (int32_t)d * 4, LT_H - 2, 2, 1, l != lv ? T_DIM : d == at ? T_INK : ux_mix(T_THEME, T_INK, 40));
+            cv_rect(dx + (int32_t)d * 4, LT_H - 3, 2, 1, l != lv ? T_DIM : d == at ? ink : ux_mix(lit, ink, 40));
     }
     cv_blit(0, LT_Y);
 }
@@ -946,7 +974,7 @@ static void draw_tabs(void)
     uint8_t cnt[8];
     uint32_t lv, at, n = tabs_now(nm, tab, cnt, &lv, &at), k,
              sig = (lv + 1u) * 2654435761u + at * 40503u + ux.gen * 977u + lz_fam() * 131u + 1u +
-                   n * 7919u;
+                   n * 7919u + (song.sel + 1u) * 101u * (head_trk + 1u);
     for (k = 0; k < n; k++)
         sig = (sig ^ str_hash(cnt[k], nm[k])) * 16777619u;
     if (!ui.force && sig == drawn)
@@ -1186,12 +1214,16 @@ static __attribute__((noinline)) void draw_crumbs(int32_t y, uint16_t fg, uint16
     else
         GFX_HOOK_ALIGN(0, y + AF_S_CAP_Y, 0, y + AF_S_CAP_Y + AF_S_CAP_H, AL_V, "footer breadcrumb on its line");
     if (cw)
-        cv_text_r(234, y, f, cnt, f == &AF_X ? T_TEXT : fg, T_BG);   /* (0.8.9, the skins' mock-up: the count TEXT) */
+        cv_text_r(234, y, f, cnt, f == &AF_X ? HUD_YE : fg, T_BG);   /* (BYTE, the HUD: the count a reading, yellow) */
     if (clip_tag(ct))
         mx = cv_text_r(mx, y, f, ct, T_THEME, T_BG) - 6;   /* (seq2h) the clipboard's [n] */
     if (f == &AF_X && k) {                              /* (seq2g) a lens footer: the page's name alone after the steps
                                                          * (TEXT, as `last` if that is not DIM) */
-        cv_free_text(x0, y, f, b + k, last == fg ? T_TEXT : last, T_BG, mx - x0);
+        int32_t tw = text_w(f, b + k) + 4;              /* (BYTE, the HUD) the page's name a tag */
+        uint16_t tb = last == fg ? T_TEXT : last;
+        if (tw > mx - x0) tw = mx - x0;
+        cv_rect(x0, y + AF_X_CAP_Y - 2, tw, AF_X_CAP_H + 3, tb);
+        cv_free_text(x0 + 2, y, f, b + k, T_INK, tb, tw - 3);
         return;
     }
     if (last == fg || !k) {
@@ -1553,7 +1585,7 @@ static void draw_columns(void)
         val[0] = 'x';                                  /* x1 .. x4 */
         val[1] = (char)('0' + step_ratchet(&TSEL->step[ui.cursor]));
         val[2] = 0;
-        text_column(2, "RATCH", val, rplays ? VAL(2u) : T_DIM);
+        text_column(2, "RATCHET", val, rplays ? VAL(2u) : T_DIM);
         empty_column(3);
         return;
     }

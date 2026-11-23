@@ -1656,6 +1656,12 @@ static void trk_short_name(uint32_t c, char *b)      /* the track's sound, b hol
  * the output meter under it (MID); a muted track DIM */
 #define TSS_GY 40                                    /* the LEVEL gauge, 3 px */
 #define TSS_MY 48                                    /* the meter, 3 px */
+/* (BYTE, as JIANT FM V10.8.11) a track's number in its colour: the selected one full, the others half into the card, a
+ * muted one dim */
+static uint16_t trk_num_col(uint32_t c, uint32_t sel)
+{
+    return trk[c].p[P_MUTE] ? T_DIM : sel ? TRK_COL[c % 6u] : ux_mix(T_SURF, TRK_COL[c % 6u], 55);
+}
 static void track_strip(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, uint32_t arm, uint32_t hot, uint32_t lvl,
                         const char *b)
 {
@@ -1663,7 +1669,7 @@ static void track_strip(uint32_t c, uint32_t sel, uint32_t st, uint32_t mute, ui
     uint16_t vc = mute ? T_DIM : T_THEME;
     cv_begin(CARD_W, LG_H_GRAPH, T_BG);
     cv_rrect(0, 0, CARD_W, LG_H_GRAPH, 5, T_SURF, T_BG);
-    cv_trk(4, 4, 16, c, sel ? T_ACCENT : T_MID, T_SURF);
+    cv_trk(4, 4, 16, c, trk_num_col(c, sel), T_SURF);
     if (st)
         GFX_HOOK_ALIGN(0, 4, 0, 20, AL_V, "mixer badge on the cushion's line");
     if (st == 1u || st == 2u)
@@ -1697,7 +1703,7 @@ static __attribute__((noinline)) void track_col6(uint32_t c, uint32_t sel, uint3
     uint16_t lc = hot == 1u ? T_ACCENT : lvl ? (mute ? T_DIM : T_TEXT) : T_DIM;
     cv_begin(T6_W, H_GRAPH, T_BG);
     cv_rrect(0, 0, T6_W, H_GRAPH, 5, T_SURF, T_BG);
-    cv_trk(4, 5, 16, c, sel ? T_ACCENT : mute ? T_DIM : T_MID, T_SURF);
+    cv_trk(4, 5, 16, c, trk_num_col(c, sel), T_SURF);
     if (st == 1u || st == 2u)                        /* armed: a dot (recording: red) */
         cv_rrect(T6_W - 11, 10, 6, 6, 3, st == 1u ? T_REC : T_ACCENT, T_SURF);
     if (mute == 2u)                                  /* asleep (TRACKS 4) */
@@ -1801,7 +1807,7 @@ static __attribute__((noinline)) void draw_tracks(void)
         }
         cv_begin(CARD_W, H_GRAPH, T_BG);
         cv_rrect(0, 0, CARD_W, H_GRAPH, 5, T_SURF, T_BG);
-        cv_trk(4, 5, 16, c, sel ? T_ACCENT : T_MID, T_SURF);
+        cv_trk(4, 5, 16, c, trk_num_col(c, sel), T_SURF);
         if (st)
             GFX_HOOK_ALIGN(0, 5, 0, 21, AL_V, "mixer badge on the cushion's line");
         if (st == 1u || st == 2u)                    /* REC (recording) / ARM (armed, stopped) */

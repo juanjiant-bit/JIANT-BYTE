@@ -951,8 +951,8 @@ static void rate_name(const track_t *t, uint32_t n, char *b)
 /* (0.9.9-seq2d) SEQ > COMP / COMP 2: the step's C1 / C2 as ACTION LENGTH CONDITION VALUE (core.h CA_* CC_*) */
 /* (gen3) the names short, each read whole on its card: the value's M where it fits with its unit (COMP's 49 px), else S
  * (ui_test test_comp_cards: every value of every knob, every page) */
-static const char *const CA_NAMES[CA_N + 1u] = {"OFF", "ARP", "SEQ", "OCT+", "OCT-", "RATCH", "STUT", "MUTE", "TRANS",
-                                                "RAND", "LOCK", "RAMP", "SOUND", "BEND", "SHIFT", "CHORD", "TRIG"};
+static const char *const CA_NAMES[CA_N + 1u] = {"OFF", "ARP", "SEQ", "OCT+", "OCT-", "RATCHET", "STUTTER", "MUTE", "TRANS",
+                                                "RANDOM", "LOCK", "RAMP", "SOUND", "BEND", "SHIFT", "CHORD", "TRIG"};
 static const char *const CC_NAMES[CC_NM] = {"ALWAYS", "25%", "50%", "75%", "1ST", "!1ST", "FILL", "!FILL", "PRE",
                                             "!PRE", "NEI", "!NEI", "ELSE"};
 #define CCL_NM 135u                                     /* N:M, M 2..16, N 1..M */
@@ -1157,8 +1157,8 @@ static const uint8_t GPL_ACT[16] = {CA_MUTE, CA_STUT, CA_OCTU, CA_OCTD, CA_RATCH
                                     CA_ARP, CA_RAND, CA_CHORD, CA_MUTE, CA_RATCH, CA_TRANS};
 static const uint8_t GPL_VAL[16] = {0, 0, 0, 0, 0, 1, 2, CV_TR_MAKE(2, 1), CV_TR_MAKE(4, 1), CV_TR_MAKE(-2, 1),
                                     0x08, 1, 0, CV_MUTE_CUT, 6, CV_TR_MAKE(7, 1)};
-static const char *const GPL_NM[16] = {"MUTE", "STUTTER", "OCT +", "OCT -", "RATCH x2", "RATCH x3", "RATCH x4", "TRANS +2",
-                                       "TRANS +4", "TRANS -2", "ARP", "RANDOM", "CHORD", "MUTE CUT", "RATCH x8", "TRANS +7"};
+static const char *const GPL_NM[16] = {"MUTE", "STUTTER", "OCTAVE UP", "OCTAVE DOWN", "RATCHET x2", "RATCHET x3", "RATCHET x4", "TRANSPOSE +2",
+                                       "TRANSPOSE +4", "TRANSPOSE -2", "ARP", "RANDOM", "CHORD", "MUTE CUT", "RATCHET x8", "TRANSPOSE +7"};
 static uint8_t gpl_mask = (uint8_t)((1u << NTRK) - 1u), gpl_key = 0xFFu;
 static uint32_t gpl_prev, gpl_g0, gpl_k;
 static void gpl_off(void)
