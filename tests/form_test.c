@@ -98,9 +98,8 @@ int main(int argc, char **argv)
     }
     {   /* the pages: FORM (RUN ROOT RATE SEED), DRONE, MOD 1 .. 4 */
         setup(0); ui.home = 1; press(B_EDIT);
-        int ok = cur_page()->scope == SC_FORM && cur_page()->id[0] == P_LRTRG && cur_page()->id[1] == P_ROOT;
+        int ok = cur_page()->scope == SC_FORM && cur_page()->id[0] == P_LRTRG && cur_page()->id[1] == P_ROOT && cur_page()->id[3] == P_FRA;
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_E2 && cur_page()->id[3] == P_E5;
-        turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_FRA;
         turn(EN_SELECT, 1); ok &= cur_page()->id[0] == ID_FV0;
         int16_t *vp; form_view[0] = 2; page_desc(cur_page(), 3, &vp); ok &= vp == &form_view[4];
         form_view_put(TSEL, 2, S_TRI); form_view_put(TSEL, 1, FD_NOISE); form_view_put(TSEL, 3, 4); ok &= form_vds(TSEL->p, 2) == FD_NOISE + 8u * S_TRI + 512u * 4u;
@@ -110,9 +109,9 @@ int main(int argc, char **argv)
             TSEL->p[FORM_MF[3][0]] = (int16_t)a; TSEL->p[FORM_MF[3][1]] = (int16_t)b;
             bad2 += a < -64 || a > 127 || b < -64 || b > 127 || form_vds(TSEL->p, 3) != want; }
           ok &= !bad2; if (bad2) printf("form: %u packings wrong\n", bad2); }
-        turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_CAOS; page_desc(cur_page(), 1, &vp); ok &= vp == &TSEL->p[FORM_MF[2][3]];
+        turn(EN_SELECT, 1); ok &= cur_page()->id[0] == P_CAOS && cur_page()->id[3] == P_E1; page_desc(cur_page(), 1, &vp); ok &= vp == &TSEL->p[FORM_MF[2][3]];
         form_view[0] = 0; frames(20);
-        OK(ok, "EDIT: FORM, DRONE (FEEDBK), DRONE 2 (PALET), MOD (KNOB 1 the modulator), MOD AMT");
+        OK(ok, "EDIT: FORM (PALET), DRONE (FEEDBK), MOD (KNOB 1 the modulator), MOD AMT (SEED)");
     }
     {   /* the dice in range */
         int ok = 1;

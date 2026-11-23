@@ -363,18 +363,65 @@ static void dw_frame_now(uint32_t ln, int16_t *m)
     dw_frame(m, D->ta & 15u, (lv & 0x8000) ? (lv & 0x7FFF) : D->pos * top / 127);
 }
 /* PLAY: the eight pads as eight living tables, each lit as it sounds */
+/* (BYTE, the owner's references: RADAR) PLAY: the kit a radar, each pad a sector, its table's frame now drawn round
+ * in it; a hit lights its sector (the track's colour) and a ring falls from the rim to the middle; a yellow sweep on the
+ * step; each pad's tag at the rim (lit yellow on its hit, the one edited white); beside, the step and each pad's level */
+static uint32_t dw_hit_ms[8];
 static void dw_play_panel(void)
 {
-    uint32_t k;
+    uint32_t k, i, sel = dx_ui_lane & 7u;
     int16_t m[DW_N + 1u];
+    int32_t cx = 70, cy = 60, R = 52, r;
+    uint16_t tc = TRK_COL[song.sel % 6u], bl = 0x29FFu, ye = 0xEF8Bu;
+    char b[12];
+    for (r = 13; r <= R; r += 13)                        /* the range rings, dotted */
+        for (i = 0; i < 64u; i += 2u)
+            cv_pset(cx + (r * og_cos(i * 1024u) >> 15), cy + (r * og_sin(i * 1024u) >> 15), r == R ? T_DIM : T_LINE);
     for (k = 0; k < 8u; k++) {
-        int32_t x = 4 + (int32_t)(k & 3u) * 58, y = 4 + (int32_t)(k >> 2) * 54, on = (dw_live[k] & 0x8000) != 0;
-        cv_rect(x, y, 54, 50, on ? ux_mix(T_SURF, heat_col(170), 35) : T_SURF);
-        if (k == (dx_ui_lane & 7u)) cv_frame(x, y, 54, 50, heat_col(220));
+        uint32_t a0 = k * 8192u - 16384u, age;
+        int on = (dw_live[k] & 0x8000) != 0, lit;
+        int32_t px = 0, py = 0;
+        if (on && fm1_ms - dw_hit_ms[k] > 300u && !(dw_hit_ms[k] & 1u)) dw_hit_ms[k] = fm1_ms | 1u;   /* (a new hit) */
+        if (!on) dw_hit_ms[k] &= ~1u;
+        age = fm1_ms - (dw_hit_ms[k] & ~1u);
+        lit = on && age < 300u;
+        cv_line(cx, cy, cx + (R * og_cos(a0) >> 15), cy + (R * og_sin(a0) >> 15), lit ? tc : ux_mix(T_BG, bl, 30));
         dw_frame_now(k, m);
-        dw_wave_line(m, x + 3, y + 26, 48, 15, heat_col(on ? 240 : 110 + (int32_t)dw_kit[k].pos), on ? 2 : 1);
-        cv_text(x + 3, y + 38 - AF_S_CAP_Y, &AF_S, DX_LANE_ABBR[k], k == (dx_ui_lane & 7u) ? T_TEXT : T_DIM);
-        cv_text(x + 22, y + 38 - AF_S_CAP_Y, &AF_S, N_WAVEF[dw_kit[k].ta & 15u], T_DIM);
+        for (i = 0; i <= 24u; i++) {                     /* its frame, round in its sector */
+            uint32_t a = a0 + i * 8192u / 24u;
+            int32_t v = m[i * DW_N / 24u], rr = 18 + (R - 22) * (16384 + v * 13 / 32) / 32768;
+            int32_t x = cx + (rr * og_cos(a) >> 15), y = cy + (rr * og_sin(a) >> 15);
+            if (i) cv_line(px, py, x, y, lit ? tc : k == sel ? T_TEXT : bl);
+            px = x; py = y;
+        }
+        if (lit) {                                       /* the ring falling in */
+            int32_t rr = R - (int32_t)age * (R - 12) / 300;
+            for (i = 0; i <= 8u; i++)
+                cv_pset(cx + (rr * og_cos(a0 + i * 1024u) >> 15), cy + (rr * og_sin(a0 + i * 1024u) >> 15), ye);
+        }
+        {   /* its tag at the rim */
+            uint32_t am = a0 + 4096u;
+            int32_t tx = cx + ((R + 9) * og_cos(am) >> 15), ty = cy + ((R + 7) * og_sin(am) >> 15), tw;
+            const char *nm = DX_LANE_ABBR[k];
+            uint16_t bg = lit ? ye : k == sel ? T_TEXT : bl, fg = lit || k == sel ? 0x0000u : T_TEXT;
+            tw = text_w(&AF_X, nm) + 4;
+            tx = clamp(tx - tw / 2, 0, 150 - tw); ty = clamp(ty - 5, 0, 110);
+            cv_rect(tx, ty, tw, 11, bg);
+            cv_text_on(tx + 2, ty + 1 - AF_X_CAP_Y, &AF_X, nm, fg, bg);
+        }
+        {   /* beside: its level (the hit's, falling) */
+            int32_t lv = on ? 56 - (int32_t)(age > 600u ? 600u : age) * 56 / 600 : 0, y = 30 + (int32_t)k * 11;
+            cv_rect(152, y, 56, 6, T_SURF);
+            if (lv > 0) cv_rect(152, y, lv, 6, lit ? tc : bl);
+            cv_text(212, y - 2 - AF_X_CAP_Y + 1, &AF_X, DX_LANE_ABBR[k], k == sel ? T_TEXT : T_DIM);
+        }
+    }
+    {   /* the sweep: on the step */
+        uint32_t st = (uint32_t)TSEL->seq_idx & 15u, a = st * 4096u - 16384u;
+        cv_line(cx, cy, cx + (R * og_cos(a) >> 15), cy + (R * og_sin(a) >> 15), ye);
+        str_cpy(b, "STEP ", sizeof b);
+        b[5] = (char)('0' + (st + 1u) / 10u); b[6] = (char)('0' + (st + 1u) % 10u); b[7] = 0;
+        cv_text(152, 6 - AF_X_CAP_Y, &AF_X, b, ye);
     }
 }
 /* SHAPE: one turn of A and B joined by the STRUCT, as the voice joins them (B at its RATIO) */

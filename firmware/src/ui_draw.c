@@ -1042,6 +1042,8 @@ static __attribute__((noinline)) void foot_crumbs(char *b, uint32_t n)   /* b ho
 }
 #define CRUMB_Y 3                                       /* (0.8.5) a lens footer's breadcrumb (AF_X): capitals rows 4..12 */
 /* the page's place in its chain at the footer's right, "6/16" (the menu: the row among all; a layer: its view) */
+#define CRUMB_DOTS 16u
+static uint8_t crumb_k, crumb_n;                        /* (the page and how many: the dots) */
 static int32_t crumb_count(char *b)
 {
     uint32_t k, n;
@@ -1062,7 +1064,8 @@ static int32_t crumb_count(char *b)
     if (n < 2u)
         return 0;
     fmt_frac(b, (int32_t)k + 1, (int32_t)n);
-    return text_w(&AF_X, b);
+    crumb_k = (uint8_t)k; crumb_n = (uint8_t)n;
+    return n <= CRUMB_DOTS ? (int32_t)n * 6 + 2 : text_w(&AF_X, b);   /* (the owner's MIGAS: the pages as dots) */
 }
 /* (0.9.9-seq2g: the 0.6's footer back, as the owner asked) the 16 steps of the bar the cursor is in, on every page: a step
  * with a note (DRUM: any lane hitting there) a lit bar (THEME; accented ACCENT), an empty one a stub (a tie MID), under
@@ -1214,16 +1217,34 @@ static __attribute__((noinline)) void draw_crumbs(int32_t y, uint16_t fg, uint16
     else
         GFX_HOOK_ALIGN(0, y + AF_S_CAP_Y, 0, y + AF_S_CAP_Y + AF_S_CAP_H, AL_V, "footer breadcrumb on its line");
     if (cw)
-        cv_text_r(234, y, f, cnt, f == &AF_X ? HUD_YE : fg, T_BG);   /* (BYTE, the HUD: the count a reading, yellow) */
+    {
+        uint16_t tc = head_trk ? TRK_COL[song.sel % 6u] : T_THEME;
+        if (f == &AF_X && crumb_n <= CRUMB_DOTS) {      /* (BYTE, MIGAS) the pages as dots, this one long, its colour */
+            uint32_t i;
+            int32_t dx = 234 - (int32_t)crumb_n * 6 + 2;
+            for (i = 0; i < crumb_n; i++)
+                cv_rect(dx + (int32_t)i * 6 - (i > crumb_k ? 0 : 0), y + AF_X_CAP_Y + 3, i == crumb_k ? 5 : 3, 3,
+                        i == crumb_k ? tc : T_LINE);
+        } else
+            cv_text_r(234, y, f, cnt, f == &AF_X ? HUD_YE : fg, T_BG);
+    }
     if (clip_tag(ct))
         mx = cv_text_r(mx, y, f, ct, T_THEME, T_BG) - 6;   /* (seq2h) the clipboard's [n] */
     if (f == &AF_X && k) {                              /* (seq2g) a lens footer: the page's name alone after the steps
                                                          * (TEXT, as `last` if that is not DIM) */
-        int32_t tw = text_w(f, b + k) + 4;              /* (BYTE, the HUD) the page's name a tag */
-        uint16_t tb = last == fg ? T_TEXT : last;
-        if (tw > mx - x0) tw = mx - x0;
-        cv_rect(x0, y + AF_X_CAP_Y - 2, tw, AF_X_CAP_H + 3, tb);
-        cv_free_text(x0 + 2, y, f, b + k, T_INK, tb, tw - 3);
+        /* (BYTE, the owner's MIGAS) no box: a mark in the track's colour, the section dim, the page in TEXT */
+        uint16_t tc = head_trk ? TRK_COL[song.sel % 6u] : T_THEME;
+        int32_t xs = x0 + 6, sl = 0;
+        while (b[sl] && (uint8_t)b[sl] != 0xB7u) sl++;   /* (the section: up to the first dot) */
+        cv_rect(x0 + 1, y + AF_X_CAP_Y - 1, 2, AF_X_CAP_H + 2, tc);
+        if (sl && b + sl < b + k && xs + text_w(f, b) + 12 + text_w(f, b + k) <= mx) {   /* (no room: the page alone) */
+            char c = b[sl];
+            b[sl] = 0;
+            xs = cv_text_on(xs, y, f, b, T_DIM, T_BG) + 2;
+            b[sl] = c;
+            xs = cv_text_on(xs, y, f, "\xB7", T_DIM, T_BG) + 3;
+        }
+        cv_free_text(xs, y, f, b + k, last == fg ? T_TEXT : last, T_BG, mx - xs);
         return;
     }
     if (last == fg || !k) {
@@ -2539,9 +2560,8 @@ static void ui_draw_body(uint32_t counting)
         return;
     }
     if (!ui.home && !page_visible(ui.page)) {          /* an OP page of a track that is not DIGITAL (without
-                                                         * FELUCCA_FM4: any track): EDIT 1 */
-        uint32_t e1 = nv_page(SEC_EDIT, 0);             /* (V10.7.21: EDIT 1 as shown on this track: ANALOG's own) */
-        ui.page = (uint8_t)(e1 < NPAGES ? e1 : page_first(FAM_EDIT));
+                                                         * FELUCCA_FM4: any track): EDIT's first */
+        ui.page = (uint8_t)edit_first();
         page_entered();
     }
     cursor_fix();

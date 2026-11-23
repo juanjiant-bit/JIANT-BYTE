@@ -63,35 +63,47 @@ static int32_t ed_resp(uint32_t ty, int32_t x, int32_t xc, int32_t res)
     y = ty == 0u ? (d > 0 ? 2 * d : 0) : ty == 1u ? (d < 0 ? 2 * a : 0) : 2 * a / 3;   /* LP HP BP */
     return clamp(62 + y - bump - (ty == 2u ? pk / 3 : 0), 8, 104);
 }
+/* (BYTE, the HUD) FILTER: its response a trace in the track's colour on a dotted grid (the decades, unity), hatched
+ * under; CUT the yellow cursor and its reading, RES a node on the peak; the type a tag; IMAGE (KNOB 4) a matrix */
 static void graph_filter_lz(const track_t *t, const page_t *pg)
 {
-    static const char *const FX[3] = {"100", "1k", "10k"};
+    static const char *const FX[3] = {"100", "1K", "10K"};
     int16_t *vp;
     const param_desc_t *d;
-    int32_t r[4], x, py = 0, xc, k, nd;
+    int32_t r[4], x, py = 0, xc, k, nd, yc;
     uint32_t ty = ft_of(t->p);
+    uint16_t tc = TRK_COL[(uint32_t)(t - trk) % 6u];
     char b[32];
     for (k = 0; k < 4; k++) {
         d = page_desc(pg, (uint32_t)k, &vp);
         r[k] = d ? clamp(RATIO(d, enum_rank(d, *vp)), 0, 1000) : 0;
     }
     xc = 10 + r[1] * 216 / 1000;
-    for (k = 0; k < 3; k++)
-        cv_rect(64 + k * 54, 6, 1, 99, T_RAISE);
+    for (k = 0; k < 3; k++)                             /* the decades, dotted; unity */
+        for (x = 18; x < 105; x += 3) cv_pset(64 + k * 54, x, T_LINE);
+    for (x = 10; x < 227; x += 3) cv_pset(x, 62, T_LINE);
     for (x = 10; x <= 226; x++) {
         int32_t y = ed_resp(ty, x, xc, r[2]);
-        cv_rect(x, y, 1, 105 - y, ux_mix(T_SURF, heat_col(40 + x * 160 / 226), 30));
+        if (!(x % 3)) cv_rect(x, y + 2, 1, 105 - y - 2 > 0 ? 105 - y - 2 : 0, ux_mix(T_BG, tc, 22));   /* (hatched under) */
         if (x > 10)
-            cv_line_t(x - 1, py, x, y, T_THEME, 2);
+            cv_line_t(x - 1, py, x, y, tc, 2);
         py = y;
     }
     for (k = 0; k < 3; k++)
-        cv_text(67 + k * 54, 108 - AF_X_CAP_Y, &AF_X, FX[k], T_TEXT);
-    cv_rect(xc, 6, 1, 99, T_ACCENT);
-    og_node(xc * 16, ed_resp(ty, xc, xc, r[2]) * 16, 4, T_ACCENT);
-    str_cpy(b, N_FTYPE[ty], 32);
-    str_cpy(b + str_len(b), trk_eng(t) == 0u ? " \xB7 PER VOICE" : " \xB7 ON THE PART", 32 - str_len(b));
-    ed_cap(10, 6, b, T_TEXT);
+        cv_text(67 + k * 54, 108 - AF_X_CAP_Y, &AF_X, FX[k], T_DIM);
+    yc = ed_resp(ty, xc, xc, r[2]);
+    cv_rect(xc, 16, 1, 89, HUD_YE);                     /* CUT: the cursor, its reading */
+    cv_rect(xc - 2, 16, 5, 1, HUD_YE); cv_rect(xc - 1, 17, 3, 1, HUD_YE);
+    cv_rect(xc - 2, yc - 2, 5, 5, HUD_YE);
+    d = page_desc(pg, 1, &vp);
+    if (d) {
+        const char *u = "";
+        param_format(d, *vp, b, &u);
+        str_cpy(b + str_len(b), u, 32 - str_len(b));
+        cv_text_on(xc + 4 < 180 ? xc + 4 : xc - 4 - text_w(&AF_X, b), 20 - AF_X_CAP_Y, &AF_X, b, HUD_YE, T_BG);
+    }
+    hud_tag(10, 2, N_FTYPE[ty], (uint32_t)(t - trk) % 6u >= 4u ? 0xFFFFu : 0x0000u, tc);
+    cv_text_on(14 + text_w(&AF_X, N_FTYPE[ty]) + 4, 3 - AF_X_CAP_Y, &AF_X, trk_eng(t) == 0u ? "PER VOICE" : "ON THE PART", T_MID, T_BG);
     d = page_desc(pg, 3, &vp);
     if (d) {
         const char *u = "";
@@ -99,11 +111,11 @@ static void graph_filter_lz(const track_t *t, const page_t *pg)
         str_cpy(b + str_len(b), " ", 2);
         param_format(d, *vp, b + str_len(b), &u);
         str_cpy(b + str_len(b), u, 32 - str_len(b));
-        ed_cap(10, 120, b, T_TEXT);
+        cv_text_on(10, 116 - AF_X_CAP_Y, &AF_X, b, T_TEXT, T_BG);
     }
     nd = r[3] * 20 / 1000;
     for (k = 0; k < 20; k++)
-        cv_rect(110 + k * 6, 116, 4, 12, k < nd ? T_THEME : T_RAISE);
+        cv_rect(110 + k * 6, 116, 4, 8, k < nd ? heat_col(40 + k * 11) : T_SURF);
 }
 static void graph_voice_lz(const track_t *t, const page_t *pg)
 {
@@ -121,10 +133,12 @@ static void graph_voice_lz(const track_t *t, const page_t *pg)
         char n[2] = {(char)('1' + i), 0};
         if (t->v[i].stage && t->v[i].stage < 4u)
             lv = (int32_t)(((int64_t)t->v[i].env * 196) >> 24);
-        ed_cap(14, y, n, i < nv ? T_TEXT : T_DIM);
-        cv_rect(26, y, 202, 7, i < nv ? T_RAISE : T_LINE);
-        if (lv > 0)
-            cv_rect(26, y, lv, 7, heat_col(60 + lv));
+        {   /* (BYTE, the HUD) its number a tag, its level 34 cells */
+            int32_t c, nc = lv * 34 / 196;
+            ed_cap(14, y, n, lv > 0 ? HUD_YE : i < nv ? T_TEXT : T_DIM);
+            for (c = 0; c < 34; c++)
+                cv_rect(26 + c * 6, y, 4, 7, c < nc ? heat_col(60 + c * 190 / 33) : i < nv ? T_LINE : T_SURF);
+        }
     }
     param_format(track_desc(t, P_VOICE), t->p[P_VOICE], b, &u);
     str_cpy(b + str_len(b), pg->id[0] == P_ALLOC ? " \xB7 ALLOC " : " \xB7 PRIO ", 40 - str_len(b));
@@ -139,7 +153,7 @@ static void graph_voice_lz(const track_t *t, const page_t *pg)
         int32_t tm = glide ? x * 127 * 6 / (glide * 4 + 1) : 1000, k = tm > 255 ? 255 : tm;
         int32_t y = x < 16 ? 130 : 130 - 22 * (k * (255 - (255 - k) * (255 - k) / 255)) / 65025;
         if (x)
-            cv_line_t(122 + x - 1, py, 122 + x, y, T_THEME, 2);
+            cv_line_t(122 + x - 1, py, 122 + x, y, TRK_COL[(uint32_t)(t - trk) % 6u], 2);
         py = y;
     }
 }
@@ -148,8 +162,9 @@ static void graph_voice_lz(const track_t *t, const page_t *pg)
  * MOD slot aimed at it, the same MATRIX shows); the eight knobs at the foot, the one picked lit. (The gauge's circle gone) */
 static void focus_bar(int32_t y, int32_t f)             /* a track 220 px, 0..f (0..1000) of it in the ramp (heat_bar) */
 {
-    cv_rect(10, y, 220, 12, T_RAISE);
-    heat_bar(10, y, f * 220 / 1000, 220, 12, T_THEME);
+    int32_t k, n = f * 40 / 1000;                       /* (BYTE, MATRIZ) 40 cells, lit to it in the thermal palette */
+    for (k = 0; k < 40; k++)
+        cv_rect(10 + k * 55 / 10, y, 4, 12, k < n ? heat_col(40 + k * 210 / 39) : T_SURF);
 }
 static void graph_focus_lz(const track_t *t)
 {
@@ -161,14 +176,14 @@ static void graph_focus_lz(const track_t *t)
     param_format(d, t->p[P_E0 + k], b, &u);
     str_cpy(b + str_len(b), u, 24 - str_len(b));
     cv_text(10, 6, &AF_M, d->label, T_TEXT);
-    cv_text_r(230, 6, &AF_M, b, T_THEME, T_SURF);
+    cv_text_r(230, 6, &AF_M, b, HUD_YE, T_SURF);
     focus_bar(28, clamp(RATIO(d, enum_rank(d, t->p[P_E0 + k])), 0, 1000));
     ed_cap(10, 54, "MOVED BY", T_TEXT);
     if (j >= 0) {
         const param_desc_t *da = track_desc(t, P_M1AMT + 3u * (uint32_t)j);
         a = t->p[P_M1AMT + 3u * (uint32_t)j];
         str_cpy(b, N_MSRC[clamp(t->p[P_M1SRC + 3u * (uint32_t)j], 0, MS_N - 1)], 24);
-        cv_text_r(230, 64, &AF_M, b, T_THEME, T_SURF);
+        cv_text_r(230, 64, &AF_M, b, HUD_YE, T_SURF);
         param_format(da, a, b, &u);
         str_cpy(b + str_len(b), u, 24 - str_len(b));
         cv_text(10, 64, &AF_M, b, T_TEXT);
@@ -180,10 +195,10 @@ static void graph_focus_lz(const track_t *t)
     for (i = 0; i < 8u; i++) {                          /* E1..E8 */
         const param_desc_t *di = track_desc(t, P_E0 + i);
         int32_t x = 8 + (int32_t)i * 28;
-        uint16_t bg = i == k ? T_THEME : T_RAISE;
-        cv_rect(x, 118, 26, 13, bg);
+        uint16_t bg = i == k ? TRK_COL[(uint32_t)(t - trk) % 6u] : HUD_BL;   /* (BYTE, the HUD: tags) */
+        cv_rect(x, 118, 26, 11, bg);
         if (di && di->label && di->label[0] != '-')
-            cv_clip_text(x + 2, 121 - AF_X_CAP_Y, &AF_X, di->label, i == k ? T_INK : T_TEXT, bg, 23);
+            cv_clip_text(x + 2, 119 - AF_X_CAP_Y, &AF_X, di->label, i == k ? 0x0000u : T_TEXT, bg, 23);
     }
 }
 /* FORM visual language: equations, event masks, arrangement and harmony, not a repeated preset list. */
@@ -252,7 +267,8 @@ static __attribute__((noinline)) void graph_form_lz(const track_t*t){
    if(pq==FPG_GES||pq==FPG_TAB){b[n]='>';str_cpy(b+n+1,FORM_DEST[ds&7],8);}}
   {int32_t pk=2;for(i=0;i<FT_N;i++){int32_t a=ft_v(m,i)<0?-ft_v(m,i):ft_v(m,i);if(a>pk)pk=a;}   /* (its swing, to the lane) */
   for(i=0;i<FT_N;i++){int32_t v=ft_v(m,i),x=32+(int32_t)i*3,yy=mid-v*10/pk;
-   if(i&&(i<=ft_x||i>ft_x+3u))cv_line_t(px,py,x,yy,c,on?2:1);px=x;py=yy;
+   {uint32_t j,hot=0;for(j=0;j<4u&&!hot;j++)hot=hud_get(4u+m,(i+FT_N-j)%FT_N)!=0u;   /* (the owner: a strike colours its line) */
+    if(i&&(i<=ft_x||i>ft_x+3u))cv_line_t(px,py,x,yy,hot?tc:c,on||hot?2:1);}px=x;py=yy;
    if(hud_get(4u+m,i)&&!hud_get(4u+m,(i+FT_N-1u)%FT_N))cv_rect(x,y+19,2,3,T_TEXT);}}   /* (a strike: a tick) */
   {int32_t w=text_w(&AF_X,b)+4;cv_rect(237-w,y+1,w,11,T_BG);cv_text_on(239-w,y+2-AF_X_CAP_Y,&AF_X,b,on?T_TEXT:T_DIM,T_BG);}   /* (its shape > DEST, right) */
   cv_rect(cx,y,1,23,FT_YE);cv_rect(cx-2,y,5,1,FT_YE);cv_rect(cx-1,y+1,3,1,FT_YE);
@@ -274,7 +290,13 @@ static int graph_edit_lz(const track_t *t, const page_t *pg)
         graph_voice_lz(t, pg);
     else if (pg->graph == GR_FOCUS)
         graph_focus_lz(t);
-    else
+    else if (pg->fam == FAM_EDIT && pg->graph == GR_NONE && (e == ENGI_FORM || trk_engp(t) == &ENG_WAVE || trk_engp(t) == &ENG_LOFI)) {
+        if (e == ENGI_FORM)                             /* (the owner: the pages FORM, WAVE, MATH inherit, FILTER 2, TONE, MORE:
+                                                         * their engine's own panel, not an empty one) */
+            graph_form_lz(t);
+        else
+            graph_sound_lz(t);
+    } else
         return 0;
     return 1;
 }

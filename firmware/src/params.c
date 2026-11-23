@@ -828,12 +828,12 @@ static const page_t PAGES[] = {
      * WOBBLE, in its ARP slots), the harmony, the layers, the clock */
     /* (BYTE 0.17, the owner: "a monophonic entity, a drone the modulators turn into every stage of the beat") FORM:
      * RUN ROOT RATE SEED; DRONE: SHAPE FM FOLD CRUSH; MOD 1 .. 4: DEST EUCLID AMOUNT DECAY (eng_form.c FORM_MF) */
-    {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_ROOT,P_E0,P_E1}},
+    {"FORM", FAM_EDIT, SC_FORM, GR_NONE, {P_LRTRG,P_ROOT,P_E0,P_FRA}},   /* (RUN FREQ RATE PALET: the owner, every page its four) */
     {"DRONE", FAM_EDIT, SC_FORM, GR_NONE, {P_E2,P_E3,P_E4,P_E5}},   /* (SHAPE FM FOLD FEEDBK) */
     {"DRONE 2", FAM_EDIT, SC_FORM, GR_NONE, {P_FRA,0xFF,0xFF,0xFF}},   /* (PALET) */
     {"MOD", FAM_EDIT, SC_FORM, GR_NONE, {ID_FV0,ID_FV0+1u,ID_FV0+2u,ID_FV0+4u}},   /* (KNOB 1 the modulator, DEST SHAPE EUCLID
                                                          * its own: eng_form.c form_view, form_page_id) */
-    {"MOD AMT", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,ID_FV0+3u,0xFF}},   /* (+ its RATE) */
+    {"MOD AMT", FAM_EDIT, SC_FORM, GR_NONE, {P_CAOS,P_ASWING,ID_FV0+3u,P_E1}},   /* (+ its RATE; SEED: FUSE's) */
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */

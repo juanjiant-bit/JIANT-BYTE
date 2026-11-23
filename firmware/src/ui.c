@@ -1806,7 +1806,16 @@ static void apply_preset(uint32_t pi)                 /* the selected track's so
         }
     }
 }
-static void set_engine(uint32_t ei) { set_engine_of(TSEL, ei); }
+static void set_engine(uint32_t ei)
+{
+    uint32_t o = TSEL->eng_req;
+    set_engine_of(TSEL, ei);
+    if (TSEL->eng_req != o && !ui.home && cur_page()->fam == FAM_EDIT) {   /* (the owner: another engine left its page
+                                                         * up, VOICES 3, its panel empty) a new engine: its first page */
+        ui.page = (uint8_t)edit_first();
+        page_entered();
+    }
+}
 /* (V10.6z6) a new sound (INIT SOUND, the power-on / NEW PROJECT parts): the keys' pressure (vel.c) audible, AFTERTOUCH
  * on (the setting itself: power-on reads it before the main loop): its matrix's slot 4, if free, AT -> CUT by 20 */
 static void vel_at_route(track_t *t)

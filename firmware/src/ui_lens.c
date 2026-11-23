@@ -70,7 +70,7 @@ static const ng_t CG_HOME[] = {
 #endif
                                {"MACROS", "MACRO"}, {"LIVE MIX", "LIVE"}, {"TRACKS", "TRK"}, {"TIMELINE", "TIME"},
                                {"ARRANGE", "ARR"}, {"PARTS", 0}, {"GEN", 0}};
-static const nv_t CE_SYN[] = {NV("FORM", 0, 0, 0), NV("DRONE",0,0,1), NV("DRONE 2",0,0,1), NV("MOD",0,0,1), NV("MOD AMT",0,0,1), NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0),
+static const nv_t CE_SYN[] = {NV("FORM", 0, 0, 0), NV("DRONE",0,0,1), NV("MOD",0,0,1), NV("MOD AMT",0,0,1), NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0),
                               NV("WORDS", 0, 0, 1), NV("SWARM", 0, 0, 1), NV("SWARM 2", 0, 0, 1),
                               NV("FILTER", 0, 1, 1), NV("FILTER 2", 0, 1, 1), NV("TONE", 0, 1, 1), NV("AUTO KNOBS", "FOCUS", 2, 2),
                               NV("VOICES", "PLAY", 3, 1), NV("MORE", 0, 3, 1), NV("VOICES 3", "MORE", 3, 1)};   /* (JIANT FM V10.7.60,
@@ -217,6 +217,16 @@ static uint32_t nv_page(uint32_t sec, uint32_t e)
             page_visible(i))
             return i;
     return NPAGES;
+}
+/* EDIT's first page this track shows: its chain's first entry here (the synths share one chain, FORM's pages first:
+ * WAVE's EDIT 1 is not its entry 0) */
+static uint32_t edit_first(void)
+{
+    uint32_t e, p, n = nav_ch(SEC_EDIT)->n;
+    for (e = 0; e < n; e++)
+        if ((p = nv_page(SEC_EDIT, e)) < NPAGES)
+            return p;
+    return page_first(FAM_EDIT);
 }
 static int nv_ok(uint32_t sec, uint32_t e)
 {

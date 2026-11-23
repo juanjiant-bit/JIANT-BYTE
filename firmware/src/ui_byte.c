@@ -265,8 +265,9 @@ static void hud_trace(uint32_t k, int32_t x, int32_t y, int32_t w, int32_t h, ui
         px = xx; py = yy;
     }
 }
-/* MATH: CENSUS (the IPv4 map's): 256 of its bytes along a Hilbert curve, each its heat; a scan head running it; beside,
- * the census by value (16 bins), the heat's scale, the head's reading */
+/* MATH: CENSUS (the IPv4 map's): 256 of its bytes along a Hilbert curve, each its heat (a hard curve: the low ones
+ * near black), the window running with t; a cell whose top bit turned since the last frame flashes white; a scan head
+ * running it. Beside (the owner: OSCILLOSCOPE) the wave those bytes make, its least and most */
 static void hud_hil(uint32_t d, int32_t *x, int32_t *y)   /* d along a 16 x 16 Hilbert curve */
 {
     uint32_t s, rx, ry, t = d;
@@ -278,86 +279,82 @@ static void hud_hil(uint32_t d, int32_t *x, int32_t *y)   /* d along a 16 x 16 H
     }
     *x = X; *y = Y;
 }
+static uint8_t hud_pb[32];                              /* (each cell's top bit, the frame before: the flashes) */
 static void hud_census(gq_work_t *w, int32_t x, int32_t y, uint32_t t0, uint16_t tc)
 {
-    uint32_t tq[64], i, j, bin[16] = {0}, hd = anim_fr % 256u, mx = 1;
+    uint32_t tq[64], i, j, hd = anim_fr % 256u, mn = 255, mx = 0;
     uint8_t v[256];
     int32_t cx, cy, px = 0, py = 0;
-    char b[16];
-    static const char HX[] = "0123456789ABCDEF";
+    char b[12];
     memset(w->st, 0, sizeof w->st);
     for (i = 0; i < 256u; i += 64u) {
         for (j = 0; j < 64u; j++) tq[j] = (t0 + (i + j) * 8u) << 8;
         ub_run(w, tq, 64u, 0, v + i);
     }
     for (i = 0; i < 256u; i++) {
+        uint32_t q = v[i], hi = q >> 7, was = (hud_pb[i >> 3] >> (i & 7u)) & 1u;
         hud_hil(i, &cx, &cy);
-        cv_rect(x + cx * 6, y + cy * 6, 5, 5, v[i] < 8u ? T_SURF : vk_heat(40 + v[i] * 215 / 255));
-        bin[v[i] >> 4]++;
-    }
-    for (i = 0; i < 256u; i++) {                        /* the curve, faint, over them */
-        hud_hil(i, &cx, &cy);
-        cx = x + cx * 6 + 2; cy = y + cy * 6 + 2;
-        if (i) cv_line(px, py, cx, cy, ux_mix(T_BG, T_TEXT, 22));
-        px = cx; py = cy;
+        cv_rect(x + cx * 6, y + cy * 6, 5, 5, hi != was ? T_TEXT : q < 24u ? T_SURF : vk_heat(24 + (int32_t)(q * q / 255u) * 231 / 255));
+        hud_pb[i >> 3] = (uint8_t)((hud_pb[i >> 3] & ~(1u << (i & 7u))) | hi << (i & 7u));
+        if (q < mn) mn = q;
+        if (q > mx) mx = q;
     }
     hud_hil(hd, &cx, &cy);                              /* the scan head */
     cv_rect(x + cx * 6 - 2, y + cy * 6 - 2, 9, 1, T_TEXT); cv_rect(x + cx * 6 - 2, y + cy * 6 + 6, 9, 1, T_TEXT);
     cv_rect(x + cx * 6 - 2, y + cy * 6 - 2, 1, 9, T_TEXT); cv_rect(x + cx * 6 + 6, y + cy * 6 - 2, 1, 9, T_TEXT);
-    {   /* beside: the census by value, its scale, the head's reading */
-        int32_t rx = x + 104, rw = 126, by = y + 50;
-        for (i = 0; i < 16u; i++) if (bin[i] > mx) mx = bin[i];
-        hud_tag(rx, y, "CENSUS 256", 0x0000, T_TEXT);
-        for (i = 0; i < 16u; i++) {
-            int32_t hh = (int32_t)(bin[i] * 34u / mx);
-            cv_rect(rx + (int32_t)i * 8, by - hh, 6, hh ? hh : 1, vk_heat(40 + (int32_t)i * 14));
+    {   /* beside: the oscilloscope */
+        int32_t rx = x + 104, rw = 128, top = y + 14, h = 70;
+        hud_tag(rx, y, "OUT", 0x0000, tc);
+        hud_lane(rx, top, rw, h);
+        for (i = 0; i < 256u; i++) {                    /* (every byte: two a pixel) */
+            int32_t xx = rx + (int32_t)(i >> 1), yy = top + h - 2 - (int32_t)v[i] * (h - 4) / 255;
+            if (i) cv_line(px, py, xx, yy, tc);
+            px = xx; py = yy;
         }
-        cv_rect(rx, by + 1, rw, 1, T_DIM);
-        for (i = 0; i < 32u; i++) cv_rect(rx + (int32_t)i * 4, by + 5, 4, 5, vk_heat(40 + (int32_t)i * 7));
-        cv_text_on(rx, by + 13 - AF_X_CAP_Y, &AF_X, "0", T_DIM, T_BG);
-        cv_text_r(rx + 128, by + 13 - AF_X_CAP_Y, &AF_X, "255", T_DIM, T_BG);
-        b[0] = '@'; b[1] = HX[hd >> 4]; b[2] = HX[hd & 15u]; b[3] = ' '; b[4] = '='; b[5] = ' ';
-        b[6] = HX[v[hd] >> 4]; b[7] = HX[v[hd] & 15u]; b[8] = 0;
-        hud_tag(rx, by + 26, b, 0x0000, HUD_YE);
-        (void)tc;
+        hud_cursor(rx + (int32_t)(hd >> 1), top, h, (int32_t)v[hd] * 99 / 255);
+        str_cpy(b, "MIN ", sizeof b); fmt_int(b + 4, (int32_t)mn);
+        cv_text_on(rx, top + h + 4 - AF_X_CAP_Y, &AF_X, b, T_MID, T_BG);
+        str_cpy(b, "MAX ", sizeof b); fmt_int(b + 4, (int32_t)mx);
+        cv_text_on(rx + 64, top + h + 4 - AF_X_CAP_Y, &AF_X, b, T_MID, T_BG);
     }
 }
-/* WAVE: TELEMETRY: CYCLE its cycle at POS (POS's neighbours faint), the cursor sweeping it; LEVEL its level swept;
- * MIX the mix's scope */
+/* WAVE (the owner: PHASE ORBIT): its cycle at POS against itself a quarter turn on, an orbit (a Lissajous) that FOLD,
+ * WARP and the rest bend; POS's neighbours faint; a satellite running it. Beside: POS, and the mix's scope */
 static void hud_wave(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32_t wd, int32_t ht, uint16_t tc)
 {
     enum { NP = 64u };
-    uint32_t tq[NP], i, k, tr = (uint32_t)(t - trk) % NTRK, pos = (uint32_t)clamp(t->p[P_E1], 0, 127);
+    uint32_t tq[NP], i, k, pos = (uint32_t)clamp(t->p[P_E1], 0, 127), si = anim_fr % NP;
     uint8_t v[NP];
-    int32_t lx = x + 30, lw = wd - 32, ch = ht / 2, lh = (ht - ch - 6) / 2, ly, cx;
-    if (hud_tick(0x80u | tr)) hud_put(0, hud_x, (uint32_t)clamp(track_env[tr] >> 10, 0, 15));
-    hud_lane(lx, y, lw, ch);
-    hud_tag(x, y + 2, "CYC", 0x0000, tc);
+    int32_t R = ht / 2 - 4, cx = x + R + 8, cy = y + ht / 2, rx = x + 2 * R + 22;
+    char b[12];
+    (void)wd;
+    for (i = 0; i < 48u; i += 2u)                       /* its range, dotted; the axes */
+        cv_pset(cx + (R * og_cos(i * 1365u) >> 15), cy + (R * og_sin(i * 1365u) >> 15), T_DIM);
+    cv_rect(cx - R - 4, cy, 2 * R + 9, 1, T_SURF);
+    cv_rect(cx, cy - R - 4, 1, 2 * R + 9, T_SURF);
     for (k = 0; k < 3u; k++) {                          /* POS's neighbours, then its own */
         int32_t pp = clamp((int32_t)pos + (k == 0u ? -24 : k == 1u ? 24 : 0), 0, 127), px = 0, py = 0;
         for (i = 0; i < NP; i++) tq[i] = i * 8192u / NP;
         memset(w->st, 0, sizeof w->st);
         ub_run(w, tq, NP, (uint32_t)pp * 516u, v);
-        for (i = 0; i < NP; i++) {
-            int32_t xx = lx + (int32_t)i * (lw - 1) / (int32_t)(NP - 1u), yy = y + ch / 2 - ((int32_t)v[i] - 128) * (ch / 2 - 3) / 128;
-            if (i) cv_line_t(px, py, xx, yy, k == 2u ? tc : ux_mix(T_BG, HUD_BL, 70), k == 2u ? 2 : 1);
+        for (i = 0; i <= NP; i++) {
+            int32_t xx = cx + ((int32_t)v[i % NP] - 128) * R / 128, yy = cy - ((int32_t)v[(i + NP / 4u) % NP] - 128) * R / 128;
+            if (i) cv_line_t(px, py, xx, yy, k == 2u ? tc : ux_mix(T_BG, HUD_BL, 60), k == 2u ? 2 : 1);
             px = xx; py = yy;
         }
-        if (k == 2u) {
-            uint32_t ci = anim_fr % NP;
-            cx = lx + (int32_t)ci * (lw - 1) / (int32_t)(NP - 1u);
-            hud_cursor(cx, y, ch, v[ci] * 99 / 255);
+        if (k == 2u) {                                  /* the satellite */
+            int32_t sx = cx + ((int32_t)v[si] - 128) * R / 128, sy = cy - ((int32_t)v[(si + NP / 4u) % NP] - 128) * R / 128;
+            cv_rect(sx - 2, sy - 2, 5, 5, HUD_YE);
         }
     }
-    ly = y + ch + 3;
-    hud_lane(lx, ly, lw, lh);
-    hud_tag(x, ly + (lh - 11) / 2, "LVL", T_TEXT, HUD_BL);
-    hud_trace(0, lx, ly, lw, lh, HUD_BL, 1, 1);
-    hud_cursor(lx + (int32_t)hud_x * lw / (int32_t)HUD_N, ly, lh, (int32_t)hud_get(0, hud_x) * 99 / 15);
-    ly += lh + 3;
-    hud_lane(lx, ly, lw, lh);
-    hud_tag(x, ly + (lh - 11) / 2, "MIX", 0x0000, T_TEXT);
-    scope_at(lx, lw, ly + lh / 2, lh / 2 - 2, T_TEXT);
+    hud_tag(rx, y + 2, "PHASE ORBIT", 0x0000, tc);
+    str_cpy(b, "POS ", sizeof b); fmt_int(b + 4, (int32_t)pos * 100 / 127); str_cpy(b + str_len(b), "%", 2);
+    cv_text_on(rx, y + 20 - AF_X_CAP_Y, &AF_X, b, HUD_YE, T_BG);
+    cv_text_on(rx, y + 32 - AF_X_CAP_Y, &AF_X, "X  THE CYCLE", T_MID, T_BG);
+    cv_text_on(rx, y + 43 - AF_X_CAP_Y, &AF_X, "Y  +90 DEG", T_MID, T_BG);
+    hud_lane(rx, y + ht - 34, x + wd - rx, 30);
+    cv_text_on(rx, y + ht - 46 - AF_X_CAP_Y, &AF_X, "MIX", T_MID, T_BG);
+    scope_at(rx, x + wd - rx, y + ht - 19, 12, T_TEXT);
 }
 /* the panel at A {x, y, w, h} (px), en_home HOME's level (-1: the part's own): 0 when t plays no formula */
 static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
@@ -395,8 +392,9 @@ static int ub_draw(const track_t *t, const int32_t *A, int32_t en_home)
     ub_text_draw(x + 2, y + 2, s, (uint32_t)(wd - 120) / 6u, 2u, T_TEXT);
     {   /* (BYTE) its name in its colour, at the top right; under: CENSUS (MATH) or TELEMETRY (WAVE) */
         uint16_t tc = TRK_COL[tr % 6u];
-        int32_t tw = text_w(&AF_X, nm) + 4;
-        hud_tag(x + wd - tw, y + 1, nm, tr % 6u >= 4u ? 0xFFFFu : 0x0000u, tc);
+        const char *en = trk_engp(t)->name;              /* (the owner: its engine, clear; was a made-up name) */
+        int32_t tw = text_w(&AF_X, en) + 4;
+        hud_tag(x + wd - tw, y + 1, en, tr % 6u >= 4u ? 0xFFFFu : 0x0000u, tc);
         (void)ec; (void)bob; (void)bc;
         if (trk_engp(t) == &ENG_WAVE)
             hud_wave(t, w, x, y + 22, wd, ht - 22, tc);
