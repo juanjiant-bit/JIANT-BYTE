@@ -86,7 +86,11 @@ static void graph_adsr(const track_t *t, uint16_t c)
     uint16_t tc = TRK_COL[tr % 6u];
     (void)c;
     if (sl < 8) sl = 8;
-    if (adsr_tr != tr) { memset(adsr_h, 0, sizeof adsr_h); memset(adsr_ps, 0, sizeof adsr_ps); adsr_tr = (uint8_t)tr; }
+    if (adsr_tr != tr) {                                /* (the owner: "flat") a trail from the start: ghosts, fainter back */
+        for (k = 0; k < 10; k++) adsr_h[k] = (uint8_t)(118 - k * 7);
+        memset(adsr_ps, 0, sizeof adsr_ps);
+        adsr_tr = (uint8_t)tr;
+    }
     for (i = 0; i < NVOICE; i++) {                      /* a note begun: a layer */
         if (t->v[i].stage == 1u && adsr_ps[i] != 1u) {
             for (k = 9; k > 0; k--) adsr_h[k] = adsr_h[k - 1];   /* (no memmove on the device) */
@@ -100,7 +104,7 @@ static void graph_adsr(const track_t *t, uint16_t c)
     for (i = 1, e = 32768; i <= r && n < 160; i++) { e = (e * (32768 - 150733 / r)) >> 15; lv[n++] = (int16_t)(sus * e >> 15); }
     for (k = 9; k >= 0; k--) {                          /* the layers, the far first */
         int32_t ox = x0 + k * 7, oy = bot - k * 5, g = k ? adsr_h[k] : 127, py = 0;
-        uint16_t lc = k ? ux_mix(T_BG, HUD_BL, 85 - k * 7) : tc;
+        uint16_t lc = k ? ux_mix(T_BG, heat_col(150 - k * 12), 95 - k * 7) : tc;   /* (the trail: violet near, cold back) */
         if (k && !adsr_h[k]) continue;
         for (i = 0; i < n; i++) {
             int32_t y = oy - lv[i] * H / 1000 * g / 127;
@@ -114,8 +118,14 @@ static void graph_adsr(const track_t *t, uint16_t c)
         int32_t cx[4] = {a, a + d, a + d + sl / 2, n - 1}, q;
         for (q = 0; q < 4; q++) {
             int32_t x = x0 + cx[q], y = bot - lv[cx[q] < n ? cx[q] : n - 1] * H / 1000 - 14;
+            const char *u = "";
+            char vb[12];
             cv_rect(x - 3, y, 9, 11, T_TEXT);
             cv_text_on(x - 1, y + 1 - AF_X_CAP_Y, &AF_X, L4[q], 0x0000u, T_TEXT);
+            param_format(track_desc(t, pg->id[q]), t->p[pg->id[q]], vb, &u);   /* its value beside it */
+            str_cpy(vb + str_len(vb), u, sizeof vb - str_len(vb));
+            if (q < 3 || x + 8 + text_w(&AF_X, vb) < 236)
+                cv_text(x + 8, y + 1 - AF_X_CAP_Y, &AF_X, vb, T_MID);
         }
     }
     if (pg->id[0] == P_ATK) {                           /* the track's envelope now: the loudest voice's, a yellow node */
