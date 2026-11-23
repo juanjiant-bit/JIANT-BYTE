@@ -2,6 +2,21 @@
 
 **▶ [Try it in the browser](https://juanjiant-bit.github.io/JIANT-BYTE/emu/)** · **[Install](https://juanjiant-bit.github.io/JIANT-BYTE/webapp/installer/)** · **[Web editor](https://juanjiant-bit.github.io/JIANT-BYTE/webapp/editor/)**
 
+> **New: [JIANT Studio](https://juanjiant-bit.github.io/JIANT/studio/)**, everything in one page for **JIANT BYTE and
+> JIANT FM**, from a computer or an Android phone. It finds the FM-1, says which firmware it runs and takes its look
+> (BYTE's: stars, synthwave stripes, pixel type).
+>
+> - **Install** JIANT BYTE or JIANT FM. While it writes, every other tab lets the FM-1 go.
+> - **Edit** the FM-1 or the emulator.
+> - See the FM-1's **screen** big, full screen on a phone (needs firmware with the screen mirror, coming).
+> - Play the **emulator** from a MIDI keyboard.
+> - **Record** the master or the stems as WAV, and what you play as MIDI.
+> - Find JIANT on **other devices**.
+>
+> [Try it with a simulated FM-1](https://juanjiant-bit.github.io/JIANT/studio/?mock=1&fw=byte).
+
+[![JIANT Studio](docs/studio.png)](https://juanjiant-bit.github.io/JIANT/studio/?fw=byte)
+
 **Bytebeat and floatbeat firmware for the M-VAVE FM-1.** Every sound, drum, being, punch-in and animation is a formula
 of time.
 
