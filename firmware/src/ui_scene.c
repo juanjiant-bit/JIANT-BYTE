@@ -129,11 +129,17 @@ static void graph_scene(void)
         track_t *t = &trk[i];
         int32_t x = x0 + (int32_t)i * cw;
         uint32_t r = drum_track(t) && scn_role[i] != SC_DRUM ? SC_KEEP : scn_role[i];
-        uint16_t c = r == SC_KEEP ? T_DIM : r == SC_CHORD ? T_THEME : r == SC_BASS ? T_ACCENT : T_TEXT;
+        uint16_t tk = TRK_COL[i % 6u], c = r == SC_KEEP ? T_DIM : r == SC_CHORD ? tk : r == SC_BASS ? 0xEF8Bu : T_TEXT;
         char b[3] = {'T', (char)('1' + i), 0};
-        cv_text_in(x, 2, cw - 4, &AF_X, b, T_TEXT, T_SURF);
+        cv_rect(x, 2, 15, 11, i < trk_live ? tk : T_SURF);   /* (BYTE, the HUD) its number a tag in its colour */
+        cv_text_on(x + 2, 3 - AF_X_CAP_Y, &AF_X, b, i % 6u >= 4u ? 0xFFFFu : 0x0000u, i < trk_live ? tk : T_SURF);
         cv_text_in(x - 2, 14, cw, &AF_X, drum_track(t) && r == SC_KEEP ? "KIT" : SC_ROLE[r], c, T_SURF);
-        if (i == sc_trk) cv_frame(x - 3, 0, cw - 1, 25, T_ACCENT);
+        if (i == sc_trk) {                              /* (the one edited: yellow corners) */
+            cv_rect(x - 3, 0, 4, 1, 0xEF8Bu); cv_rect(x - 3, 0, 1, 4, 0xEF8Bu);
+            cv_rect(x + cw - 8, 0, 4, 1, 0xEF8Bu); cv_rect(x + cw - 5, 0, 1, 4, 0xEF8Bu);
+            cv_rect(x - 3, 24, 4, 1, 0xEF8Bu); cv_rect(x - 3, 21, 1, 4, 0xEF8Bu);
+            cv_rect(x + cw - 8, 24, 4, 1, 0xEF8Bu); cv_rect(x + cw - 5, 21, 1, 4, 0xEF8Bu);
+        }
         if (i >= trk_live) continue;
         if (r == SC_KEEP || r == SC_DRUM) {              /* its own sequence: the steps, dim; DRUM: the beat's lanes lit */
             for (j = 0; j < 16u; j++) {
@@ -143,14 +149,14 @@ static void graph_scene(void)
                     if (h & 1u) cv_rect(x + 1, y, 9, 2, heat_col(60));
                     if (h & 6u) cv_rect(x + 12, y, 9, 2, heat_col(150));
                     if (h & 24u) cv_rect(x + 23, y, 7, 2, heat_col(235));
-                } else if (t->step[j].time == ST_NOTE) cv_rect(x + 2, y, cw - 10, 2, T_DIM);
+                } else cv_rect(x + 2, y, cw - 10, 2, t->step[j].time == ST_NOTE ? ux_mix(T_BG, TRK_COL[i % 6u], 70) : T_SURF);
             }
             continue;
         }
         n = scn_notes(t, r, last_note, o, 1);               /* the last key's notes on it, by pitch */
         for (j = 0; j < n; j++) {
             int32_t y = y0 + yh - 4 - (clamp(o[j], 36, 96) - 36) * (yh - 6) / 60;
-            cv_rect(x + 2 + (r == SC_ARP ? (int32_t)j * 7 : 0), y, r == SC_ARP ? 6 : cw - 10, 3, note_col(o[j]));
+            cv_rect(x + 2 + (r == SC_ARP ? (int32_t)j * 7 : 0), y, r == SC_ARP ? 6 : cw - 10, 3, j ? T_TEXT : TRK_COL[i % 6u]);
         }
     }
     cv_text_in(4, (int32_t)h - 11, 232, &AF_X, scn_on ? "OCT+ DICE  OCT- ALL KEEP" : "SCENE OFF: KNOB 1 TURNS IT ON",

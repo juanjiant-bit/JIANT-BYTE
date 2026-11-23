@@ -292,19 +292,25 @@ static __attribute__((noinline)) void graph_chord(const track_t *t)
         str_cpy(b + str_len(b), v, 32 - str_len(b));
     } else
         str_cpy(b, "CHORD OFF \xB7 ONE NOTE A KEY", 32);
-    ed_cap(10, 6, b, T_TEXT);
-    for (d = 0; d < c; d++) {
-        uint8_t nt[8];
-        int32_t x = 14 + (int32_t)d * 31;
-        uint32_t n = chord_peek(t, 48u + rt + deg[d], nt), k;
-        cv_rect(x - 2, 18, 27, 100, d == 0u ? T_TINT : T_SURF);
-        for (k = 0; k < n && k < 8u; k++) {
-            int32_t y = 112 - clamp((int32_t)nt[k] - 48, 0, 31) * 3;
-            cv_rect(x + 2, y, 21, 3, note_col(nt[k]));
-            if (k == 0u)                                /* the chord's root: a tick of text */
-                cv_rect(x - 1, y, 2, 3, T_TEXT);
+    {   /* (BYTE, the HUD) the chord a tag in the track's colour; each degree a column on a dotted rule, its notes as
+         * bars (the root in the track's colour), its numeral a tag */
+        uint16_t tc = TRK_COL[(uint32_t)(t - trk) % 6u];
+        hud_tag(10, 2, b, (uint32_t)(t - trk) % 6u >= 4u ? 0xFFFFu : 0x0000u, t->p[P_CHRD] ? tc : T_TEXT);
+        for (d = 0; d < c; d++) {
+            uint8_t nt[8];
+            int32_t x = 14 + (int32_t)d * 31, yy;
+            uint32_t n = chord_peek(t, 48u + rt + deg[d], nt), k;
+            for (yy = 18; yy < 118; yy += 3) cv_pset(x + 11, yy, T_LINE);
+            for (k = 0; k < n && k < 8u; k++) {
+                int32_t y = 112 - clamp((int32_t)nt[k] - 48, 0, 31) * 3;
+                cv_rect(x + 2, y, 21, 3, k == 0u ? tc : d == 0u ? T_TEXT : HUD_BL);
+            }
+            {
+                int32_t tw = text_w(&AF_X, RN[d]) + 4;
+                cv_rect(x + 12 - tw / 2, 119, tw, 11, d == 0u ? tc : HUD_BL);
+                cv_text_on(x + 14 - tw / 2, 120 - AF_X_CAP_Y, &AF_X, RN[d], d == 0u ? 0x0000u : T_TEXT, d == 0u ? tc : HUD_BL);
+            }
         }
-        cv_text_in(x - 2, 125 - AF_X_CAP_Y, 27, &AF_X, RN[d], d == 0u ? T_THEME : T_TEXT, T_SURF);
     }
 }
 static void graph_arp(const track_t *t)

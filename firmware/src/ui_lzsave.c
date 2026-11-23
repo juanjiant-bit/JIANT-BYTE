@@ -267,6 +267,69 @@ static __attribute__((noinline)) void graph_tl(void)
 }
 /* PROJECT: the sections, the arrangement's chips, the song's strip (ar: ARRANGE, its rows picked; 2: GENE's lanes) */
 static uint8_t proj_nofoot;                              /* (gen.c: GENE draws its own words where the song's length stands) */
+/* (BYTE, the owner's TABLERO) GEN with a song arranged: what matters large: the part playing as a block letter of
+ * yellow cells, its bars; NEXT a tag and THEN the two after; the part's progress a thermal matrix; each track's take
+ * on it (its letter, its VAR; another section's: a tag in its colour; MUTE a dim frame); a cell a part, this one yellow */
+static const uint8_t GB_GLY[4][7] = {{14, 17, 17, 31, 17, 17, 17}, {30, 17, 17, 30, 17, 17, 30}, {15, 16, 16, 16, 16, 16, 15},
+                                     {30, 17, 17, 17, 17, 17, 30}};
+static void gb_name(char *b, uint32_t i)
+{
+    const chain_row_t *r = &chain_config.row[i];
+    b[0] = (char)('A' + (r->slot & 3u));
+    fmt_int(b + 1, r->bars);
+}
+static void gen_board(void)
+{
+    static const char *const RV_SH[RV_N] = {"", "", "TH", "FL", "HF", "RV", "SH", "+8", "-8", "V1", "V2", "V3", "V4"};
+    uint32_t n = chain_config.count, cur = chain.running && chain.row < n ? chain.row : 0u, s, j, k;
+    const chain_row_t *r;
+    char b[24];
+    int32_t x, y, fr;
+    if (!n) return;
+    r = &chain_config.row[cur];
+    s = r->slot & 3u;
+    cv_text(8, 3, &AF_X, chain.running ? "NOW" : "FIRST", T_DIM);
+    for (y = 0; y < 7; y++)                              /* the part: a block letter of yellow cells */
+        for (x = 0; x < 5; x++)
+            cv_rect(8 + x * 6, 15 + y * 6, 5, 5, (GB_GLY[s][y] >> (4 - x)) & 1u ? HUD_YE : T_SURF);
+    fmt_int(b, r->bars);
+    str_cpy(b + str_len(b), r->bars == 1u ? " BAR" : " BARS", 6);
+    cv_text(44, 46 - AF_M_CAP_Y, &AF_M, b, T_TEXT);
+    b[0] = 'P'; b[1] = 'A'; b[2] = 'R'; b[3] = 'T'; b[4] = ' '; fmt_int(b + 5, (int32_t)cur + 1);
+    str_cpy(b + str_len(b), "/", 2); fmt_int(b + str_len(b), (int32_t)n);
+    cv_text(44, 18 - AF_X_CAP_Y, &AF_X, b, T_MID);
+    cv_text(140, 3, &AF_X, "NEXT", T_DIM);              /* NEXT, THEN */
+    if (n > 1u) {
+        gb_name(b, (cur + 1u) % n);
+        k = (uint32_t)text_w(&AF_M, b) + 8;
+        cv_rect(140, 14, (int32_t)k, 18, T_TEXT);
+        cv_text_on(144, 16 + (14 - AF_M_CAP_H) / 2 - AF_M_CAP_Y + 1, &AF_M, b, T_INK, T_TEXT);
+        if (n > 2u) {
+            str_cpy(b, "THEN ", 6); gb_name(b + 5, (cur + 2u) % n);
+            if (n > 3u) { str_cpy(b + str_len(b), " \xB7 ", 4); gb_name(b + str_len(b), (cur + 3u) % n); }
+            cv_text(140, 40 - AF_X_CAP_Y, &AF_X, b, T_MID);
+        }
+    } else
+        cv_text(140, 18 - AF_X_CAP_Y, &AF_X, "LOOPS", T_MID);
+    fr = chain.running && r->bars ? (int32_t)((r->bars - chain.remaining) * 40u / r->bars) : 0;   /* its progress */
+    for (k = 0; k < 40u; k++)
+        cv_rect(8 + (int32_t)k * 56 / 10, 62, 4, 8, (int32_t)k < fr ? heat_col(40 + (int32_t)k * 210 / 39) : T_LINE);
+    for (j = 0; j < NTRK; j++) {                         /* each track's take on it */
+        uint32_t src = row_src(cur, j, s), v = row_var(cur, j), own = src == s;
+        uint16_t bg = v == RV_MUTE ? T_BG : own ? T_SURF : TRK_COL[j % 6u], fg = v == RV_MUTE ? T_DIM : own ? T_TEXT : (j % 6u >= 4u ? 0xFFFFu : 0x0000u);
+        x = 8 + (int32_t)j * 38;
+        b[0] = 'T'; b[1] = (char)('1' + j); b[2] = ' '; b[3] = (char)('A' + src); b[4] = 0;
+        if (v && v < RV_N && RV_SH[v][0]) { b[4] = ' '; str_cpy(b + 5, RV_SH[v], 4); }
+        if (v == RV_MUTE) cv_frame(x, 78, 35, 12, T_DIM);
+        else cv_rect(x, 78, 35, 12, bg);
+        cv_rect(x, 78, 2, 12, j < trk_live ? TRK_COL[j % 6u] : T_DIM);
+        cv_free_text(x + 4, 79 - AF_X_CAP_Y + 1, &AF_X, b, fg, bg, 30);
+    }
+    for (k = 0; k < n && k < 16u; k++) {                 /* a cell a part */
+        int32_t w = 224 / (int32_t)(n < 16u ? n : 16u);
+        cv_rect(8 + (int32_t)k * w, 100, w - 3, 5, k == cur ? HUD_YE : chain.running && k < cur ? T_DIM : T_LINE);
+    }
+}
 static void graph_proj(int ar)
 {
     uint32_t i, total = 0, sel = (uint32_t)song.g[G_SLOT] - 1u, n = chain_config.count;

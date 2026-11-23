@@ -3481,7 +3481,7 @@ BTAPP_FN static void gen_panel_bt(void)
     if (chain_config.count) {
         /* Reuse the actual arrangement, not FORM's illustrative BCADCA chips.
          * Progress refreshes per bar; no new high-rate animation or DSP work. */
-        graph_proj(2);                                   /* (V10.6i) the lanes leave the helix a band of its own */
+        gen_board();                                     /* (BYTE, the owner's TABLERO; were the lanes and the helix) */
         cv_rect(0, 124, 240, 16, T_SURF);
         if (chain.running) {
             v[0] = (char)('A' + (uint32_t)live.cur % 4u); v[1] = ' ';
@@ -3503,6 +3503,7 @@ BTAPP_FN static void gen_panel_bt(void)
 
 /* (V10.6d) GENE: a double helix turning under the parts, its rungs the SEED's own bases (two bits a rung, four
  * colours: each seed its DNA); under ARRANGE's first row when a song is arranged, none past it */
+static void gen_board(void);                            /* (ui_lzsave.c) */
 static void gen_helix(void)
 {
     uint32_t n = chain_config.count, x, s = gp.seed * 2654435761u + gp.genre * 40503u, t = 0, i;
@@ -3542,8 +3543,11 @@ static void gen_panel(void)
         proj_nofoot = 1;
         gen_panel_bt();
         proj_nofoot = 0;
-    } else
-        graph_proj(chain_config.count ? 2 : 0);
-    gen_helix();
+    } else if (chain_config.count)
+        gen_board();                                     /* (BYTE: TABLERO) */
+    else
+        graph_proj(0);
+    if (!chain_config.count)
+        gen_helix();
 }
 #include "gen_track.c"
