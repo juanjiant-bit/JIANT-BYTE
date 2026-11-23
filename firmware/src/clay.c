@@ -109,7 +109,7 @@ static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **val
     static const char *const DECN[4] = {"DECAY 1", "DECAY 2", "DECAY 3", "DECAY 4"};
     static const char *const EN[8] = {"E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8"};
     uint32_t tr = (uint32_t)(t - trk) % NTRK, i;
-    f %= CL_N;
+    f %= CLAY_NF;
     *valp = &clay[tr][f];
     d.def = 0; d.names = 0; d.fmt = F_ENUM; d.min = 0;
     if (f == CL_ON) { d.label = "CLAY"; d.max = 1; d.names = CL_ONN; }
@@ -147,7 +147,7 @@ static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **val
 /* a knob of the pages turned (its value already in): ON from a blank one, its first sound (clay_defaults) */
 static void clay_put(uint32_t idx, int32_t was, int32_t v)
 {
-    uint32_t tr = idx / CL_N % NTRK, f = idx % CL_N, m, any = 0;
+    uint32_t tr = idx / CLAY_NF % NTRK, f = idx % CLAY_NF, m, any = 0;
     if (f != CL_ON || !v || was)
         return;
     for (m = 0; m < 4u; m++) any |= clay[tr][CL_MF(m, 3u)] != 0;
@@ -161,7 +161,7 @@ static void clay_from_form(uint32_t tr, const int16_t *p)
     static const uint8_t DM[FD_N] = {1u, 13u, 14u, 3u, 3u, 4u, 15u};   /* PITCH, FM E2, FOLD E3, NOISE SHAPE, SHAPE, LEVEL VOLUME, RATIO E4 */
     int16_t *c = clay[tr % NTRK];
     uint32_t m;
-    for (m = 0; m < CL_N; m++) c[m] = 0;
+    for (m = 0; m < CLAY_NF; m++) c[m] = 0;
     c[CL_ON] = 1; c[CL_OCT] = 1; c[CL_RUN] = p[P_LRTRG] == 2;
     c[CL_STEP] = (int16_t)clamp(p[P_E0], 0, 3); c[CL_SEED] = (int16_t)clamp(p[P_E1], 0, 127);
     for (m = 0; m < 4u; m++) {

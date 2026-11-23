@@ -203,9 +203,9 @@ static void form_eval(form_st_t*st,const int16_t*p,int32_t*D,uint32_t at)
  * project's 'C' 'Y' block). ON, the drone's OCTave (C0 .. C3 on the track's ROOT), its RATE (HOLD: held; else struck
  * again every 4 BAR .. 1/16), RUN (SONG: while the transport plays; FREE: always); each modulator's DEST (the matrix's,
  * CLAY_MD), SHAPE (the knob's order: the HITS first, CLAY_SH), EUCLID, AMOUNT; their DECAYs; the STEP and the SEED */
-enum { CL_ON, CL_OCT, CL_RATE, CL_RUN, CL_M0, CL_DEC = CL_M0 + 16, CL_STEP = CL_DEC + 4, CL_SEED, CL_N };
+enum { CL_ON, CL_OCT, CL_RATE, CL_RUN, CL_M0, CL_DEC = CL_M0 + 16, CL_STEP = CL_DEC + 4, CL_SEED, CLAY_NF };
 #define CL_MF(m, f) (CL_M0 + 4u * (m) + (f))        /* f: 0 DEST, 1 SHAPE, 2 EUCLID, 3 AMOUNT */
-static int16_t clay[NTRK][CL_N] __attribute__((section(".eu_keep")));   /* (RAMTEXT's room, as EUCLID's keep: the RAM is full; not zeroed
+static int16_t clay[NTRK][CLAY_NF] __attribute__((section(".eu_keep")));   /* (RAMTEXT's room, as EUCLID's keep: the RAM is full; not zeroed
                                                          * there: main.c clay_boot) */
 static int16_t clay_v[NTRK][4] __attribute__((section(".eu_keep")));                       /* what each modulator adds now (Q15): mod.c's per-block source */
 static uint8_t clay_dn[NTRK] __attribute__((section(".eu_keep"))), clay_nn[NTRK] __attribute__((section(".eu_keep")));          /* the drone's note sounding, a NOTE gesture's (0: none) */
@@ -232,9 +232,9 @@ static void clay_fill(const int16_t *c, int16_t *sp)
  * hat on its shape (the knobs as any FORM preset's) */
 static void clay_defaults(int16_t *c)
 {
-    static const int8_t D[CL_N] = {1, 1, 0, 0,   2, 0, 2, 100,   0, 36, 7, 90,   13, 26, 2, 60,   3, 2, 22, 70,
+    static const int8_t D[CLAY_NF] = {1, 1, 0, 0,   2, 0, 2, 100,   0, 36, 7, 90,   13, 26, 2, 60,   3, 2, 22, 70,
                                    10, 14, 30, 10,   2, 7};
     uint32_t i;
-    for (i = 0; i < CL_N; i++) c[i] = D[i];
+    for (i = 0; i < CLAY_NF; i++) c[i] = D[i];
 }
 

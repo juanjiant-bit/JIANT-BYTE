@@ -235,14 +235,14 @@ static __attribute__((noinline)) void graph_clay_lz(const track_t*t){
   ft_frame(y,23);
   b[0]='M';b[1]=(char)('1'+m);b[2]=0;ft_tag(1,y+1,b,lit||on?0x0000:T_TEXT,lit?FT_YE:on?T_TEXT:FT_BL);
   str_cpy(b,FORM_SHAPE[clay_sh(c[CL_MF(m,1u)])],12);
-  {uint32_t n=str_len(b);b[n]='>';str_cpy(b+n+1,dd&&dd->names?dd->names[clamp(c[CL_MF(m,0u)],dd->min,dd->max)]:"-",10);}
+  {uint32_t n=str_len(b);b[n]=' ';b[n+1]='\xB7';b[n+2]=' ';str_cpy(b+n+3,dd&&dd->names?dd->names[clamp(c[CL_MF(m,0u)],dd->min,dd->max)]:"-",10);}
   {int32_t pk=2;for(i=0;i<FT_N;i++){int32_t a=ft_v(m,i)<0?-ft_v(m,i):ft_v(m,i);if(a>pk)pk=a;}
   for(i=0;i<FT_N;i++){int32_t v=ft_v(m,i),x=32+(int32_t)i*3,yy=mid-v*10/pk;
    {uint32_t j,hot=0;for(j=0;j<4u&&!hot;j++)hot=hud_get(4u+m,(i+FT_N-j)%FT_N)!=0u;
     if(i&&(i<=ft_x||i>ft_x+3u))cv_line_t(px,py,x,yy,hot&&c[CL_ON]?tc:cl,on||hot?2:1);}px=x;py=yy;
    if(hud_get(4u+m,i)&&!hud_get(4u+m,(i+FT_N-1u)%FT_N))cv_rect(x,y+19,2,3,T_TEXT);}}
-  {int32_t w=text_w(&AF_X,b)+4;cv_rect(237-w,y+1,w,11,T_BG);cv_text_on(239-w,y+2-AF_X_CAP_Y,&AF_X,b,on?T_TEXT:T_DIM,T_BG);}
   cv_rect(cx,y,1,23,FT_YE);cv_rect(cx-2,y,5,1,FT_YE);cv_rect(cx-1,y+1,3,1,FT_YE);
+  {int32_t w=text_w(&AF_X,b)+6;cv_rect(238-w,y,w,13,T_BG);cv_text_on(241-w,y+2-AF_X_CAP_Y,&AF_X,b,c[CL_ON]?T_TEXT:T_DIM,T_BG);}   /* (the owner: "the name can't be read": over everything, white) */
  }
  if(!c[CL_ON]){int32_t w=text_w(&AF_M,"CLAY OFF")+8;cv_rect(120-w/2,52,w,20,T_BG);cv_text_on(124-w/2,56-AF_M_CAP_Y,&AF_M,"CLAY OFF",T_TEXT,T_BG);}
 }

@@ -88,7 +88,7 @@ int main(int argc, char **argv)
         setup(); clay[0][CL_SEED] = 77; clay[0][CL_MF(2, 0u)] = 15;
         project_capture(&q);
         int ok = proj_pack(&st, &q) && proj_import(&r, st.raw, (int)sizeof st.raw);
-        for (unsigned f = 0; ok && f < CL_N; f++) ok &= r.clay[0][f] == (uint8_t)clay[0][f];
+        for (unsigned f = 0; ok && f < CLAY_NF; f++) ok &= r.clay[0][f] == (uint8_t)clay[0][f];
         ok &= !r.clay[1][CL_ON];
         OK(ok, "the settings stored and read back");
     }

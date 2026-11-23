@@ -277,8 +277,8 @@ static const param_desc_t DXIMG_DESC = {"IMAGE", F_INT, 0, 127, 0, 0};       /* 
 /* (V10.6) SEQ > EUCLID / MODES' knobs (ui_euclid.c: ids ID_EU0 + EK_*, the views of the selected track's settings) */
 #define ID_EU0 0xF0u
 #define ID_SC0 0xE8u                                    /* (V10.25) SCL > SCENE's four (ui_scene.c sc_desc) */
-#define ID_CL0 0xC0u                                    /* (BYTE) DRONE CLAY's CL_N (eng_form.c CL_*, seq.c clay_desc) */
-_Static_assert(ID_CL0 + CL_N <= 0xE0u && P_COUNT < ID_CL0, "DRONE CLAY's ids between the parameters and EQ's");
+#define ID_CL0 0xC0u                                    /* (BYTE) DRONE CLAY's CLAY_NF (eng_form.c CL_*, seq.c clay_desc) */
+_Static_assert(ID_CL0 + CLAY_NF <= 0xE0u && P_COUNT < ID_CL0, "DRONE CLAY's ids between the parameters and EQ's");
 static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **valp);   /* (seq.c) */
 static const param_desc_t *eu_desc(uint32_t k, int16_t **valp);
 static const param_desc_t *sc_desc(uint32_t k, int16_t **valp);   /* (V10.25) ui_scene.c */
@@ -1069,7 +1069,7 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return eu_desc(id - ID_EU0, valp);
     if (id >= ID_SC0 && id < ID_SC0 + 4u)            /* (V10.25) SCENE's */
         return sc_desc(id - ID_SC0, valp);
-    if (id >= ID_CL0 && id < ID_CL0 + CL_N)          /* (BYTE) DRONE CLAY's (seq.c clay_desc) */
+    if (id >= ID_CL0 && id < ID_CL0 + CLAY_NF)          /* (BYTE) DRONE CLAY's (seq.c clay_desc) */
         return clay_desc(TSEL, id - ID_CL0, valp);
     *valp = &TSEL->p[id];
     if (id == P_APRATE && TSEL->p[P_APSYNC])         /* (0.6.9) AUTO PAN on the tempo: a division */
