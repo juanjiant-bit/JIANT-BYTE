@@ -18,7 +18,6 @@ int main(void)
         ui_power_on();
         memset(&chain, 0, sizeof chain);
         memset(&lv, 0, sizeof lv);
-        memset(glane, 0, sizeof glane); gl_mono = 0; gl_reset();
         set_engine_of(t, kit ? ENGI_DRUM : ENGI_ANALOG);
         t->engine = t->eng_req;
         t->p[P_SLEN] = 1; t->p[P_SDIV] = 2; t->p[P_TCHAN] = 0;

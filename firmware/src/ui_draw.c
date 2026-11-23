@@ -832,28 +832,6 @@ static __attribute__((noinline)) void hot_text_column(uint32_t c, const char *la
 {
     text_column(c, label, value, VAL(c));
 }
-/* (0.6.99) the punch-in lane's cards: LEN, RES, its state (REC ON recording, PLAY ON playing, else its steps), CLEAR;
- * (V10.7.32) the FX layer's KNOB 1..4 with FX + PRESETS (ui_layer.c), FX > PUNCH IN's until then */
-static void draw_act_column(uint32_t c, const char *label, uint16_t vc, uint32_t icon);
-static uint32_t pfx_lane_n(void)
-{
-    uint32_t n = 0, i;
-    for (i = 0; i < 64u; i++) n += pfx_lane_at(i) != 0u;
-    return n;
-}
-static void pfx_cards(void)
-{
-    char val[12];
-    uint32_t n = pfx_lane_n();
-    fmt_int(val, song.g[G_PFXLEN]);
-    draw_column(0, "LEN", val, "ST", VAL(0u), RATIO(&GP[G_PFXLEN], song.g[G_PFXLEN]), ICON_AUTO);
-    hot_text_column(1, "RES", N_PFXRES[(uint32_t)clamp(song.g[G_PFXRES], 0, 2)]);
-    fmt_int(val, (int32_t)n);
-    text_column(2, pfx_rec_ok() ? "REC" : song.playing ? "PLAY" : "STEPS", pfx_rec_ok() ? "ON" : song.playing ? "ON" : val, pfx_rec_ok() ? T_ACCENT : T_TEXT);
-    draw_act_column(3, "CLEAR", n ? T_MID : T_DIM, ICON_X_MOTION_DEL);   /* (snd2: the lane only; V10.7.32 CLEAR, was
-                                                         * CLR AUTO: KNOB 4 right asks, CLEAR PUNCH IN LANE?) */
-}
-
 /* Shared empty card: keep the renderer and all of its state-reset behavior. */
 static __attribute__((noinline)) void empty_column(uint32_t c)
 {
@@ -1071,15 +1049,10 @@ static uint32_t foot_ph(const track_t *t, uint32_t *len)
     *len = t->p[P_SLEN] > 0 ? (uint32_t)t->p[P_SLEN] : 1u;
     return song.playing ? seq_src(t, t->seq_idx) : 0xFFu;
 }
-static uint32_t lane_sig(void);                         /* (V10.7.32) ui_layer.c: the FX layer's punch-in lane */
-static int32_t ly_lane(int32_t x0, int32_t y, int32_t x1);
-static int fx_lane_foot(void) { return ui.layer == LAYER_FX && !ui.menu; }   /* (V10.7.32) FX held: the lane at the foot */
 static uint32_t foot_strip_sig(void)
 {
     const track_t *t = TSEL;
     uint32_t len, ph = foot_ph(t, &len), bk = ui.bank;
-    if (fx_lane_foot())
-        return lane_sig() ^ 0x1A4Eu;
     return steps_hash(t) + (len * 131u + bk) * 2654435761u + (ph / 16u == bk ? ph % 16u + 1u : 0u) * 40503u +
            (ph < len ? ph / 16u + 1u : 0u) * 977u + (song.seq_mode ? ui.cursor + 1u : 0u) * 3001u;
 }
@@ -1127,7 +1100,7 @@ static int clip_tag(char *b)
  * an action page its OCT+ / OCT- (foot_hint); else its picture's (GR_*), HOME's MACROS (250) and LIVE MIX (251), GEN (252),
  * LIFE (253), TRACKS (254: GLO's mute and solo keys, as MIXER's; its panel shows the line too),
  * or its section's (100 + SEC_*); none: the breadcrumb. One string, the lines one after another */
-static const uint8_t HELP_K[] = {250, 251, 252, 253, 254, GR_BROWSE, GR_FOCUS, GR_ROLL, GR_COMP, GR_EUCLID, GR_SHAPE, GR_SCENE, GR_GCOMP, GR_TRK, 100u + SEC_EDIT, 100u + SEC_SEQ, 100u + SEC_FX, 100u + SEC_GLO, 100u + SEC_LFO, 100u + SEC_SCL};
+static const uint8_t HELP_K[] = {250, 251, 252, 253, 254, GR_BROWSE, GR_FOCUS, GR_ROLL, GR_COMP, GR_EUCLID, GR_SHAPE, GR_SCENE, GR_TRK, 100u + SEC_EDIT, 100u + SEC_SEQ, 100u + SEC_FX, 100u + SEC_GLO, 100u + SEC_LFO, 100u + SEC_SCL};
 static const char HELP_S[] =
     "HOME+SELECT DICE  HOME+PRESETS BPM\0"
     "HOME+PRESETS BPM  HOME+SELECT GEN\0"
@@ -1141,7 +1114,6 @@ static const char HELP_S[] =
     "OCT+ NEW  OCT- THE ONE BEFORE\0"
     "OCT- NUDGE ALL  OCT+ THE STEP\0"
     "OCT+ DICE ROLES  OCT- ALL KEEP\0"
-    "KEYS PICK THE STEP\0"
     "GLO+BLACK KEYS MUTE  GLO+SELECT BPM\0"
     "EDIT+SELECT DICE  EDIT+PRESETS ENGINE\0"
     "SEQ+SELECT DICE  SEQ+PRESETS STEP\0"
@@ -1188,14 +1160,6 @@ static __attribute__((noinline)) void draw_crumbs(int32_t y, uint16_t fg, uint16
     if (help_line(b)) {                                 /* (V10.7.33) HELP on: the page's keys */
         GFX_HOOK_ALIGN(0, y + AF_X_CAP_Y, 0, y + AF_X_CAP_Y + AF_X_CAP_H, AL_V, "footer help on its line");
         cv_clip_text(6, y, &AF_X, b, T_THEME, T_BG, 228);
-        return;
-    }
-    if (f == &AF_X && fx_lane_foot()) {                 /* (V10.7.32) FX held: the punch-in lane, then the count (the
-                                                         * view's word: its tab) */
-        if (cw)
-            cv_text_r(234, y, f, cnt, T_TEXT, T_BG);
-        GFX_HOOK_ALIGN(0, y + AF_X_CAP_Y, 0, y + AF_X_CAP_Y + AF_X_CAP_H, AL_V, "footer breadcrumb on its line");
-        (void)ly_lane(6, y + AF_X_CAP_Y, mx);
         return;
     }
     x0 = f == &AF_X ? foot_strip(6, y + AF_X_CAP_Y, 1) : 8;   /* (seq2g, a lens footer: the steps first, on the capitals) */
@@ -1323,46 +1287,6 @@ static void comp_value(const step_t *s, uint32_t a, uint32_t v, char *lb, char *
 static __attribute__((noinline)) void comp_columns(void)
 {
     char val[12];
-    if (cur_page()->graph == GR_GCOMP) {               /* (0.9.9-seq2f) GLO > COMPS: the lane's step; COMPS 2 its tracks */
-        const gcomp_t *gc = &glane[gl_cur % GL_N];
-        uint32_t a = CA_VIEW(CO_ACT(gc->comp), gc->val);
-        char lb[10], un[8];
-        if (gco_play()) {                               /* (BYTE) COMP PLAY: what a key plays, on what, REC */
-            text_column(0, "PLAYS", gpl_key < 16u ? GPL_NM[gpl_key] : "-", gpl_key < 16u ? VAL(0u) : T_DIM);
-            if (gpl_mask == (1u << NTRK) - 1u) str_cpy(val, "ALL", 8); else fmt_int(val, (int32_t)__builtin_popcount(gpl_mask));
-            hot_text_column(1, "TRACKS", val);
-            text_column(2, "REC", song.rec ? "ADDS" : "OFF", song.rec ? VAL(2u) : T_DIM);
-            fmt_int(val, (int32_t)(clk_n % GL_N) + 1);
-            text_column(3, "STEP", song.playing ? val : "-", T_DIM);
-            return;
-        }
-        if (gco_slot()) {
-            fmt_int(val, (int32_t)gl_cur + 1);
-            hot_text_column(0, "STEP", val);
-            val[0] = 'T'; fmt_int(val + 1, (int32_t)gl_trk + 1);
-            hot_text_column(1, "TRACK", val);
-            text_column(2, "APPLIES", (gc->mask >> gl_trk) & 1u ? "ON" : "OFF", a ? VAL(2u) : T_DIM);
-            hot_text_column(3, "MODE", gl_mono ? "MONO" : "POLY");
-            return;
-        }
-        text_column(0, "ACTION", CA_NAMES[a], a ? VAL(0u) : T_DIM);
-        if (a) {
-            fmt_int(val, (int32_t)gc->len + 1);
-            hot_unit_column(1, "LENGTH", val, "ST");   /* (gen3: "32 ST" in M) */
-        } else
-            text_column(1, "LENGTH", "-", T_DIM);
-        if (a) {
-            cond_name(CO_COND(gc->comp), gc->nm, val);
-            text_column(2, "COND", val, CO_COND(gc->comp) ? VAL(2u) : T_DIM);   /* (gen3: MONO / POLY on
-                                                         * COMPS 2, the value whole) */
-            comp_value(TSEL->step, a, gc->val, lb, val, un);
-            unit_column(3, lb, val, un, lb[0] ? VAL(3u) : T_DIM);
-        } else {
-            text_column(2, "COND", "", T_DIM);
-            empty_column(3);
-        }
-        return;
-    }
     {                                                   /* (seq2d) the cursor step's C1 / C2: ACTION LENGTH COND VALUE */
         const step_t *cs = &TSEL->step[ui.cursor];
         uint32_t a = comp_view(), k = comp_slot(), c = CO_COND(k ? cs->comp2 : cs->comp), l = cs->clen[k & 1u];
@@ -1648,11 +1572,6 @@ static void draw_columns(void)
         param_format(d, v, val, &unit);
         draw_column(3, r == n ? "VALUE" : (motion.event[idx[r]].param & MOTION_LOCK) ? "LOCK" : MOTION_RAMP(&motion.event[idx[r]]) ? "RAMP" : "REC", val, unit,
                     r < n ? VAL(3u) : T_DIM, RATIO(d, enum_rank(d, v)), param_icon(d, v));
-        return;
-    }
-    if (cur_page()->graph == GR_PUNCH) {               /* (0.6.99) the punch-in lane: LEN, RES, its state, CLEAR (V10.7.32:
-                                                         * the page out; the FX layer's, FX + PRESETS) */
-        pfx_cards();
         return;
     }
     if (cur_page()->graph == GR_TOOLS) {                 /* (V10.24) KNOB 1 the scope, KNOB 2 the action; OCT+ held */
@@ -2250,9 +2169,6 @@ static void confirm_text(char *a, char *b)
         break;
     case CF_CLEAR_MOTION:
         str_cpy(a, "CLEAR T1 LOCKS + REC?", 24); a[7] = (char)('1' + k % NTRK);   /* (V10.7.32: LOCKS' CLEAR ALL) */
-        break;
-    case CF_CLEAR_PFX:
-        str_cpy(a, "CLEAR PUNCH IN LANE?", 24);   /* (snd2: the lane only) */
         break;
     case CF_OVR_USER:
         str_cpy(a, "OVERWRITE ", 24);

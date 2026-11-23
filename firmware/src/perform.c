@@ -12,8 +12,8 @@
  *         G4        WOBBLE: a resonant low-pass on the master opening and closing once every 1/8 of the transport
  *         A4        DLY 1/16: the delay bus at 1/16, FEEDBK 95, MIX at least 100, the whole dry mix sent into it (the dry
  *                   kept): echoes building while held; let go, a bar at FEEDBK 30 (they die out), then the user's delay
- *         B4 .. F5  the punch-in MIDI effects (pfx.c) STUT 1/8 STUT 1/16 ATK+ ARP RANDOM (the punch-in lane stores the
- *                   MIDI ones by these indices, D4 = 1; 4 and 5, G4 A4, DEC- DEC+ before V10.7.36, play nothing)
+ *         B4 .. F5  the punch-in MIDI effects (pfx.c) STUT 1/8 STUT 1/16 ATK+ ARP RANDOM (D4 = 1; 4 and 5, G4 A4, DEC- DEC+
+ *                   before V10.7.36, play nothing)
  *         G5        COMB: a resonant comb on the master at the root (C3 .. B3), its tuning and feedback swaying by
  *                   themselves (a buffer effect: its line in sl_buf). The lane is cleared by REC + FX or FX + PRESETS,
  *                   KNOB 4 CLEAR (CLR AUTO, G5's before, is gone)
@@ -188,9 +188,6 @@ static uint32_t perf_avail(void)
 }
 
 /* seq.c keyboard_block: a layer key down / up (e: PF_*, PF_N = no effect) */
-static uint32_t pfx_lph;              /* samples into the punch-in lane (pfx.c): from the transport's start, a section's */
-static uint8_t pfx_lane[32], pfx_ltgt;   /* the section's punch-in lane (pfx.c); its tracks (V10.7.36: always ALL, 0;
-                                          * a lane saved with SYN 1 or DRM 2 plays on every track too) */
 static void perf_press(uint32_t e, int down)
 {
     if (e >= PF_N)
@@ -210,7 +207,7 @@ static void perf_press(uint32_t e, int down)
     }
 }
 
-static void perf_start(void) { pf.ph = 0; pf.sync = 1; pfx_lph = 0; }   /* seq_start: a 1/16 starts with the transport */
+static void perf_start(void) { pf.ph = 0; pf.sync = 1; }   /* seq_start: a 1/16 starts with the transport */
 
 /* the SLICER's recordings dropped (when the buffer is taken and given back) */
 static void perf_drop_slicer(void) { slicer_drop(); }

@@ -1339,14 +1339,6 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
         h = (h ^ eu[song.sel % NTRK].lane ^ (uint32_t)eu[song.sel % NTRK].src << 4 ^ (uint32_t)eu[song.sel % NTRK].root << 8 ^
              (song.playing ? t->seq_idx + 1u : 0u) << 16) * 16777619u;
     }
-    if (pg->graph == GR_GCOMP) {                     /* (0.9.9-seq2f) the global lane, its cursor, MONO, the step playing */
-        h = (h ^ (gl_lv.comp * 131u + gpl_mask * 65537u + (uint32_t)song.rec * 3u + gpl_key * 40503u)) * 16777619u;
-        h = (h ^ (gl_cur * 7919u + gl_trk * 31u + gl_mono * 977u + (song.playing ? gl_step_at(0) % GL_N + 1u : 0u))) *
-            16777619u;
-        for (i = 0; i < GL_N; i++)
-            h = (h ^ ((uint32_t)glane[i].comp | (uint32_t)glane[i].val << 8 | (uint32_t)glane[i].len << 16 |
-                      (uint32_t)glane[i].mask << 24) ^ glane[i].nm * 131u) * 16777619u;
-    }
     if (pg->graph == GR_COMP) {                      /* (0.6.39) the steps, their components, the arpeggio and the loop */
         const step_t *cs = &t->step[ui.cursor];
         uint32_t ph = song.playing ? seq_src(t, t->seq_idx) : 0xFFFFu;
@@ -1397,17 +1389,15 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
             h ^= list_get() * 977u + favorites.filter * 31u + pl_cur * 7919u + (uint32_t)snd_dirty(TSEL) * 104729u;
     }
     if (fx_on()) {                                   /* (0.8.5) FX's lens: the level, the module, the buses' values, the
-                                                         * slicer's step, the output (MASTER), the punch lane */
+                                                         * slicer's step, the output (MASTER) */
         h = (h ^ (fx_level() + 1u) * 2654435761u ^ ui.fxmod * 40503u) * 16777619u;
         for (i = 0; i < G_COUNT; i++)
             h = (h ^ (uint32_t)song.g[i]) * 16777619u;
         if (fx_level() == FXL_BUSES || (fx_level() == FXL_EFFECT && fx_mod_of(ui.page) == 3u))   /* (the SLICER drawn) */
             h ^= (song.playing && song.g[G_SLMODE] ? sl.idx + 1u : 0u) * 2654435761u;
-        h ^= sl_ui_step * 7919u + (uint32_t)pfx_rec_ok() * 31u;
-        if (fx_level() == FXL_BUSES || fx_mod_of(ui.page) == 5u)   /* (MASTER: last, snd2) */
+        h ^= sl_ui_step * 7919u;
+        if (fx_level() == FXL_BUSES || fx_mod_of(ui.page) == 4u)   /* (MASTER: last, snd2) */
             h ^= (uint32_t)(bg_energy() / 16) * 104729u;   /* (MASTER's level bar: 16 steps, not every frame) */
-        for (i = 0; i < 32u; i++)
-            h = (h ^ pfx_lane[i]) * 16777619u;
     }
     if (lens_on()) {                                 /* (0.8.3) LENTE: the level; its STEP, the cursor step's every byte */
         h = (h ^ (lens_level() + 1u) * 2654435761u) * 16777619u;
@@ -1890,32 +1880,6 @@ static uint16_t sec_col(uint32_t s)
 #include "ui_lzhome.c"                              /* (0.8.5) HOME's lens: MACROS' beings, SCOPE */
 #include "ui_lzedit.c"                               /* (0.8.5) EDIT's lens panels */
 #include "ui_lzpage.c"                               /* (0.8.5) ENV's, LFO . MOD's, SCL . ARP's, GLO's */
-/* (0.9.9-seq2f) GLO > COMPS' roll: the lane's 16 steps as columns, each one's component mark on top (comp_col, as a
- * track's), its LENGTH a line after it, the six tracks it applies to as small marks in rows below, the cursor step
- * framed, the global step playing underlined; MONO / POLY at the right */
-static __attribute__((noinline)) void graph_gcomp(void)
-{
-    uint32_t i, k, j, h = graph_h(), play = song.playing ? gl_step_at(0) % GL_N : GL_N;
-    int32_t x0 = 12, cw = 13, y0 = 8;
-    for (i = 0; i < GL_N; i++) {
-        const gcomp_t *c = &glane[i];
-        uint32_t a = CO_ACT(c->comp) % CA_N;
-        int32_t x = x0 + (int32_t)i * cw;
-        cv_rect(x + 1, (int32_t)h - 10, cw - 2, 1, (i & 3u) ? T_DIM : T_MID);   /* (the beats) */
-        if (i == gl_cur % GL_N)
-            cv_frame(x, y0 - 4, cw, (int32_t)h - y0 - 2, T_ACCENT);
-        if (i == play)
-            cv_rect(x + 1, (int32_t)h - 8, cw - 2, 3, T_THEME);
-        if (!a)
-            continue;
-        cv_rect(x + cw / 2 - 2, y0, 4, 4, comp_col(a));
-        for (j = 1; j <= c->len && j < GL_N; j++)   /* (its LENGTH, round the bar) */
-            cv_rect(x0 + (int32_t)((i + j) % GL_N) * cw, y0 + 6, cw, 1, comp_col(a));
-        for (k = 0; k < NTRK; k++)
-            cv_rect(x + cw / 2 - 1, y0 + 12 + (int32_t)k * 9, 3, 3, (c->mask >> k) & 1u ? T_TEXT : T_DIM);
-    }
-    cv_text(x0, (int32_t)h - 24 - AF_X_CAP_Y, &AF_X, gl_mono ? "MONO" : "POLY", T_TEXT);
-}
 /* (codex/anim) the panel sent where it changed (gfx.c cv_blit_cells: a being swimming, not the water round it; was all of
  * it each frame: 33600 px, ~45 ms of the SPI at 12 MHz); under load whole (a frame each 50 / 100 ms outlasts the transfer,
  * and the cells' hashes would be work taken from the sound) */
@@ -2025,9 +1989,6 @@ static void draw_graph(void)
     } else if (lz_on() && lz_fam() == LZ_ENV && (cv_oy = 0, graph_env_lz(t, pg))) {     /* .. ENV's (ui_lzpage.c) */
     } else if (lz_on() && lz_fam() == LZ_MOD && (cv_oy = 0, graph_mod_lz(t, pg))) {     /* .. LFO . MOD's */
     } else if (lz_on() && lz_fam() == LZ_KEY && (cv_oy = 0, graph_key_lz(t, pg))) {     /* .. SCL . ARP's */
-    } else if (pg->graph == GR_GCOMP) {              /* (0.9.9-seq2f) GLO > COMPS: the global lane */
-        cv_oy = 0;
-        graph_gcomp();
     } else if (lz_on() && lz_fam() == LZ_GLO && pg->id[0] == G_TRKS) {               /* .. GLO's SYSTEM */
         cv_oy = 0;
         graph_system();

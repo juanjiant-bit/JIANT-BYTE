@@ -64,9 +64,6 @@ static uint32_t cur_fam(void) { return ui.home || cur_page()->graph == GR_SONG ?
 
 /* (0.9.2) a section's button held + SELECT (ui_lens.c nav_jump, the dice, the tempo): the button let go stays there (its
  * tap, its layer: not now) */
-static uint8_t fx_lane_k;                                /* (V10.7.32) FX held: KNOB 1..4 the punch-in lane's (LEN RES - CLEAR;
-                                                         * FX + PRESETS right), else FX KNOBS (FILTER CRUSH THROW DEPTH, left;
-                                                         * again when the FX layer shuts) */
 static uint8_t fx_pr_turn;                               /* .. a PRESETS turn with FX held this frame: a combo */
 static uint8_t ly_used;                                  /* the held layer's knobs or keys used: PRESETS stays its */
 static int song_open(uint32_t n);                         /* (song_main.c: SAVE > PROJECT's KNOB 1) */
@@ -1465,10 +1462,6 @@ static void edit_param(uint32_t slot, int32_t steps)
         comp_knob(slot, steps);
         return;
     }
-    if (pg->graph == GR_GCOMP) {                        /* (0.9.9-seq2f) GLO > COMPS / COMPS 2 (ui.c) */
-        gco_knob(slot, steps);
-        return;
-    }
     if (pg->graph == GR_SHAPE) {                        /* (0.6.85) STRETCH, REPEAT (picked, OCT+ does it), NUDGE (now) */
         shape_knob(slot, steps);
         return;
@@ -1804,11 +1797,6 @@ static __attribute__((noinline)) void act_do(void)
         ui_message(pos?"SYLLABLE PLACED":"AUTO ADVANCE PLACED");
         return;
     }
-    if (cur_page()->graph == GR_PUNCH) {                /* (0.6.99) the punch-in lane cleared (a dialog) */
-        if (chain_busy()) { ui_message("SONG PLAYS: STOP IT TO EDIT"); return; }
-        confirm_open(CF_CLEAR_PFX, song.sel);
-        return;
-    }
     if (cur_page()->graph == GR_EVENTS) {
         ev_oct();
         return;
@@ -1989,9 +1977,9 @@ static uint32_t oct_taps(uint32_t pressed, int here)
 }
 
 /* (JIANT) REC held, then a page button: that part's automation goes, both kinds (the knob moves and the
- * step locks), the stored values stay. FX: the selected track's FX and SLICER and the punch-in lane; EDIT ENV LFO SCL
+ * step locks), the stored values stay. FX: the selected track's FX and SLICER; EDIT ENV LFO SCL
  * ARP: the selected track's parameters of those pages; GLO: every track's LEVEL and PAN. No dialog (SEQ + REC, which
- * clears every sequence, asks). The other order is REC in a layer: it arms, as always (FX: to record the punch-in lane) */
+ * clears every sequence, asks). The other order is REC in a layer: it arms, as always */
 static int rec_combo_btn(uint32_t b)
 {
     return b == B_FX || b == B_EDIT || b == B_ENV || b == B_LFO || b == B_SCL || b == B_ARP || b == B_GLO;
@@ -2033,11 +2021,6 @@ static void rec_clear_auto(uint32_t b)
     for (k = 0; k < NTRK; k++)
         if (b == B_GLO || k == song.sel)
             n += motion_clear_ids(&trk[k], m);
-    if (b == B_FX)
-        for (i = 0; i < sizeof pfx_lane; i++) {
-            n += pfx_lane[i] != 0;
-            pfx_lane[i] = 0;
-        }
     str_cpy(msg, n ? "" : "NO ", sizeof msg);
     str_cpy(msg + str_len(msg), name, sizeof msg - str_len(msg));
     str_cpy(msg + str_len(msg), n ? " AUTOMATION CLEARED" : " AUTOMATION", sizeof msg - str_len(msg));
@@ -2574,11 +2557,6 @@ static void hints_reset(void);                          /* (ui_layer.c) */
 static void ui_notices(void)
 {
     static uint32_t midi_t, midi_last;
-    static uint8_t pfx_was;                             /* (V10.7.34, a tester) an FX held while REC records into the
-                                                         * punch-in lane: said when it starts, and how it goes (REC + FX;
-                                                         * the lane alone: FX + PRESETS, KNOB 4) */
-    if (pfx_rh && !pfx_was) ui_message("REC FX AUTOM  REC+FX: CLEAR");
-    pfx_was = pfx_rh;
     if (motion_full) { motion_full = 0; ui_message("AUTOMATION FULL"); }
     if (motion_recd && (!song.playing || motion.count > MOTION_MAX - 8u))   /* (V10.5) what was recorded thinned: at */
         (void)motion_thin(motion_recd);                 /* the stop, and while recording before the 64 run out */
@@ -2791,7 +2769,6 @@ static void ui_input_frame(void)
             pl_close();
     }
     layer_masks();                                      /* seq.c: keys pressed with a layer's button are its own */
-    gpl_frame();                                        /* (BYTE) GLO > COMP PLAY: the components the keys hold */
     {   /* (0.6.67) a button held + SELECT (rule 5): its dice (HOME the generator, GEN; EDIT the sound, SEQ the sequence,
          * LFO the LFO, FX the effects; GLO + SELECT the tempo), ENV SCL ARP SAVE their chain (nav_jump); the button's tap
          * and layer swallowed, and the turn's last detents for a moment after it is let go (no page moved by them). Not in
@@ -2830,15 +2807,9 @@ static void ui_input_frame(void)
             }
             pj_sel_ms = fm1_ms | 1u;
         } else if (f == FAM_FX && !ui.menu && !dlg_on() && !name_on()) {
-            if ((s = panel_enc(EN_PRESET)) != 0) {      /* (V10.7.32) FX held + PRESETS: KNOB 1..4 the punch-in lane's
-                                                         * (right) or FX KNOBS (left); the FX layer stays (a combo: no tap) */
-                if (fx_lane_k != (s > 0)) {
-                    fx_lane_k = (uint8_t)(s > 0);
-                    ui_message(fx_lane_k ? "KNOBS: PUNCH IN LANE" : "KNOBS: FX KNOBS");
-                    ui.force = 1;
-                }
+            if (panel_enc(EN_PRESET) != 0)              /* FX held + PRESETS: swallowed, the FX layer stays (a combo: no
+                                                         * tap) */
                 fx_pr_turn = 1;
-            }
         } else if (f == FAM_COUNT && hb && !ui.menu && !dlg_on() && !name_on() && (s = panel_enc(EN_PRESET)) != 0) {
             ui.home_t0 |= 2u;                           /* (V10.7.33, the owner) HOME held + PRESETS: the tempo (HOME >
                                                          * MACROS shows it large; no MENU when HOME is let go) */
@@ -2936,8 +2907,6 @@ static void ui_input_frame(void)
         ly_used = 1;
     lytap = layer_gesture(now, combo);
     layer_show();
-    if (ui.layer != LAYER_FX && !((fm1_in.buttons >> panel.btn[B_FX]) & 1u))
-        fx_lane_k = 0;                                  /* (V10.7.32) FX let go, its layer shut: its knobs FX KNOBS again */
     layer_keys(lkeys);
     for (k = 0; k < 4u; k++)
         if (ks[k]) {
@@ -3009,8 +2978,6 @@ static void ui_input_frame(void)
                 ui_message(dk.msg);
             } else if (kind == CF_LOAD_PAT) {
                 pat_load_ui(&trk[ui.confirm_trk % NTRK], pat_pick());
-            } else if (kind == CF_CLEAR_PFX) {         /* (0.6.99) FX > PUNCH > CLEAR */
-                if (!chain_busy()) { memset(pfx_lane, 0, sizeof pfx_lane); pfx_ltgt = 0; ui_message("PUNCH IN LANE CLEARED"); }
             } else if (kind == CF_CLEAR_MOTION) {
                 track_t *t = &trk[ui.confirm_trk % NTRK];
                 if (!chain_busy()) { load_begin(t, LOAD_PAT); motion_clear(t); load_end(t); ui_message("AUTOMATION CLEARED"); }
@@ -3055,7 +3022,6 @@ static void ui_input_frame(void)
                         load_end(&trk[k]);
                         latch_drop_req |= (uint8_t)(1u << k);   /* (the held / latched notes: events_block) */
                     }
-                    memset(pfx_lane, 0, sizeof pfx_lane);
                     ui_message("ALL CLEARED");
                 }
             } else if (kind == CF_INIT_SOUND) {         /* (DRUM: the factory DRUM-X kit too) */
@@ -3237,9 +3203,7 @@ static void ui_input_frame(void)
     song.grid = (uint8_t)keys_mode();                 /* (seq.c: the keys are the grid's) */
     seq_fill = (uint8_t)((fm1_in.buttons >> panel.btn[B_FX]) & 1u);   /* (0.6.42) FILL steps: FX held */
     lock_keys();                                        /* (a grid key on a hit let go: the hit goes) */
-    if (gco_on()) {                                     /* (0.9.9-seq2f) GLO > COMPS: the keys are the lane's */
-        gco_keys(notes);
-    } else if (ckeys_on()) {                            /* (seq2g) SEQ > COMP: the keys pick the step */
+    if (ckeys_on()) {                            /* (seq2g) SEQ > COMP: the keys pick the step */
         comp_keys(notes);
     } else if (skeys_on()) {                            /* (V10.6o) PARTS, TIMELINE: theirs */
         tl_keys(notes);
@@ -3309,7 +3273,7 @@ static void ui_input_frame(void)
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_MSEQ || pg->graph == GR_PATS || BAR_PAGE(pg)) &&
              k == 0u)
             || FIT_PAGE(pg) || SPLIT_PAGE(pg) || pg->graph == GR_SONG || pg->graph == GR_DXSND || pg->graph == GR_SWARM || pg->graph == GR_FOCUS || STAGE_PAGE(pg) ||
-            pg->graph == GR_GCOMP || pg->graph == GR_LIVE) {   /* (not an empty column) */
+            pg->graph == GR_LIVE) {   /* (not an empty column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40, ui.knob_ms = fm1_ms;
         }

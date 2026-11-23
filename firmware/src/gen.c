@@ -2265,12 +2265,8 @@ static void gen_parts(void)
         gs.energy = en; gs.reg = 0;
         if (plan) {
             if (k == 2u) {                              /* C BUILD: the chords' filter opening over it, the delay thrown on
-                                                         * its last step; a stutter into the drop (1/8 on the last beat, 1/16
-                                                         * on its last two sixteenths); a riser on the texture's track */
+                                                         * its last step; a riser on the texture's track */
                 gmute(ld);
-                memset(pfx_lane, 0, sizeof pfx_lane);
-                pfx_ltgt = 0;
-                for (i = 60; i < 64u; i++) pfx_lane_put(i, i < 62u ? 6u : 7u);
                 if (pd < NTRK && gs.act[RL_PAD]) {
                     track_t *t = &trk[pd];
                     uint32_t id = t->eng_req == EG_A ? P_E4 : P_FCUT;
@@ -2299,9 +2295,6 @@ static void gen_parts(void)
                 }
             } else if (k == 3u) {                       /* D BREAK: no drums, no bass; the chords wetter; (0.6.97) the
                                                          * synths an octave up on the break's last bar */
-                memset(pfx_lane, 0, sizeof pfx_lane);
-                pfx_ltgt = 0;                            /* (V10.7.36: every track; the drums are muted here) */
-                for (i = 48; i < 64u; i++) pfx_lane_put(i, 2u);
                 gmute(dr);
                 gmute(bs);
                 if (pd < NTRK) gmot(&trk[pd], 0, P_REV, trk[pd].p[P_REV] + 30, 0);
@@ -2729,8 +2722,8 @@ static void gen_scale_page(void)
     sl_root = gs.root; sl_scale = gs.scale; sl_quant = qn;
 }
 /* (0.9.9-gen1) the clean base: a piece starts from NEW PROJECT's state (project.c system_init: the song's globals but
- * the clock, tune, MIDI and routing; every track's parameters, sound, steps and automation; the punch-in lane, the global
- * components lane, DRUM-X's kit, GLUE, octaves and sends, FUGUE's playheads, MUTATE's anchor, PLAY's SONG mode) and the
+ * the clock, tune, MIDI and routing; every track's parameters, sound, steps and automation;
+ * DRUM-X's kit, GLUE, octaves and sends, FUGUE's playheads, MUTATE's anchor, PLAY's SONG mode) and the
  * generator's own state cleared; kept: what the player locked (the tempo under BPM LOCK), the project's name, the
  * sections of theirs (gen_parts). Nothing of the piece before stays in this one */
 static void system_init_named(void);                   /* (project.c: system_init, the project's name kept) */
@@ -3136,17 +3129,6 @@ static __attribute__((noinline)) void gen_make(void)
         f->rate = 5; f->dir = FG_FWD; f->ivl = -2;      /* (x1, with it, a third under) */
     }
     grich(0);                                           /* (V10.7.30) A's automation, locks, components (gen_parts: the rest) */
-    if (g->human < 40u && (gs.energy + gs.complex) / 2u + (gx.on ? 25u : 0u) >= 45u) {   /* (V10.7.30) the master's
-                                                         * components (GLO > COMPS), the machines' genres (not a band's):
-                                                         * a STUTTER on the last beat of the phrase's last bar (8:8, ENERGY
-                                                         * past half 4:4; 1/8, past two thirds 1/16) on the lead and the arp,
-                                                         * past 60 the drums too where the genre rolls (the four on the floor's
-                                                         * maps, the hat rolls' grammars): a fill the whole song shares */
-        gcomp_t *c = &glane[12];
-        c->mask = (uint8_t)(1u << gs.trk_of[RL_LEAD] | 1u << gs.trk_of[RL_ARP] | (gs.energy > 60u && (g->drum <= DM_TECHNO || GG_RAT(GGR))) << gs.trk_of[RL_DRUM]);
-        c->comp = CO_MAKE(CA_STUT, CC_NM); c->val = gs.energy <= 66u; c->len = 3; c->nm = gs.energy > 50u ? 0x33u : 0x77u;
-        gl_touch();
-    }
 parts:
     gen_parts();
     gs.song = 0;

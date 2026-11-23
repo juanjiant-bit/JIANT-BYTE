@@ -111,8 +111,7 @@ static uint64_t gen_proj_hash(void)
     h = gfnv(h, song.g, sizeof song.g);
     h = gfnv(h, dx_kit, sizeof dx_kit); h = gfnv(h, dx_snd, sizeof dx_snd); h = gfnv(h, dx_lay, sizeof dx_lay);
     h = gfnv(h, dx_mot, sizeof dx_mot); h = gfnv(h, &dx_glue, 1); h = gfnv(h, &dx_tone, sizeof dx_tone); h = gfnv(h, &dx_hands, sizeof dx_hands);
-    h = gfnv(h, glane, sizeof glane); h = gfnv(h, &gl_mono, sizeof gl_mono);
-    h = gfnv(h, fg_set, sizeof fg_set); h = gfnv(h, pfx_lane, sizeof pfx_lane); h = gfnv(h, macro_v, sizeof macro_v);
+    h = gfnv(h, fg_set, sizeof fg_set); h = gfnv(h, macro_v, sizeof macro_v);
     {   /* (gen6c) the rows without GEN's marks: whose the sections in flash are is not the piece */
         chain_config_t c = chain_config;
         c.rsv[1] = 0;
@@ -138,9 +137,7 @@ static void gen_dirty(uint32_t seed)
         motion_set_event(t, 5, P_FCUT, 20);
     }
     dx_glue = 9; dx_tone = 3; dx_hands = 1; dx_mot[0] = 5; dx_snd[0] = 77;
-    memset(glane, 0x5A, sizeof glane); gl_mono = 1;
     memset(fg_set, 1, sizeof fg_set);
-    memset(pfx_lane, 0x33, sizeof pfx_lane);
     macro_v[0] = 99; live.mode = 1;
 }
 static uint32_t genre_of(const char *name)
@@ -184,16 +181,13 @@ static uint32_t hits_all(const track_t *t)
     return c;
 }
 
-/* (V10.7.30) a piece's sections as stored, scanned: a hash of their automation records, locks, components and chances
- * and of the global lane; the resources counted into c (RC_*); the most records a section holds */
-enum { RC_GLO, RC_DLY, RC_DJF, RC_RMP, RC_RMPBAD, RC_CHD, RC_TRG, RC_PRB, RC_DRM, RC_ENV, RC_HP, RC_DARK, RC_MAXM, RC_N };
+/* (V10.7.30) a piece's sections as stored, scanned: a hash of their automation records, locks, components and chances; the resources counted into c (RC_*); the most records a section holds */
+enum { RC_DLY, RC_DJF, RC_RMP, RC_RMPBAD, RC_CHD, RC_TRG, RC_PRB, RC_DRM, RC_ENV, RC_HP, RC_DARK, RC_MAXM, RC_N };
 static uint32_t rich_scan(uint32_t *c)
 {
     static project_t ps2;
     static track_t tt2;
     uint32_t h = all_sig(), s2, k, i, j;
-    for (i = 0; i < GL_N; i++) h = (h ^ glane[i].comp ^ (uint32_t)glane[i].nm << 8 ^ (uint32_t)glane[i].mask << 16 ^ (uint32_t)glane[i].val << 24) * 16777619u;
-    c[RC_GLO] += CO_ACT(glane[12].comp) == CA_STUT && glane[12].mask;
     for (k = 0; k < NTRK; k++) {
         const track_t *t = &trk[k];
         int32_t cut = t->p[t->eng_req == EG_A ? P_E4 : P_FCUT];
@@ -1141,7 +1135,7 @@ int main(void)
         }
         bad += gcheck("(0.9.9-gen1) clean base: the same seed from 3 different states, the same project (8 of 8)", same == n);
         bad += gcheck("  the clean base cleared the player's hand: LFO, DIV, MUTATE, comps, GLUE, lanes, PLAY mode",
-                      trk[0].p[P_SDIV] == 2 && !trk[0].p[P_MSND] && trk[0].step[1].probability != 50 && dx_tone == 0 && !gl_mono && !macro_v[0]);
+                      trk[0].p[P_SDIV] == 2 && !trk[0].p[P_MSND] && trk[0].step[1].probability != 50 && dx_tone == 0 && !macro_v[0]);
     }
     /* ---- (0.9.9-gen1) each genre's archetypes: the bass's and the lead's engine, filter and wave the archetype's;
      * the acid house's 303; the 808, the EBM's LP24 driven (MS20 once), the wobble, GLUE, MUTATE where the grammar has them */
@@ -1857,15 +1851,15 @@ int main(void)
                 h1 = rich_scan(junk);
                 det_bad += h0 != h1;
             }
-        printf("gen: the resources, %u songs: the global stutter %u, delay throws %u, DJ FILTER records %u, RAMPs %u (%u bad), CHORDs %u,\n"
+        printf("gen: the resources, %u songs: delay throws %u, DJ FILTER records %u, RAMPs %u (%u bad), CHORDs %u,\n"
                "gen:   drum TRIGs %u, drum chances %u, kit DECY/TONE records %u, the chords' break envelope %u; band-passed chords %u, mix rules broken %u;\n"
                "gen:   a section's records at most %u of %u, AUTOMATION FULL %u; again not the same %u\n",
-               n, c[RC_GLO], c[RC_DLY], c[RC_DJF], c[RC_RMP], c[RC_RMPBAD], c[RC_CHD], c[RC_TRG], c[RC_PRB], c[RC_DRM], c[RC_ENV], c[RC_HP],
+               n, c[RC_DLY], c[RC_DJF], c[RC_RMP], c[RC_RMPBAD], c[RC_CHD], c[RC_TRG], c[RC_PRB], c[RC_DRM], c[RC_ENV], c[RC_HP],
                c[RC_DARK], c[RC_MAXM], MOTION_MAX, full, det_bad);
         bad += gcheck("V10.7.30 the sections' automation within its 64 records; a seed and its settings the same song (lane, locks, components)",
                       !full && !det_bad && c[RC_MAXM] <= MOTION_MAX);
-        bad += gcheck("  the resources heard: the global stutter, throws, the DJ FILTER, RAMPs on locks, CHORDs, TRIGs, chances, the kit moving",
-                      c[RC_GLO] * 2u >= n && c[RC_DLY] && c[RC_DJF] && c[RC_RMP] && !c[RC_RMPBAD] && c[RC_CHD] && c[RC_TRG] && c[RC_PRB] &&
+        bad += gcheck("  the resources heard: throws, the DJ FILTER, RAMPs on locks, CHORDs, TRIGs, chances, the kit moving",
+                      c[RC_DLY] && c[RC_DJF] && c[RC_RMP] && !c[RC_RMPBAD] && c[RC_CHD] && c[RC_TRG] && c[RC_PRB] &&
                       c[RC_DRM] && c[RC_ENV]);
         bad += gcheck("  the mix: the brighter chords band-passed (their lows out), every chord part wide", c[RC_HP] && !c[RC_DARK]);
     }

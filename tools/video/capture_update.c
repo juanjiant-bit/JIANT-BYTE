@@ -107,19 +107,8 @@ static void at_beat(uint32_t q)
     }
     if (q == B(18, 0)) apply_preset(4);                /* INDUSTRIAL */
     if (q == B(20, 0)) apply_preset(6);                /* DUB ROOTS */
-    /* ---- the punch-in lane */
-    if (q == B(22, 0)) {
-        uint32_t i;
-        song.g[G_PFXLEN] = 16; song.g[G_PFXRES] = 1;
-        for (i = 0; i < 16u; i++) pfx_lane_put(i, i % 8u == 6u || i % 8u == 7u ? 6u : i == 12u ? 2u : 0u);
-        page(T_DRUM_K, "PUNCH");
-        caption(q, "FX", "SEQUENCED|PUNCH-IN", "record your FX performance in real time|LEN 1..64 steps · RES 1/8 1/16 1/32 · CLEAR|the lane repeats with the song", 0,
-                "REC + PLAY records|hold FX + a key|STUTTER on 7 and 8, OCT+ on 13");
-    }
     /* ---- WALK / CLIMB */
     if (q == B(26, 0)) {
-        uint32_t i;
-        for (i = 0; i < 16u; i++) pfx_lane_put(i, 0);
         trk[T_LEAD_K].step[0].comp = CP_WALK; trk[T_LEAD_K].step[0].carg = CP_WARG(0, 0, 1);
         page(T_LEAD_K, "COMP"); ui.cursor = 0; ui.bank = 0;
         caption(q, "SEQUENCE", "WALK · CLIMB", "a note climbs one scale degree per loop|every 1..16 loops · up, down, patterns|stackable: from 4 notes to a complex pattern", 0,

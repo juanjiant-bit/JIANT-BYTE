@@ -98,33 +98,11 @@ static __attribute__((noinline)) void pfx_fire(track_t *t, int arp)
 /* the attacks ATK+ took out (pfx_end puts them back) */
 static int16_t pfx_keep[NTRK];
 static uint32_t pfx_qon;            /* (JIANT) the effects in (quantized to the 1/16) */
-static volatile uint32_t pfx_lnow;  /* (V10.6z3) the effect the punch-in lane plays now (PF bit; the editor's PUNCH push) */
-
-static int pfx_rec_ok(void);          /* seq.c: REC armed, not a song playing */
-static uint8_t pfx_rh, pfx_rs0, pfx_rst, pfx_rold;   /* recording the lane: a press on, its first step, the step being
-                                                      * written and what it held before */
-/* the lane's step s: 0 none, else the effect (PF_OCTD + v - 1) */
-static uint32_t pfx_lane_at(uint32_t s) { return (pfx_lane[(s >> 1) & 31u] >> ((s & 1u) * 4u)) & 15u; }
-/* (0.6.99) FX > PUNCH: the lane's length in steps (1..64) and a step's samples (RES: 1/8, 1/16, 1/32 of the beat) */
-static uint32_t pfx_lane_len(void) { return (uint32_t)clamp(song.g[G_PFXLEN], 1, 64); }
-static uint32_t pfx_lane_step(uint32_t b) { return b / (song.g[G_PFXRES] <= 0 ? 2u : song.g[G_PFXRES] == 1 ? 4u : 8u); }
-static uint32_t pfx_lane_pos(void)                     /* the step the lane is on (the page's playhead) */
-{
-    uint32_t b = beat_samples(), s = b >= 4u ? pfx_lane_step(b) : 0u;
-    return s ? (pfx_lph / s) % pfx_lane_len() : 0u;
-}
-static void pfx_lane_put(uint32_t s, uint32_t v)
-{
-    uint8_t *p = &pfx_lane[(s >> 1) & 31u];
-    *p = (uint8_t)((*p & (s & 1u ? 0x0Fu : 0xF0u)) | (v & 15u) << ((s & 1u) * 4u));
-}
 
 /* each block, before the events (fx.c mix_block). held: the effects held (PF_* bits) */
-static uint32_t pfx_rec_held;                           /* (0.6.28) the effects held by hand: only they record into the
-                                                         * lane (a latched one wrote itself on every step it passed) */
 static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
 {
-    uint32_t k, b = beat_samples(), lane = 0, raw = held & pfx_rec_held & PF_FORMULA, nw;
+    uint32_t k, b = beat_samples(), nw;
     pfx_blk++;
     if (held & PF_BIT(PF_RING)) {                       /* (JIANT BYTE) CAOS MAX: every formula part at CAOS 127 for this
                                                          * block (pfx_end: back) */
@@ -154,46 +132,17 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
             pfx_qon |= nw;
     }
     held = pfx_qon;
-    if (song.playing && b >= 4u) {                      /* the lane: record, or play; (0.6.99) its LEN and RES */
-        uint32_t s16 = pfx_lane_step(b), len = pfx_lane_len(), st = (pfx_lph / s16) % len, half = pfx_lph % s16 >= s16 / 2u;
-        uint32_t w = pfx_rec_ok() && raw ? (uint32_t)__builtin_ctz(raw) - PF_OCTD + 1u : 16u;
-        pfx_lph += n;
-        if (w < 16u) {                                  /* recording, to the nearest step: a press in a step's second */
-            if (!pfx_rh) {                              /* half starts at the next one */
-                pfx_rh = 1;
-                pfx_rs0 = (uint8_t)((st + half) % len);
-                pfx_rst = 0xFF;
-            }
-            if (st != ((pfx_rs0 + len - 1u) % len) || st == pfx_rs0) {
-                if (st != pfx_rst) {                    /* (a step new to this press: what it held, kept) */
-                    pfx_rst = (uint8_t)st;
-                    pfx_rold = (uint8_t)pfx_lane_at(st);
-                }
-                pfx_lane_put(st, w);
-            }
-            if (raw)
-                pfx_ltgt = 0;
-        } else {
-            if (pfx_rh && st == pfx_rst && !half && st != pfx_rs0)
-                pfx_lane_put(st, pfx_rold);             /* let go in a step's first half: that step as it was */
-            pfx_rh = 0;
-            if ((k = pfx_lane_at(st)) != 0u && k <= 10u)
-                lane = PF_BIT(PF_OCTD + k - 1u) & PF_MIDI;   /* all ten formula operators */
-        }
-    }
-    pfx_lnow = lane;
-    pt_ops = ((held | lane) & PF_FORMULA) >> PF_OCTD;    /* (BYTE 0.16) the white keys: the formulas' time (formula_perf.c) */
+    pt_ops = (held & PF_FORMULA) >> PF_OCTD;    /* (BYTE 0.16) the white keys: the formulas' time (formula_perf.c) */
     formula_punch = 0;
     held &= ~(PF_FORMULA & ~(PF_BIT(PF_OCTD) | PF_BIT(PF_OCTU)));   /* (G5: COMB again, perform.c's, not the exchange) */
-    lane &= PF_BIT(PF_OCTD) | PF_BIT(PF_OCTU);            /* (OCT- OCT+ on, below: the pitch, every track) */
 
-    if (!held && !pfx_any && !lane && !nw)
+    if (!held && !pfx_any && !nw)
         return;
     pfx_any = 0;
     for (k = 0; k < NTRK; k++) {
         track_t *t = &trk[k];
         int drum = t->engine == ENGI_DRUM;
-        uint32_t on = held | lane;                      /* (V10.7.36: every track) */
+        uint32_t on = held;                             /* (V10.7.36: every track) */
         uint32_t old = t->pfx, f, rep, per = 0;
         rep = on & (PF_BIT(PF_S16) | PF_BIT(PF_S8) | PF_BIT(PF_ARP));
         per = (rep & (PF_BIT(PF_S16) | PF_BIT(PF_ARP))) ? b / 4u : b / 2u;   /* (JIANT 0.4: 1/8, 1/16; ARP 1/16) */

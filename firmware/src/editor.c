@@ -187,10 +187,10 @@ static void ed_known(uint32_t k, uint32_t id)            /* the editor's own cha
 }
 
 /* (1.0) WATCH bits 2..4: the transport (on PLAY / STOP and each beat while playing), the punch-in effects running (held,
- * latched, a scene's, the lane's) and each EUCLID MUTATE. 0: no room in the SysEx ring (the rest waits) */
+ * latched, a scene's) and each EUCLID MUTATE. 0: no room in the SysEx ring (the rest waits) */
 static __attribute__((noinline)) int ed_perf(uint32_t *n)
 {
-    uint32_t i, play = song.playing != 0, m = perf_kill ? 0u : (perf_held | perf_latched | scene_pfx | pfx_lnow) & (PF_BIT(PF_N) - 1u);
+    uint32_t i, play = song.playing != 0, m = perf_kill ? 0u : (perf_held | perf_latched | scene_pfx) & (PF_BIT(PF_N) - 1u);
     if ((ed_w.ext & 1u) && (play != ed_w.tp_play || (play && beat_n != ed_w.tp_beat))) {
         if (!ed_room())
             return 0;

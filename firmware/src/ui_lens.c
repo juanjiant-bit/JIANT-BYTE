@@ -120,32 +120,30 @@ static const nv_t CE_FX[] = {NV("FX", "SENDS", 0, FXL_TRACK), NV("DIST", 0, 0, F
                             };   /* (p9: the master's EQ) */   /* (0.9.9-snd2: MASTER last, the
                                                          * end of the chain; snd8: its TAPE) */
 static const ng_t CG_FX[] = {{"TRACK", "TRK"}, {"BUSES", "BUS"}, {"DELAY", "DLY"}, {"REVERB", "REV"}, {"CHORUS", "CHO"},
-                             {"SLICER", "SLC"}, {"MASTER", "MST"}};   /* (V10.7.32, the owner: PUNCH IN on the FX held,
-                                                         * ui_layer.c ly_lane; its page out, ui.c page_visible) */
+                             {"SLICER", "SLC"}, {"MASTER", "MST"}};
 #if FELUCCA_LIVE
 static const nv_t CE_GLO[] = {NV("KEYS", 0, 0, 0), NV("RAILS", 0, 0, 0), NV("MIXER", 0, 1, 0), NV("BUS SENDS", 0, 1, 0),
-                              NV("COMP", 0, 2, 3), NV("COMP 2", 0, 2, 3), NV("GLOBAL", 0, 3, 1),
-                              NV("SYSTEM", 0, 3, 2), NV("PORTS", 0, 3, 2)
+                              NV("GLOBAL", 0, 2, 1),
+                              NV("SYSTEM", 0, 2, 2), NV("PORTS", 0, 2, 2)
 #if FELUCCA_SPLIT
-                              , NV("KEY SPLIT", 0, 3, 2), NV("KEY SPLIT 2", 0, 3, 2)
+                              , NV("KEY SPLIT", 0, 2, 2), NV("KEY SPLIT 2", 0, 2, 2)
 #endif
                              };
 #else
 static const nv_t CE_GLO[] = {NV("MIXER", 0, 0, 0), NV("BUS SENDS", 0, 0, 0),
-                              NV("COMP", 0, 1, 3), NV("COMP 2", 0, 1, 3), NV("COMP PLAY", 0, 1, 3), NV("GLOBAL", 0, 2, 1),
-                              NV("SYSTEM", 0, 2, 2), NV("PORTS", 0, 2, 2)
+                              NV("GLOBAL", 0, 1, 1),
+                              NV("SYSTEM", 0, 1, 2), NV("PORTS", 0, 1, 2)
 #if FELUCCA_SPLIT
-                              , NV("KEY SPLIT", 0, 2, 2), NV("KEY SPLIT 2", 0, 2, 2)   /* (V10.7.32: out, core.h) */
+                              , NV("KEY SPLIT", 0, 1, 2), NV("KEY SPLIT 2", 0, 1, 2)   /* (V10.7.32: out, core.h) */
 #endif
                              };
 #endif   /* (V10.37) the performing pages first, the
-                                                         * settings (GLOBAL, SYSTEM) last */   /* (0.9.9-seq2f) the global lane; (p2) LIVE first
-                                                         * (ui_live.c) */
+                                                         * settings (GLOBAL, SYSTEM) last */   /* (p2) LIVE first (ui_live.c) */
 static const ng_t CG_GLO[] = {
 #if FELUCCA_LIVE
                                {"LIVE", 0},
 #endif
-                               {"MIXER", "MIX"}, {"GLOBAL COMP", "COMP"}, {"SETUP", 0}};   /* (codex/coherence: SETUP, the
+                               {"MIXER", "MIX"}, {"SETUP", 0}};   /* (codex/coherence: SETUP, the
                                                          * settings in one group: GLOBAL, SYSTEM, SYSTEM 2, KEY SPLIT) */   /* (five tabs of 44 px in the labels' face) */
 static const nv_t CE_ENV[] = {NV("ENV", 0, 0, 1), NV("ENV DEST", 0, 0, 1), NV("ENV 2", 0, 0, 1)
 #if FELUCCA_ENVX

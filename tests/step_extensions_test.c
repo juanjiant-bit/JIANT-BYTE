@@ -76,12 +76,6 @@ static int chord_tests(void)
     comp_set(&t->step[0],1,CA_CHORD,CC_ELSE,0,1,CD_MIN-1);
     t->loops=1;
     {const step_t *s=comp_run(t,&t->step[0],4);bad+=check("CHORD supports C2 ELSE and bar conditions",s->n==3 && s->note[1]==63);}
-    gl_blank();set_engine_of(&trk[3], ENGI_ANALOG);trk[3].step[0]=(step_t){{60},1,ST_NOTE,0,100};trk[3].p[P_VOICE]=V_POLY;
-    comp_set(&trk[3].step[0],0,CA_CHORD,CC_ALWAYS,0,1,CD_MIN-1);
-    gl_set(0,CA_CHORD,CC_ALWAYS,0,1,CD_MAJ-1,1u<<3);
-    gl_mono=0;n=grun(4);ok=n>=3 && g_note[1]==63;
-    gl_mono=1;n=grun(4);ok &= n>=3 && g_note[1]==64;
-    bad+=check("master CHORD POLY lets track CHORD override; MONO keeps master chord",ok);
     t=pat(4,notes);t->p[P_VOICE]=V_MONO;
     comp_set(&t->step[0],0,CA_CHORD,CC_ALWAYS,0,1,CD_MAJ-1);
     {const step_t *s=comp_run(t,&t->step[0],4);bad+=check("CHORD preserves generator's MONO voice limit",s->n==1);}
@@ -94,12 +88,11 @@ static int extended_format(void)
     track_t *t=pat(4,notes);uint32_t n;int ok;
     comp_set(&t->step[0],0,CA_SHIFT,CC_NM,CNM_MAKE(2,4),1,60);
     comp_set(&t->step[0],1,CA_CHORD,CC_NNM,CNM_MAKE(1,3),4,CD_MIN7-1);
-    gl_set(0,CA_CHORD,CC_ALWAYS,0,1,CD_MAJ7-1,1);
     project_capture(&proj_scratch); ok=proj_pack(&st,&proj_scratch);
-    if(ok) { t->step[0].comp=t->step[0].comp2=0;gl_clear();ok=proj_import(&proj_scratch,&st,sizeof st) && !project_restore_runtime(&proj_scratch); }
+    if(ok) { t->step[0].comp=t->step[0].comp2=0;ok=proj_import(&proj_scratch,&st,sizeof st) && !project_restore_runtime(&proj_scratch); }
     ok &= CO_ACT(t->step[0].comp)==CA_SHIFT && t->step[0].carg==60 && t->step[0].cnm[0]==CNM_MAKE(2,4);
-    ok &= CO_ACT(t->step[0].comp2)==CA_CHORD && t->step[0].carg2==CD_MIN7-1 && CO_ACT(glane[0].comp)==CA_CHORD;
-    return check("SHIFT and CHORD survive project save/load with N:M, C2 and master intact",ok);
+    ok &= CO_ACT(t->step[0].comp2)==CA_CHORD && t->step[0].carg2==CD_MIN7-1;
+    return check("SHIFT and CHORD survive project save/load with N:M and C2 intact",ok);
 }
 static int extended_ui(void)
 {

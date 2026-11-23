@@ -764,8 +764,7 @@ static void lanes_until(uint32_t idx, uint32_t from)   /* to play index idx, fro
     while (!(dt->seq_idx == idx && dt->seq_pos >= from && dt->seq_pos < 0x7FFFFFFFu))
         lanes_b(1);
 }
-/* the hat on step 3 repeating r times by way w: 0 its RATCH, 1 its RATCHET component, 2 step 2's RATCHET over LENGTH 2,
- * 3 the global lane's RATCHET on track 4 */
+/* the hat on step 3 repeating r times by way w: 0 its RATCH, 1 its RATCHET component, 2 step 2's RATCHET over LENGTH 2 */
 static void hat_rolls(uint32_t w, uint32_t r)
 {
     dt->step[2] = (step_t){{0}, 0, ST_NOTE, 0, 100, 1u << DV_HATC};
@@ -778,23 +777,14 @@ static void hat_rolls(uint32_t w, uint32_t r)
         dt->step[1].comp = CO_MAKE(CA_RATCH, CC_ALWAYS);
         dt->step[1].carg = (uint8_t)(r - 2u);
         dt->step[1].clen[0] = 1;                          /* (LENGTH 2: steps 2 and 3) */
-    } else {
-        uint32_t g;
-        memset(glane, 0, sizeof glane);
-        for (g = 0; g < GL_N; g++) {
-            glane[g].comp = CO_MAKE(CA_RATCH, CC_ALWAYS);
-            glane[g].val = (uint8_t)(r - 2u);
-            glane[g].mask = 1u << 3;
-        }
-        gl_touch();
     }
 }
 static int rec_ratch(void)
 {
-    static const char *const WAY[4] = {"RATCH", "a RATCHET", "a RATCHET's span", "the global lane's RATCHET"};
+    static const char *const WAY[3] = {"RATCH", "a RATCHET", "a RATCHET's span"};
     int bad = 0, ok, late;
     uint32_t r, w;
-    for (w = 0; w < 4u; w++)
+    for (w = 0; w < 3u; w++)
         for (late = 0; late < 2; late++)
             for (r = 2; r <= 4u; r++) {
                 uint32_t sl, at = late ? 1u : 2u, hats;
@@ -833,8 +823,6 @@ static int rec_ratch(void)
                 lanes_until(3, 0);
                 ok &= drum_lane(29u + 13u) == DV_HATC && step_lm_raw(&dt->step[2], DV_HATC) == LM_NONE;
                 seq_stop();
-                memset(glane, 0, sizeof glane);
-                gl_touch();
                 if (!ok) printf("  %s x%u%s: hats %u\n", WAY[w], r, late ? " late" : "", hats);
                 snprintf(what, sizeof what, "REC at OCT 0 %sinto %s x%u: the new hit once (live, after)",
                          late ? "late " : "", WAY[w], r);

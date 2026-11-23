@@ -396,7 +396,7 @@ static void pushes_10(void)
     const uint8_t *r;
     uint32_t n;
     reset();
-    song.playing = 0; beat_n = 2; bar_n = 0; perf_held = perf_latched = 0; scene_pfx = 0; pfx_lnow = 0; perf_kill = 0;
+    song.playing = 0; beat_n = 2; bar_n = 0; perf_held = perf_latched = 0; scene_pfx = 0; perf_kill = 0;
     APP(C_WATCH, 3 | 4 | 8 | 16);
     r = frame(C_WATCH, &n);
     g_new(); g_b(31, "on | TRACK_CHANGED | TRANSPORT | PUNCH | MUTATE");
@@ -438,13 +438,7 @@ static void pushes_10(void)
        PF_R8 == 0 && PF_REV == 3 && PF_TAPE == 4 && PF_OCTD == 5 && PF_OCTU == 6 && PF_WOB == 8 && PF_D16 == 9 &&
        PF_RND == 14 && PF_PUP == 15 && PF_RING == 20 && PF_GLT == 21 && PF_LP3 == 22 && PF_LP7 == 24 && PF_LMAX == 25 &&
        PF_COMB == 26 && PF_N == 27);
-    pfx_lnow = PF_BIT(PF_S16);
     perf_held = 0;
-    pump();
-    r = frame(C_PUNCH, &n);
-    ok("PUNCH: the lane's effect playing (STUTTER 1/16, bit 11) counts", r && n == 5u &&
-       (r[0] | r[1] << 7) == PF_BIT(PF_S16));
-    pfx_lnow = 0;
     perf_kill = 1; perf_latched = PF_BIT(PF_ARP);
     pump();
     ok("PUNCH: every effect killed (a menu open): mask 0", (r = frame(C_PUNCH, &n)) && !r[0] && !r[1] && !r[2] && !r[3]);

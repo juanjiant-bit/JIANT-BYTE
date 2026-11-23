@@ -54,9 +54,8 @@ typedef struct {
 } layer_t;
 static const layer_t LAYERS[LAYER_N] = {
     {0, 0, 0, "", {{0, 0}, {0, 0}, {0, 0}}},
-    {B_FX, LK_HOLD, FAM_HOME, "[FX] HOLD", {{KC_KEYS, "EFFECTS"}, {KC_K14, "FX KNOBS"}, {KC_PRESETS, "LANE"}}},   /* (LET GO: the header's HOLD; V10.7.32 FX
-                                                         * KNOBS, was MACROS: HOME's and LFO's M1..M4 are other knobs;
-                                                         * PRESETS right: KNOB 1..4 the punch-in lane's, left FX KNOBS) */
+    {B_FX, LK_HOLD, FAM_HOME, "[FX] HOLD", {{KC_KEYS, "EFFECTS"}, {KC_K14, "FX KNOBS"}, {0, 0}}},   /* (LET GO: the header's HOLD; V10.7.32 FX
+                                                         * KNOBS, was MACROS: HOME's and LFO's M1..M4 are other knobs) */
     {B_GLO, LK_SET, FAM_HOME, "[GLO] SET", {{KC_PLAY, "RESTART"}, {KC_GLO, "DONE"}, {0, 0}}},
     {B_SCL, LK_SET, FAM_SCL, "[SCL] SET", {{KC_KEYS, "ROOT"}, {KC_SCL, "DONE"}, {0, 0}}},
     {B_EDIT, LK_SET, FAM_EDIT, "[EDIT] SET", {{KC_SELECT, "DICE"}, {KC_K14, "TWEAK"}, {KC_KEYS, "INIT / RECALL"}}},   /* (0.9.9-seq2e:
@@ -221,7 +220,7 @@ static __attribute__((noinline)) int16_t *mom_vp(uint32_t k, const param_desc_t 
         *d = &GP[HS_ID[k & 3u]];
         vp = &song.g[HS_ID[k & 3u]];
     } else {
-        if (FIT_PAGE(pg) || pg->scope == SC_STEP || pg->scope == SC_TRK || ((act_cols() >> k) & 1u) || g == GR_COMP || g == GR_GCOMP || g == GR_SHAPE ||
+        if (FIT_PAGE(pg) || pg->scope == SC_STEP || pg->scope == SC_TRK || ((act_cols() >> k) & 1u) || g == GR_COMP || g == GR_SHAPE ||
             g == GR_FUGUE || g == GR_CHANCE || g == GR_DXSND || g == GR_SWARM || g == GR_FOCUS || (STAGE_PAGE(pg) && k < 2u) ||
             g == GR_EVENTS || g == GR_MOTION || g == GR_SONG || g == GR_BROWSE || g == GR_TOOLS || g == GR_SLOTS ||
             g == GR_USER || g == GR_PATS || DX_KIT3(pg) || fop_page(g) ||
@@ -471,8 +470,6 @@ static void hint_tick(void)
     settings_save();                                    /* (the count kept: deferred while playing) */
     if (k == HK_MOTION)
         ui_message("REC + PLAY, TURN A KNOB");          /* (0.6.92) how it is recorded */
-    else if (k == HK_PUNCH)
-        ui_message("REC + PLAY, HOLD FX + A KEY");      /* (0.6.99) the lane's recording */
     else {                                              /* (V10.6) HK_EUCLID */
         ui_message("TURN A KNOB: A PATTERN");
         str_cpy(ui.msg2, "OCT+ NEW  OCT- BEFORE", sizeof ui.msg2);
@@ -808,16 +805,7 @@ static void layer_knob(uint32_t k, int32_t s)
 {
     uint32_t l = layer_open();
     lys.used = 1;
-    if (l == LAYER_FX && fx_lane_k) {                   /* (V10.7.32) the punch-in lane's: LEN RES, -, CLEAR (its dialog) */
-        if (k < 2u) {
-            uint32_t id = k ? G_PFXRES : G_PFXLEN;
-            song.g[id] = (int16_t)param_turn(&GP[id], song.g[id], k ? (s > 0 ? 1 : -1) : accel(EN_K1, s, 63));
-        } else if (k == 3u && s > 0) {
-            if (chain_busy()) ui_message("SONG PLAYS: STOP IT TO EDIT");
-            else if (!pfx_lane_n()) ui_message("LANE EMPTY");
-            else confirm_open(CF_CLEAR_PFX, song.sel);
-        }
-    } else if (l == LAYER_FX) {                         /* perform.c perf_k, not recorded */
+    if (l == LAYER_FX) {                         /* perform.c perf_k, not recorded */
         if (k == 3u)
             s = -s;                                     /* DEPTH (100 - perf_k[3]) rises to the right (#40: it fell) */
         perf_k[k] = (int8_t)clamp(perf_k[k] + accel(EN_K1 + k, s, k ? 100 : 200), k ? 0 : -100, 100);   /* (#126) */
@@ -1146,31 +1134,6 @@ static uint16_t pk_fill(uint32_t st, int blk, int n, uint16_t *ink)
         return blk ? T_BG : ux_mix(T_BG, T_TEXT, 7);
     return blk ? ux_mix(T_BG, T_THEME, 34) : ux_mix(T_BG, T_TEXT, 17);
 }
-/* (V10.7.32, the owner: PUNCH IN on the FX held) the lane along the screen's foot while FX is held, every view (the
- * footer's steps strip and breadcrumb: the tabs say the view; ui_draw.c draw_crumbs): LANE (REC while it records), its
- * LEN steps from x, an open one its effect's colour (FX > PUNCH IN's), a quiet one a box (each beat's first LINE), the
- * playhead under its step; the x it ends at */
-static uint32_t lane_sig(void)
-{
-    uint32_t i, h = (uint32_t)song.g[G_PFXLEN] * 131u + (uint32_t)song.g[G_PFXRES] * 7u + (uint32_t)pfx_rec_ok() * 3u;
-    for (i = 0; i < sizeof pfx_lane; i++)
-        h = (h ^ pfx_lane[i]) * 16777619u;
-    return h + (song.playing ? pfx_lane_pos() + 1u : 0u) * 40503u;
-}
-static int32_t ly_lane(int32_t x0, int32_t y, int32_t x1)
-{
-    int32_t n = (int32_t)pfx_lane_len(), i, w, at = song.playing ? (int32_t)pfx_lane_pos() : -1;
-    x0 = cv_text(x0, y - AF_X_CAP_Y, &AF_X, pfx_rec_ok() ? "REC" : "LANE", pfx_rec_ok() ? T_ACCENT : T_TEXT) + 4;
-    w = x1 - x0;
-    for (i = 0; i < n; i++) {
-        int32_t x = x0 + i * w / n, cw = x0 + (i + 1) * w / n - x - (n <= 48 ? 1 : 0);
-        uint32_t v = pfx_lane_at((uint32_t)i);
-        cv_rect(x, y, cw > 0 ? cw : 1, 7, v ? FXG_H(48 + v * 13) : (i & 3) ? T_RAISE : T_LINE);
-        if (i == at)
-            cv_rect(x, y + 9, cw > 0 ? cw : 1, 2, T_TEXT);
-    }
-    return x1;
-}
 static void ly_piano(uint32_t l)
 {
     int32_t h = (int32_t)graph_h() - 6, y = 3, bh = 54, i;
@@ -1247,9 +1210,7 @@ static __attribute__((noinline)) void layer_cards(uint32_t l)
     char val[12];
     const char *unit;
     uint32_t c;
-    if (l == LAYER_FX && fx_lane_k) {                   /* (V10.7.32) the punch-in lane's (FX + PRESETS) */
-        pfx_cards();
-    } else if (l == LAYER_FX) {                         /* FILTER CRUSH THROW DEPTH */
+    if (l == LAYER_FX) {                         /* FILTER CRUSH THROW DEPTH */
         int32_t m = perf_k[0];
         fmt_int(val, m < 0 ? -m : m);
         draw_column(0, "FILTER", m ? val : "OFF", m < 0 ? "LP" : m > 0 ? "HP" : "", m ? VAL(0u) : T_DIM, (m + 100) * 5,
@@ -1307,10 +1268,9 @@ static __attribute__((noinline)) void layer_cards(uint32_t l)
 /* (0.8.5) a layer as a lens, as the approved mock-up (MAP . KNOBS . STATE; ALGORITHM while it is held): MAP the keys'
  * map (the cells, no icons), KNOBS the four cards as gauges, STATE the key hints (the footer's until 0.8.4) and what is
  * on. The header "[FX] HELD"; the breadcrumb "LENTE . MAP . FX" */
-static const khint_t FX_LANE_FOOT[3] = {{KC_KEYS, "EFFECTS"}, {KC_K14, "LANE"}, {KC_PRESETS, "FX KNOBS"}};
 static const khint_t *layer_foot(uint32_t l)
 {
-    return l == LAYER_FX && fx_lane_k ? FX_LANE_FOOT : l == LAYER_FX && perf_latch_on ? FX_LATCH_FOOT : l == LAYER_MACRO && !layer_open() ? MAC_LATCH_FOOT : LAYERS[l].foot;
+    return l == LAYER_FX && perf_latch_on ? FX_LATCH_FOOT : l == LAYER_MACRO && !layer_open() ? MAC_LATCH_FOOT : LAYERS[l].foot;
 }
 static void layer_knobs(uint32_t l)                     /* the four as gauges in their knobs' colours, the keys' words */
 {
@@ -1438,13 +1398,11 @@ static __attribute__((noinline)) void layer_state(uint32_t l)
     }
 }
 /* (BYTE, as JIANT FM V10.8.9's hold_banner, joined with FORM's card) a key held: a box over the panel, its name large
- * in the accent, under it where it goes and REC when it records; none when let go. COMP PLAY's component, the FX
+ * in the accent, under it where it goes and REC when it records; none when let go. The FX
  * layer's punch-in (FORM's keys: their own card, ui_lzedit.c form_card) */
 static uint32_t hold_banner_key(void)
 {
     uint32_t h = perf_kill ? 0u : perf_held;
-    if (gpl_key < 16u && gco_play())
-        return 1u + gpl_key;
     if (ui.layer == LAYER_FX && h)
         return 64u + (uint32_t)__builtin_ctz(h);
     return 0;
@@ -1456,13 +1414,8 @@ static void hold_banner(void)
     int32_t w = 212, h = 52, x = (240 - w) / 2, y = ((int32_t)graph_h() - h) / 2;
     if (!k)
         return;
-    if (k < 64u) {
-        nm = GPL_NM[(k - 1u) % 16u];
-        sub = rec ? "REC: INTO THE LANE" : gpl_mask == (1u << NTRK) - 1u ? "COMP PLAY: ALL TRACKS" : "COMP PLAY: THE TRACKS CHOSEN";
-    } else {
-        nm = PF_NAME[(k - 64u) % PF_N];
-        sub = rec ? "PUNCH IN: REC" : "PUNCH IN";
-    }
+    nm = PF_NAME[(k - 64u) % PF_N];
+    sub = "PUNCH IN";
     cv_rrect(x, y, w, h, 6, T_SURF, T_BG);
     cv_rect(x, y, w, 2, rec ? T_ACCENT : T_THEME);
     cv_text_in(x, y + 6, w, text_w(&AF_L, nm) <= w - 8 ? &AF_L : &AF_M, nm, T_ACCENT, T_SURF);
@@ -1473,8 +1426,7 @@ static __attribute__((noinline)) void draw_layer(void)
     uint32_t l = ui.layer % LAYER_N, sig = l * 7919u + ux.gen * 977u;
     layer_cards(l);
     if (l == LAYER_FX)
-        sig += (perf_kill ? 0u : perf_held | perf_latched) * 31u + perf_latch_on * 11u + perf_act * 131u + perf_avail() * 7u +
-               fx_lane_k * 104729u + (fx_lane_k ? lane_sig() : 0u);   /* (V10.7.32: the lane's cards) */
+        sig += (perf_kill ? 0u : perf_held | perf_latched) * 31u + perf_latch_on * 11u + perf_act * 131u + perf_avail() * 7u;
     else if (l == LAYER_GLO)
         sig += perf_solo * 31u + (uint32_t)song.g[G_CLOCK] * 5u +
                (uint32_t)(trk[0].p[P_MUTE] | trk[1].p[P_MUTE] << 1 | trk[2].p[P_MUTE] << 2 | trk[3].p[P_MUTE] << 3 |

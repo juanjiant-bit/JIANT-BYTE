@@ -66,7 +66,7 @@ static void name_close(void)
     nm.kind = NK_NONE;
 }
 /* the keys: 2 = NAME's (silent), 1 = the DRUM grid, 0 = notes (seq.c keyboard_block reads song.grid) */
-static uint32_t keys_mode(void) { return name_on() || gco_on() || ckeys_on() || skeys_on() ? 2u : (uint32_t)grid_on(); }   /* (seq2f: COMPS, silent; seq2g: COMP too) */
+static uint32_t keys_mode(void) { return name_on() || ckeys_on() || skeys_on() ? 2u : (uint32_t)grid_on(); }   /* (seq2g: COMP, silent) */
 
 #define NM_LANG ((uint32_t)trk[nm.slot % NTRK].p[P_VLANG] % LG_N)
 #define nm_modes() (nm.kind == NK_LYRIC && NM_LANG ? 5u : 2u)   /* (V10.7.33) ABC 123, then the phonemes' three pages

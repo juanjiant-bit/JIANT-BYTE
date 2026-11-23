@@ -77,10 +77,7 @@ static void sec_apply(void)
     snd_h[NTRK] = snd_sig(NTRK);
     snd_seen = chain.running ? 0xFFu : 0u;
     dx_mute_set(sec_stage.dx_mute);
-    memcpy(pfx_lane, sec_stage.pfx_lane, sizeof pfx_lane);
     memcpy(&song.g[G_SLMODE], sec_stage.slg, sizeof sec_stage.slg);   /* (0.6.3) the SLICER's bus as the section has it */
-    pfx_ltgt = sec_stage.pfx_ltgt;
-    pfx_lph = 0;                                      /* (the lane from the section's start) */
     memset(motion_active, 0, sizeof motion_active);
     memset(motion_locked, 0, sizeof motion_locked);
     motion_base_valid = 0;

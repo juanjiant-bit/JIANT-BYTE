@@ -619,9 +619,6 @@ static uint32_t dx_pagen(const page_t *pg);
 static int page_visible(uint32_t i)
 {
     uint32_t te = trk_eng(TSEL);                        /* (filters2: once) */
-    if (PAGES[i].graph == GR_PUNCH)                     /* (V10.7.32) FX > PUNCH IN: on the FX held (ui_layer.c ly_lane, FX
-                                                         * + PRESETS its knobs); kept in the table */
-        return 0;
     if (PAGES[i].graph == GR_MOTION)                    /* (V10.7.32) AUTOMATION: LOCKS' top row (AUTO LIST, ui_events.c);
                                                          * kept in the table */
         return 0;
@@ -708,10 +705,10 @@ static int lens_on(void) { return !ui.home && !page_over && PAGES[ui.page].fam =
 static int save_on(void) { return !ui.home && !page_over && PAGES[ui.page].fam == FAM_SAVE; }
 static void page_entered(void);
 static void page_flash(void);
-#define FX_NMOD 6u
-static const char *const FX_MOD[FX_NMOD] = {"DELAY", "REVERB", "CHORUS", "SLICER", "PUNCH IN", "MASTER"};   /* (snd2: MASTER */
-static const char *const FX_MHEAD[FX_NMOD] = {"DELAY", "REVERB", "CHORUS", "SLICER", "PUNCH IN", "MASTER"};   /* last) its first page */
-static const uint8_t FX_MN[FX_NMOD] = {3, 2, 1, 4, 1, 3};   /* its pages, one after another in PAGES (snd8: MASTER, TAPE; p9 EQ) */
+#define FX_NMOD 5u
+static const char *const FX_MOD[FX_NMOD] = {"DELAY", "REVERB", "CHORUS", "SLICER", "MASTER"};   /* (snd2: MASTER */
+static const char *const FX_MHEAD[FX_NMOD] = {"DELAY", "REVERB", "CHORUS", "SLICER", "MASTER"};   /* last) its first page */
+static const uint8_t FX_MN[FX_NMOD] = {3, 2, 1, 4, 3};   /* its pages, one after another in PAGES (snd8: MASTER, TAPE; p9 EQ) */
 static int page_visible(uint32_t i);
 static int fx_on(void) { return !ui.home && !page_over && PAGES[ui.page].fam == FAM_FX; }
 static uint32_t fx_page(const char *title)
@@ -908,7 +905,7 @@ static void page_entered(void)
     if (!ui.home && lock_page_ok(ui.page))
         ui.plk_src = (uint8_t)(ui.page + 1u);
     song.seq_mode = !ui.home && pg->fam == FAM_SEQ;
-    ui.hint_k = ui.home ? HK_NONE : pg->graph == GR_EVENTS ? HK_MOTION : pg->graph == GR_PUNCH ? HK_PUNCH :
+    ui.hint_k = ui.home ? HK_NONE : pg->graph == GR_EVENTS ? HK_MOTION :
                 pg->graph == GR_EUCLID ? HK_EUCLID : HK_NONE;   /* (0.9.5: its hint once dwelt on: ui_layer.c hint_tick) */
     ui.hint_at = (uint8_t)(ui.home ? 255u : ui.page + 1u);
     ui.hint_ms = fm1_ms;
@@ -1078,141 +1075,10 @@ static void comp_vname(const track_t *t, const step_t *s, uint32_t a, uint32_t v
     default: break;
     }
 }
-/* (0.9.9-seq2f) GLO > COMPS / COMPS 2: the global lane (seq.c glane). The 16 white keys pick its step (gl_cur), black
- * keys 1..6 turn the tracks it applies to on and off; COMPS' KNOB 1..4 ACTION LENGTH CONDITION VALUE as COMP's (the
- * actions that mean something for all: GA_LIST; no ELSE, no NEI), COMPS 2's STEP, TRACK, its ON / OFF, MONO / POLY */
-static uint8_t gl_cur, gl_trk;
-static const uint8_t GA_LIST[] = {CA_NONE, CA_MUTE, CA_STUT, CA_OCTU, CA_OCTD, CA_RATCH, CA_TRANS, CA_ARP, CA_RAND, CA_CHORD,
-                                  CA_TRIG};
-static int gco_play(void) { return cur_page()->graph == GR_GCOMP && cur_page()->title[4] == ' ' && cur_page()->title[5] == 'P'; }
-static uint32_t gco_slot(void) { return ui.page > 0u && PAGES[ui.page - 1u].graph == GR_GCOMP && !gco_play(); }
 static int keys_pg(uint32_t g) { return !ui.home && !ui.menu && !ui.confirm && !ui.layer && cur_page()->graph == g; }   /* (V10.6o) */
-static int gco_on(void) { return keys_pg(GR_GCOMP); }
 static int ckeys_on(void) { return keys_pg(GR_COMP); }   /* (seq2g) */
 /* (V10.6o) PARTS, TIMELINE: the keys are the page's (silent): F3..B3 the parts; T1..T6's mutes, F4..B4 a track's FROM */
 static int skeys_on(void) { return keys_pg(GR_SONG) && cur_page()->title[0] != 'A'; }
-static uint32_t ga_idx(uint32_t a)
-{
-    uint32_t i;
-    for (i = 0; i < sizeof GA_LIST && GA_LIST[i] != a; i++) {}
-    return i < sizeof GA_LIST ? i : 0u;
-}
-static __attribute__((noinline)) void gco_knob(uint32_t slot, int32_t steps)
-{
-    gcomp_t *c = &glane[gl_cur % GL_N];
-    uint32_t a = CA_VIEW(CO_ACT(c->comp), c->val);
-    int32_t d = clamp(steps, -4, 4);
-    if (gco_play())
-        return;                                         /* (COMP PLAY: the keys alone) */
-    if (gco_slot()) {                                   /* COMPS 2 */
-        if (slot == 0u) gl_cur = (uint8_t)clamp((int32_t)gl_cur + d, 0, GL_N - 1);
-        else if (slot == 1u) gl_trk = (uint8_t)clamp((int32_t)gl_trk + d, 0, NTRK - 1);
-        else if (slot == 2u) {
-            if (!a) { ui_message("ACTION FIRST"); return; }
-            c->mask = (uint8_t)(steps > 0 ? c->mask | 1u << gl_trk : c->mask & ~(1u << gl_trk));
-        } else
-            gl_mono = steps > 0;
-        gl_touch();
-        return;
-    }
-    if (slot == 0u) {
-        uint32_t na = GA_LIST[clamp((int32_t)ga_idx(a) + d, 0, (int32_t)sizeof GA_LIST - 1)];
-        if (na == a) return;
-        if (!na) memset(c, 0, sizeof *c);
-        else {
-            c->comp = CO_MAKE(na == CA_TRIG ? CA_MUTE : na, a ? CO_COND(c->comp) : CC_ALWAYS);
-            c->val = na == CA_TRIG ? CV_MUTE_TRIG : CA_VDEF[na];
-            if (!a) { c->len = 0; c->nm = CNM_MAKE(1u, 2u); c->mask = (uint8_t)((1u << NTRK) - 1u); }
-            if (na == CA_ARP || na == CA_STUT) c->len = 1;   /* (a STUTTER, an ARP: two steps to start with) */
-        }
-    } else if (!a) {
-        ui_message("ACTION FIRST");
-        return;
-    } else if (slot == 1u) {
-        c->len = (uint8_t)clamp((int32_t)c->len + d, 0, CL_MAX - 1);
-    } else if (slot == 2u) {
-        uint32_t k, nm;
-        int32_t i = clamp((int32_t)cond_idx(CO_COND(c->comp), c->nm) + steps, 0, (int32_t)CCL_N - 1);
-        if (i >= CC_NEI && i <= CC_ELSE)               /* (no neighbour, no ELSE for the lane: NEI !NEI ELSE in a row) */
-            i = steps > 0 ? CC_ELSE + 1 : CC_NEI - 1;
-        cond_at((uint32_t)i, &k, &nm);
-        c->comp = CO_MAKE(c->comp, k);
-        if (k >= CC_NM) c->nm = (uint8_t)nm;
-    } else if (a < CA_N) {                              /* (TRIG: no VALUE) */
-        int32_t i = clamp((int32_t)comp_vidx(a, c->val) + steps, 0, CA_VMAX[a]);
-        c->val = (uint8_t)comp_vat(a, (uint32_t)i);
-    }
-    gl_touch();
-}
-/* (BYTE, the owner: "a new mode of the master's step components: play them, and add them") GLO > COMP PLAY: the
- * white keys are components played while held, on the tracks the black keys 1..6 choose (all to start with); with REC
- * and PLAY, let go, it is added to the global lane at the step it went down on, its LENGTH as long as it was held. The
- * lane's own engine plays it (seq.c gl_lv): nothing of LIVE's */
-static const uint8_t GPL_ACT[16] = {CA_MUTE, CA_STUT, CA_OCTU, CA_OCTD, CA_RATCH, CA_RATCH, CA_RATCH, CA_TRANS, CA_TRANS, CA_TRANS,
-                                    CA_ARP, CA_RAND, CA_CHORD, CA_MUTE, CA_RATCH, CA_TRANS};
-static const uint8_t GPL_VAL[16] = {0, 0, 0, 0, 0, 1, 2, CV_TR_MAKE(2, 1), CV_TR_MAKE(4, 1), CV_TR_MAKE(-2, 1),
-                                    0x08, 1, 0, CV_MUTE_CUT, 6, CV_TR_MAKE(7, 1)};
-static const char *const GPL_NM[16] = {"MUTE", "STUTTER", "OCTAVE UP", "OCTAVE DOWN", "RATCHET x2", "RATCHET x3", "RATCHET x4", "TRANSPOSE +2",
-                                       "TRANSPOSE +4", "TRANSPOSE -2", "ARP", "RANDOM", "CHORD", "MUTE CUT", "RATCHET x8", "TRANSPOSE +7"};
-static uint8_t gpl_mask = (uint8_t)((1u << NTRK) - 1u), gpl_key = 0xFFu;
-static uint32_t gpl_prev, gpl_g0, gpl_k;
-static void gpl_off(void)
-{
-    uint32_t p = gpl_key;
-    if (p >= 16u)
-        return;
-    if (song.playing && song.rec) {                     /* REC: into the lane, where it went down */
-        gcomp_t *c = &glane[gpl_g0 % GL_N];
-        uint32_t l = clk_n > gpl_g0 ? clk_n - gpl_g0 : 1u;
-        c->comp = CO_MAKE(GPL_ACT[p], CC_ALWAYS); c->val = GPL_VAL[p];
-        c->len = (uint8_t)((l > CL_MAX ? CL_MAX : l) - 1u); c->nm = CNM_MAKE(1u, 2u); c->mask = gpl_mask;
-        gl_cur = (uint8_t)(gpl_g0 % GL_N);
-        gl_touch();
-    }
-    gl_lv.comp = 0;
-    gpl_key = 0xFFu;
-}
-static void gpl_frame(void)                             /* each pass: the keys held on COMP PLAY */
-{
-    uint32_t held = keys_pg(GR_GCOMP) && gco_play() ? fm1_in.notes & ~kb_layer : 0u, dn = held & ~gpl_prev, k;
-    for (k = 0; k < 27u; k++) {
-        uint32_t p = key_place(k);
-        if ((dn >> k) & 1u) {
-            if (key_black(k)) {
-                if (p < NTRK) gpl_mask ^= (uint8_t)(1u << p);
-                gl_lv.mask = gpl_mask;
-            } else if (p < 16u) {
-                gpl_off();                              /* (one at a time: the last pressed plays) */
-                gpl_key = (uint8_t)p; gpl_k = k; gpl_g0 = clk_n;
-                gl_lv.val = GPL_VAL[p]; gl_lv.mask = gpl_mask; gl_lv.comp = CO_MAKE(GPL_ACT[p], CC_ALWAYS);
-            }
-        }
-    }
-    if (gpl_key < 16u && !((held >> gpl_k) & 1u))
-        gpl_off();
-    gpl_prev = held;
-}
-/* the keys on COMPS (presses): a white key the step, black keys 1..6 its tracks */
-static void gco_keys(uint32_t pressed)
-{
-    uint32_t k;
-    if (gco_play())
-        return;                                         /* (COMP PLAY: gpl_frame) */
-    for (k = 0; k < 27u; k++) {
-        uint32_t p = key_place(k);
-        gcomp_t *c = &glane[gl_cur % GL_N];
-        if (!((pressed >> k) & 1u))
-            continue;
-        if (!key_black(k)) {
-            if (p < GL_N) gl_cur = (uint8_t)p;
-        } else if (p < NTRK) {
-            if (!CO_ACT(c->comp)) { ui_message("ACTION FIRST"); continue; }
-            c->mask ^= (uint8_t)(1u << p);
-            gl_trk = (uint8_t)p;
-            gl_touch();
-        }
-    }
-}
 static void step_clear(step_t *st)
 {
     st->n = 0;
@@ -2268,7 +2134,6 @@ static uint32_t act_cols(void)                   /* the columns that are actions
     if (ui.home)
         return 0;
     if (dx_formula_page() || func_formula_page()) return 16u;
-    if (pg->graph == GR_PUNCH) return 8u;               /* (0.6.99) PUNCH: KNOB 4 CLEAR */
     if (pg->graph == GR_EVENTS || pg->graph==GR_TRACKGEN) return 16u;
     if (pg->graph == GR_TOOLS) return 15u;
     if (0 /* (VOICE retired) */ || 0 /* (VOICE retired) */) return 8u;
@@ -2308,7 +2173,6 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
     static const char *const UP_GO[3] = {"LOAD", "ERASE", "SAVE"};
     uint32_t id = cur_page()->id[c & 3u];
     if (dx_formula_page() || func_formula_page()) return "EDIT FORMULA";
-    if (cur_page()->graph == GR_PUNCH) return "CLR AUTO";   /* (snd2) the punch-in lane only */
     if (cur_page()->graph == GR_EVENTS) return ev_act_name();
     if (0 /* (VOICE retired) */) return "TYPE";
     if (0 /* (VOICE retired) */) return "PLACE";

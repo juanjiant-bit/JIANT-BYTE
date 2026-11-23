@@ -133,14 +133,13 @@ typedef struct {
     uint8_t pfx_lane[32], pfx_ltgt;            /* the punch-in lane (pfx.c), in FUN9's spare bytes (PROJ_PFX_OFF) */
     uint8_t macro[4];                          /* the macros M1..M4 (mod.c macro_v), 0..127: after the lane's tracks */
     char lyr[NTRK][LYR_LEN];                   /* (0.8.5) VOICE's lyrics (sing.c lyr_txt): FUNC's 'L' 'Y' blocks, "" before */
-    uint8_t gl[GL_N][5];                       /* (0.9.9-seq2f) GLO > COMPS, the global lane (seq.c glane): FUNC's 'G' 'C'
+    uint8_t gl[16][5];                       /* (0.9.9-seq2f) GLO > COMPS, the global lane (seq.c glane): FUNC's 'G' 'C'
                                                 * block, empty before */
     char name[PROJ_NAME_LEN];                  /* the project's name: upper-case ASCII 32..126, 0-padded; "" = none */
     uint8_t split[8];                         /* optional KS extension, absent = OFF */
     uint8_t fit[NTRK];                         /* FIT/SPAN per track; optional RF extension */
     uint32_t sum;
 } project_t;
-_Static_assert(sizeof(gcomp_t) == 5u, "the global lane as stored");
 /* Serialized FUN7 keeps the retained cache's exact extent. Params are biased
  * bytes, steps pack n/time/flags. Reserved tail is zero and covered by hash.
  * The tail's last 12 bytes (PROJ_NAME_OFF, just before the hash) are the project's name since 1.0:
@@ -639,7 +638,7 @@ static uint32_t proj_bits(uint32_t m)
 static int proj_gl_used(const project_t *q)            /* (0.9.9-seq2f) a global component, or MONO: its block */
 {
     uint32_t i;
-    for (i = 0; i < GL_N; i++)
+    for (i = 0; i < 16u; i++)
         if (q->gl[i][0]) return 1;
     return q->gmode != 0u;
 }
@@ -1218,7 +1217,7 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         if (b[pos + 2u] > 1u) return 0;
         q->gmode = b[pos + 2u];
         memcpy(q->gl, b + pos + 3u, sizeof q->gl);
-        for (i = 0; i < GL_N; i++)
+        for (i = 0; i < 16u; i++)
             if (CO_ACT(q->gl[i][0]) >= CA_N || CO_COND(q->gl[i][0]) >= CC_N || q->gl[i][2] >= CL_MAX ||
                 (q->gl[i][4] >> NTRK)) return 0;
         pos += 3u + sizeof q->gl;
@@ -1524,11 +1523,11 @@ static void project_capture(project_t *p)
                 p->fugue[a][h][1] = (uint8_t)fg_set[a][h].ivl;
             }
     }
-    memcpy(p->pfx_lane, pfx_lane, sizeof p->pfx_lane);
-    p->pfx_ltgt = pfx_ltgt;
+    memset(p->pfx_lane, 0, sizeof p->pfx_lane);         /* (the punch-in lane, out: zeros; an old one ignored on load) */
+    p->pfx_ltgt = 0;
     memcpy(p->macro, macro_v, sizeof p->macro);
-    memcpy(p->gl, glane, sizeof p->gl);                 /* (0.9.9-seq2f) the global lane */
-    p->gmode = gl_mono;
+    memset(p->gl, 0, sizeof p->gl);                     /* (BYTE: GLO > COMPS gone; its block empty) */
+    p->gmode = 0;
     for (i = 0; i < NTRK; i++)                          /* (0.8.5) VOICE's lyrics */
         memcpy(p->lyr[i], lyr_get(i), LYR_LEN);
     motion_unguard(f);
@@ -1761,13 +1760,8 @@ static int project_restore_runtime(const project_t *input)
     memcpy(dx_form, p->dx_form, sizeof dx_form);        /* (JIANT BYTE: its formula lanes) */
     memcpy(macro_f, p->mac_form, sizeof macro_f);       /* (JIANT BYTE: its macros' equations) */
     fg_load(p);                                         /* (0.6.52: its FUGUE) */
-    memcpy(pfx_lane, p->pfx_lane, sizeof pfx_lane);    /* (the section's punch-in lane) */
-    pfx_ltgt = p->pfx_ltgt > 2u ? 0u : p->pfx_ltgt;
     for (i = 0; i < 4u; i++)
         macro_v[i] = p->macro[i] & 127u;            /* (the macros: a load sets them; a section jump keeps them) */
-    memcpy(glane, p->gl, sizeof glane);                 /* (0.9.9-seq2f) the global lane (none: an older project) */
-    gl_mono = p->gmode & 1u;
-    gl_touch();
     for (k = 0; k < NTRK; k++) {                        /* (0.8.5) VOICE's lyrics (none: an older project) */
         char ly[LYR_LEN];
         memcpy(ly, p->lyr[k], LYR_LEN);
@@ -1894,13 +1888,9 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     memset(song_idx.scene[song_cur], 0, sizeof song_idx.scene[song_cur]);
     memset(song_idx.tsrc[song_cur], 0, sizeof song_idx.tsrc[song_cur]);
     memset(song_idx.tvar[song_cur], 0, sizeof song_idx.tvar[song_cur]);
-    memset(pfx_lane, 0, sizeof pfx_lane);
     for (i = 0; i < 4u; i++) macro_v[i] = 0;
     for (i = 0; i < NTRK; i++) trk[i].seq_fit = 0;
     for (i = 0; i < NTRK; i++) lyr_set(i, "");          /* (0.8.5) no lyrics */
-    memset(glane, 0, sizeof glane);                     /* (0.9.9-seq2f) no global component, POLY */
-    gl_mono = 0;
-    gl_touch();
     memcpy(dx_kit, DX_KIT_DEF, sizeof dx_kit);
     memset(dx_mot, 0, sizeof dx_mot);
     memset(split_cfg, 0, sizeof split_cfg);
@@ -2192,8 +2182,6 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &motion, sizeof motion);
     h = as_mix(h, &chain_config, sizeof chain_config);
     h = as_mix(h, lyr_txt, sizeof lyr_txt);             /* (0.8.5) VOICE's lyrics */
-    h = as_mix(h, glane, sizeof glane);                 /* (0.9.9-seq2f) the global lane */
-    h = as_mix(h, &gl_mono, 1);
     h = as_mix(h, &scn_on, 1);
     h = as_mix(h, scn_role, sizeof scn_role);           /* (V10.31) SCENE */
     h = as_mix(h, scn_pat, sizeof scn_pat);

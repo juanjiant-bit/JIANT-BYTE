@@ -210,7 +210,6 @@ static void ui_power_on(void)
     memset(&ui, 0, sizeof ui);
     cin_left = cin_total = 0;                     /* (no count-in) */
     memset(&nm, 0, sizeof nm);                    /* NAME closed, no project name */
-    memset(glane, 0, sizeof glane); gl_mono = 0; gl_touch(); gl_cur = gl_trk = 0;   /* (seq2f) no global lane */
     proj_name[0] = 0;
     proj_cur = PROJ_NO_SLOT;
     memset(&favorites, 0, sizeof favorites);
@@ -2129,7 +2128,7 @@ static void busy_project(void)
     }
     set_engine_of(&trk[2], ENGI_FM6); set_engine_of(&trk[5], ENGI_ANALOG);
     song.g[G_BPM] = 97; song.g[G_RTYPE] = 3; song.g[G_TUNE] = 5; song.g[G_CLOCK] = 1;
-    tape_v[0] = 30; eq_v[1] = -4; dx_tone = 0x35u; dx_mot[XM_DPTH] = 50; pfx_lane[3] = 9;
+    tape_v[0] = 30; eq_v[1] = -4; dx_tone = 0x35u; dx_mot[XM_DPTH] = 50;
     lyr_set(4, "LA LA");
     project_save(1);
     chain_config.count = 3;
@@ -2189,7 +2188,7 @@ static int test_init_system(void)
                !memcmp(&now, &ref, sizeof now);
         for (k = 0; k < NTRK; k++)
             ok2 &= seq_is_empty(&trk[k]) && !motion_count(&trk[k]) && trk[k].eng_req == trk_def_engine(k) && !lyr_get(k)[0];
-        ok2 &= tape_v[0] == tp0 && !eq_v[1] && !macro_v[1] && !pfx_lane[3] && !chain_config.count &&
+        ok2 &= tape_v[0] == tp0 && !eq_v[1] && !macro_v[1] && !chain_config.count &&
                !song_idx.scene[song_cur][1].on && !proj_name[0];
         for (k = 0; k < 4u; k++) ok2 &= !project_used(k);
         bad += check("  CLEAR PROJECT: steps, automation, sounds, FX, master, rows, A-D, name as a fresh power-on's", ok2);
@@ -3899,7 +3898,6 @@ static int test_presets_knob(void)
         ui_power_on();
         song.sel = 0;
         my_steps(TSEL);
-        gl_cur = 0;
         ui.home = 0; ui.page = (uint8_t)i; page_entered();
         if (!page_visible(i))
             continue;
@@ -3909,12 +3907,12 @@ static int test_presets_knob(void)
         pg = ui.page;
         cur0 = ui.cursor;
         pr_turn(1);
-        {   /* (V10.7.33, the owner) PRESETS loads sounds everywhere, SEQ's and G.COMP's pages too (its list, OCT+); the page,
+        {   /* (V10.7.33, the owner) PRESETS loads sounds everywhere, SEQ's pages too (its list, OCT+); the page,
              * the steps stay */
             int same_snd = TSEL->preset == before.preset && TSEL->eng_req == before.eng_req &&
                            !memcmp(TSEL->p, before.p, sizeof before.p);
             int same_steps = !memcmp(TSEL->step, before.step, sizeof before.step);
-            snd_ok &= !same_snd && same_steps && ui.page == pg && !ui.home && song.sel == 0u && !ui.confirm && gl_cur == 0u;
+            snd_ok &= !same_snd && same_steps && ui.page == pg && !ui.home && song.sel == 0u && !ui.confirm;
             if (!(!same_snd && same_steps && ui.page == pg)) printf("  PRESETS on %s\n", PAGES[i].title);
             n_snd++;
         }
@@ -3934,7 +3932,7 @@ static int test_presets_knob(void)
     bad += check("V10.7.33 SEQ held + PRESETS on every SEQ page (STEP NOTE COMP BAR PATTERN TRACK AUTO ..): the next step, the page stays",
                  seq_ok && n_seq >= 11u);
     bad += check("V10.7.33 SEQ held + PRESETS on PHRASES: the step too, the pick untouched", pat_ok);
-    bad += check("V10.7.33 PRESETS on every page (SEQ's too, G.COMP, EDIT ENV LFO FX SCL ARP GLO SAVE ..): the next sound by its list, the page stays",
+    bad += check("V10.7.33 PRESETS on every page (SEQ's too, EDIT ENV LFO FX SCL ARP GLO SAVE ..): the next sound by its list, the page stays",
                  snd_ok && n_snd >= 50u);
     ui_power_on();
     set_engine_of(TSEL, ENGI_DRUM);
@@ -3999,12 +3997,11 @@ static int test_product_ux(void)
     turn(EN_K3, -1);
     frames(320);                                       /* (taps further apart than a double tap: #83) */
     turn(EN_SELECT, 1); frames(320); ok = str_eq(cur_page()->title, "BUS SENDS");   /* (0.9.2: SELECT the chain; a GLO tap */
-    press(B_GLO); frames(320); ok &= cur_page()->fam == FAM_GLO && str_eq(cur_page()->title, "COMP");   /* the next group;
-                                                         * V10.37: G.COMP right after MIX) */
-    press(B_GLO); frames(320); ok &= str_eq(cur_page()->title, "GLOBAL");   /* (codex/coherence: SETUP, GLOBAL .. KEY SPLIT 2) */
+    press(B_GLO); frames(320); ok &= str_eq(cur_page()->title, "GLOBAL");   /* the next group (codex/coherence: SETUP,
+                                                         * GLOBAL .. KEY SPLIT 2) */
     press(B_GLO); frames(320); ok &= cur_page()->graph == GR_LIVE && str_eq(cur_page()->title, "KEYS");   /* (p2: LIVE first, */
     press(B_GLO); ok &= cur_page()->graph == GR_TRK && str_eq(cur_page()->title, "MIXER");          /* then MIX) */
-    bad += !FELUCCA_LIVE ? 0 : check("0.9.2 GLO: SELECT MIXER > SENDS, a GLO tap the next group: (V10.37) G.COMP > SETUP (GLOBAL) > LIVE (KEYS) > MIXER", ok);
+    bad += !FELUCCA_LIVE ? 0 : check("0.9.2 GLO: SELECT MIXER > SENDS, a GLO tap the next group: SETUP (GLOBAL) > LIVE (KEYS) > MIXER", ok);
     go_home(); hold(B_SEQ);
     bad += check("long SEQ off the SEQ pages is a tap (no SONG: SAVE held, G5)", cur_page()->graph != GR_SONG);
     go_page(GR_SONG);
@@ -4910,7 +4907,7 @@ static int test_quick_layers(void)
         ui_power_on();
         go_home(); frames(8);
         pr0 = TSEL->preset; e0 = TSEL->eng_req;
-        btn_down(B_GLO); frame();                       /* (V10.7.32: GLO; FX + PRESETS is the lane's, below) */
+        btn_down(B_GLO); frame();                       /* (V10.7.32: GLO; FX + PRESETS below) */
         pr_turn(1); frame();
         pr_turn(2); frame();
         ok = ui.home && TSEL->preset == pr0 && TSEL->eng_req == e0;
@@ -4918,32 +4915,25 @@ static int test_quick_layers(void)
         ok &= !ui.layer;
         btn_up(B_GLO); frames(4);
         ok &= ui.home && !ui.layer;                     /* (no tap: no page) */
-        {   /* (V10.7.32) FX held + PRESETS: right, KNOB 1..4 the punch-in lane's (LEN RES - CLEAR), the layer open at once
-             * (a combo); left, FX KNOBS again; let go: no tap, FX KNOBS the next time */
-            int16_t len0 = song.g[G_PFXLEN], f0;
+        {   /* FX held + PRESETS: swallowed (no sound changed), the layer open at once (a combo), KNOB 1 its FILTER;
+             * let go: no tap */
+            int16_t f0;
             frames(64);                                 /* (GLO's layer let go wholly) */
             btn_down(B_FX); frames(8);                  /* (armed, before HOLD) */
             pr_turn(1); frame();
-            ok &= ui.layer == LAYER_FX && fx_lane_k && !strncmp(ui.col[0], "LEN|", 4) && msg_is("KNOBS: PUNCH IN LANE") &&
-                  TSEL->preset == pr0;
-            turn(EN_K1, -3); frame();
-            ok &= song.g[G_PFXLEN] < len0 && !perf_k[0];
-            turn(EN_K2, 1); frame();
-            ok &= song.g[G_PFXRES] == 2;
-            pr_turn(-1); frame();
+            ok &= ui.layer == LAYER_FX && TSEL->preset == pr0;
             f0 = perf_k[0];
             turn(EN_K1, 2); frame();
-            ok &= !fx_lane_k && perf_k[0] != f0 && !strncmp(ui.col[0], "FILTER|", 7);
-            pr_turn(1); frame();
+            ok &= perf_k[0] != f0 && !strncmp(ui.col[0], "FILTER|", 7);
             btn_up(B_FX); frames(64);
-            ok &= ui.home && !ui.layer && !fx_lane_k;   /* (no tap; the knobs FX KNOBS again) */
-            perf_k[0] = 0; song.g[G_PFXLEN] = len0; song.g[G_PFXRES] = 1;
+            ok &= ui.home && !ui.layer;                 /* (no tap) */
+            perf_k[0] = 0;
         }
         btn_down(B_ENV); frame(); pr_turn(1); frame(); btn_up(B_ENV); frames(4);
         ok &= ui.home && TSEL->preset == pr0;           /* (ENV: no layer; its tap swallowed) */
         press(B_ENV); frames(8);
         ok &= str_eq(cur_page()->title, "ENV");         /* (a plain tap: its page, as always) */
-        bad += check("0.9.2: a page button held + PRESETS does nothing (was its pages); let go: no tap, no layer; a tap as before; V10.7.32 FX + PRESETS: the lane's knobs", ok);
+        bad += check("0.9.2: a page button held + PRESETS does nothing (was its pages); let go: no tap, no layer; a tap as before; FX + PRESETS swallowed", ok);
         {   /* (V10.7) EDIT held + PRESETS: the first sound of the next engine (back: the previous one's) */
             uint32_t tot, e1, e2;
             go_home(); frames(8);
@@ -5408,7 +5398,6 @@ static int test_rec_combos(void)
     motion_set_event(t, 3, P_ATK, 10);
     motion_set_event(t, 4, P_DIST, 50);
     motion_set_event(&trk[(song.sel + 1u) % NTRK], 1, P_LEVEL, 30);
-    pfx_lane[0] = 0x11;
     btn_down(B_REC); frame();
     btn_down(B_EDIT); frame(); btn_up(B_EDIT); frame();
     btn_up(B_REC); frames(20);
@@ -5418,43 +5407,34 @@ static int test_rec_combos(void)
     btn_down(B_REC); frame();
     btn_down(B_FX); frame(); btn_up(B_FX); frame();
     btn_up(B_REC); frames(20);
-    ok = motion_find(t, 4, P_DIST) < 0 && !pfx_lane[0] && motion_find(t, 3, P_ATK) >= 0 && !song.rec && ui.home;
-    bad += check("  REC + FX (REC first): the FX automation and the punch-in lane go, ENV stays, REC not armed", ok);
-    pfx_rh = 1; frame();                                /* (V10.7.34, a tester) a held FX recording into the lane: said */
-    ok = msg_is("REC FX AUTOM  REC+FX: CLEAR");
-    ui.msg_t = 0; frame();
-    ok &= !ui.msg_t;                                    /* (once, as it starts) */
-    pfx_rh = 0; frame();
-    bad += check("  V10.7.34 an FX held recording into the punch-in lane: REC FX AUTOM, how to clear it", ok);
+    ok = motion_find(t, 4, P_DIST) < 0 && motion_find(t, 3, P_ATK) >= 0 && !song.rec && ui.home;
+    bad += check("  REC + FX (REC first): the FX automation goes, ENV stays, REC not armed", ok);
     /* (0.9.9-snd2) the FX chain: MASTER its last page, after PUNCH (ui_lens.c CE_FX), its module last on BUSES */
-    bad += check("  FX chain: ... SL PITCH, MASTER, its TAPE, EQ and BALANCE last (the BUSES tiles too; V10.7.32 PUNCH IN on the FX held)",
+    bad += check("  FX chain: ... SL PITCH, MASTER, its TAPE, EQ and BALANCE last (the BUSES tiles too; no PUNCH IN)",
                  (FELUCCA_XFX ? !strcmp(CE_FX[NELEM(CE_FX) - 1u].t, "BALANCE") && !strcmp(CE_FX[NELEM(CE_FX) - 2u].t, "EQ") &&
                   !strcmp(CE_FX[NELEM(CE_FX) - 3u].t, "TAPE") : !strcmp(CE_FX[NELEM(CE_FX) - 1u].t, "EQ") &&
                   !strcmp(CE_FX[NELEM(CE_FX) - 2u].t, "TAPE")) &&
                  !strcmp(CE_FX[NELEM(CE_FX) - 4u + !FELUCCA_XFX].t, "MASTER") &&
-                 !strcmp(CE_FX[NELEM(CE_FX) - 5u + !FELUCCA_XFX].t, "SL PITCH") && !page_visible(fx_page("PUNCH IN")) &&
+                 !strcmp(CE_FX[NELEM(CE_FX) - 5u + !FELUCCA_XFX].t, "SL PITCH") && !nav_put(SEC_FX, "PUNCH IN") &&
                  !strcmp(CG_FX[NELEM(CG_FX) - 1u].nm, "MASTER") && !strcmp(FX_MOD[FX_NMOD - 1u], "MASTER"));
-    {   /* (V10.7.36) FX + G5 is COMB: the punch-in lane and the tracks' automation stay (the lane is cleared by REC + FX
-         * or FX + PRESETS, KNOB 4 CLEAR only), named on the map */
+    {   /* (V10.7.36) FX + G5 is COMB: the tracks' automation stays, named on the map */
         char nm[12];
         uint32_t st, k2;
         static int32_t o2[2 * CTL];
         motion_set_event(t, 4, P_DIST, 50);
         for (k2 = 0; k2 < 2u; k2++) {
-            pfx_lane[0] = 0x11; pfx_lane[5] = 0x30;
             if (k2) { transport_req = 1; mix_block(o2, CTL); }
             btn_down(B_FX); frame(); key_down(white(15)); frame();
             st = ly_keyname(LAYER_FX, 0, 15u, nm);
             mix_block(o2, CTL); mix_block(o2, CTL);
             ok = (perf_held & PF_BIT(PF_COMB)) != 0u;
             key_up(white(15)); btn_up(B_FX); frame();
-            ok &= pfx_lane[0] == 0x11 && pfx_lane[5] == 0x30 && motion_find(t, 4, P_DIST) >= 0 && !strcmp(nm, "COMB") &&
+            ok &= motion_find(t, 4, P_DIST) >= 0 && !strcmp(nm, "COMB") &&
                   st != LS_OFF && st != LS_DIM;
             if (k2) { transport_req = 2; mix_block(o2, CTL); }
-            bad += check(k2 ? "  FX + G5 COMB playing: the punch-in lane and the FX automation stay"
-                            : "  FX + G5 COMB stopped: the lane and the FX automation stay, named on the map", ok);
+            bad += check(k2 ? "  FX + G5 COMB playing: the FX automation stays"
+                            : "  FX + G5 COMB stopped: the FX automation stays, named on the map", ok);
         }
-        memset(pfx_lane, 0, sizeof pfx_lane);
     }
     btn_down(B_REC); frame();
     btn_down(B_GLO); frame(); btn_up(B_GLO); frame();
@@ -8617,7 +8597,7 @@ static int test_lane_mutes(void)
     return bad;
 }
 
-/* JIANT: SEQ + REC held: CLEAR ALL SEQUENCES? (every track's steps and automation, the punch-in lane); OCT+ clears.
+/* JIANT: SEQ + REC held: CLEAR ALL SEQUENCES? (every track's steps and automation); OCT+ clears.
  * Neither SEQ's tap (SONG) nor REC's (arm) happens */
 static int test_clear_all(void)
 {
@@ -8626,7 +8606,6 @@ static int test_clear_all(void)
     ui_power_on();
     for (k = 0; k < NTRK; k++)
         my_steps(&trk[k]);
-    pfx_lane[3] = 0x22;
     go_home(); frame();
     btn_down(B_SEQ); frame();
     btn_down(B_REC); frame();
@@ -8637,8 +8616,8 @@ static int test_clear_all(void)
     press(B_OCTUP);
     for (k = 0; k < NTRK; k++)
         any |= !seq_is_empty(&trk[k]);
-    bad += check("SEQ + REC: CLEAR ALL SEQUENCES? (no SONG page, REC not armed); OCT+: every track empty, the lane too",
-                 ok && !ui.confirm && !any && !pfx_lane[3] && msg_is("ALL CLEARED"));
+    bad += check("SEQ + REC: CLEAR ALL SEQUENCES? (no SONG page, REC not armed); OCT+: every track empty",
+                 ok && !ui.confirm && !any && msg_is("ALL CLEARED"));
     return bad;
 }
 
@@ -8954,10 +8933,8 @@ static int test_clear_ghosts(void)
     ui_power_on();
     trk_live = NTRK; ui_rec_prefs |= 0x80u;
     for (k = 0; k < NTRK; k++) my_steps(&trk[k]);
-    memset(pfx_lane, 0, sizeof pfx_lane);
-    pfx_ltgt = 0; perf_latched = 0; scene_pfx = 0;
-    for (i = 0; i < 64u; i++) pfx_lane_put(i, i < 32u ? PF_S16 - PF_OCTD + 1u : PF_ARP - PF_OCTD + 1u);   /* (STUTTER 1/16,
-                                                         * then ARP, on every track) */
+    scene_pfx = 0;
+    perf_latched = PF_BIT(PF_S16);                      /* (STUTTER 1/16 latched, on every track) */
     transport_req = 1;
     for (i = 0; i < 2000u; i++) { int32_t o[2 * CTL]; mix_block(o, CTL); }
     for (k = 0; k < NTRK; k++) {                        /* every track cleared, one by one (SAVE > TOOLS CLEAR) */
@@ -8970,7 +8947,7 @@ static int test_clear_ghosts(void)
         on[k] = 0;
         for (v = 0; v < NVOICE; v++) trk[k].v[v].active = 0;
     }
-    for (i = 0; i < 6000u; i++) {                       /* (4 bars and more: the lane plays on) */
+    for (i = 0; i < 6000u; i++) {                       /* (4 bars and more: the stutter plays on) */
         int32_t o[2 * CTL];
         mix_block(o, CTL);
         for (k = 0; k < NTRK; k++) {
@@ -8979,9 +8956,9 @@ static int test_clear_ghosts(void)
         }
     }
     for (k = 0, i = 0; k < NTRK; k++) i += on[k];
-    bad += check("clear: the punch-in lane repeats nothing of the cleared steps (no note on any of the 6 tracks)", i == 0u);
+    bad += check("clear: a latched punch-in repeats nothing of the cleared steps (no note on any of the 6 tracks)", i == 0u);
     transport_req = 2; events_block(CTL);
-    memset(pfx_lane, 0, sizeof pfx_lane);
+    perf_latched = 0;
     ui_power_on();
     return bad;
 }
@@ -14092,7 +14069,7 @@ static int test_engine_order_099(void)
     return bad;
 }
 
-/* (gen3) SEQ > COMP / COMP 2 and GLO > COMPS: the four cards (ACTION LENGTH CONDITION VALUE) read whole, every value of
+/* (gen3) SEQ > COMP / COMP 2: the four cards (ACTION LENGTH CONDITION VALUE) read whole, every value of
  * every knob (every ACTION, every LENGTH, the 283 CONDITIONs, every VALUE of each ACTION) in the four skins (COLORS
  * BOTTOM HUD AIR) and MENU > LARGE: no text on a card ellipsised, cut, or past its inner edge (x 55); the value in M as
  * it can (gfx.c's hook, ut_text) */
@@ -14103,29 +14080,23 @@ static int test_comp_cards(void)
     char what[96] = "";
     for (sk = 0; sk < 1u; sk++)                       /* (V10.7.23: COLORS, the one skin) */
         for (lg = 0; lg < 2u; lg++)
-            for (pg = 0; pg < 3u; pg++) {
+            for (pg = 0; pg < 2u; pg++) {
                 step_t *st;
                 ui_power_on();
                 if (lg) ui_prefs |= PREF_LARGE; else ui_prefs &= ~PREF_LARGE;
                 TSEL->step[0] = (step_t){{60}, 1, ST_NOTE, 0, 100};
                 st = &TSEL->step[0];
-                go_page(pg == 2u ? GR_GCOMP : GR_COMP);
+                go_page(GR_COMP);
                 if (pg == 1u) { ui.page++; page_entered(); }
                 cursor_set(0);
                 frame();
                 for (a = 0; a < CA_N; a++) {
                     uint32_t nv = (uint32_t)CA_VMAX[a] + 1u + (a == CA_MUTE), nc = a ? CCL_N : 1u, nl = a ? CL_MAX : 1u, k;
-                    if (pg == 2u && ga_idx(a) == 0u && a) continue;   /* (the lane's actions: GA_LIST) */
                     for (k = 0; k < nv + nc + nl; k++) {
                         uint32_t v = k < nv ? k : 0u, ci = k >= nv && k < nv + nc ? k - nv : 0u, l = k >= nv + nc ? k - nv - nc : 0u;
                         uint32_t c, nm;
                         cond_at(ci, &c, &nm);
-                        if (pg == 2u && c >= CC_NEI && c <= CC_ELSE) continue;
-                        if (pg == 2u) {
-                            gcomp_t *g = &glane[gl_cur % GL_N];
-                            g->comp = CO_MAKE(a, c); g->nm = (uint8_t)nm; g->len = (uint8_t)l;
-                            g->val = (uint8_t)comp_vat(a, v); g->mask = 0x3F;
-                        } else if (pg == 1u) {
+                        if (pg == 1u) {
                             st->comp = CO_MAKE(CA_OCTU, CC_ALWAYS);
                             st->comp2 = (uint8_t)CO_MAKE(a, c); st->carg2 = (uint8_t)comp_vat(a, v);
                             st->cnm[1] = (uint8_t)nm; st->clen[1] = (uint8_t)l;

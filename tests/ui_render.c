@@ -424,7 +424,7 @@ static void contain(int32_t x, int32_t y)
 }
 /* (0.9.5) an overlay drawn over its canvas (ui_graph.c toast_pill): the cells under it are hidden by it, on purpose (the
  * page's graph goes on under a toast); a text of the page under it is a finding (the pill keeps clear of the page's
- * words: gfx.c cv_txt, MUTATE's lines, AUTO LIST's rows, MOTION's, PUNCH's; none clear: no pill) */
+ * words: gfx.c cv_txt, MUTATE's lines, AUTO LIST's rows, MOTION's; none clear: no pill) */
 static void hk_overlay(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
     uint32_t i, k = 0;
@@ -650,7 +650,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_CONFIRM_SEQ, S_CONFIRM_PROJ, S_CONFIRM_USER, S_CONFIRM_PAT, S_CONFIRM_MOTION, S_CONFIRM_ERASE, S_GEN, S_GEN_PARTS,
        S_MENU, S_MENU_SPEAKER, S_ABOUT, S_ABOUT_REC, S_ABOUT_CREDITS, S_ABOUT_END, S_UBOOT, S_CALIBRATION, S_SPLASH,
        S_BATT0, S_BATT1, S_BATT2, S_BATT3, S_BATT_USB, S_MOTION_REC, S_MOTION_OFF, S_MOTION_CARD, S_SONG_HOME,
-       S_FX_PEEK, S_FX_HELD, S_FX_WAIT, S_FX_HARM, S_FX_LANE, S_FX_LANE_K, S_MENU_HOLD, S_MENU_LEDS, S_MENU_END, S_MENU_SYSTEM, S_MENU_SLIDE, S_MENU_PROX, S_MENU_PROX_OFF, S_REVERB, S_REVERB_RESO,
+       S_FX_PEEK, S_FX_HELD, S_FX_WAIT, S_FX_HARM, S_MENU_HOLD, S_MENU_LEDS, S_MENU_END, S_MENU_SYSTEM, S_MENU_SLIDE, S_MENU_PROX, S_MENU_PROX_OFF, S_REVERB, S_REVERB_RESO,
        S_GLO_PEEK, S_GLO_ACTIVE, S_GLO_EXT, S_SCL_PEEK, S_SCL_ACTIVE, S_EDIT_PEEK, S_EDIT_ACTIVE, S_EDIT_USER, S_EDIT_DRUM, S_LAYER_HINT, S_LAYER_LOCK, S_LAYER_LOCK_FX, S_LAYER_SONG, S_LAYER_SONG_CHAIN,
        S_SEQ_TOOLS, S_SEQ_TOOLS_DRUM, S_SEQ_TOOLS_SONG,
        S_LENTE_PAT, S_LENTE_PAT_DRUM, S_LENTE_STRETCH, S_LENTE_BAR, S_LENTE_BAR_DRUM, S_LENTE_STEP, S_LENTE_STEP_COMP,
@@ -679,7 +679,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_LIVE_RIELES, S_LIVE_RIELES_T3, S_LIVE_MANO, S_LIVE_MANO_KEYS,
        S_PL_LIST, S_PL_EDITED, S_PL_HOME, S_HELP_MACROS, S_HELP_STEP, S_HELP_TOOLS, S_STEP_BIG,
        S_MIXER_T4, S_HOME_T4, S_MOCK_HOME, S_MOCK_PRESETS, S_MOCK_SEQ, S_MOCK_DRUM, S_MOCK_MIXER, S_MOCK_DIALOG, S_MOCK_MENU,
-       S_TOAST_ENV, S_TOAST_MUTATE, S_TOAST_MUTATE_HINT, S_TOAST_MOTION, S_TOAST_MOTION_LOCKS, S_TOAST_PUNCH, S_TOAST_AUTO_LIST,
+       S_TOAST_ENV, S_TOAST_MUTATE, S_TOAST_MUTATE_HINT, S_TOAST_MOTION, S_TOAST_MOTION_LOCKS, S_TOAST_AUTO_LIST,
        S_TOAST_AUTO_LIST_DRUM, S_TOAST_PATTERN, S_TOAST_FM6_OP, S_TOAST_ANALOG, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "pattern", "chance", "comp", "comp_trig", "comp_echo", "euclid", "euclid_mutate", "scene", "nudge_micro", "morph", "dx_image", "dx_send", "page_flash", "page_flash_home", "fugue", "motion", "drum",
@@ -688,7 +688,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "edit_noise", "alg_1", "alg_2", "alg_3", "alg_4", "alg_5", "alg_6", "alg_7", "alg_8", "op_level", "fm6_alg_01", "fm6_alg_05", "fm6_alg_22", "fm6_alg_32", "drumx", "drumx_hit", "dx_sound", "dx_sound2", "confirm_seq", "confirm_project", "confirm_user", "confirm_pattern",
     "confirm_motion", "confirm_erase", "gen", "gen_parts", "menu", "menu_speaker", "about", "about_rec", "about_credits", "about_end", "uboot", "calibration", "splash",
     "batt_0", "batt_1", "batt_2", "batt_3", "batt_usb", "motion_rec", "motion_off", "motion_card", "song_home",
-    "perform_peek", "perform_held", "perform_wait", "perform_harm", "perform_lane", "perform_lane_knobs", "menu_hold", "menu_leds", "menu_end", "menu_system", "menu_slide", "menu_prox", "menu_prox_off", "reverb_spring", "reverb_reso",
+    "perform_peek", "perform_held", "perform_wait", "perform_harm", "menu_hold", "menu_leds", "menu_end", "menu_system", "menu_slide", "menu_prox", "menu_prox_off", "reverb_spring", "reverb_reso",
     "layer_glo_peek", "layer_glo_active", "layer_glo_ext", "layer_scl_peek", "layer_scl_active", "layer_edit_peek",
     "layer_edit_active", "layer_edit_user", "layer_edit_drum", "layer_hint", "layer_lock", "layer_lock_fx", "layer_song", "layer_song_chain",
     "layer_seq_tools", "layer_seq_tools_drum", "layer_seq_tools_song",
@@ -719,7 +719,7 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "live_rieles", "live_rieles_t3", "live_mano", "live_mano_keys",
     "presets_list", "presets_list_edited", "presets_list_home", "help_macros", "help_step", "help_tools", "step_big",
     "mixer_tracks4", "home_tracks4", "mock_home", "mock_presets", "mock_seq", "mock_drum", "mock_mixer", "mock_dialog", "mock_menu",
-    "toast_env", "toast_mutate", "toast_mutate_hint", "toast_motion", "toast_motion_locks", "toast_punch", "toast_auto_list",
+    "toast_env", "toast_mutate", "toast_mutate_hint", "toast_motion", "toast_motion_locks", "toast_auto_list",
     "toast_auto_list_drum", "toast_pattern", "toast_fm6_op", "toast_analog"};
 
 /* (p2, main 0.9.11) GLO > LIVE: six sequences of their own lengths (16 32 7 16 . 1/8 20 4 . 1/4, as the mock-up's),
@@ -1072,15 +1072,14 @@ static void setup(int s)
     list_put(0);
     live.req = live.cur = -1; live.mode = live.srec = live.dirty = 0; lys.nqc = 0;   /* (the song layer: off) */
     memset(clip_now, 0, sizeof clip_now); memset(clip_go, 0, sizeof clip_go);
-    fx_lane_k = 0; memset(pfx_lane, 0, sizeof pfx_lane);   /* (V10.7.32: the FX layer's knobs FX KNOBS, its lane empty) */   /* (V10.6s: CLIPS, nothing known) */
+   /* (V10.6s: CLIPS, nothing known) */
     trk_live = NTRK;                              /* (the six awake but on *_tracks4) */
     if (s >= S_TOAST_ENV) {                       /* (0.9.5) a toast over a page with words to its foot: the pill keeps clear
                                                    * of them (or is not drawn: the header says it), never over one (hk_overlay) */
-        static const uint16_t BASE[] = {S_ENV, S_MUTATE, S_MUTATE, S_MOTION, S_MOTION_LOCKS, S_COUNT, S_AUTO_LIST,
+        static const uint16_t BASE[] = {S_ENV, S_MUTATE, S_MUTATE, S_MOTION, S_MOTION_LOCKS, S_AUTO_LIST,
                                        S_AUTO_LIST_DRUM, S_PATTERN, S_V6_FM6_OP, S_V6_ANALOG};   /* (0.9.6: over the creatures too) */
         int b = BASE[s - S_TOAST_ENV];
-        if (b == S_COUNT) { setup(S_HOME); go_page(GR_PUNCH); }
-        else setup(b);
+        setup(b);
         if (s == S_TOAST_MUTATE_HINT) {           /* (MUTATE's hint, dwelt on: ui_layer.c hint_tick) */
             ui_message("OCT+ KEEP  GLO+A4 FREEZE");
             str_cpy(ui.msg2, "SEQ+D5 REVERT  GLO+B4 ALL", sizeof ui.msg2);
@@ -1494,20 +1493,6 @@ static void setup(int s)
         perf_held = perf_act = PF_BIT(PF_R16) | PF_BIT(PF_REV) | PF_BIT(PF_PDN);
         perf_k[0] = -40; perf_k[1] = 25; perf_k[3] = 30; ui.hot_col = 0; ui.hot_t = 30;
         break;
-    case S_FX_LANE: case S_FX_LANE_K: {             /* (V10.7.32) FX held, playing, the punch-in lane along its foot (32
-                                                     * steps: REPEAT, LPF, STUTTER placed); _K: FX + PRESETS, the lane's
-                                                     * knobs (LEN RES PLAY CLR AUTO) */
-        static const uint8_t L[32] = {1, 1, 0, 0, 4, 4, 4, 4, 0, 0, 0, 0, 2, 0, 2, 0, 0, 0, 7, 7, 7, 7, 0, 0, 1, 0, 0, 0, 10, 10, 0, 0};
-        uint32_t i;
-        song.playing = 1; song.g[G_PFXLEN] = 32; song.g[G_PFXRES] = 1;
-        for (i = 0; i < 32u; i++) pfx_lane_put(i, L[i]);
-        pfx_lph = 9u * pfx_lane_step(beat_samples());   /* (the playhead on step 10) */
-        go_home(); ui.layer = LAYER_FX;
-        perf_held = perf_act = PF_BIT(PF_REV);
-        perf_k[0] = -40;
-        if (s == S_FX_LANE_K) { fx_lane_k = 1; ui.hot_col = 1; ui.hot_t = 30; }
-        break;
-    }
     case S_FX_WAIT:
         song.playing = 1; song.g[G_BPM] = 72; ui.layer = LAYER_FX;
         perf_held = PF_BIT(PF_R16) | PF_BIT(PF_R8) | PF_BIT(PF_REV); perf_act = PF_BIT(PF_REV);
@@ -1721,7 +1706,7 @@ static void setup(int s)
      * song B16 C16 A32 D8 C16 A32 (scenes on 2 and 4, END LOOP); seven user sounds */
     case S_PG0 ... S_PG_END: {   /* (V10.1) the pages the manual had no screen of: by title, on the engine they need */
         static const struct { const char *t; uint32_t e, sec; } PG[S_PG_END - S_PG0 + 1] =
-        {{"RETRIG", ENGI_LOFI, SEC_EDIT}, {"ROTOR", ENGI_WHEEL, SEC_EDIT}, {"LENGTH", 0xFFu, SEC_SEQ}, {"MODES", 0xFFu, SEC_SEQ}, {"DELAY 3", 0xFFu, SEC_FX}, {"SLICER IN", 0xFFu, SEC_FX}, {"TAPE", 0xFFu, SEC_FX}, {"EQ", 0xFFu, SEC_FX}, {"PORTS", 0xFFu, SEC_GLO}, {"COMP", 0xFFu, SEC_GLO}, {"COMP 2", 0xFFu, SEC_GLO}, {"KIT 2", ENGI_DRUM, SEC_EDIT}, {"KIT 3", ENGI_DRUM, SEC_EDIT}, {"KIT 4", ENGI_DRUM, SEC_EDIT}, {"LEVELS", ENGI_DRUM, SEC_EDIT}, {"LEVELS 2", ENGI_DRUM, SEC_EDIT}, {"KIT LFO", ENGI_DRUM, SEC_EDIT}};
+        {{"RETRIG", ENGI_LOFI, SEC_EDIT}, {"ROTOR", ENGI_WHEEL, SEC_EDIT}, {"LENGTH", 0xFFu, SEC_SEQ}, {"MODES", 0xFFu, SEC_SEQ}, {"DELAY 3", 0xFFu, SEC_FX}, {"SLICER IN", 0xFFu, SEC_FX}, {"TAPE", 0xFFu, SEC_FX}, {"EQ", 0xFFu, SEC_FX}, {"PORTS", 0xFFu, SEC_GLO}, {"KIT 2", ENGI_DRUM, SEC_EDIT}, {"KIT 3", ENGI_DRUM, SEC_EDIT}, {"KIT 4", ENGI_DRUM, SEC_EDIT}, {"LEVELS", ENGI_DRUM, SEC_EDIT}, {"LEVELS 2", ENGI_DRUM, SEC_EDIT}, {"KIT LFO", ENGI_DRUM, SEC_EDIT}};
         if (PG[s - S_PG0].e != 0xFFu) eng(PG[s - S_PG0].e);
         nav_scene(PG[s - S_PG0].sec, PG[s - S_PG0].t);
         break;

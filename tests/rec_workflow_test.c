@@ -67,15 +67,6 @@ int main(void)
     bad += check("PLAY independently starts an already armed recording",transport_req==1 && song.rec==1);
     song.playing=1;transport_req=0;frames(400);press(B_REC);
     bad += check("REC disarms during playback without stopping PLAY",song.rec==0 && song.playing && !transport_req);
-    ui_power_on();go_page(GR_GCOMP);gl_cur=14;frame();
-    {uint32_t preset=TSEL->preset,engine=TSEL->eng_req,cur=ui.cursor;
-     uint32_t pg=ui.page;
-     turn(EN_PRESET,3);   /* (V10.7.33, the owner: PRESETS the sounds' list only; the lane's step: its keys, KNOB 1) */
-     bad += check("PRESETS on COMP (global) opens the sounds' list: the lane's step, the sound and the local cursor stay",gl_cur==14 && cur_page()->graph==GR_BROWSE && TSEL->preset==preset && TSEL->eng_req==engine && ui.cursor==cur);
-     press(B_OCTDN);
-     ui.page=(uint8_t)(pg+1u);page_entered();frame();turn(EN_K1,1);
-     bad += check("KNOB 1 moves the global lane's step on COMP 2",gco_slot() && gl_cur==15 && TSEL->preset==preset && TSEL->eng_req==engine);
-    }
     bad += test_rec();
     bad += test_rec_layer();
     bad += test_rec_combos();

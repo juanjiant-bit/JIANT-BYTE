@@ -3279,7 +3279,6 @@ static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (
         send_c[i] = send_d[i] = send_r[i] = mix_l[i] = mix_r[i] = sl_l[i] = sl_r[i] = 0;
     if (fx_stems)                                       /* (0.7.1) a part not mixed this block: a silent stem */
         memset(stem_buf, 0, sizeof stem_buf);
-    pfx_rec_held = perf_kill ? 0u : perf_held & PF_MIDI;
     pfx_block(n, (perf_kill ? 0u : (perf_held | perf_latched) & PF_NOTES) | scene_pfx);   /* (V10.7.36: LIFE MAX too) */
     mac_tick(n);                                        /* (JIANT BYTE) the macros' equations (below, in flash) */
     clay_tick(n);                                       /* (BYTE) DRONE CLAY: its modulators, its drone (seq.c clay.c) */
