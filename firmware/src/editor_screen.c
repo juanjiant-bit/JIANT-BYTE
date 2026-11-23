@@ -22,7 +22,7 @@ static int ed_screen_handle(uint32_t cmd, const uint8_t *a, uint32_t na) { (void
 #else
 #define SCR_W 240u
 #define SCR_H 240u
-#define SCR_CAP 256u                           /* the token bytes of one frame (+ 17 header bytes: a 0.3 KiB SysEx; 480 until V10.8.20's pool
+#define SCR_CAP 128u                           /* (BYTE: 128, the pool 8 KiB to spare) the token bytes of one frame (+ 17 header bytes; 480 until V10.8.20's pool
                                                 * left 8 KiB to spare and no more) */
 #define SCR_IDLE_MS 4000u
 #define SCR_RUN_MAX 1064u                      /* 40 short + 1024 long */
