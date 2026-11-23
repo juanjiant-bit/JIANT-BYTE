@@ -1,9 +1,9 @@
 [
  {
-  "version": "BYTE v0.16-cc09e16",
-  "file": "felucca-BYTE-v0.16-cc09e16.fwsc",
-  "sha256": "15ff5f94fc0ae9ec6e13889af4c4dd9348fed3666b10e5ad8beb835edf52216f",
-  "commit": "cc09e169dc30e38cc820ea67f5e70f522d0773c3"
+  "version": "BYTE v0.16-b871798",
+  "file": "felucca-BYTE-v0.16-b871798.fwsc",
+  "sha256": "33b8b1a872d560c7a1ac2370c670a7f901bc4d91e3a433858e6ed033a9ad089c",
+  "commit": "b8717981dc8627c19488abde9596a2a05c3f3e29"
  },
  {
   "version": "BYTE v0.15-b2a639e",
