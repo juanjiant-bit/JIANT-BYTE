@@ -217,7 +217,9 @@ static uint32_t tl_stretch(track_t *t, int32_t k)
         for (j = 0; j < nlen; j++) step_clear(&t->step[j]);   /* (the steps past the new LEN stay, as every tool's) */
         for (i = 0; i < len && i * m < NSTEP; i++) {
             const step_t *s = &tl_src[i];
-            int hold = s->time == ST_TIE || (s->time == ST_NOTE && s->n && i + 1u < len && tl_src[i + 1u].time == ST_TIE);
+            int hold = s->time == ST_TIE || (s->time == ST_NOTE && s->n && (!drum_track(t) || (i + 1u < len && tl_src[i + 1u].time == ST_TIE)));   /* (BYTE, the
+                                                         * owner: a note of a step is as long again, stretched: its m steps
+                                                         * tied; a kit's hit stays a hit) */
             t->step[i * m] = *s;
             for (j = 1; j < m && i * m + j < NSTEP; j++)
                 if (hold) { t->step[i * m + j].time = ST_TIE; t->step[i * m + j].vel = s->vel; }
