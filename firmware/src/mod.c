@@ -383,6 +383,41 @@ static __attribute__((noinline)) void ms_tick(track_t *t)
 
 /* before a part's block (fx.c mix_part): the per-track offsets, the per-block destinations into t->p.
  * 0 = no slot active (then nothing changed) */
+/* (BYTE, as JIANT FM's port) DRONE CLAY's four slots, only when its track's CLAY is on: out of mod_begin, which every
+ * part runs every block */
+static __attribute__((noinline)) void clay_mod(track_t *t, mod_t *mp, int32_t *off, uint32_t tr)
+{
+    const int16_t *p = t->p;
+    uint32_t k, j;
+    for (k = 0; k < 4u; k++) {                   /* (BYTE) DRONE CLAY's four: what each adds now on its DEST, as a
+                                                         * slot of the whole range (seq.c clay_tick; its AMOUNT in it) */
+        uint32_t d = CLAY_MD[clamp(clay[tr][CL_MF(k, 0u)], 0, CLAY_ND - 1)], id;
+        int32_t x = clay_v[tr][k];
+        const param_desc_t *pd;
+        if (!d || !x)
+            continue;
+        if (d <= MD_AMP) {
+            mp->amp |= d == MD_AMP;
+            mod_voice_add(MS_LFO, d, x, 64, &mp->pit, &mp->cut, &mp->shp, &mp->gain);
+            continue;
+        }
+        if (d == MD_LIFE) {
+            mp->lof = (int16_t)clamp(mp->lof + ((x * 100) >> 15), -100, 100);
+            continue;
+        }
+        id = mod_param(d);
+        pd = mod_track_desc(t, id);
+        for (j = 0; j < mp->nk && mp->kid[j] != id; j++)
+            ;
+        if (j == mp->nk) {
+            mp->kid[j] = (uint8_t)id;
+            mp->keep[j] = p[id];
+            off[j] = 0;
+            mp->nk++;
+        }
+        off[j] += (x * (id == P_LRATE ? 127 : pd->max - pd->min)) >> 15;
+    }
+}
 static __attribute__((noinline)) int mod_begin(track_t *t)
 {
     mod_t *const mp = &MOD;                          /* (0.6.71) this core's */
@@ -448,34 +483,8 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
                                                                                                * as before its in-time values) */
         }
     }
-    for (k = 0; cl && k < 4u; k++) {                   /* (BYTE) DRONE CLAY's four: what each adds now on its DEST, as a
-                                                         * slot of the whole range (seq.c clay_tick; its AMOUNT in it) */
-        uint32_t d = CLAY_MD[clamp(clay[tr][CL_MF(k, 0u)], 0, CLAY_ND - 1)], id;
-        int32_t x = clay_v[tr][k];
-        const param_desc_t *pd;
-        if (!d || !x)
-            continue;
-        if (d <= MD_AMP) {
-            mp->amp |= d == MD_AMP;
-            mod_voice_add(MS_LFO, d, x, 64, &mp->pit, &mp->cut, &mp->shp, &mp->gain);
-            continue;
-        }
-        if (d == MD_LIFE) {
-            mp->lof = (int16_t)clamp(mp->lof + ((x * 100) >> 15), -100, 100);
-            continue;
-        }
-        id = mod_param(d);
-        pd = mod_track_desc(t, id);
-        for (j = 0; j < mp->nk && mp->kid[j] != id; j++)
-            ;
-        if (j == mp->nk) {
-            mp->kid[j] = (uint8_t)id;
-            mp->keep[j] = p[id];
-            off[j] = 0;
-            mp->nk++;
-        }
-        off[j] += (x * (id == P_LRATE ? 127 : pd->max - pd->min)) >> 15;
-    }
+    if (cl)                                             /* (BYTE) DRONE CLAY's four, off the hot path (clay_mod) */
+        clay_mod(t, mp, off, tr);
     for (j = 0; j < mp->nk; j++) {
         uint32_t id = mp->kid[j];
         const param_desc_t *pd = mod_track_desc(t, id);
