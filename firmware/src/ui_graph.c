@@ -89,7 +89,7 @@ static void graph_adsr(const track_t *t, uint16_t c)
     if (adsr_tr != tr) { memset(adsr_h, 0, sizeof adsr_h); memset(adsr_ps, 0, sizeof adsr_ps); adsr_tr = (uint8_t)tr; }
     for (i = 0; i < NVOICE; i++) {                      /* a note begun: a layer */
         if (t->v[i].stage == 1u && adsr_ps[i] != 1u) {
-            memmove(adsr_h + 1, adsr_h, sizeof adsr_h - 1u);
+            for (k = 9; k > 0; k--) adsr_h[k] = adsr_h[k - 1];   /* (no memmove on the device) */
             adsr_h[0] = (uint8_t)clamp(t->v[i].vel ? t->v[i].vel : 100, 20, 127);
         }
         adsr_ps[i] = t->v[i].stage;
@@ -1730,8 +1730,18 @@ static __attribute__((noinline)) void track_col6(uint32_t c, uint32_t sel, uint3
     int32_t k, lv = (int32_t)lvl * 14 / 127, mt = ts.meter[c] * 14 / TS_MH, pw = T6_W - 8;
     uint16_t lc = hot == 1u ? T_ACCENT : lvl ? (mute ? T_DIM : T_TEXT) : T_DIM;
     cv_begin(T6_W, H_GRAPH, T_BG);
-    cv_rrect(0, 0, T6_W, H_GRAPH, 5, T_SURF, T_BG);
-    cv_trk(4, 5, 16, c, trk_num_col(c, sel), T_SURF);
+    cv_rect(0, 0, T6_W, H_GRAPH, T_SURF);               /* (BYTE, the owner's CHANNELS HUD) its number a tag in its colour */
+    {
+        uint16_t nb = mute == 2u ? T_LINE : trk_num_col(c, sel);
+        char nn[2] = {(char)('1' + c), 0};
+        cv_rect(3, 4, 13, 14, nb);
+        cv_text_on(6, 5 + (14 - AF_S_CAP_H) / 2 - AF_S_CAP_Y, &AF_S, nn, c % 6u >= 4u && mute != 2u ? 0xFFFFu : 0x0000u, nb);
+    }
+    if (sel) {                                       /* (the one chosen: yellow corners) */
+        cv_rect(0, 0, 3, 1, HUD_YE); cv_rect(0, 0, 1, 3, HUD_YE); cv_rect(T6_W - 3, 0, 3, 1, HUD_YE); cv_rect(T6_W - 1, 0, 1, 3, HUD_YE);
+        cv_rect(0, H_GRAPH - 1, 3, 1, HUD_YE); cv_rect(0, H_GRAPH - 3, 1, 3, HUD_YE);
+        cv_rect(T6_W - 3, H_GRAPH - 1, 3, 1, HUD_YE); cv_rect(T6_W - 1, H_GRAPH - 3, 1, 3, HUD_YE);
+    }
     if (st == 1u || st == 2u)                        /* armed: a dot (recording: red) */
         cv_rrect(T6_W - 11, 10, 6, 6, 3, st == 1u ? T_REC : T_ACCENT, T_SURF);
     if (mute == 2u)                                  /* asleep (TRACKS 4) */
@@ -1753,20 +1763,23 @@ static __attribute__((noinline)) void track_col6(uint32_t c, uint32_t sel, uint3
         static const char *const SN[3] = {"C", "D", "R"};
         for (k = 0; k < 3; k++) {
             int32_t v = trk[c].p[P_CHOR + (uint32_t)k] * 60 / 127;   /* (P_CHOR P_DLY P_REV: in a row) */
-            cv_rect(4 + k * 10, 38, 8, 62, T_RAISE);
-            if (v)
-                cv_rect(4 + k * 10, 100 - v, 8, v, mute ? T_DIM : sel && hot == (uint32_t)k + 1u ? T_ACCENT :
-                        heat_col(60 + v * 3));
+            int32_t q;                               /* (BYTE: cells) */
+            for (q = 0; q < 12; q++)
+                cv_rect(4 + k * 10, 95 - q * 5, 8, 4, q * 5 < v ? (mute ? T_DIM : sel && hot == (uint32_t)k + 1u ? HUD_YE : heat_col(40 + q * 18)) : T_LINE);
             cv_text(5 + k * 10, 106 - AF_X_CAP_Y, &AF_X, SN[k], T_TEXT);
         }
         cv_blit((uint32_t)T6_X(c), lz_on() ? graph_y() + 9u : Y_GRAPH);
         return;
     }
-    for (k = 0; k < 14; k++) {                       /* LEVEL: cold at the bottom, hot at the top */
+    for (k = 0; k < 14; k++) {                       /* LEVEL: the meter a matrix, cold at the bottom, hot at the top */
         int32_t sy = 95 - k * 4;
         uint16_t sc = heat_col(20 + k * 220 / 13);
-        sc = mute ? (k < lv ? T_DIM : T_RAISE) : k < mt ? sc : k < lv ? ux_mix(T_SURF, sc, 42) : T_RAISE;
+        sc = mute ? (k < mt ? T_DIM : T_LINE) : k < mt ? sc : T_LINE;
         cv_rect(4, sy, 12, 3, sc);
+    }
+    if (lvl) {                                       /* the fader: a yellow line, its dB beside it */
+        int32_t fy = 98 - lv * 4;
+        cv_rect(2, fy, 16, 1, mute ? T_DIM : HUD_YE);
     }
     if (lvl) {
         int32_t d = LEVEL_DB_X10_AT(lvl);
@@ -1774,16 +1787,14 @@ static __attribute__((noinline)) void track_col6(uint32_t c, uint32_t sel, uint3
     } else {
         str_cpy(v, "OFF", sizeof v);
     }
-    cv_text_in(17, 44, T6_W - 18, &AF_S, v, lc, T_SURF);
-    cv_text_in(17, 58, T6_W - 18, &AF_S, "dB", T_TEXT, T_SURF);
-    cv_rect(4, 104, pw, 3, T_RAISE);                 /* PAN, from the middle */
-    cv_rect(4 + pw / 2, 102, 1, 7, hot == 2u ? T_ACCENT : T_MID);
-    if (pan)
-        cv_rect(pan > 0 ? 4 + pw / 2 + 1 : 4 + pw / 2 + pan * (pw / 2) / 64, 104, (pan > 0 ? pan : -pan) * (pw / 2) / 64 + 1,
-                3, mute ? T_DIM : hot == 2u ? T_ACCENT : heat_col(70 + (pan > 0 ? pan : -pan) * 2));
-    cv_rect(4, 113, pw, 3, T_RAISE);                 /* the REV send */
-    if (rv)
-        cv_rect(4, 113, rv * pw / 127 + 1, 3, mute ? T_DIM : heat_col(40 + rv * 3 / 2));   /* (codex/coherence: on SENDS'
+    cv_text_in(17, 44, T6_W - 18, &AF_S, v, hot == 1u ? HUD_YE : lvl && !mute ? HUD_YE : T_DIM, T_SURF);
+    cv_text_in(17, 58, T6_W - 18, &AF_S, "dB", T_DIM, T_SURF);
+    (void)lc;
+    for (k = 0; k < pw; k += 3) cv_pset(4 + k, 105, T_LINE);   /* PAN: a dotted line, a dot in its colour */
+    cv_rect(4 + pw / 2, 103, 1, 5, T_MID);
+    cv_rect(4 + pw / 2 + pan * (pw / 2) / 64 - 1, 102, 3, 7, mute ? T_DIM : hot == 2u ? HUD_YE : TRK_COL[c % 6u]);
+    for (k = 0; k < pw / 4; k++)                     /* the REV send: cells */
+        cv_rect(4 + k * 4, 113, 3, 3, k * 4 < rv * pw / 127 ? (mute ? T_DIM : heat_col(40 + k * 12)) : T_LINE);   /* (codex/coherence: on SENDS'
                                                          * knobs, MIXER's KNOB 3 MUTE) */
     cv_blit((uint32_t)T6_X(c), lz_on() ? graph_y() + 9u : Y_GRAPH);   /* (0.8.5: GLO's lens, the panel under the cards) */
 }
