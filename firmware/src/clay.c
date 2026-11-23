@@ -11,8 +11,15 @@ static void ui_message(const char *s);                  /* (ui.c) */
 static uint32_t clay_free;                              /* (FREE stopped: its own beat, Q16) */
 static int16_t clay_sp[CLAY_SPN];                        /* (the audio's FORM slots: clay_fill) */
 /* (main.c, at power-on: RAMTEXT's room is not zeroed) */
+/* (BYTE, the owner: the keys, as FORM's) the keys' state: the MOD chosen, the drone's degree (a root key's), the last key's
+ * event for its card (seq: changes per event; kind 1 a gesture, 2 a MOD, 3 a mode, 4 the root; a, b its values);
+ * written by the audio's keys (core 0), read by the UI */
+static uint8_t clay_km[NTRK] __attribute__((section(".eu_keep")));
+static int8_t clay_kr[NTRK] __attribute__((section(".eu_keep")));
+static struct { uint8_t seq, tr, kind, a, b, held; } clay_ke __attribute__((section(".eu_keep")));
 static void clay_boot(void)
 {
+    memset(clay_km, 0, sizeof clay_km); memset(clay_kr, 0, sizeof clay_kr); memset(&clay_ke, 0, sizeof clay_ke);
     memset(clay, 0, sizeof clay); memset(clay_v, 0, sizeof clay_v); memset(clay_dn, 0, sizeof clay_dn);
     memset(clay_nn, 0, sizeof clay_nn); memset(clay_lr, 0, sizeof clay_lr);
 }
@@ -24,6 +31,14 @@ static void clay_stop(uint32_t tr)
     clay_dn[tr] = clay_nn[tr] = 0;
     clay_v[tr][0] = clay_v[tr][1] = clay_v[tr][2] = clay_v[tr][3] = 0;
     form_lit[tr] = 0;
+}
+static int clay_klive(const form_st_t *st)            /* a key's gesture alive (the keys play while stopped too) */
+{
+    uint32_t i;
+    for (i = 0; i < FORM_G; i++)
+        if ((st->g[i].fl & 8u) && st->g[i].key)
+            return 1;
+    return 0;
 }
 static __attribute__((noinline)) void clay_tick(uint32_t n)
 {
@@ -39,7 +54,7 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
         form_st_t *st = &form_st[tr];
         uint32_t end = b, seed = (uint32_t)clamp(c[CL_SEED], 0, 127) * 977u + 1u, root, dn;
         int32_t D[FV_N] = {0};
-        if (!c[CL_ON] || tr >= trk_live || t->p[P_MUTE] || (!song.playing && c[CL_RUN] != 1)) {
+        if (!c[CL_ON] || tr >= trk_live || t->p[P_MUTE] || (!song.playing && c[CL_RUN] != 1 && !clay_klive(st))) {
             if (clay_dn[tr] | clay_nn[tr] | form_lit[tr]) clay_stop(tr);
             continue;
         }
@@ -62,7 +77,8 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
         for (k = 0; k < 4u; k++)
             clay_v[tr][k] = (int16_t)clamp(st->mv[k] * 256, -32767, 32767);
         root = (uint32_t)clamp(t->p[P_ROOT], 0, 11);
-        dn = 12u * (uint32_t)(clamp(c[CL_OCT], 0, 3) + 1) + root;   /* the drone: C0 .. C3 on the ROOT */
+        dn = 12u * (uint32_t)(clamp(c[CL_OCT], 0, 3) + 1) + root + (uint32_t)clay_kr[tr];   /* the drone: C0 .. C3 on the ROOT
+                                                         * (+ a root key's degree) */
         {
             uint32_t per = PER[clamp(c[CL_RATE], 0, 7)], cnt = per ? end / per : 0u;
             if (clay_dn[tr] != dn || (per && cnt != clay_lr[tr])) {   /* new, moved, or its RATE's strike */
@@ -172,4 +188,108 @@ static void clay_from_form(uint32_t tr, const int16_t *p)
         c[CL_MF(m, 3u)] = (int16_t)clamp(p[FORM_MF[m][2]], 0, 127);
         c[CL_DEC + m] = (int16_t)clamp(p[FORM_MF[m][3]], 0, 127);
     }
+}
+
+/* (BYTE, the owner: "what each key does", as FORM's keys) DRONE CLAY ON: the keys are its gestures, not notes (seq.c
+ * key_on / key_off). The whites the shapes of the OCT's page (0 the HITS, +1 the TABLES, +2 the GESTURES, -1 the NOTES,
+ * -2 FM) into the chosen MOD, their velocity its amount; the blacks MOD 1..4 (tapped: chosen; held: the whites into it),
+ * LATCH x2 /2 INV; the last seven the drone's degree. Each a card (clay_card) */
+static const uint8_t CLAY_KMAP[27] = {0, 16, 1, 17, 2, 18, 3, 4, 19, 5, 20, 6, 7, 21, 8, 22, 9, 23, 10, 11, 32, 33, 34, 35, 36, 37, 38};
+static const uint8_t CLAY_KPG[5] = {FPG_FM, FPG_NOTE, FPG_HIT, FPG_TAB, FPG_GES};   /* (OCT -2 .. +2) */
+static const uint8_t CLAY_DEG[7] = {0, 2, 3, 5, 7, 8, 10};
+static void clay_kev(uint32_t tr, uint32_t kind, uint32_t a, uint32_t b, uint32_t held)
+{
+    clay_ke.tr = (uint8_t)tr; clay_ke.kind = (uint8_t)kind; clay_ke.a = (uint8_t)a; clay_ke.b = (uint8_t)b;
+    clay_ke.held = (uint8_t)held;
+    clay_ke.seq++;
+}
+static void clay_key(track_t *t, uint32_t k, uint32_t vel, int on)
+{
+    uint32_t tr = (uint32_t)(t - trk) % NTRK, c = CLAY_KMAP[k % 27u], i;
+    form_st_t *st = &form_st[tr];
+    if (c >= 32u) {                                     /* the drone's degree */
+        if (on) { clay_kr[tr] = (int8_t)CLAY_DEG[c - 32u]; clay_kev(tr, 4u, c - 32u, 0u, 1u); }
+        return;
+    }
+    if (c >= 16u) {
+        uint32_t b = c - 16u;
+        if (b < 4u) {                                   /* MOD 1..4: held, the whites into it; tapped, chosen */
+            if (on) { st->hmod = (int8_t)(b + 1u); st->hdown = st->clk; clay_kev(tr, 2u, b, 1u, 1u); }
+            else {
+                if (st->clk - st->hdown < (3u << 15)) clay_km[tr] = (uint8_t)b;
+                st->hmod = 0;
+                clay_kev(tr, 2u, b, 0u, 0u);
+            }
+            return;
+        }
+        {
+            uint8_t bit = (uint8_t)(1u << (b - 4u));
+            if (on) st->modes |= bit; else st->modes &= (uint8_t)~bit;
+            if (on) clay_kev(tr, 3u, b - 4u, 1u, 1u);
+        }
+        return;
+    }
+    if (on) {
+        uint32_t sh = (uint32_t)CLAY_KPG[clamp(song.octave, -2, 2) + 2] * 12u + c, m = st->hmod > 0 ? (uint32_t)st->hmod - 1u : clay_km[tr] & 3u;
+        if (sh >= FORM_NSH || sh == 49u) return;          /* (FM x1: none) */
+        for (i = 0; i < FORM_G; i++)
+            if ((st->g[i].fl & 10u) == 10u && st->g[i].key == k + 1u) { st->g[i].fl &= (uint8_t)~3u; return; }   /* (a latched one: let go) */
+        form_spawn(st, sh, m, vel, 1u | ((st->modes & 1u) ? 2u : 0u), 0u, k + 1u);
+        clay_kev(tr, 1u, sh, m, 1u);
+    } else {
+        for (i = 0; i < FORM_G; i++)
+            if ((st->g[i].fl & 8u) && st->g[i].key == k + 1u && !(st->g[i].fl & 2u)) st->g[i].fl &= (uint8_t)~1u;
+        if (clay_ke.tr == tr) clay_ke.held = 0;
+    }
+}
+/* seq.c key_on / key_off: op 1 down, 0 up; 1 if DRONE CLAY took the key */
+static __attribute__((noinline)) int clay_kb(uint32_t k, track_t *t, int op)
+{
+    if (!clay_on((uint32_t)(t - trk) % NTRK) || drum_track(t))
+        return 0;
+    if (op == 1) { clay_key(t, k, KB_VEL(k), 1); kb_on[k] = 1; kb_sn[k] = 0; }
+    else { kb_on[k] = 0; clay_key(t, k, 0, 0); }
+    return 1;
+}
+static const char *const CLAY_HOW[55]={"SWAYS UP AND DOWN|EVERY 4 STEPS","JUMPS TO RANDOM|VALUES EACH STEP","WANDERS SLOWLY|TO RANDOM POINTS","BOUNCES ONCE|AND SETTLES","CLIMBS 4 STAIRS|EVERY 16 STEPS","BOUNCES FASTER|AND SMALLER","RISES SLOW|THEN FAST","FALLS FAST|THEN SLOW","RANDOM EVERY|HALF STEP","ONE LONG RAMP|OVER 64 STEPS","OPENS AT RANDOM|ONE IN FOUR","A GATE IN|TRIPLETS","DROPS OCTAVES,|SINE, LOUDER","MID PITCH,|DIRTY PHASE","VERY HIGH,|METALLIC FM","HIGH, METALLIC,|LONG TAIL","BURSTS OF|DIRTY PHASE","A SHORT HIGH|WOODEN CLICK","A LOW FALLING|SINE BODY","FALLS FROM|VERY HIGH","HIGH AND|FED BACK, GRITTY","DIRT THAT|FADES SLOWLY","DIRT THAT GROWS|OVER 8 STEPS","A HIGH METALLIC|WASH, LONG","RISES EVERY|4 STEPS, LOOPS","FALLS EVERY|4 STEPS, LOOPS","UP AND DOWN|EVERY 4 STEPS","ON AND OFF|EVERY 2 STEPS","RISES IN 4 STEPS|AND STAYS","JUMPS UP,|THEN FADES","A SLOW BUILD|OVER 16 STEPS","ON AND OFF|EVERY HALF STEP","A STUTTER THAT|SPEEDS UP","PUSHES DOWN|WHILE HELD","PUSHES UP|WHILE HELD","SINKS UNDER|HEARING: SILENCE","TO THE ROOT,|0 3 7 12 UP","TO THE ROOT,|12 7 3 0 DOWN","TO THE ROOT,|UP AND DOWN","TO THE ROOT,|RANDOM NOTES","A MINOR CHORD|STRUMMED FAST","A MAJOR CHORD|STRUMMED FAST","A SUS4 CHORD|STRUMMED FAST","A MINOR 7TH|STRUMMED FAST","4 NEIGHBOURS|STRUMMED FAST","TO THE ROOT,|AN OCTAVE UP","TO THE ROOT,|A FIFTH UP","SLIDES DOWN|AN OCTAVE","FM PARTNER|AT x1/2","FM PARTNER|AT x1","FM PARTNER|AT x1.5","FM PARTNER|AT x2","FM PARTNER|AT x3","FM PARTNER|AT x5","FM PARTNER|AT x7"};
+static uint8_t clay_cs __attribute__((section(".eu_keep"))), clay_cv __attribute__((section(".eu_keep")));
+static uint32_t clay_cms __attribute__((section(".eu_keep")));
+/* (the UI's: ui_input.c clay_card_poll) */
+static int clay_card_on(void) { return clay_cv; }
+static const char *const CLAY_MODE[4] = {"LATCH", "x2 FASTER", "/2 SLOWER", "INVERTED"};
+/* the card's words for the last key: line a (what), line b (how); 0 none */
+static int clay_card_text(char *a, char *b)
+{
+    const track_t *t = &trk[clay_ke.tr % NTRK];
+    int16_t *dv;
+    a[0] = b[0] = 0;
+    if (clay_ke.kind == 1u) {                           /* a gesture: its shape, MOD, where it goes; how */
+        uint32_t sh = clay_ke.a % FORM_NSH, m = clay_ke.b & 3u, j;
+        const param_desc_t *dd = clay_desc(t, CL_MF(m, 0u), &dv);
+        str_cpy(a, FORM_SHAPE[sh], 24);
+        str_cpy(a + str_len(a), " \xB7 M", 24 - str_len(a));
+        j = str_len(a); a[j] = (char)('1' + m); a[j + 1u] = 0;
+        str_cpy(a + str_len(a), " \xB7 ", 24 - str_len(a));
+        str_cpy(a + str_len(a), sh / 12u == FPG_NOTE ? "NOTES" : dd && dd->names ? dd->names[clamp(clay[t - trk][CL_MF(m, 0u)], dd->min, dd->max)] : "-", 24 - str_len(a));
+        {
+            const char *h = CLAY_HOW[sh], *p = h;
+            uint32_t n = 0;
+            while (*p && *p != '|' && n < 39u) b[n++] = *p++;
+            if (*p == '|' && n < 38u) { b[n++] = ' '; p++; while (*p && n < 39u) b[n++] = *p++; }
+            b[n] = 0;
+        }
+    } else if (clay_ke.kind == 2u) {
+        str_cpy(a, "MOD ", 24); a[4] = (char)('1' + (clay_ke.a & 3u)); a[5] = 0;
+        str_cpy(b, clay_ke.b ? "HELD: THE WHITES GO INTO IT" : "CHOSEN: THE WHITES GO INTO IT", 40);
+    } else if (clay_ke.kind == 3u) {
+        str_cpy(a, CLAY_MODE[clay_ke.a & 3u], 24);
+        str_cpy(b, "WHILE HELD: THE NEXT GESTURES", 40);
+    } else if (clay_ke.kind == 4u) {
+        static const char *const NN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+        str_cpy(a, "DRONE ", 24);
+        str_cpy(a + 6, NN[((uint32_t)clamp(t->p[P_ROOT], 0, 11) + CLAY_DEG[clay_ke.a % 7u]) % 12u], 18);
+        str_cpy(b, "THE DRONE ON THE SCALE'S DEGREE", 40);
+    } else
+        return 0;
+    return 1;
 }

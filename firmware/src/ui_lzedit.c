@@ -222,6 +222,18 @@ static __attribute__((noinline)) void graph_clay_lz(const track_t*t){
  const page_t*pg=cur_page();
  if(pg->id[0]>=ID_CL0+CL_M0&&pg->id[0]<ID_CL0+CL_DEC)sel=(pg->id[0]-ID_CL0-CL_M0)/4u;
  cv_oy=0;form_scope_tr=(uint8_t)tr;
+ if(clay_card_on()&&clay_ke.tr==tr){                 /* (the owner: what the key does) the last key's card, a moment */
+  char a[24],b[40];int32_t y;
+  if(clay_ke.kind==1u){uint32_t sh=clay_ke.a%FORM_NSH;const char*h=CLAY_HOW[sh],*p=h;char l[24];uint32_t n=0;
+   cv_text_on(8,18-AF_L_CAP_Y,&AF_L,FORM_SHAPE[sh],FT_YE,T_BG);
+   clay_card_text(a,b);{const char*q=a;while(*q&&!(q[0]=='M'&&q[1]>='1'&&q[1]<='4'))q++;ft_tag(8,48,*q?q:"-",0x0000,tc);}
+   while(*p&&*p!='|'&&n<23u)l[n++]=*p++;l[n]=0;cv_text(8,72-AF_M_CAP_Y,&AF_M,l,T_TEXT);
+   if(*p=='|')cv_text(8,92-AF_M_CAP_Y,&AF_M,p+1,T_TEXT);
+   cv_text(8,116-AF_X_CAP_Y,&AF_X,clay_ke.held?"HELD":"LET GO",T_DIM);}
+  else if(clay_card_text(a,b)){cv_text_on(8,24-AF_L_CAP_Y,&AF_L,a,FT_YE,T_BG);
+   y=60;{const char*p=b;char l[24];uint32_t n;while(*p){n=0;while(*p&&n<20u){l[n++]=*p++;if(p[-1]==' '&&n>14u)break;}l[n]=0;cv_text(8,y-AF_M_CAP_Y,&AF_M,l,T_TEXT);y+=20;}}}
+  return;
+ }
  if(hud_tick(0x20u|tr))
   for(m=0;m<4u;m++){hud_put(m,hud_x,(uint32_t)(clamp(clay_v[tr][m]>>11,-8,7)+8));hud_put(4u+m,hud_x,((form_lit[tr]>>m)&1u)*15u);}
  {int32_t px=0,py=0,pk=16;ft_frame(1,22);ft_tag(1,6,"OUT",0x0000,tc);

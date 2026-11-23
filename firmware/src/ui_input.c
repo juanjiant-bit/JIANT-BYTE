@@ -2621,6 +2621,27 @@ static void scale_link(void)
 }
 
 static void ui_input_frame(void);
+/* (BYTE, the owner: "a screen with what each key does") DRONE CLAY's last key (clay.c clay_kev): a card a moment (while
+ * held, 0.6 s after): on its pages the panel's (ui_lzedit.c graph_clay_lz), elsewhere a message */
+static void clay_card_poll(void)
+{
+    if (clay_ke.seq != clay_cs) {
+        char a[24], b[40];
+        clay_cs = clay_ke.seq;
+        clay_cms = fm1_ms;
+        clay_cv = 1;
+        if ((ui.home || cur_page()->fam != FAM_SEQ || cur_page()->id[0] < ID_CL0 || cur_page()->id[0] >= ID_CL0 + CLAY_NF)
+            && clay_card_text(a, b)) {
+            ui_message(a);
+            str_cpy(ui.msg2, b, sizeof ui.msg2);
+        }
+        ui.force = 1;
+    } else if (clay_cv && !clay_ke.held && fm1_ms - clay_cms >= 600u) {
+        clay_cv = 0;
+        ui.force = 1;
+    } else if (clay_cv && clay_ke.held)
+        clay_cms = fm1_ms;
+}
 static void ui_input(void)
 {
     static uint8_t cpu_seen;                            /* (BYTE 0.16) the CPU full, a part paused: said once */
@@ -2634,6 +2655,7 @@ static void ui_input(void)
         cpu_seen = cpu_pause;
     }
     ui_input_frame();
+    clay_card_poll();                                   /* (BYTE) DRONE CLAY's key cards */
     eu_tick();                                          /* (V10.16) EUCLID's MUTATE, on the bar */
     scale_link();                                       /* (JIANT 0.4) one scale for every melodic track (after the
                                                          * frame's edits) */

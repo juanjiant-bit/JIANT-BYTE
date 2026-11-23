@@ -1519,8 +1519,11 @@ static void key_next(uint32_t k, track_t *t)
     }
     kb_on[k]++;
 }
+static int clay_kb(uint32_t k, track_t *t, int op);   /* (clay.c: DRONE CLAY ON, the keys its gestures) */
 static void key_on(uint32_t k, track_t *t)
 {
+    if (clay_kb(k, t, 1))
+        return;
     uint32_t n = chord_build(t, kb_note[k], kb_snd[k]), gap = n > 1u ? chord_gap(t) : 0u, i;
     kb_on[k] = 0;
     kb_sn[k] = (uint8_t)n;
@@ -1560,6 +1563,8 @@ static void key_off(uint32_t k, track_t *t)
 {
     uint32_t n = kb_on[k], i;
     if (!n)
+        return;
+    if (clay_kb(k, t, 0))
         return;
     dxo_off(t, DXO_KEY + k);                         /* the held performance ends */
     kb_on[k] = 0;                                   /* (the strum's notes not in yet: never) */
