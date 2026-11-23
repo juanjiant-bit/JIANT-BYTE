@@ -17,11 +17,13 @@ static int16_t clay_sp[CLAY_SPN];                        /* (the audio's FORM sl
 static uint8_t clay_km[NTRK] __attribute__((section(".eu_keep")));
 static int8_t clay_kr[NTRK] __attribute__((section(".eu_keep")));
 static struct { uint8_t seq, tr, kind, a, b, held; } clay_ke __attribute__((section(".eu_keep")));
+static uint32_t clay_b0[NTRK] __attribute__((section(".eu_keep"))), clay_pq[NTRK] __attribute__((section(".eu_keep")));   /* (a punch-in's restart: the time it began; what was held) */
 static void clay_boot(void)
 {
     memset(clay_km, 0, sizeof clay_km); memset(clay_kr, 0, sizeof clay_kr); memset(&clay_ke, 0, sizeof clay_ke);
     memset(clay, 0, sizeof clay); memset(clay_v, 0, sizeof clay_v); memset(clay_dn, 0, sizeof clay_dn);
     memset(clay_nn, 0, sizeof clay_nn); memset(clay_lr, 0, sizeof clay_lr);
+    memset(clay_b0, 0, sizeof clay_b0); memset(clay_pq, 0, sizeof clay_pq);
 }
 static void clay_stop(uint32_t tr)
 {
@@ -58,6 +60,16 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
             if (clay_dn[tr] | clay_nn[tr] | form_lit[tr]) clay_stop(tr);
             continue;
         }
+        {   /* (the owner) a punch-in on the time or the pitch: the composition from its first hit, the moment it goes in;
+             * let go, back on the transport's grid (never out of phase) */
+            uint32_t pq = (pt_ops & PT_TIME_OPS) | (uint32_t)(t->pfx & (PFX_HALF | PFX_LOOP | PFX_REP)) << 12 | (t->pfx_pit ? 1u << 20 : 0u);
+            if (pq != clay_pq[tr]) {
+                clay_b0[tr] = pq ? b : 0u;
+                for (k = 0; k < 4u; k++) st->lastm[k] = -1;
+                clay_pq[tr] = pq;
+            }
+            end = b - clay_b0[tr];
+        }
         clay_fill(c, clay_sp);
         if (pt_ops & PT_TIME_OPS)                       /* (the white punch-ins: the composition's time, as FORM's) */
             end = pt_time(end >> 4, 0u) << 4;
@@ -80,8 +92,15 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
         dn = 12u * (uint32_t)(clamp(c[CL_OCT], 0, 3) + 1) + root + (uint32_t)clay_kr[tr];   /* the drone: C0 .. C3 on the ROOT
                                                          * (+ a root key's degree) */
         {
-            uint32_t per = PER[clamp(c[CL_RATE], 0, 7)], cnt = per ? end / per : 0u;
-            if (clay_dn[tr] != dn || (per && cnt != clay_lr[tr])) {   /* new, moved, or its RATE's strike */
+            uint32_t per = PER[clamp(c[CL_RATE], 0, 7)], cnt = per ? end / per : 0u, j, busy = 0;
+            if ((t->p[P_VOICE] & 3) != V_POLY)          /* (the owner: the sequencers live with it) one voice: a step's or a
+                                                         * key's note takes it, the drone back after */
+                for (j = 0; j < t->nmono && j < 8u; j++)
+                    busy |= t->mono_stack[j] != clay_dn[tr] && t->mono_stack[j] != clay_nn[tr];
+            if (busy) {
+                if (clay_dn[tr]) seq_note_off(t, clay_dn[tr]);
+                clay_dn[tr] = 0;
+            } else if (clay_dn[tr] != dn || (per && cnt != clay_lr[tr])) {   /* new, moved, or its RATE's strike */
                 if (clay_dn[tr]) seq_note_off(t, clay_dn[tr]);
                 seq_note_on(t, dn, 110u);
                 clay_dn[tr] = (uint8_t)dn;
@@ -90,8 +109,11 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
         }
         {   /* a NOTE gesture alive: its note on the voice, on the scale, two octaves over the drone */
             int32_t sem = D[FV_ESUM] > 0 ? D[FV_SEM] * 32767 / (D[FV_ESUM] > 32767 ? D[FV_ESUM] : 32767) : 0;
-            uint32_t nn = 0;
-            if (D[FV_ESUM] > 3000)
+            uint32_t nn = 0, j, busy = 0;
+            if ((t->p[P_VOICE] & 3) != V_POLY)          /* (one voice: a step's or a key's note before a gesture's) */
+                for (j = 0; j < t->nmono && j < 8u; j++)
+                    busy |= t->mono_stack[j] != clay_dn[tr] && t->mono_stack[j] != clay_nn[tr];
+            if (D[FV_ESUM] > 3000 && !busy)
                 nn = (uint32_t)clamp(scale_snap(t, (int32_t)dn + 24 + (sem * 12 + (sem < 0 ? -2048 : 2048)) / 4096), 12, 108);
             if (nn != clay_nn[tr]) {
                 if (clay_nn[tr]) seq_note_off(t, clay_nn[tr]);
