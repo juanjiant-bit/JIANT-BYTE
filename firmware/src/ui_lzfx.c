@@ -398,7 +398,8 @@ static __attribute__((noinline)) void graph_fx_lz(const track_t *t, const page_t
         if (k == 0) fxg_sends(t, 8, 12, 224, 70);
         else if (k == 1) fxg_dist(t, 8, 12, 224, 70);
         else fxg_pan(t, 8, 12, 224, 70);
-        fxg_dist(t, 8, 92, 224, 40);
+        if (k != 1)                                     /* (as JIANT FM V10.8.16: on DIST its curve is the large one) */
+            fxg_dist(t, 8, 92, 224, 40);
     } else if (lv == FXL_BUSES) {
         uint32_t m;
         for (m = 0; m < FX_NMOD; m++) {
