@@ -570,12 +570,13 @@ static void drum_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
         L->bc = (int16_t)(L->bc + (d > 0 ? (d < L->bs ? d : L->bs) : (-d < L->bs ? d : -L->bs)));
     }
     const dx_lane_t *patch=&dx_kit[(uint32_t)v->s[0] & (DV_NLANE-1u)];
-    uint32_t hitfx=drum_hit_fx(L);
+    uint32_t hitfx=drum_hit_fx(L), q0 = PROF_T();
     dx_run_fx(patch, &L->x, p[P_E0] + dx_mot_v + L->rm + lfo_shp,
            L->st * 16 + L->rt + L->bc + t->pfx_pit + lfo_pit,
            p[P_E3] - 64 + DXO_DEC[L->dm & 3u] + ((hitfx&DXF_LONG)?36:0),
            p[P_E2] - 64 + DXO_TON[L->dm & 3u], p[P_E4] - 64 + DXO_TON[L->dm & 3u] + ((hitfx&DXF_NOISE)?32:0),
            (hitfx&DXF_FOLD)&&p[P_E6]<80 ? 80 : p[P_E6], p[P_E5], y, n, (hitfx&DXF_FB)?6u:0u);
+    PROF_ADD(PQ_DALL, q0);                               /* (BYTE, CPU: ABOUT's DRUM-W timing) */
     if (p[P_E1] > 0) {                                   /* (BYTE 0.16) ATTACK: the hit's rise, linear over T half-rate samples */
         uint32_t T = (uint32_t)p[P_E1] * (uint32_t)p[P_E1] / 4u + 8u, a0 = L->x.dwage >= n ? L->x.dwage - n : 0u, i;
         uint32_t r = (1u << 30) / T;                     /* (one division a block: the ramp's step, Q30) */

@@ -465,7 +465,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
         v->hseed = (uint16_t)(((uint32_t)v->rng * 2654435761u) >> 16);   /* (not drawn from the noise: OFF as it was) */
         v->inc = pitch_inc((uint32_t)clamp(p16 + depth, 0, 2047));
     }
-    dw_mods(v, ln, n, fm, cofs, mo);                     /* (DRUM-W) the pad's modulators, once a block */
+    { uint32_t q0 = PROF_T(); dw_mods(v, ln, n, fm, cofs, mo); PROF_ADD(PQ_DMOD, q0); }   /* (DRUM-W) the pad's modulators, once a block */
     if (fl.on && fl_ctx[MC_CPU() & 1u].id) {            /* (LIFE's on the pad: its places moved, finer than COLOR's steps) */
         int32_t lo = (fl.shape[fl_ctx[MC_CPU() & 1u].id - 1u].num * 6) >> 8;
         mo[0] += lo;
@@ -521,7 +521,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
     if (og) {                                            /* (DRUM-W) the body: its tables */
         const dw_lane_t *D = &dw_kit[ln];
         uint32_t age = v->dwage;
-        dw_body(v, ln, y, n, inc, dinc, ga, dga, mo);
+        { uint32_t q0 = PROF_T(); dw_body(v, ln, y, n, inc, dinc, ga, dga, mo); PROF_ADD(PQ_DBODY, q0); }
         if (D->tick && age < 64u) {                      /* the TICK: its first ms, at the hit's level */
             int32_t tg = mulq15(og, ea0 >> 15) * (int32_t)D->tlev >> 7;
             for (i = 0; i < n && age + i < 64u; i++)

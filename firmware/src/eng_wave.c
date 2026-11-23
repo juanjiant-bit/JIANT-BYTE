@@ -80,32 +80,49 @@ static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
  * table is shared); a single line runs the formula as written. */
 static uint32_t trk_nvoice(const track_t *t);   /* (voice.c) */
 #define WT_N 128u
-static int16_t wt_tab[NTRK][1][WT_N + 1u];          /* (A's only: 1.5 KB of RAM; the pool keeps its 8 KB of headroom) */
-static uint16_t wt_key[NTRK][1];                    /* 1 + formula x 128 + POS (0: none) */
+static int16_t wt_tab[NTRK][2][WT_N + 1u];          /* (A and B: 3 KB of RAM) */
+static uint16_t wt_key[NTRK][2], wt_bkey[NTRK][2];  /* 1 + formula x 128 + POS (0: none); the one being drawn */
+static uint8_t wt_bi[NTRK][2], wt_bn[NTRK][2], wt_go[NTRK];   /* .. its next point, its points drawn; a quarter allowed
+                                                         * this block (wave_block), a bit an oscillator */
+static void wave_block(track_t *t) { wt_go[(uint32_t)(t - trk) % NTRK] = 3u; }
 static int wt_smooth(uint32_t f) { return f != 10u && f != 11u && f != 13u; }   /* (SAWSQ PULSE too: their edge a 1/128 turn ramp) */
 static const int16_t *wt_get(uint32_t tr, uint32_t o, const fvm_prog_t *pg, uint32_t f, uint32_t pos, uint32_t many,
                              const fvm_env_t *e0, lofi_work_t *wk)
 {
     uint16_t key = (uint16_t)(1u + f * 128u + pos);
-    uint32_t i, k, W[FVM_BLK], T[FVM_BLK] = {0}, y[FVM_BLK];
+    uint32_t i, k, k0, k1, W[FVM_BLK], T[FVM_BLK] = {0}, y[FVM_BLK];
     if (!pg->n || pg->nstate || (pg->uses & ~(1u << FA_W)) || !wt_smooth(f))
         return 0;
-    if (!many)                                          /* (one voice, no unison: the formula as written) */
+    if (!many || (f == 3u && o))                        /* (one voice, no unison: the formula as written; B's TRISY: its
+                                                         * sync edges exact) */
         return 0;
     if (wt_key[tr][o] == key)
         return wt_tab[tr][o];
+    /* (BYTE, CPU: the owner, "one WAVE voice 453 us") a new POS redrawn a quarter a block (32 points), read meanwhile as
+     * it is (the old POS's points and the new's: neighbours, alike); the first one whole. Was the whole table in one
+     * block each time POS moved (an envelope, an LFO on it: every block) */
+    if (wt_key[tr][o] && !(wt_go[tr] >> o & 1u))   /* (one quarter a part a block, whichever voice asks first) */
+        return wt_tab[tr][o];
+    wt_go[tr] = (uint8_t)(wt_go[tr] & ~(1u << o));
+    if (wt_bkey[tr][o] != key) { wt_bkey[tr][o] = key; wt_bn[tr][o] = 0; }   /* (a POS moving every block: the points
+                                                         * redrawn round and round, each at most four blocks old) */
+    k0 = wt_key[tr][o] ? wt_bi[tr][o] : 0u;
+    k1 = wt_key[tr][o] ? k0 + 32u : WT_N;
     {
         fvm_env_t e = *e0;
         e.arr[FA_T] = T; e.arr[FA_W] = W;
         e.u[FU_AF] = pos * 516u;
-        for (k = 0; k < WT_N; k += FVM_BLK) {
-            for (i = 0; i < FVM_BLK; i++) W[i] = (k + i) * (65536u / WT_N);
+        for (k = k0; k < k1; k += FVM_BLK) {
+            for (i = 0; i < FVM_BLK; i++) W[i] = (k + i) % WT_N * (65536u / WT_N);
             fvm_run(pg, &e, &wk->s, FVM_BLK, y);
-            for (i = 0; i < FVM_BLK; i++) wt_tab[tr][o][k + i] = (int16_t)clamp((int32_t)y[i] >> 1, -32768, 32767);
+            for (i = 0; i < FVM_BLK; i++) wt_tab[tr][o][(k + i) % WT_N] = (int16_t)clamp((int32_t)y[i] >> 1, -32768, 32767);
         }
     }
     wt_tab[tr][o][WT_N] = wt_tab[tr][o][0];
-    wt_key[tr][o] = key;
+    wt_bi[tr][o] = (uint8_t)(k1 % WT_N);
+    wt_bn[tr][o] = (uint8_t)(wt_bn[tr][o] + 32u > 255u ? 255u : wt_bn[tr][o] + 32u);
+    if (!wt_key[tr][o] || wt_bn[tr][o] >= WT_N)
+        wt_key[tr][o] = key;
     return wt_tab[tr][o];
 }
 static inline void wt_read(const int16_t *t, const uint32_t *W, uint32_t n, uint32_t *y)
@@ -177,8 +194,10 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
     ea.u[FU_VEL] = eb.u[FU_VEL] = v->vel;
     {   /* (byte-cpu-light) the parts' tables, CAOS off (POS still in the block) */
         uint32_t many = nu > 1u || trk_nvoice(t) > 1u, exact = caos || warp == WW_QUANT || (pt_ops & PT_TIME_OPS);   /* (the white punch-ins move t: the formula itself) */   /* (QUANT's steps land on the edges) */
+        uint32_t q0 = PROF_T();
         ta = exact ? 0 : wt_get(tr, 0, pa, fa, (uint32_t)pos, many, &ea, wk);
-        tb = 0;                                      /* (B exact: its table would need the pool's headroom) */
+        tb = exact || !pb ? 0 : wt_get(tr, 1, pb, fb, (uint32_t)pos, many, &eb, wk);   /* (BYTE, CPU: B's table too) */
+        PROF_ADD(PQ_WTAB, q0);
     }
     {
         uint32_t posa[WAVE_CH];                       /* POS per sample (CAOS moves it): the formula reads A a block,
@@ -213,6 +232,7 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
                 ea.arr[FA_T] = eb.arr[FA_T] = T + o;
                 ea.arr[FA_W] = eb.arr[FA_W] = W + o;
                 ea.u[FU_AF] = eb.u[FU_AF] = posa[o];
+                uint32_t q1 = PROF_T();
                 if (pb) {
                     if (tb) { wt_read(tb, W + o, c, yb + o); if (!u) fl_post(pb, &eb, &wk->s, c, yb + o); }
                     else (u ? fvm_run : formula_run)(pb, &eb, &wk->s, c, yb + o);   /* (byte-cpu-light: LIFE on the
@@ -226,6 +246,7 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
                                                      * table's read too, out of line: its copies off this frame */
                 }
                 else (u ? fvm_run : formula_run)(pa, &ea, &wk->s, c, ya + o);
+                PROF_ADD(ta || tb ? PQ_WRD : PQ_WVM, q1);
             }
             for (i = 0; i < n; i++) {
                 int32_t a = (int32_t)ya[i], b = pb ? (int32_t)yb[i] : 0;
@@ -268,7 +289,14 @@ static const preset_t WAVE_PRESETS[] = {
 static const uint8_t WAVE_ORDER[] = {1, 2, 3, 4, 6, 7, 5, 0};
 _Static_assert(sizeof WAVE_ORDER == NELEM(WAVE_PRESETS), "WAVE's browsing order: every preset once");
 
+static void wave_render_x(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m);
 static void wave_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
+{
+    uint32_t q0 = PROF_T();
+    wave_render_x(t, v, out, n, m);
+    PROF_ADD(PQ_WALL, q0);
+}
+static void wave_render_x(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m)
 {
     for (uint32_t o = 0; o < n; o += WAVE_CH)
         wave_part(t, v, out + o, n - o < WAVE_CH ? n - o : WAVE_CH, m, o);
@@ -290,6 +318,7 @@ static const engine_t ENG_WAVE = {
     .npresets = NELEM(WAVE_PRESETS),
     .note_on = wave_note_on,
     .render = wave_render,
+    .block = wave_block,                             /* (BYTE, CPU) a table's quarter a block */
     .half = 1,                                       /* (byte-cpu-light) voice_half's generic path: f(w, A) at the doubled increment */
     .knob = {P_E0, P_E1, P_E2, P_E3},
 };

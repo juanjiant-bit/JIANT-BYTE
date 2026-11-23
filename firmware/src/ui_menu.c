@@ -251,6 +251,29 @@ BTAPP_FN static int32_t about_load(int32_t y, int draw)
             str_cpy(d+str_len(d), " us", 4);
             y = menu_text(d, y, T_TEXT, draw);
         }
+        {   /* (BYTE, CPU) the engines' insides, us a block of 64 samples, over the last second (formula_perf.c prof_tk) */
+            static uint32_t pl[PQ_N], ph, pms;
+            static uint16_t pv[PQ_N];
+            uint32_t dh = audio_halves - ph;
+            if ((uint32_t)(fm1_ms - pms) >= 1000u && dh) {
+                for (k = 0; k < PQ_N; k++) {
+                    uint32_t a = prof_tk[k];
+                    pv[k] = (uint16_t)clamp((int32_t)((a - pl[k]) / dh / 48u), 0, 9999);   /* (a half: two blocks; 24 a us) */
+                    pl[k] = a;
+                }
+                ph = audio_halves;
+                pms = fm1_ms;
+            }
+            str_cpy(d, "WAVE TAB ", sizeof d); fmt_int(d + str_len(d), pv[PQ_WTAB]);
+            str_cpy(d + str_len(d), " VM ", 5); fmt_int(d + str_len(d), pv[PQ_WVM]);
+            str_cpy(d + str_len(d), " RD ", 5); fmt_int(d + str_len(d), pv[PQ_WRD]);
+            str_cpy(d + str_len(d), " ALL ", 6); fmt_int(d + str_len(d), pv[PQ_WALL]);
+            y = menu_text(d, y, T_TEXT, draw);
+            str_cpy(d, "DRUM-W MOD ", sizeof d); fmt_int(d + str_len(d), pv[PQ_DMOD]);
+            str_cpy(d + str_len(d), " BODY ", 7); fmt_int(d + str_len(d), pv[PQ_DBODY]);
+            str_cpy(d + str_len(d), " ALL ", 6); fmt_int(d + str_len(d), pv[PQ_DALL]);
+            y = menu_text(d, y, T_TEXT, draw);
+        }
     }
     return y;
 }

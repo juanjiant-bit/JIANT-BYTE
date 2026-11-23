@@ -1,6 +1,15 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Momentary spectral exchange. Amounts select donor literals, harmonic
  * fragments and phase links in the shared active-voice network. */
+/* (BYTE, CPU) ABOUT's fine timings: TIMER4 ticks (24 MHz) summed per section, read a second at a time (ui_menu.c) */
+#if FELUCCA_DUAL_CORE
+#define PROF_T() (*(volatile uint32_t *)0x10804u)
+#else
+#define PROF_T() 0u
+#endif
+enum { PQ_WTAB, PQ_WVM, PQ_WRD, PQ_WALL, PQ_DMOD, PQ_DBODY, PQ_DALL, PQ_N };
+static volatile uint32_t prof_tk[PQ_N];
+#define PROF_ADD(k, t0) (prof_tk[k] += PROF_T() - (t0))
 static uint32_t formula_punch;
 static uint8_t punch_amount[3];
 static const uint8_t punch_profile[][3]={
