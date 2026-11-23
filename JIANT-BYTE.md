@@ -5,10 +5,41 @@ Es un fork de JIANT FM V10.7.37 (commit `c623362`, con toda su historia). JIANT 
 [Felucca](https://github.com/hugelton/Felucca) 1.1.5.1 (Hügelton Instruments) y toma su sistema de canciones de
 [SLOOP](https://github.com/isod89/sloop-fm1). Sigue siendo GPL-3.0-only.
 
-Estado (rama `phase2-engines`, que contiene todo lo anterior):
+## Estado actual (rama `byte-cpu-light`, noviembre de 2026)
+
+Lo que sigue en este archivo es el plan original y su historia; parte de él ya no vale. Hoy JIANT BYTE es:
+
+- **Motores**: DRUM-W (ocho pads de wavetables; reemplazó a DRUM-X), WAVE (tablas dibujadas por fórmula, leídas por
+  todas las voces) y MATH (BYTE, FLOAT, USER, FUNC). FORM dejó de ser un motor: su compositor es **DRONE CLAY**
+  (SEQ), un secuenciador de cualquier pista. FM-F, GLITCH, PLUCK y NOISE no se hicieron; EXT, FM6 y DIGITAL salieron.
+- **Secuenciadores**: el de pasos, DRONE CLAY y **PUNCH SEQ** (GLO: cuatro filas de punch-in sobre el transporte).
+  Salieron SEQ › MUTATE, GLO › COMP (los componentes globales), el carril grabado de punch-in, FILTER 2 y FX › BALANCE.
+- **La estética**: ya no es la del plan de abajo (cracktro, seres, plasma). Es un HUD de telemetría con colores
+  térmicos y un color por pista: el arranque ORBIT, HOME como órbita, los paneles de cada motor y página (censo de
+  MATH, órbita de fase de WAVE, radar de DRUM-W, CHORD, SCALE, ENV, DELAY…).
+- El manual de usuario: [docs/MANUAL-BYTE.es.md](docs/MANUAL-BYTE.es.md). Lo que hay para músicos: [README.md](README.md).
+
+## Historia: el plan de fases
+
+Estado de las fases tal como quedó en la rama `phase2-engines` (ver el estado actual arriba):
 
 | Fase | Estado |
-|## Rediseño de la UI (decidido con el dueño)
+|---|---|
+| 0 Renombre | hecha |
+| 1 FVM (compilador, máquina, reloj, KEY) | hecha |
+| 2 Motores BYTE / FLOAT sobre la FVM, CAOS, retiro de motores | hecha: de JIANT FM queda solo DRUM-X (con sus lanes de fórmula) |
+| 3 WAVE | primera forma (sin tablas guardadas: sin CAPTURA ni copias por octava) |
+| 4 Batería de fórmulas | primera forma (lanes de fórmula en DRUM-X) |
+| 5 Proyectos con fórmulas, edición en el aparato | pendiente (el texto propio de una pista ya se guarda; falta editarlo) |
+| 6 Modificadores, cross-mod, ecuación de mezcla | primera forma (las macros como ecuaciones) |
+| 7 Efectos de fórmula con memoria | primera forma (insertos de fórmula por pista, sin memoria larga todavía) |
+| 8 Punch-ins de fórmula, secuenciadores de fórmula | primera forma (CAOS MAX; el ARP de fórmula) |
+| 9 Generador de ecuaciones | MATH USER: semilla, CAOS, mutar y cruzar (MUTA) |
+| 10 Estética | hecha la base: letra pixel, cajas, paletas de época, fórmula y seres en pantalla, HOME, arranque |
+| 11 FM-F, GLITCH, PLUCK, NOISE | pendiente |
+
+
+## Rediseño de la UI (el primero, ya reemplazado por el HUD actual)
 
 JIANT BYTE es un sintetizador nuevo, no una paleta sobre JIANT FM. Maquetas en `docs/ui-byte/` (`mock.py`,
 `mock2.py`: se regeneran con Python y PIL).
@@ -44,20 +75,6 @@ JIANT BYTE es un sintetizador nuevo, no una paleta sobre JIANT FM. Maquetas en `
 - Arranque cracktro (`tools/gen_byte_logo.py`): barras de cobre, estrellas, el logo, scroller de fórmulas.
 - Falta: el número que mueve la perilla resaltado en el texto; los íconos y keycaps todavía suavizados; los
   gráficos de los otros paneles (filtro, envolventes) en pixel; reescribir las pruebas viejas de paletas.
-
----|---|
-| 0 Renombre | hecha |
-| 1 FVM (compilador, máquina, reloj, KEY) | hecha |
-| 2 Motores BYTE / FLOAT sobre la FVM, CAOS, retiro de motores | hecha: de JIANT FM queda solo DRUM-X (con sus lanes de fórmula) |
-| 3 WAVE | primera forma (sin tablas guardadas: sin CAPTURA ni copias por octava) |
-| 4 Batería de fórmulas | primera forma (lanes de fórmula en DRUM-X) |
-| 5 Proyectos con fórmulas, edición en el aparato | pendiente (el texto propio de una pista ya se guarda; falta editarlo) |
-| 6 Modificadores, cross-mod, ecuación de mezcla | primera forma (las macros como ecuaciones) |
-| 7 Efectos de fórmula con memoria | primera forma (insertos de fórmula por pista, sin memoria larga todavía) |
-| 8 Punch-ins de fórmula, secuenciadores de fórmula | primera forma (CAOS MAX; el ARP de fórmula) |
-| 9 Generador de ecuaciones | MATH USER: semilla, CAOS, mutar y cruzar (MUTA) |
-| 10 Estética | hecha la base: letra pixel, cajas, paletas de época, fórmula y seres en pantalla, HOME, arranque |
-| 11 FM-F, GLITCH, PLUCK, NOISE | pendiente |
 
 ---
 
