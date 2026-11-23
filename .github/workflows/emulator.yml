@@ -9,6 +9,8 @@ name: emulator
 on:
   push:
     branches: [main]
+    # (the owner) docs-only pushes don't republish the site (it would replace the beta's emulator and installer)
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE', 'LICENSES/**']
   workflow_dispatch:
 permissions:
   contents: read
