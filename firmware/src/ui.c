@@ -202,6 +202,11 @@ static void prefs_update(void)
         prefs_rev = 5u;
         settings_save();
     }
+    if (prefs_rev < 6u) {                              /* (BYTE 0.17) ANIMAL's old stars: HIVE's row now (favorites.c) */
+        memset(favorites.factory[ENGI_ANIMAL], 0, sizeof favorites.factory[ENGI_ANIMAL]);
+        prefs_rev = 6u;
+        settings_save();
+    }
 }
 /* MENU > AUDIO CLICK, CLICK LEVEL, COUNT-IN (1.1, Discussion #131; click.c, seq.c): two bits each in another byte no
  * engine uses, saved with the settings: bits 0-1 CLICK (OFF REC ON), 2-3 CLICK LEVEL (stored 0 MID, 1 LOW, 2 HIGH),

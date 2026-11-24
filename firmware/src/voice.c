@@ -71,7 +71,8 @@ static __attribute__((noinline)) int32_t trk_newest(const track_t *t, int32_t p1
     return p16;
 }
 #define COMB_LEN 1024u
-static int16_t comb_buf[NTRK][COMB_LEN] __attribute__((section(".pool")));   /* (0.6: six tracks, in the pool) */
+static int16_t comb_buf[NTRK][COMB_LEN] __attribute__((section(".pool")));   /* (0.6: six tracks, in the pool; BYTE 0.17: a
+                                                         * HIVE part's four strings, eng_hive.c: COMB and METAL dry there) */
 static uint16_t comb_w[NTRK];
 static int16_t comb_p16[NTRK];
 static uint32_t comb_pq[NTRK];                          /* (snd1) the line's length at the block's end, Q16 (0: new) */
@@ -280,6 +281,10 @@ static __attribute__((noinline)) void fn_pm(uint32_t ti, int32_t *out, uint32_t 
     int16_t *b = comb_buf[ti];
     uint32_t w = comb_w[ti], i, ph = s->clk;
     int32_t dd, y;
+    if (trk[ti].engine == ENGI_HIVE) {                  /* (BYTE 0.17) the line is HIVE's strings: METAL dry */
+        fnb[ti].pmon = 0;
+        return;
+    }
     if (!fnb[ti].pmon) {                                /* (in: the line cleared, the last time's stale) */
         memset(comb_buf[ti], 0, sizeof comb_buf[ti]);
         s->env = 0;
@@ -446,6 +451,8 @@ static __attribute__((noinline)) void tf_run(track_t *t, int32_t *out, uint32_t 
                                                          * ANALOG, whose own filter returned above but for LP24) */
     tsvf_t c;
     if (FT_IS_COMB(ft)) {
+        if (t->engine == ENGI_HIVE)                     /* (BYTE 0.17) HIVE's strings are this line (eng_hive.c): */
+            return;                                     /* its COMB dry, the strings the comb */
         if (!tf_cmb[ti]) {                              /* (0.6.81) in: its line cleared (the last time's, stale) */
             memset(comb_buf[ti], 0, sizeof comb_buf[ti]);
             comb_pq[ti] = 0;                            /* (snd1: no glide in, its damping from rest) */
@@ -677,6 +684,9 @@ static uint32_t trk_vmode(const track_t *t)
     return ENGINES[t->engine]->oneshot ? V_POLY : (uint32_t)t->p[P_VOICE] & 3u;
 }
 static inline int trk_drone(const track_t *t) { return t->p[P_VOICE] == V_DRONE && t->engine != ENGI_DRUM; }   /* (DRUM: the one oneshot) */
+/* (BYTE 0.17) HIVE's HOLD: its notes held as DRONE's (trk_note_on / off; out of line: no byte more in the RAM code, which
+ * inlines trk_drone; MUTE and STOP let it go in eng_hive.c hive_block) */
+static __attribute__((noinline)) int hv_hold(const track_t *t) { return t->engine == ENGI_HIVE && t->p[P_E7] > 0; }
 
 /* ------------------------------------------------- the shared voice budget --- */
 /* (JIANT 0.6.16) the load budget: while it is set the sound may not grow: a new note takes a voice instead of adding
@@ -1810,7 +1820,7 @@ static void trk_note_on(track_t *t, uint32_t note, uint32_t vel)
         t->lfo_ph = (uint32_t)t->p[P_LPHASE] << 25;
         t->lfo_fade = 0;
     }
-    if (trk_drone(t)) {                                 /* (DRONE: mode POLY, its keys in the mono stack) */
+    if (trk_drone(t) || hv_hold(t)) {                   /* (DRONE: mode POLY, its keys in the mono stack) */
         if (!drone_on(t, note))
             return;
     } else if (mode == V_POLY) {
@@ -1849,7 +1859,7 @@ static void trk_note_off(track_t *t, uint32_t note)
         }
     t->xp_n = (uint8_t)k;
     mono_remove(t, note);                              /* a mode change must not retain a released key */
-    if (trk_drone(t)) {                                 /* DRONE: held; the last key up lets go what no note took */
+    if (trk_drone(t) || hv_hold(t)) {                   /* DRONE: held; the last key up lets go what no note took */
         if (!t->nmono)
             drone_let(t, DR_OLD(t));
         return;
@@ -2411,4 +2421,4 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     return nr;
 }
 
-
+#include "eng_hive.c"                   /* (BYTE 0.17) HIVE: here, after the COMB line and the voices it uses */

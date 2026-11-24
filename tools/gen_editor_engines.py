@@ -81,20 +81,8 @@ int main(void)
         }
         printf("]}");
     }
-    printf("},\"form_common\":{");
-    for (i = 0, k = 0; i < P_E0; i++) {
-        const param_desc_t *d = form_common_desc(i);
-        if (!d) continue;
-        printf("%s\"%u\":", k++ ? "," : "", (unsigned)i); desc(d);
-    }
+    printf("},\"form_common\":{");               /* (BYTE: FORM retired, its number WAVE's: none of its own) */
     printf("},\"form_pages\":[");
-    for (i = 0, k = 0; i < NPAGES; i++) {
-        uint32_t j;
-        if (PAGES[i].scope != SC_FORM) continue;
-        printf("%s[", k++ ? "," : ""); js(PAGES[i].title); printf(",[");
-        for (j = 0; j < 4 && PAGES[i].id[j] != 0xFF; j++) printf("%s%u", j ? "," : "", PAGES[i].id[j]);
-        printf("]]");
-    }
     printf("],\"engsel\":");
     desc(&GP[G_ENGSEL]);
     printf(",\"ids\":{\"P_ED_FLT\":%u,\"P_LRATE\":%u,\"P_LWAVE\":%u,\"P_LD_PIT\":%u,\"P_LD_FLT\":%u,\"P_DIST\":%u,"

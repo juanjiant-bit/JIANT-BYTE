@@ -259,7 +259,7 @@ static const uint8_t MIDI_CC_ENG[NENGINES] = {
     0x32, 0x30, 0x30, 0x17, 0x30,                     /* (snd5) STRING BRIGHT DECAY, PHYS BRIT, DRUM TONE, WEST FOLD RES (V10.7.36;
                                                        * NOISE's FREQ PEAK), FM6 MLVL */
     0x26,                                             /* (snd5) ADD BRIGHT FORMNT */
-    0x23, 0x00, 0x00, /* FORM: common filter */  /* (V10.54: then INPUT, none) */  /* ANIMAL PRESS (TOUCH CLICK BUZZ MOUTH), CHAOS (COUPLE Q DRIFT ROUGH) */
+    0x23, 0x00, 0x00, 0x61, /* FORM: common filter; HIVE: CC74 BRIGHT, CC71 FEEDBK */  /* (V10.54: then INPUT, none) */  /* ANIMAL PRESS (TOUCH CLICK BUZZ MOUTH), CHAOS (COUPLE Q DRIFT ROUGH) */
 };
 /* a CC's value 0..top (127, or an NRPN's 16383) over parameter id's range of track t (d), as a knob sets it;
  * AUTOMATION records it */

@@ -20,11 +20,12 @@
 #define FELUCCA_FM4 0            /* the DIGITAL engine (eng_digital.c, four-operator FM): kept in the tree, not built
                                   * by default; replaced by FM6, its sounds convert (fm4_convert.c) */
 #endif
-#define NENGINES 17              /* the stores' engine numbers 0..16 (engines.c ENGINES[], append-only; 0.8.3: 14 ANIMAL;
+#define NENGINES 18              /* the stores' engine numbers 0..17 (engines.c ENGINES[], append-only; 0.8.3: 14 ANIMAL;
                                   * 0.9.9-snd5: STRING and ADD in the retired GRAIN's 8 and SLICE's 13; V10.54: 15 INPUT) */
 #define ENGI_FORM 16u            /* FORM: reference compositions, appended; old IDs stay unchanged */
+#define ENGI_HIVE 17u            /* (BYTE 0.17) HIVE: four strings with feedback (eng_hive.c), appended */
 #define ENGI_DIGITAL 1u          /* reserved without FELUCCA_FM4: never selectable (eng_ok), its sounds load as FM6 */
-#define NENG_SHOWN (NENGINES - 1 - 3 - 10)   /* (JIANT BYTE: DRUM WAVE MATH; FORM a sequencer (DRONE CLAY); JIANT FM's others retired, aliased) */
+#define NENG_SHOWN (NENGINES - 1 - 3 - 10)   /* (JIANT BYTE: DRUM WAVE MATH HIVE; FORM a sequencer (DRONE CLAY); JIANT FM's others retired, aliased) */
                                                /*   /* the engines one can pick: PRESETS, the EDIT layer, the editor,
                                                 * in the display order of engines.c ENGINE_ORDER (PHYS 9, and in
                                                 * JIANT SAMPLE 4, GRAIN 8, SLICE 13: retired) */

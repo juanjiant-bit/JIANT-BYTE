@@ -86,7 +86,7 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
-                                             "DRUM", "WEST", "FM6", "ADD", "ANIMAL", "EXT", "FORM"};   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired; 0.8.3 ANIMAL;
+                                             "DRUM", "WEST", "FM6", "ADD", "ANIMAL", "EXT", "FORM", "HIVE"};   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired; 0.8.3 ANIMAL;
                                                          * 0.9.9-snd5 STRING ADD; V10.7.36 WEST, NOISE's 11) */
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0}

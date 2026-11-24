@@ -19,11 +19,15 @@ static __attribute__((noinline)) void fav_rows_new(void)
     favorites.factory[15][25] = 3u;                    /* (prefs_rev) */
     settings_save();
 }
+/* (BYTE 0.17) HIVE's stars in ANIMAL's retired row (its number plays as MATH; cleared once: ui.c prefs_update 6; no
+ * byte more saved) */
+#define FAV_ROW(e) ((e) == ENGI_HIVE ? ENGI_ANIMAL : (e))
 static int favorite_has(uint32_t engine, uint32_t preset)
 {
     if (engine == NENGINES)
         return preset < UP_SLOTS && ((favorites.user >> preset) & 1u);
     if(engine==ENGI_FORM)return preset<256u&&((favorites.form[preset/8u]>>(preset%8u))&1u);
+    engine = FAV_ROW(engine);
     return engine < NENGINES && engine < 16u && preset < 256u &&
         ((favorites.factory[engine][preset / 8u] >> (preset % 8u)) & 1u);
 }
@@ -36,7 +40,7 @@ static int favorite_set(uint32_t engine, uint32_t preset, int on)
         if (on) favorites.user |= 1u << preset;
         else favorites.user &= ~(1u << preset);
     } else {
-        uint8_t *b = engine==ENGI_FORM?&favorites.form[preset/8u]:&favorites.factory[engine][preset / 8u];
+        uint8_t *b = engine==ENGI_FORM?&favorites.form[preset/8u]:&favorites.factory[FAV_ROW(engine)][preset / 8u];
         if (on) *b |= (uint8_t)(1u << (preset % 8u));
         else *b &= (uint8_t)~(1u << (preset % 8u));
     }

@@ -538,8 +538,39 @@ static VX_SEG void vx_lofi(const track_t *t, const int32_t *A, int32_t en_home)
     vxs.kc = 0;
 }
 
+/* (BYTE 0.17) HIVE (eng_hive.c): its four strings as lines across, each vibrating as loud as it sounds (the higher, the
+ * more waves), each pair linked (CROSS's lean), the echo a dot that grows with its clock and glows with what it holds,
+ * the pair's tuning under them. Small (HOME): the four lines alone */
+static void vx_hive(const track_t *t, const int32_t *A, int32_t en_home)
+{
+    uint32_t tr = (uint32_t)(t - trk) % NTRK, k, i;
+    const hv_st_t *s = hv_of(tr);
+    int32_t x = A[0], y = A[1], w = A[2], h = A[3], big = w >= 160, lw = big ? w - 44 : w, on = s->magic == HV_MAGIC;
+    uint16_t tc = TRK_COL[tr % 6u];
+    (void)en_home;
+    for (k = 0; k < HV_N; k++) {
+        int32_t yc = y + h * (int32_t)(2u * k + 1u + (k >> 1)) / 10, amp = on ? clamp(s->lv[k], 0, 16383) * h >> 18 : 0;
+        int32_t px = x, py = yc;
+        uint32_t ph = anim_fr * (700u + 260u * k);
+        for (i = 1; i <= 24u; i++) {                     /* a standing wave: its ends still, its belly the level */
+            int32_t xx = x + (int32_t)i * lw / 24, yy = yc + ((((amp * og_sin(i * 1365u)) >> 15) *
+                                                               og_sin(i * (3u + 2u * k) * 1365u + ph)) >> 15);
+            cv_line_t(px, py, xx, yy, amp ? tc : T_DIM, big ? 2 : 1);
+            px = xx; py = yy;
+        }
+        if (k & 1u)                                      /* the pair's link, leaning with CROSS */
+            cv_line_t(x + lw / 2, yc - h / 5, x + lw / 2 + clamp(t->p[P_E1], 0, 127) / 8, yc, T_MID, 1);
+    }
+    if (big) {
+        int32_t r = 2 + (int32_t)(on ? s->ew * 9u / HV_ES : 0u), e = on ? clamp(s->lv[HV_N], 0, 16383) >> 7 : 0;
+        og_node((x + w - 22) * 16, (y + h / 2) * 16, r, e > 8 ? heat_col(40 + e) : T_LINE);
+        hud_tag(x + w - text_w(&AF_X, "HIVE") - 4, y + 1, "HIVE", tr % 6u >= 4u ? 0xFFFFu : 0x0000u, tc);
+        cv_text(x + 2, y + h - 11 - AF_X_CAP_Y, &AF_X, N_HVPAIR[clamp(t->p[P_E4], 0, 7)], T_TEXT);
+    }
+}
+
 typedef struct { const engine_t *e; void (*f)(const track_t *, const int32_t *, int32_t); } vxe_t;
-static const vxe_t VX_F[] = {{&ENG_LOFI, vx_lofi}, {&ENG_WAVE, vx_lofi}};   /* (JIANT BYTE:
+static const vxe_t VX_F[] = {{&ENG_LOFI, vx_lofi}, {&ENG_WAVE, vx_lofi}, {&ENG_HIVE, vx_hive}};   /* (JIANT BYTE:
                                                          * WEST PHASE STRING retired; WAVE drawn as MATH's) */   /* (0.9.9-snd5; V10.7.13+: ADD's gone, room for
                                                          * FORM MY LOOP: it draws the being) */
 static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h, int32_t en_home)

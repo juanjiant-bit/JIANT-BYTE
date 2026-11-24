@@ -17,6 +17,7 @@
 #include "eng_fm6.c"            /* FM6: 6-operator FM, msfa ported (fm6_core.c, Apache-2.0) */
 #include "eng_input.c"          /* (V10.54) INPUT: the audio input on a track (engine 15) */
 #include "fm4_convert.c"        /* DIGITAL's tables, and its sounds -> FM6 */
+static const engine_t ENG_HIVE;          /* (BYTE 0.17) eng_hive.c, included at voice.c's end (the COMB line is its) */
 
 /* PHYS (engine 9): retired in TONIC (its 50 KB of voice state went to the song and the drums); SAMPLE (4), GRAIN (8) and
  * SLICE (13): retired in JIANT (core.h eng_gone). The numbers stay reserved, as DIGITAL's: the stores name engines by
@@ -65,11 +66,12 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_LOFI,                   /* 14: (JIANT BYTE) ANIMAL retired: plays as MATH */
     &ENG_LOFI,                   /* 15: (JIANT BYTE) INPUT (EXT, SWARM) retired: plays as MATH */
     &ENG_WAVE,                   /* 16: (BYTE) FORM retired (its composer is DRONE CLAY, a sequencer): plays as WAVE */
+    &ENG_HIVE,                   /* 17: (BYTE 0.17) HIVE (eng_hive.c, at voice.c's end: its strings in the part's COMB line) */
 };
 
 /* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
  * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
-static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 13};   /* (13: WAVE) */
+static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 13, 17};   /* (13: WAVE) */
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
 static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 0u]; }
 
@@ -83,6 +85,7 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     ENGI_DRUM,                   /* DRUM (DRUM-X, its formula lanes) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE */
     ENGI_LOFI,                   /* MATH (BYTE FLOAT) */
+    ENGI_HIVE,                   /* (BYTE 0.17) HIVE */
     /* (JIANT BYTE) retired, their numbers MATH's or WAVE's (ENG_LIVE): WHEEL ADD FM6 PHASE STRING WEST ANIMAL */
 };
 /* (0.9.9) PROGRAM CHANGE n loads the n + 1-th sound of the PRESETS list in the order of 0.9.8 (ANIMAL last: 0.8.3's
@@ -91,6 +94,7 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
 static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
     ENGI_LOFI, ENGI_DRUM,        /* (JIANT BYTE: every engine of JIANT FM's out but DRUM-X; MATH's place kept first) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE: after the rest */
+    ENGI_HIVE,                   /* (BYTE 0.17) HIVE: appended */
 };
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them
