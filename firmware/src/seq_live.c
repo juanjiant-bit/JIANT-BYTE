@@ -197,11 +197,19 @@ static void live_reset(void)
 /* each block, before the sequencer (events_block): what the main loop asked for goes in, on the transport's 1/16 (RATE
  * on the beat), RETURN on the beat, BYPASS, COMMIT and the FX layer's at once; back in phase, the playhead onto the
  * ghost (and the PLAYHEADS on by what they missed) */
-/* (BYTE) the white punch-ins on a track whose engine has no formula time (formula_perf.c pt_ops): DRUM-W, FORM */
+/* (BYTE) the white punch-ins on a track whose engine has no formula time (formula_perf.c pt_ops): DRUM-W, FORM.
+ * (punchfx, the owner: "some punch-ins are not noticeable with the engines") and on every other track's steps too: a
+ * formula's time starts again with each note (MATH's RTRG, WAVE's t, FUNC's clock aside), so a sequence of short notes
+ * never reached the windows of HALF REPEAT STEP MIRROR SCRAMBLE; its steps walked as DRUM-W's are, the formula's own
+ * time still moved under a long note. WOBBLE and BITS on a voice are sound, not steps (pfx.c pfx_sound): only DRUM-W
+ * and DRONE CLAY take their walk (2/3, x3); CAOS MAX on DRUM-W: SCRAMBLE's walk */
 static uint32_t pt_walk(const track_t *t)
 {
-    uint32_t e = eng_idx(t->engine);
-    return e == ENGI_DRUM || clay_on(trk_index(t)) ? pt_ops & PT_TIME_OPS : 0u;
+    uint32_t e = eng_idx(t->engine), o = pt_ops & PT_TIME_OPS;
+    if (e == ENGI_DRUM)                                 /* (punchfx) CAOS MAX on a kit: its steps at random too (pfx.c
+                                                         * pfx_sound throws their pitch) */
+        return o | ((pt_ops >> PT_CAOS) & 1u) << PT_SCR;
+    return clay_on(trk_index(t)) ? o : o & ~((1u << PT_WOB) | (1u << PT_BITS));
 }
 static __attribute__((noinline)) void live_q(uint32_t n)
 {

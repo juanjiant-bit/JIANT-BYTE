@@ -2241,7 +2241,7 @@ static uint32_t voice_block(track_t *t, const engine_t *e, voice_t *v, int32_t *
     }
     if (!env && !m.amp0 && v->stage == 2 && !e->sampled)
         return 0;                                   /* held at a silent sustain (SUS 0): nothing to render */
-    pitch = v->pitch_cur + t->pfx_pit + c->tune + c->bend16 + ((c->lfo * p[P_LD_PIT] * 3) >> 15) + ((m.envq15 * p[P_ED_PIT] * 3) >> 15) +
+    pitch = v->pitch_cur + t->pfx_pit + pt_vp[c->ti] + c->tune + c->bend16 + ((c->lfo * p[P_LD_PIT] * 3) >> 15) + ((m.envq15 * p[P_ED_PIT] * 3) >> 15) +
             fnb[c->ti].pit;                     /* (filter2-mod) FILTER 2's DEST on the pitch, the last block's */
     m.pitch16 = clamp(pitch, 0, 2047);
     m.inc = pitch_inc(m.pitch16);

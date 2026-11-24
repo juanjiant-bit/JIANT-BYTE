@@ -359,6 +359,27 @@ noise:
     }
 }
 
+/* (BYTE punchfx, the owner: "some punch-ins are not noticeable with the engines") BITS, the white punch-in, on every
+ * engine (formula_perf.c pt_ops; MATH's time gets its own t ^ t >> 5 too): the part's block held a sample in PB_HOLD
+ * (5.5 kHz, its images folded down) and cut to steps of a quarter of the block's peak (four a side: three bits under
+ * whatever the part plays, a quiet one crushed as hard, never cut to silence), at its own level (no drive: the leveler
+ * and the mix stay where they were); let go, the next block as it was. Before CRUSH (crush_block calls it), in the
+ * flash: a peak, a shift and a compare a sample, only while held */
+#define PB_HOLD 8u                                      /* (a block's 64 in 8 holds: no state from block to block) */
+static __attribute__((noinline)) void pfx_bits(int32_t *b, uint32_t n)
+{
+    int32_t h = 0, pk = 1, sh;
+    uint32_t i;
+    for (i = 0; i < n; i++)
+        pk |= b[i] < 0 ? -b[i] : b[i];                  /* (its top bit: the peak within 2x) */
+    sh = 29 - __builtin_clz((uint32_t)pk);              /* (a step: the peak's top bit / 4) */
+    sh = sh < 4 ? 4 : sh;
+    for (i = 0; i < n; i++) {
+        if (!(i % PB_HOLD))
+            h = (int32_t)((uint32_t)((b[i] + (1 << (sh - 1))) >> sh) << sh);
+        b[i] = h;
+    }
+}
 /* (V10.7.33, the owner: CRUSH out of DIST's TYPE, a track's own) EDIT > VOICES 3, CRUSH (params.c cru_v, 0..127 shown as
  * 0..100 %, a track each; 0: not run, DIST on or off): what DIST TYPE CRUSH was at that DRIVE, its own state (cru_s,
  * the pool): the ~55 Hz low cut, the held samples at a rate jittered around FS 12 / (12 + CRUSH) with a ramp between
@@ -374,6 +395,9 @@ static __attribute__((noinline)) void crush_block(track_t *t, int32_t *b, uint32
     cru_t *c = &cru_s[ti];
     int32_t d = cru_v[ti], w0 = c->w, w1 = d >= 8 ? 4096 : d * 512, dw, g, k, mk, st0, sh;
     int32_t hp = c->hp, l1 = c->l1, l2 = c->l2, dc = c->dc, hold = c->hold, ph = c->ph, stp = c->st;
+    if ((pt_ops >> PT_BITS) & 1u)                       /* (punchfx) BITS held: first, the user's CRUSH on what it
+                                                         * leaves */
+        pfx_bits(b, n);
     if (w1 != w0)
         w1 = w1 - w0 > 64 || w0 - w1 > 64 ? w0 + (w1 - w0) / 2 : w1;
     c->w = w1;
@@ -411,7 +435,8 @@ static __attribute__((noinline)) void crush_block(track_t *t, int32_t *b, uint32
 }
 static void track_crush(track_t *t, int32_t *b, uint32_t n)
 {
-    if (cru_v[(uint32_t)(t - trk) % NTRK] || cru_s[(uint32_t)(t - trk) % NTRK].w) {
+    if (cru_v[(uint32_t)(t - trk) % NTRK] || cru_s[(uint32_t)(t - trk) % NTRK].w || ((pt_ops >> PT_BITS) & 1u)) {   /* (punchfx:
+                                                         * BITS held, crush_block's pfx_bits) */
         void (*f)(track_t *, int32_t *, uint32_t) = crush_block;
         FM1_OPAQUE(f);
         f(t, b, n);
@@ -3341,8 +3366,9 @@ static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (
     if (fx_bad)
         fx_trip(c1j, n);
     mc_mask_last = (uint8_t)c1m;
-    if (pfx_any || pfx_life.on || pfx_caos.on)
-        pfx_end();                                      /* (DEC- / DEC+ back; LIFE MAX's; JIANT BYTE: CAOS MAX's) */
+    pfx_end();                                          /* (DEC- / DEC+ back; LIFE MAX's; JIANT BYTE: CAOS MAX's. punchfx:
+                                                         * its tests moved into it, in the flash: the room in the RAM code
+                                                         * for track_crush's BITS test) */
     if (perf)
         perf_pre(mix_l, mix_r, sl_l, sl_r, send_d, send_r, n);   /* (THROW: the SLICER's bus too) */
     for (i = 0; i < n; i++) {                           /* (0.6.75) the buses' return and sides (the block before's sends); */

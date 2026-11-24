@@ -153,12 +153,53 @@ static __attribute__((noinline)) uint32_t psq_block(uint32_t n)
     return m;
 }
 
+/* (BYTE punchfx, the owner: "some punch-in effects are not noticeable with the engines") what a formula's time cannot
+ * carry, on every engine, each block from pt_ops (pfx_block): WOBBLE the pitch swayed +-1.5 semitones and MATH's filter
+ * (the FILTER page's CUT, 80 steps down at the most) closed and opened once a 1/8 of the transport (from the bar: in
+ * phase with it); CAOS MAX the pitch thrown on each 1/16 (an octave, a fifth .. or not; the same throws at the same
+ * place of the song) on WAVE, DRUM-W and FUNC (MATH's other WAVEs: its CAOS bends their time). BITS: fx.c pfx_bits,
+ * from pt_ops. pt_vp: voice.c and eng_drum.c add it to the voices' pitch a block, never to a note number (MIDI OUT, CLAY's
+ * restart: pfx_pit, OCT's). Stopped: on the macros' free beat. A few dozen instructions a block; idle a test */
+static __attribute__((noinline)) void pfx_sound(void)
+{
+    static const int8_t CJ[8] = {0, 12, -12, 7, -5, 19, -7, 24};   /* (CAOS MAX's throws, semitones) */
+    uint32_t k, o = pt_ops, bt, s16;
+    int32_t w = 0, cj = 0;
+    if (!(o & (1u << PT_WOB | 1u << PT_CAOS))) {
+        if (pt_wob | pt_cw | pt_vp[0] | pt_vp[1] | pt_vp[2] | pt_vp[3] | pt_vp[4] | pt_vp[5]) {
+            memset(pt_vp, 0, sizeof pt_vp);
+            pt_wob = pt_cw = 0;
+        }
+        return;
+    }
+    s16 = div_samples(2);
+    if (song.playing && clk_pos != CLK_START)           /* (the transport's beat, Q16, as mac_tick's) */
+        bt = ((uint32_t)clk_n << 16) + ((uint32_t)clk_pos << 16) / (s16 ? s16 : 1u) >> 2;
+    else
+        bt = mac_free;                                  /* (stopped: the macros' free beat, mod.c, a block old) */
+    if (o & (1u << PT_WOB)) {
+        int32_t sn = sine_i(bt << 17);
+        w = (sn * 24) >> 15;
+        pt_cw = (int16_t)(((sn - 32767) * 40) >> 7);    /* (the filter from where it is to 80 steps of CUT down, Q8) */
+    } else
+        pt_cw = 0;
+    if (o & (1u << PT_CAOS))
+        cj = CJ[fvm_hash((bt >> 14) * 0x9E3779B1u + 7u) & 7u] * 16;
+    pt_wob = (int16_t)w;
+    for (k = 0; k < NTRK; k++) {
+        uint32_t e = eng_idx(trk[k].engine);
+        int thrown = e == ENGI_WAVE || e == ENGI_DRUM || (e == ENGI_LOFI && trk[k].p[P_E1] == RW_FUNC);
+        pt_vp[k] = (int16_t)(w + (thrown ? cj : 0));
+    }
+}
+
 /* each block, before the events (fx.c mix_block). held: the effects held (PF_* bits) */
 static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
 {
     uint32_t k, b = beat_samples(), nw, sq = psq_block(n);   /* (BYTE) PUNCH SEQ's */
+    uint32_t caos = (held | sq) & PF_BIT(PF_RING), lmax = (held | sq) & PF_BIT(PF_LMAX);
     pfx_blk++;
-    if ((held | sq) & PF_BIT(PF_RING)) {                /* (JIANT BYTE) CAOS MAX: every formula part at CAOS 127 for this
+    if (caos) {                                         /* (JIANT BYTE) CAOS MAX: every formula part at CAOS 127 for this
                                                          * block (pfx_end: back) */
         for (k = 0; k < NTRK; k++) {
             uint32_t e = eng_idx(trk[k].engine);
@@ -169,7 +210,7 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
         pfx_caos.on = 1;
         held &= ~PF_BIT(PF_RING);
     }
-    if ((held | sq) & PF_BIT(PF_LMAX)) {                /* (V10.7.36) LIFE MAX: 100 % for this block (pfx_end: back) */
+    if (lmax) {                                         /* (V10.7.36) LIFE MAX: 100 % for this block (pfx_end: back) */
         for (k = 0; k < 4u; k++) {
             pfx_life.keep[k] = life_v[k];
             life_v[k] = 100;
@@ -177,6 +218,7 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
         pfx_life.on = 1;
         held &= ~PF_BIT(PF_LMAX);
     }
+    fl_alone = lmax ? 1u : 0u;                          /* (punchfx) a part with no other sounding: its own donor */
     pfx_qon &= held;                                    /* (JIANT) let go: at once; pressed: on the next 1/16 */
     nw = held & ~pfx_qon;
     if (nw) {
@@ -186,7 +228,20 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
             pfx_qon |= nw;
     }
     held = pfx_qon | (sq & ~(PF_BIT(PF_RING) | PF_BIT(PF_LMAX)));   /* (PUNCH SEQ's on the step: not quantized again) */
-    pt_ops = (held & PF_FORMULA) >> PF_OCTD;    /* (BYTE 0.16) the white keys: the formulas' time (formula_perf.c) */
+    pt_ops = (held & PF_FORMULA) >> PF_OCTD | (caos ? 1u << PT_CAOS : 0u);   /* (BYTE 0.16) the white keys: the formulas'
+                                                         * time (formula_perf.c); (punchfx) CAOS MAX held */
+    {   /* (punchfx) LOOP 3 / 5 / 7 on FUNC's own time (formula_perf.c pt_beat_x): from the 1/16 playing as it goes in, its
+         * last one (the steps': pfx_lps below), in the formula's P (eng_lofi.c lofi_sync, a block old as the steps') */
+        uint32_t lpn = (held >> PF_LP3) & 1u ? 3u : (held >> PF_LP5) & 1u ? 5u : (held >> PF_LP7) & 1u ? 7u : 0u, r;
+        if (lpn && song.playing) {
+            if (!pt_lpn)
+                pt_lp0 = ((lofi_sync(&r) * 8u) & ~16383u) - (lpn - 1u) * 16384u;
+            pt_lpn = (uint8_t)lpn;
+            pt_ops |= 1u << PT_LOOP;
+        } else
+            pt_lpn = 0;
+    }
+    pfx_sound();                                        /* (punchfx) WOBBLE, CAOS MAX on every engine */
     formula_punch = 0;
     held &= ~(PF_FORMULA & ~(PF_BIT(PF_OCTD) | PF_BIT(PF_OCTU)));   /* (G5: COMB again, perform.c's, not the exchange) */
 
@@ -241,12 +296,14 @@ static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
     }
 }
 
-/* after the parts: what ATK+ changed, back; (V10.7.36) LIFE MAX's */
+/* after the parts: what ATK+ changed, back; (V10.7.36) LIFE MAX's. (punchfx) Each block: idle, its three tests */
 static __attribute__((noinline)) void pfx_end(void)
 {
     formula_punch = 0;
     pt_ops = 0;
     uint32_t k;
+    if (!(pfx_any | pfx_life.on | pfx_caos.on))
+        return;
     if (pfx_life.on) {
         for (k = 0; k < 4u; k++)
             life_v[k] = pfx_life.keep[k];

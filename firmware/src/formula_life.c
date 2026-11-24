@@ -25,6 +25,10 @@ static struct {
     uint8_t rd,on,numbers_amt,fragments_amt,link_amt;
 } fl;
 static struct {uint16_t id,depth,envelope;uint8_t note;} fl_ctx[2];
+static uint8_t fl_alone;                /* (BYTE punchfx, pfx.c: LIFE MAX held) a voice no other sounds with: its own donor,
+                                         * its spectrum grafted onto itself at the harmonics' multiples (the upper quarter's
+                                         * exchange): LIFE MAX heard on a part alone too, as it is with others; DRUM-W's
+                                         * COLOR pulled twice as far (fl_classic_color) */
 static void fl_bind(const track_t*t,const voice_t*v,uint32_t depth)
 {
     uint32_t c=MC_CPU()&1u;
@@ -96,7 +100,7 @@ static int32_t fl_classic_color(int32_t color)
             }
         }
     }
-    target=clamp(target+ft,-48*256,48*256);
+    target=fl_alone?clamp((target+ft)*2,-64*256,64*256):clamp(target+ft,-48*256,48*256);   /* (punchfx: LIFE MAX, twice) */
     {int32_t d=target-fl.shape[id].num;fl.shape[id].num+=d/16+(d>0)-(d<0);}   /* (a small target reached too) */
     return clamp(color+(fl.shape[id].num>>8),0,127);
 }
@@ -126,9 +130,9 @@ static __attribute__((noinline)) void fl_post(const fvm_prog_t*p,const fvm_env_t
                                          * (byte-cpu-light) not for a voice LIFE neither hears nor gives (shed) */
     fl_shape_t*z=&fl.shape[id];
     if(!depth||!(fl.numbers_amt|fl.fragments_amt|fl.link_amt)){memset(z,0,sizeof *z);return;}
-    uint32_t connected=other&&weight;
-    if(!connected&&z->mix<256&&z->num_mix<256){z->mix=z->num_mix=0;return;}
-    if(!connected)depth=0;
+    uint32_t connected=other&&weight,alone=!connected&&fl_alone&&g&&self->valid;
+    if(!connected&&!alone&&z->mix<256&&z->num_mix<256){z->mix=z->num_mix=0;return;}
+    if(!connected&&!alone)depth=0;
     uint32_t nd=depth*fl.numbers_amt/100u,fd=depth*fl.fragments_amt/100u,ld=depth*fl.link_amt/100u;
 
     uint32_t own=g&&self->has_number,nw=fl.number_weight-(own?g:0);
@@ -141,7 +145,7 @@ static __attribute__((noinline)) void fl_post(const fvm_prog_t*p,const fvm_env_t
     uint32_t travel=fd*3u/2u+ld/2u;
     uint32_t mix=travel*256u/(160u+travel); /* default: 50 ~24%, 100 ~64% */
     for(uint32_t k=0;k<FL_POINTS;k++){
-        int32_t donor=connected?fl_other_h(id,k,weight):0;
+        int32_t donor=connected?fl_other_h(id,k,weight):alone?self->wave[k]:0;
         target[k]=(fd+ld)?(donor*(int32_t)fd+(int32_t)write->wave[k]*(int32_t)ld)/(int32_t)(fd+ld):0;
     }
     /* Upper quarter: exchange the donor's spectral pieces at harmonic multiples.
@@ -170,7 +174,7 @@ static __attribute__((noinline)) void fl_post(const fvm_prog_t*p,const fvm_env_t
     if(target_mass>64)for(uint32_t k=0;k<FL_POINTS;k++)target[k]=target[k]*24576/target_mass;
     else mix=0;
     int32_t spectral=0,mass=0;
-    for(uint32_t k=0;k<FL_POINTS;k++){int32_t h=connected?fl_other_h(id,k,weight):0;h=h<0?-h:h;spectral+=h*(int32_t)(k/2u+1u);mass+=h;}
+    for(uint32_t k=0;k<FL_POINTS;k++){int32_t h=connected?fl_other_h(id,k,weight):alone?self->wave[k]:0;h=h<0?-h:h;spectral+=h*(int32_t)(k/2u+1u);mass+=h;}
     int32_t signature=clamp(number+(mass?spectral*256/mass:0),0,8192);
     uint32_t step=0;
     for(uint32_t i=1;i<n;i++){

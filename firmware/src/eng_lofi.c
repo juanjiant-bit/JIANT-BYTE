@@ -668,13 +668,31 @@ static uint32_t math_music_cost(const track_t*t){
     for(uint32_t k=0;k<p->n;k++)if(p->ins[k].op==FO_MUSIC)cost+=p->ins[k].k==1u?4u:1u;
     return cost;
 }
+/* (BYTE punchfx) FUNC's P through the white punch-ins (formula_perf.c pt_beat_x): the block's ends, the samples between
+ * on the line joining them (a block is ~1.5 ms, the punch-ins' windows a 1/32 at least); a window's edge inside it
+ * (the two ends further apart than twice the time's own run): each sample */
+static __attribute__((noinline)) void pt_beat_blk(uint32_t *P, uint32_t n, uint32_t song_p)
+{
+    uint32_t a = pt_beat_x(P[0], song_p), z = pt_beat_x(P[n - 1u], song_p), i;
+    int32_t d = (int32_t)(z - a), s = (int32_t)(P[n - 1u] - P[0]);
+    if (n > 1u && d <= 2 * s + 2 && d >= -2 * s - 2) {
+        int32_t k = d * 256 / (int32_t)(n - 1u);
+        for (i = 0; i < n; i++)
+            P[i] = (a + (uint32_t)((k * (int32_t)i) >> 8)) & 0x7fffffffu;
+    } else
+        for (i = 0; i < n; i++)
+            P[i] = pt_beat_x(P[i], song_p) & 0x7fffffffu;
+}
 static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32_t*out,uint32_t n,const vmod_t*m,uint32_t inc,const tsvf_t*flt)
 {
     uint32_t T[LOFI_N],W[LOFI_N],S[LOFI_N],P[LOFI_N],Y[LOFI_N],q=(uint32_t)v->s[2],ph=v->ph[0],rate;
     const fvm_prog_t*p=lofi_slot((uint32_t)(t-trk));
     fvm_env_t en={{T,W,S,0,0},{0},&v->s[6]};xm_env(&en,p);
     for(uint32_t k=0;k<4;k++){uint32_t a=(uint32_t)clamp(t->p[P_E2+k],0,127);en.u[FU_A+k]=a*2u;en.u[FU_AF+k]=a*65536u/127u;}
-    en.u[FU_NOTE]=v->note;en.u[FU_VEL]=v->vel;en.u[FU_HZ]=(uint32_t)(((uint64_t)inc*FS)>>16);
+    en.u[FU_NOTE]=(uint32_t)clamp((int32_t)v->note+(t->pfx_pit+pt_vp[(uint32_t)(t-trk)%NTRK]-pt_wob)/16,0,127);   /* (BYTE
+                                                         * punchfx) OCT- / OCT+ and CAOS MAX's throw on n too: its notes
+                                                         * are n's, not the voice's pitch (WOBBLE: in w, and P swayed) */
+    en.u[FU_VEL]=v->vel;en.u[FU_HZ]=(uint32_t)(((uint64_t)inc*FS)>>16);
     en.u[FU_BEAT]=lofi_sync(&rate)*8u;en.u[FU_STEP]=t->seq_idx;
     en.u[FU_BPS]=(uint32_t)FS*60u/(uint32_t)clamp(song.g[G_BPM],20,300);en.arr[FA_BEAT]=P;
     if(n>LOFI_N)n=LOFI_N;
@@ -686,6 +704,8 @@ static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32
      * block, then stepped; at half the rate (VH_SH: MATH always at 22 kHz) each sample two of t, its time whole */
     uint64_t s0=(uint64_t)q*65536u;uint32_t sv=(uint32_t)(s0/sd),sr=(uint32_t)(s0%sd),ss=(65536u<<sh)/sd,srm=(65536u<<sh)%sd;
     for(uint32_t i=0;i<n;i++){T[i]=q+(i<<sh);W[i]=ph>>16;S[i]=sv;sv+=ss;sr+=srm;if(sr>=sd){sr-=sd;sv++;}ph+=inc;P[i]=pos&0x7fffffffu;pos+=step;carry+=rem;while(carry>=den){carry-=den;pos++;}}
+    if(pt_ops&PT_BEAT_OPS)pt_beat_blk(P,n,func_bar(t)); /* (BYTE punchfx) the white punch-ins on FUNC's time: its P (a
+                                                         * LOOP's only on the song's: FREE, stopped, its own clock) */
     lofi_run(p,&en,&lofi_work[MC_CPU()&1u],n,Y);
     int32_t y1=v->s[4],y2=v->s[5],kd=8192-(t->p[P_FRES]>50?t->p[P_FRES]:50)*7600/127;
     for(uint32_t i=0;i<n;i++){int32_t sample=fvm_sample(FT_FIX,Y[i]);out[i]+=voice_amp(soft_knee(svf_mode(flt,sample>>1,&y1,&y2,ft_voice(t->p),kd),16000)<<1,m,i);}
@@ -776,7 +796,7 @@ static void lofi_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     mg.amp0 = mulq15(m->amp0, LOFI_GAIN);
     mg.amp1 = mulq15(m->amp1, LOFI_GAIN);
     inc = pitch_inc(clamp(mg.pitch16, 0, 2047));       /* (the track's LFO in m->pitch16 already) */
-    tsvf_coef(&flt, (p[P_FCUT] << 8) + mg.cutoff, rs);   /* (JIANT 0.5: the FILTER page's CUT) */
+    tsvf_coef(&flt, (p[P_FCUT] << 8) + mg.cutoff + pt_cw, rs);   /* (JIANT 0.5: the FILTER page's CUT; punchfx: WOBBLE's) */
     if(p[P_E1]==RW_FUNC)lofi_func_render(t,v,destination,n,&mg,inc,&flt);
     else if (p[P_E1] == RW_FLOAT || (p[P_E1] == RW_USER && math_ty[(uint32_t)(t - trk) % NTRK] == FT_FIX))   /* (JIANT 0.5.1)
                                                          * floatbeat (JIANT BYTE: a USER one in FIX too) */
