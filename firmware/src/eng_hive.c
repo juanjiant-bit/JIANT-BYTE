@@ -44,6 +44,8 @@ static void hv_clear(uint32_t tr)
 {
     memset(drum_kit[tr % NTRK], 0, sizeof drum_kit[0]);
     memset(comb_buf[tr % NTRK], 0, sizeof comb_buf[0]);
+    wf[tr % NTRK].key = 0;                               /* (waveframes) a WAVE part's frames there, gone */
+    wf[tr % NTRK].use = 0;
 }
 static hv_st_t *hv_get(uint32_t tr)
 {

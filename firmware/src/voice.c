@@ -2428,4 +2428,50 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     return nr;
 }
 
+/* (waveframes) eng_wave.c's frames: in the part's COMB line (comb_buf) while nothing else plays it (COMB, METAL, HIVE) */
+static int wf_line_busy(uint32_t tr) { return tf_cmb[tr] || fnb[tr].pmon || trk[tr].engine == ENGI_HIVE; }
+/* .. how far POS can move from base (Q8) this block: the LFO, ENV and the matrix's SHAPE, each at its whole depth (the
+ * matrix on POS itself, DRONE CLAY, WSEQ: anywhere); 1 when MIX can move (the matrix or CLAY on it) */
+static int wf_span(const track_t *t, int32_t base, uint32_t full, int32_t *lo, int32_t *hi)
+{
+    const int16_t *p = t->p;
+    int32_t b = p[P_LD_SHP] < 0 ? -p[P_LD_SHP] : p[P_LD_SHP], a = -b, x, k, mx = clay[(uint32_t)(t - trk) % NTRK][CL_ON] != 0;
+    full |= (uint32_t)mx;
+    x = p[P_ED_SHP];
+    if (x < 0) a += x; else b += x;
+    for (k = 0; k < (int32_t)NMSLOT; k++) {
+        uint32_t s = (uint32_t)p[P_M1SRC + 3 * k], d = (uint32_t)p[P_M1DST + 3 * k];
+        x = p[P_M1AMT + 3 * k];
+        if (!s || !x) continue;
+        if (d == MD_SHP) {
+            if (MS_BIPOLAR(s)) { a -= x < 0 ? -x : x; b += x < 0 ? -x : x; }
+            else if (x < 0) a += x; else b += x;
+        }
+        full |= d == MD_E1 + 1u;
+        mx |= d == MD_E1 + 5u;
+    }
+    *lo = full ? 0 : clamp(base + (a << 8), 0, 127 << 8);
+    *hi = full ? 127 << 8 : clamp(base + (b << 8), 0, 127 << 8);
+    return mx;
+}
+/* .. WSEQ: the STEP MOD lane (mod.c MS_STEP) as POS (Q8), stepped on here when no MOD slot reads it */
+static int32_t wf_lane(track_t *t)
+{
+    uint32_t k;
+    for (k = 0; k < NMSLOT && !(t->p[P_M1SRC + 3u * k] == MS_STEP && t->p[P_M1AMT + 3u * k] && t->p[P_M1DST + 3u * k]); k++) {}
+    if (k == NMSLOT)
+        ms_tick(t);
+    return clamp(t->ms_v, 0, 32767) * 254 >> 8;
+}
+/* .. the sides (eng_drum.c dx_sl dx_sr: what L and R give up) this core's; on: the image on for the part's block */
+static int32_t *wf_side(uint32_t r, uint32_t on)
+{
+    if (on && !(dx_xon & 1u)) {
+        dx_xon |= 1u;
+        memset(dx_sl, 0, sizeof dx_sl);
+        memset(dx_sr, 0, sizeof dx_sr);
+    }
+    return r ? dx_sr : dx_sl;
+}
+
 #include "eng_hive.c"                   /* (BYTE 0.17) HIVE: here, after the COMB line and the voices it uses */

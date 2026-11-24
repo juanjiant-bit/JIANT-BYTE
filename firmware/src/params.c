@@ -330,6 +330,9 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
         return 0 /* (BYTE: never) */ ? &NONE_DESC : &SIMG_DESC;
     if (id == P_DKEYMODE && en == &ENG_DRUM) return &DKEYMODE_DESC;
     if (id == P_KEY && en == &ENG_DRUM) return &DRUM_GAIN_DESC;   /* (JIANT BYTE) the kit's GAIN, in TIME's place */
+    if (en == &ENG_WAVE && (id == P_MORPH || id == P_DXIMG || id == P_LRTRG || id == P_KEY))   /* (waveframes) VOICES WIDTH
+                                                         * BLEND FRAMES, in slots WAVE never read (0: as before) */
+        return &WAVE_XDESC[id == P_MORPH ? 0 : id == P_DXIMG ? 1 : id == P_LRTRG ? 2 : 3];
     if (id == P_FDST && en != &ENG_DRUM && 1 /* (BYTE: always) */)   /* (filter2-mod) a synth's DEST (VOICE's CONS above) */
         return &FN_DESC[8];
     if (id >= P_FKEY && id <= P_FDRV && en != &ENG_DRUM && 1 /* (BYTE: always) */)   /* (filters2) a synth's FILTER 2, DRIVE */
@@ -975,6 +978,11 @@ static const page_t PAGES[] = {
      * CUT; A B C D by FORM's names */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E7, P_E0, P_E6, P_FCUT}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E2, P_E3, P_E4, P_E5}},
+    /* (waveframes) WAVE's: UNISON (VOICES WIDTH BLEND, DETUNE again), FRAMES (SMOOTH STEP, WSEQ; WSEQ's RATE; CAOS), WSEQ
+     * (the STEP MOD lane as frames: the step, its FRAME, LEN, GLIDE) */
+    {"UNISON", FAM_EDIT, SC_TRACK, GR_NONE, {P_MORPH, P_DXIMG, P_LRTRG, P_E6}},
+    {"FRAMES", FAM_EDIT, SC_TRACK, GR_NONE, {P_KEY, P_MSDIV, P_CAOS, 0xFF}},
+    {"WSEQ", FAM_EDIT, SC_TRACK, GR_MSEQ, {0xFF, P_MS0, P_MSLEN, P_MSSLW}},
 };
 #define SPLIT_PAGE(pg) (FELUCCA_SPLIT && (uint32_t)((pg)->graph - GR_SPLIT) < 2u)   /* (V10.7.32: out, core.h) */
 #define STAGE_PAGE(pg) (FELUCCA_ENVX && (pg)->graph == GR_STAGE)   /* (V10.7.32: ENV > STAGE out, core.h) */

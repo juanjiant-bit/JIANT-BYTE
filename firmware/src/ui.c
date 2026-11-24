@@ -674,6 +674,8 @@ static int page_visible(uint32_t i)
         return 0;
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_WRDEP)   /* (0.7.8) ROTOR: WHEEL's (JIANT BYTE: retired) */
         return 0;
+    if (PAGES[i].fam == FAM_EDIT && (PAGES[i].graph == GR_MSEQ || PAGES[i].id[0] == P_MORPH || PAGES[i].id[1] == P_MSDIV))
+        return trk_engp(TSEL) == &ENG_WAVE;          /* (waveframes) UNISON FRAMES WSEQ: WAVE's */
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_KEY)   /* (JIANT BYTE) GAIN: DRUM-X's */
         return trk_eng(TSEL) == ENGI_DRUM;
     if (PAGES[i].id[0] == P_CAOS)                       /* (JIANT BYTE) CAOS: MATH's and WAVE's */

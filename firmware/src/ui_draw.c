@@ -1692,9 +1692,10 @@ static void draw_columns(void)
         fmt_int(val, (int32_t)ms_ui_step + 1);
         draw_column(0, "STEP", val, "/16", ms_ui_step < (uint32_t)t->p[P_MSLEN] ? VAL(0u) : T_DIM,
                     (int32_t)ms_ui_step * 1000 / 15, ICON_AUTO);
-        pf_column(1, "LEVEL", &TP[id], t->p[id], VAL(1u), ICON_LEVEL);
+        uint32_t ws = cur_page()->fam == FAM_EDIT;      /* (waveframes) WAVE's WSEQ: the lane's levels as frames */
+        pf_column(1, ws ? "FRAME" : "LEVEL", &TP[id], t->p[id], VAL(1u), ICON_LEVEL);
         pf_column(2, "LEN", &TP[P_MSLEN], t->p[P_MSLEN], VAL(2u), ICON_AUTO);
-        pf_column(3, "SLEW", &TP[P_MSSLW], t->p[P_MSSLW], t->p[P_MSSLW] ? VAL(3u) : T_DIM, ICON_GLIDE);
+        pf_column(3, ws ? "GLIDE" : "SLEW", &TP[P_MSSLW], t->p[P_MSSLW], t->p[P_MSSLW] ? VAL(3u) : T_DIM, ICON_GLIDE);
         return;
     }
     if (cur_page()->graph == GR_MOD) {                   /* SLOT, then that slot's SRC DST AMT */
