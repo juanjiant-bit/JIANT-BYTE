@@ -9,13 +9,13 @@
  *            (broken, three against four; the same every 4 bars); RANGE: a share of the notes (the calls', and w's
  *            per step) an octave down or up
  *   SECTION  at the next bar line: INTRO (no drums, thinner, CUT down), GROOVE (as written), BUILD (denser bar by bar,
- *            CUT opening, a riser), DROP (denser), BREAK (no drums, CUT down)
+ *            its riser the CUT opening over four bars), DROP (denser), BREAK (no drums, CUT down)
  *   FILL     held, from the next 1/16 to the 1/16 after the key is up: ROLL (each 1/16 its first 1/32, then 1/64),
  *            STUTTER (the 1/8 from its start again), REVERSE (back from its start), DOUBLE (twice as fast from its start)
  *   MUTATE   NOTES (a new seed d, the notes moved 0 7 5 12), RHYTHM (the bar's offbeat 1/16s reordered), SWAP (layer A's
  *            and B's parts; one layer: the bar's halves), FREEZE (the bar playing, again), RESET
- *   LAYERS   a second recipe B (its preset's knobs) on the same P, BLEND between them, PARTS: the drums of one, the
- *            notes of the other (music calls muted by layer); two parts at once (fp_b)
+ *   LAYERS   a second recipe B (its preset's knobs) on the same P, BLEND between them (A .. both at 3/4 .. B), B
+ *            muted by its key; two parts at once (fp_b). (PARTS, a part from each layer: out for the flash's room)
  *   ROOT     the last seven keys: the scale's degree, at the next bar
  * The keys (seq.c key_on / key_off: after DRONE CLAY's, the selected FUNC part's alone, KEYS ON and RUN PLAY playing or
  * FREE; a layer button held, SCENE, the DRUM grid first, as ever): whites 1..5 the sections, 6..9 the fills, blacks 1..5
@@ -68,11 +68,11 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
                                                uint32_t *Y, uint32_t *W, uint32_t *P)
 {
     uint32_t tr = (uint32_t)(t - trk) % NTRK, s = n, a, b, i, k, L, Yb[LOFI_N], fb = (uint32_t)clamp(t->p[P_FFB], 0, 20), fk,
-             x = (uint32_t)clamp(t->p[P_FBLD], 0, 127);
+             x = (uint32_t)fp_kp[tr][0] & 127u;
     fp_t *f = &fp_st[tr];
     const fvm_prog_t *pb = 0;
     fp_q_t q;
-    fu_cx_t cx[2];
+    fu_cx_t cx[1];
     (void)v;
     if (P[0] + (1u << 18) < f->lastP) {                 /* (the time went back: PLAY again) the lines from here */
         f->qbar = f->fs = f->fe = f->fill = 0;
@@ -94,7 +94,7 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
     for (k = 0; k < 2u && fb; k++)                      /* layer B: its slot (func_b_poll) */
         if (fp_b[k].tr == tr + 1u && fp_b[k].form == fb && fp_b[k].p.n && !(f->mute & 4u)) pb = &fp_b[k].p;
     for (a = 0; a < n; a = b) {
-        uint32_t sec, bars, pt = (uint32_t)fp_kp[tr][0] % 3u, g[2], m, ra = P[a], xx = x;
+        uint32_t sec, bars, g[2], m, ra = P[a], xx = (f->mut & FM_SWAP) && pb ? 127u - x : x;
         if (a == s) {                                   /* the bar line: the section, the root */
             if (f->sreq) { f->sec = (uint8_t)(f->sreq - 1u); f->sbar = f->qbar; f->sreq = 0; }
             if (f->dreq) { f->deg = (uint8_t)(f->dreq - 1u); f->semi = f->dsemi; f->dreq = 0; }
@@ -105,7 +105,6 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
         bars = (ra >> 18) - f->sbar;
         bars = sec == FS_BUILD ? (bars < 3u ? bars : 3u) : 0u;
         f->cut = (int8_t)(FS_CUT[sec] + (int32_t)bars * 8);
-        if ((f->mut & FM_SWAP) && pb) xx = pt ? x : 127u - x, pt = pt ? pt ^ 3u : 0u;
         memset(&q, 0, sizeof q);
         q.one = !pb;
         q.seed = en->u[FU_D] * 0x85EBCA77u + 0x1234u;
@@ -120,9 +119,7 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
         cx[0].range = (int8_t)q.rng;
         cx[0].notes = (uint8_t)(f->mut & FM_NOTES);
         cx[0].seed = q.seed;
-        cx[1] = cx[0];
-        cx[0].mask = (uint8_t)(m | (pt ? 3u - pt : 0u));   /* (PARTS: DR A the notes B's, DR B the drums B's) */
-        cx[1].mask = (uint8_t)(m | pt);
+        cx[0].mask = (uint8_t)m;
         for (i = a; i < b; i++) {
             P[i] = func_tp(f, &q, P[i]);
             if (q.rng) {                                /* RANGE on w: the step's octave */
@@ -148,19 +145,13 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
                 xm_env(&e, pb);
             } else if (f->mut & FM_NOTES) e.u[FU_D] ^= 0x5Au;
             for (k = 0; k < FA_N; k++) e.arr[k] = e.arr[k] ? e.arr[k] + a : 0;
-            e.fx = &cx[L];
+            e.fx = cx;
             e.u[FU_NOTE] = (uint32_t)clamp((int32_t)e.u[FU_NOTE] + f->semi, 0, 127);
             lofi_run(L ? pb : pa, &e, &lofi_work[MC_CPU() & 1u], b - a, o + a);
         }
         if (pb || g[0] != 32768u)
             for (i = a; i < b; i++)
                 Y[i] = (uint32_t)((((int32_t)Y[i] >> 1) * (int32_t)g[0] >> 14) + (g[1] ? ((int32_t)Yb[i] >> 1) * (int32_t)g[1] >> 14 : 0));
-        if (sec == FS_BUILD) {                 /* BUILD's riser: a saw up four octaves over four bars, louder */
-            uint32_t pr = (ra - (f->sbar << 18)) >> 10, inc;
-            if (pr > 1024u) pr = 1024u;
-            inc = (0x400000u + pr * pr * 0x40u) << VH_SH();   /* (~41 Hz up to ~2.6 kHz) */
-            for (i = a; i < b; i++) { f->rph += inc; Y[i] += (uint32_t)((((int32_t)(f->rph >> 16) - 32768) * (int32_t)pr) >> 13); }
-        }
     }
 }
 /* ---- the keys' and the loop's (audio, core 0) */

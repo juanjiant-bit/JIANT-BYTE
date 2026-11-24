@@ -385,24 +385,19 @@ static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
         cv_rect(cx - 1, y + 12, cw + 1, 1, HUD_YE); cv_rect(cx - 1, yy, cw + 1, 1, HUD_YE);
         cv_rect(cx - 1, y + 12, 1, yy - y - 12, HUD_YE); cv_rect(cx + cw - 1, y + 12, 1, yy - y - 12, HUD_YE);
     }
-    {   /* (funcplay) the part played live: its SECTION (the one asked after it), the FILL held, the mutations lit, the
-         * parts muted, layer B and its BLEND */
-        static const char *const SN[5] = {"GROOVE", "INTRO", "BUILD", "DROP", "BREAK"}, *const FN[5] = {"", "ROLL", "STUT", "REV", "DBL"};
+    {   /* (funcplay) the part played live: its SECTION (lit when not GROOVE), the one asked, the FILL held, the mutations
+         * and the mutes (a letter each, a dot when off: NOTES RHYTHM SWAP FREEZE, DRUMS NOTES B), layer B */
+        static const char SN[5][7] = {"GROOVE", "INTRO", "BUILD", "DROP", "BREAK"}, FN[5][5] = {"", "ROLL", "STUT", "REV", "DBL"};
         const fp_t *fs = &fp_st[(uint32_t)(t - trk) % NTRK];
-        int32_t sx = x, ry = y + ht - 32;
-        uint32_t fb = (uint32_t)clamp(t->p[P_FFB], 0, 20);
-        char m[12];
-        sx += hud_tag(sx, ry, SN[fs->sec % 5u], 0x0000, fs->sec ? HUD_YE : T_MID) + 2;
-        if (fs->sreq) sx += hud_tag(sx, ry, SN[(fs->sreq - 1u) % 5u], HUD_YE, T_SURF) + 2;   /* (the next bar's) */
-        if (fs->fill) sx += hud_tag(sx, ry, FN[fs->fill % 5u], 0x0000, tc) + 2;
-        for (k = 0; k < 7u; k++)                        /* NOTES RHYTHM SWAP FREEZE, the mutes DRUMS NOTES B: a letter
-                                                         * each, a dot when off */
-            m[k] = (k < 4u ? fs->mut >> k : fs->mute >> (k - 4u)) & 1u ? "NRSFDNB"[k] : '\xb7';
-        m[7] = 0;
-        cv_text_on(sx, ry + 1 - AF_X_CAP_Y, &AF_X, m, fs->mut | fs->mute ? HUD_YE : T_DIM, T_BG);
-        if (fb) {
-            cv_text_r(x + wd, ry + 1 - AF_X_CAP_Y, &AF_X, N_FUNC_FB[fb], fs->mute & 4u ? T_DIM : T_TEXT, T_BG);   /* (B) */
-        }
+        int32_t ry = y + ht - 32, sx = x + hud_tag(x, ry, SN[fs->sec % 5u], 0x0000, fs->sec ? HUD_YE : T_MID) + 4;
+        char m[40];
+        uint32_t n = 0;
+        if (fs->sreq) { m[n++] = '>'; str_cpy(m + n, SN[(fs->sreq - 1u) % 5u], 8); n = str_len(m); m[n++] = ' '; }
+        str_cpy(m + n, FN[fs->fill % 5u], 6); n = str_len(m); m[n++] = ' ';
+        for (k = 0; k < 7u; k++) m[n++] = (k < 4u ? fs->mut >> k : fs->mute >> (k - 4u)) & 1u ? "NRSFDNB"[k] : '\xb7';
+        m[n++] = ' ';
+        str_cpy(m + n, N_FUNC_FB[clamp(t->p[P_FFB], 0, 20)] + (t->p[P_FFB] > 0 ? 0 : 3), 12);   /* (B OFF: none) */
+        cv_text_on(sx, ry + 1 - AF_X_CAP_Y, &AF_X, m, fs->fill | fs->mut | fs->mute | fs->sreq ? HUD_YE : T_MID, T_BG);
     }
     yy = y + ht - 20;
     if (now.has & 8u) { str_cpy(b, "NOTE ", sizeof b); note_name(b + 5, clamp((int32_t)now.note, 0, 127)); }

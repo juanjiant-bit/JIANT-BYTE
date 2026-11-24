@@ -138,7 +138,8 @@ static void funcplay_checks(int argc, char **argv)
      * same samples, bit for bit (a GROOVE asked: func_run runs, nothing moves) */
     for (f = 1; f < FUNC_NFORM; f++) {
         fp_setup(f);
-        for (k = 0; k < 6u; k++) assert(TSEL->p[FUNC_PID[k]] == FUNC_PX[k].def);
+        for (k = 0; k < 5u; k++) assert(TSEL->p[FUNC_PID[k]] == FUNC_PX[k].def);
+        assert(fp_kp[0][0] == 64 && !fp_kp[0][1]);
         assert(!func_live(TSEL));
         fp_run(3000, fa, 0);
         fp_at_blk = 0; fp_ev = 1;                           /* (GROOVE asked at the start: the live path all along) */
@@ -262,9 +263,9 @@ static void funcplay_checks(int argc, char **argv)
     {
         double ra, rb, rab;
         fp_setup(16); fp_run(4000, fa, 0); ra = fp_rms(fa, FS / 2u, FS * 4u);
-        TSEL->p[P_FFB] = 5; TSEL->p[P_FBLD] = 0; math_poll(); assert(fp_b[0].tr == 1u && fp_b[0].form == 5u);
+        TSEL->p[P_FFB] = 5; fp_kp[0][0] = 0; math_poll(); assert(fp_b[0].tr == 1u && fp_b[0].form == 5u);
         fp_run(4000, fbuf, 0); assert(fp_first_diff(fa, fbuf, FS * 4u) == FS * 4u);
-        TSEL->p[P_FBLD] = 127; fp_run(4000, fbuf, 0);
+        fp_kp[0][0] = 127; fp_run(4000, fbuf, 0);
         TSEL->p[P_FFB] = 0; math_poll(); TSEL->p[P_E7] = 5; for (k = 0; k < 4u; k++) TSEL->p[P_E2 + k] = FUNC_PRESETS[4].e[2u + k];
         math_poll(); fp_run(4000, fa, 0); rb = fp_rms(fa, FS / 2u, FS * 4u);
         {
@@ -273,27 +274,24 @@ static void funcplay_checks(int argc, char **argv)
             printf("AMEN + ACID: BLEND 127 against ACID alone: the largest difference %d\n", mx);
             assert(mx < 16);
         }
-        fp_setup(16); TSEL->p[P_FFB] = 5; TSEL->p[P_FBLD] = 64; math_poll(); fp_run(4000, fbuf, 0);
+        fp_setup(16); TSEL->p[P_FFB] = 5; fp_kp[0][0] = 64; math_poll(); fp_run(4000, fbuf, 0);
         rab = fp_rms(fbuf, FS / 2u, FS * 4u);
         printf("AMEN %.0f ACID %.0f AMEN+ACID (BLEND 50 %%) %.0f\n", ra, rb, rab);
         assert(rab > ra * 0.6 && rab > rb * 0.6);
-        /* PARTS: AMEN (all drums) with TRANCE (all notes): DR A both heard, DR B (AMEN's drums and TRANCE's notes
-         * away) silence */
-        {
-            double p1, p2;
-            fp_setup(16); TSEL->p[P_FFB] = 17; fp_kp[0][0] = 1; math_poll(); fp_run(2000, fbuf, 0); p1 = fp_rms(fbuf, FS / 2u, FS * 2u);
-            fp_kp[0][0] = 2; fp_run(2000, fbuf, 0); p2 = fp_rms(fbuf, FS / 2u, FS * 2u);
-            printf("PARTS AMEN + TRANCE: DR A %.0f, DR B %.0f\n", p1, p2);
-            assert(p1 > 800.0 && p2 < p1 * 0.05);
-            fp_kp[0][0] = 0;
-        }
+        /* B muted (black 8): A alone again, bit for bit */
+        fp_setup(16); TSEL->p[P_FFB] = 17; math_poll();
+        fp_run(2000, fbuf, 0);
+        TSEL->p[P_FFB] = 0; fp_run(2000, fa, 0); assert(fp_first_diff(fa, fbuf, FS * 2u) < FS * 2u);
+        TSEL->p[P_FFB] = 17; fp_st[0].mute = 4u; fp_run(2000, fbuf, 0); fp_st[0].mute = 0;
+        d = fp_first_diff(fa, fbuf, FS * 2u);
+        assert(d >= FS * 2u - 256u);                    /* (2 s of blocks: 88000 samples) */
         /* a third part with B: no slot (two at once), its A alone */
         for (k = 1; k < 3u; k++) { set_engine_of(&trk[k], ENGI_FUNC); trk[k].eng_req = ENGI_FUNC; trk[k].p[P_FFB] = 3; }
         math_poll();
         assert(fp_b[0].tr == 1u && fp_b[1].tr == 2u);
         trk[1].p[P_FFB] = 0; math_poll(); assert(fp_b[1].tr == 3u);
     }
-    puts("funcplay: layer B blends (0 nothing, 127 B alone, between both), PARTS by layer, two slots PASS");
+    puts("funcplay: layer B blends (0 nothing, 127 B alone, between both), its mute, two slots PASS");
     /* 6 the keys' loop: REC armed, the transport playing, the events into the loop; saved, loaded, played back */
     {
         project_t *pa = &a, *pb2 = &b;
@@ -369,9 +367,9 @@ static void funcplay_checks(int argc, char **argv)
         fp_setup(1);
         assert(nav_put(SEC_EDIT, "GROOVE") && !strcmp(nav_page_name(), "GROOVE")); frame();
         assert(nav_put(SEC_EDIT, "LAYERS") && !strcmp(nav_page_name(), "LAYERS")); frame();
-        for (k = 0; k < 8u; k++) { int16_t *vp; const param_desc_t *dd = page_desc(cur_page(), k & 3u, &vp); (void)dd; }
-        for (k = 0; k < 8u; k++) assert(strlen(FUNC_PX[k].label) + 2u + strlen(FUNC_PXT[k]) <= 26u && func_knob_tip(&FUNC_PX[k]));
-        for (k = 0; k < 6u; k++) assert(track_desc(TSEL, FUNC_PID[k]) == &FUNC_PX[k]);
+        for (k = 0; k < 4u; k++) { int16_t *vp; const param_desc_t *dd = page_desc(cur_page(), k & 3u, &vp); (void)dd; }
+        for (k = 0; k < NELEM(FUNC_PX); k++) assert(strlen(FUNC_PX[k].label) + 2u + strlen(FUNC_PXT[k]) <= 26u && func_knob_tip(&FUNC_PX[k]));
+        for (k = 0; k < 5u; k++) assert(track_desc(TSEL, FUNC_PID[k]) == &FUNC_PX[k]);
         for (k = MD_FX1; k < MD_N; k++) assert(mod_dst_ok(TSEL, k) && mod_param(k) == FUNC_XDST[k - MD_FX1]);
         select_engine(ENGI_LOFI); frame();
         assert(!nav_put(SEC_EDIT, "GROOVE") && !mod_dst_ok(TSEL, MD_FX1));
@@ -407,7 +405,7 @@ static void funcplay_checks(int argc, char **argv)
             snprintf(path, sizeof path, "%s/funcplay_%s.wav", argv[1], k ? "song_swing_sweep" : "amen_density_sweep");
             wav(path, dpcm, at); printf("wrote %s\n", path);
         }
-        fp_setup(16); TSEL->p[P_FFB] = 5; TSEL->p[P_FBLD] = 64; math_poll();
+        fp_setup(16); TSEL->p[P_FFB] = 5; fp_kp[0][0] = 64; math_poll();
         { int32_t pk; double r; play(8000, &pk, &r, 1); }
         snprintf(path, sizeof path, "%s/funcplay_amen_acid_layers.wav", argv[1]); wav(path, pcm, FS * 8u); printf("wrote %s\n", path);
     }

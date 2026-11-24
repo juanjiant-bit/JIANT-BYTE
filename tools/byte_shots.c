@@ -45,7 +45,7 @@ int main(void){
         else if(!strcmp(cmd,"voice")) { int t,v; sscanf(a,"%d %d",&t,&v); trk[t].p[P_VOICE]=(int16_t)v; }
         else if(!strcmp(cmd,"fp")) { int t,e; sscanf(a,"%d %d",&t,&e); func_apply((uint32_t)t,(uint32_t)e); }
         else if(!strcmp(cmd,"fpfill")) { int t,f; sscanf(a,"%d %d",&t,&f); fp_st[t].fkey=(uint8_t)f; }
-        else if(!strcmp(cmd,"fpp")) { int t,k,v; sscanf(a,"%d %d %d",&t,&k,&v); trk[t].p[FUNC_PID[k%6]]=(int16_t)v; math_poll(); }
+        else if(!strcmp(cmd,"fpp")) { int t,k,v; sscanf(a,"%d %d %d",&t,&k,&v); if(k==5) fp_kp[t][0]=(int16_t)v; else trk[t].p[FUNC_PID[k%5]]=(int16_t)v; math_poll(); }
         else if(!strcmp(cmd,"genres")) { for(unsigned g=0;g<NGENRE;g++) fprintf(stderr,"%u %s\n",g+1,GENRE[g].name); }
         else fprintf(stderr,"? %s\n",cmd);
     }

@@ -709,12 +709,12 @@ typedef struct {
     uint8_t sec, sreq, dreq, fill, fkey, lfill, mut, mute;   /* (sreq dreq: + 1, 0 none; these and semi gden: live) */
     int8_t semi, gden, dsemi, cut;      /* the root's semitones, GEN's density, the semitones asked, the block's CUT move */
     uint8_t deg, rsv[3];
-    uint32_t qbar, sbar, fs, fe, frz, rph, lastP, rp;   /* bars, Q16 beats: the asked's line, the section's first, the fill's
-                                         * start and end (0 open), the bar frozen; the riser's phase; the last P; the loop's step */
+    uint32_t qbar, sbar, fs, fe, frz, lastP, rp;   /* bars, Q16 beats: the asked's line, the section's first, the fill's
+                                         * start and end (0 open), the bar frozen; the last P; the loop's step */
 } fp_t;
 static fp_t fp_st[NTRK] __attribute__((section(".pool")));
-static int16_t fp_kp[NTRK][2] __attribute__((section(".pool")));   /* LAYERS' PARTS (0 BOTH, 1 A DRUMS B NOTES, 2 B DRUMS
-                                                         * A NOTES) and KEYS (0 ON): the knobs' own, the project's 'F' 'P' */
+static int16_t fp_kp[NTRK][2] __attribute__((section(".pool")));   /* LAYERS' BLEND (0 A .. 64 both .. 127 B) and KEYS
+                                                         * (0 ON): the knobs' own, the project's 'F' 'P' */
 #define FP_RN 64u                                       /* the recorded loop: four bars of 1/16, a byte each (fill 0..4, an
                                                          * event << 3: funcplay.c fp_ev) */
 static uint8_t fp_rec[NTRK][FP_RN] __attribute__((section(".pool")));
@@ -814,34 +814,34 @@ static const char *const FUNC_TIPS[FUNC_NFORM][4]={
 static uint32_t func_form(const track_t*t){return t->p[P_E7]>=1&&t->p[P_E7]<(int)FUNC_NFORM?(uint32_t)t->p[P_E7]:0u;}
 
 /* (funcplay) GROOVE (every recipe's: on its time and its calls, funcplay.c) and LAYERS: their knobs (core.h P_FDEN ..),
- * PARTS and KEYS views of fp_kp (params.c ID_FP0) */
+ * BLEND and KEYS views of fp_kp (params.c ID_FP0) */
 static const char *const N_FUNC_FB[]={"OFF","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK",
     "NIBBLE","BITS","DRUMS","SCREECH","DUB","AMEN","TRANCE","AMBIENT","MINIMAL","JUNGLE"};
 _Static_assert(NELEM(N_FUNC_FB)==FUNC_NFORM,"FUNC: FORM B's names");
-static const char *const N_FPARTS[]={"BOTH","DR A","DR B",0},*const N_FKEYS[]={"ON","OFF",0};
-static const param_desc_t FUNC_PX[8]={{"DENSITY",F_BIPCT,-64,63,0,0},{"SWING",F_PCT,0,127,0,0},{"COMPLEX",F_PCTINV,0,127,127,0},
+static const char *const N_FKEYS[]={"ON","OFF",0};
+static const param_desc_t FUNC_PX[7]={{"DENSITY",F_BIPCT,-64,63,0,0},{"SWING",F_PCT,0,127,0,0},{"COMPLEX",F_PCTINV,0,127,127,0},
     {"RANGE",F_BIPCT,-64,63,0,0},{"FORM B",F_ENUM,0,FUNC_NFORM-1u,0,N_FUNC_FB},{"BLEND",F_PCT,0,127,64,0},
-    {"PARTS",F_ENUM,0,2,0,N_FPARTS},{"KEYS",F_ENUM,0,1,0,N_FKEYS}};
-static const char *const FUNC_PXT[8]={"THIN .. FILL HITS","ODD 1/16S LATER","STRAIGHT..BROKEN","NOTES 8VA DOWN..UP",
-    "A SECOND RECIPE","A .. A+B .. B","DRUMS FROM A OR B","SECTIONS, FILLS"};
-static const uint8_t FUNC_PID[6]={P_FDEN,P_FSWG,P_FCPX,P_FRNG,P_FFB,P_FBLD};
+    {"KEYS",F_ENUM,0,1,0,N_FKEYS}};
+static const char *const FUNC_PXT[7]={"THIN .. FILL HITS","ODD 1/16S LATER","STRAIGHT..BROKEN","NOTES 8VA DOWN..UP",
+    "A SECOND RECIPE","A .. A+B .. B","SECTIONS, FILLS"};
+static const uint8_t FUNC_PID[5]={P_FDEN,P_FSWG,P_FCPX,P_FRNG,P_FFB};
 static const param_desc_t *func_pdesc(uint32_t id)    /* (params.c track_desc: a FUNC part's) */
 {
     uint32_t k;
-    for(k=0;k<6u;k++)if(FUNC_PID[k]==id)return &FUNC_PX[k];
+    for(k=0;k<5u;k++)if(FUNC_PID[k]==id)return &FUNC_PX[k];
     return 0;
 }
-static const param_desc_t *func_view(uint32_t k,int16_t**valp)   /* (params.c page_desc: LAYERS' PARTS, KEYS) */
+static const param_desc_t *func_view(uint32_t k,int16_t**valp)   /* (params.c page_desc: LAYERS' BLEND, KEYS) */
 {
     *valp=&fp_kp[song.sel%NTRK][k&1u];
-    return &FUNC_PX[6u+(k&1u)];
+    return &FUNC_PX[5u+(k&1u)];
 }
 /* a FUNC part as written: GROOVE and LAYERS at their middles (apply_preset_to, project.c, math_poll) */
 static void func_neutral(track_t*t)
 {
     uint32_t k;
-    for(k=0;k<6u;k++)t->p[FUNC_PID[k]]=FUNC_PX[k].def;
-    fp_kp[(uint32_t)(t-trk)%NTRK][0]=fp_kp[(uint32_t)(t-trk)%NTRK][1]=0;
+    for(k=0;k<5u;k++)t->p[FUNC_PID[k]]=FUNC_PX[k].def;
+    fp_kp[(uint32_t)(t-trk)%NTRK][0]=64;fp_kp[(uint32_t)(t-trk)%NTRK][1]=0;
 }
 /* its line of help: one of FUNC_KNOBS's (FUNC_PX's), else 0 (knob_hint's own table) */
 static const char *func_knob_tip(const param_desc_t*d){

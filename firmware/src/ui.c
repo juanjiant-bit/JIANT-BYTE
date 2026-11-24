@@ -646,7 +646,7 @@ static int page_visible(uint32_t i)
         return 0;                                       /* (0.6.30) LOAD ECO: no SLICER, no chorus: their pages gone */
     if (PAGES[i].graph == GR_MORPH)                     /* (0.6.45) MORPH: ANALOG's (JIANT BYTE: retired) */
         return 0;
-    if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[1] == P_FSWG || PAGES[i].id[2] == ID_FP0))   /* (funcplay) GROOVE, LAYERS */
+    if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[1] == P_FSWG || PAGES[i].id[1] == ID_FP0))   /* (funcplay) GROOVE, LAYERS */
         return te == ENGI_FUNC;
     if(PAGES[i].graph==GR_TRACKGEN) return trackgen_ok(TSEL);
     if (PAGES[i].graph == GR_SWARM)                     /* (V10.6z6) FAR / NEAR: a SWARM track's */

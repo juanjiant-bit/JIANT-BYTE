@@ -770,7 +770,7 @@ static int16_t dnz_v[NTRK] __attribute__((section(".bss.tape")));
  * was (bit for bit); towards 100 a part's dry goes down by its CHORUS send and the ensemble closes to its first voice
  * alone, in the middle: MIX 100 and the send whole, a vibrato. Kept with the project ('C' 'M', project.c; absent: 0) */
 #define ID_CMIX (ID_EQ0 + 4u)
-#define ID_FP0 0xE5u                                    /* (funcplay) FUNC's LAYERS: PARTS, KEYS (eng_lofi.c func_view) */
+#define ID_FP0 0xE5u                                    /* (funcplay) FUNC's LAYERS: BLEND, KEYS (eng_lofi.c func_view) */
 static const param_desc_t CMIX_DESC __attribute__((section(".rodata.tape"))) = PD("MIX", F_PCT, 0, 100, 0);
 static int16_t cho_mix __attribute__((section(".bss.tape")));
 static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CRUSH (0..127: DIST's DRIVE, shown 0..100 %) */
@@ -1009,9 +1009,9 @@ static const page_t PAGES[] = {
     {"TOUCH", FAM_EDIT, SC_TRACK, GR_NONE, {P_HVTCH, P_HVPAIR, P_HVTIME, P_HVHOLD}},   /* (hive2) HIVE's third: TOUCH PAIR
                                                          * TIME HOLD (ui.c page_visible: its alone) */
     /* (funcplay) FUNC's GROOVE (every recipe's DENSITY SWING COMPLEX RANGE) and LAYERS (a second recipe: FORM B, BLEND,
-     * PARTS, the keys'), its alone (ui.c page_visible) */
+     * the keys'), its alone (ui.c page_visible) */
     {"GROOVE", FAM_EDIT, SC_TRACK, GR_NONE, {P_FDEN, P_FSWG, P_FCPX, P_FRNG}},
-    {"LAYERS", FAM_EDIT, SC_TRACK, GR_NONE, {P_FFB, P_FBLD, ID_FP0, ID_FP0 + 1u}},
+    {"LAYERS", FAM_EDIT, SC_TRACK, GR_NONE, {P_FFB, ID_FP0, ID_FP0 + 1u, 0xFF}},
 };
 #define SPLIT_PAGE(pg) (FELUCCA_SPLIT && (uint32_t)((pg)->graph - GR_SPLIT) < 2u)   /* (V10.7.32: out, core.h) */
 #define STAGE_PAGE(pg) (FELUCCA_ENVX && (pg)->graph == GR_STAGE)   /* (V10.7.32: ENV > STAGE out, core.h) */
@@ -1107,7 +1107,7 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return eu_desc(id - ID_EU0, valp);
     if (id >= ID_SC0 && id < ID_SC0 + 4u)            /* (V10.25) SCENE's */
         return sc_desc(id - ID_SC0, valp);
-    if (id - ID_FP0 < 2u)                                /* (funcplay) LAYERS' PARTS and KEYS (eng_lofi.c fp_kp) */
+    if (id - ID_FP0 < 2u)                                /* (funcplay) LAYERS' BLEND and KEYS (eng_lofi.c fp_kp) */
         return func_view(id - ID_FP0, valp);
     if (id >= ID_CL0 && id <= ID_CL0 + CL_KEYS)          /* (BYTE) DRONE CLAY's (clay.c clay_page_desc) */
         return clay_page_desc(TSEL, id - ID_CL0, valp);
