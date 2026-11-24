@@ -81,15 +81,24 @@ static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
 static uint32_t trk_nvoice(const track_t *t);   /* (voice.c) */
 #define WT_N 128u
 static int16_t wt_tab[NTRK][1][WT_N + 1u];          /* (A's only: 1.5 KB of RAM, all the RAM has) */
-static uint16_t wt_key[NTRK][1], wt_bkey[NTRK][1];  /* 1 + formula x 128 + POS (0: none); the one being drawn */
+static uint16_t wt_key[NTRK][1], wt_bkey[NTRK][1], wt_try[NTRK];  /* 1 + formula x 128 + POS (0: none); the one being drawn */
 static uint8_t wt_bi[NTRK][1], wt_bn[NTRK][1], wt_go[NTRK], wt_wm[NTRK];   /* .. its next point, its points drawn; a quarter allowed
                                                          * this block (wave_block), a bit an oscillator */
 static void wave_warm(track_t *t, uint32_t tr);
+static uint32_t wt_wdone[NTRK];
+static inline uint32_t wave_wkey(const track_t *t)   /* (what wave_warm looks at) */
+{
+    const int16_t *p = t->p;
+    return 0x80000000u | ((uint32_t)p[P_E0] & 15u) | ((uint32_t)p[P_E4] & 15u) << 4 | ((uint32_t)p[P_E1] & 127u) << 8 |
+           (uint32_t)(p[P_E5] > 0) << 15 | ((uint32_t)p[P_E2] & 7u) << 16 | (uint32_t)(p[P_E6] > 0) << 19 |
+           (uint32_t)(p[P_CAOS] > 0) << 20;
+}
 static void wave_block(track_t *t)
 {
     uint32_t tr = (uint32_t)(t - trk) % NTRK;
     wt_go[tr] = 3u;
-    if (fvm_warm_tok && trk_quiet(t))              /* (engopt) its formulas, its first table, before its first note */
+    if (fvm_warm_tok && wt_wdone[tr] != wave_wkey(t) && trk_quiet(t))   /* (engopt) its formulas, its first table, before
+                                                         * its first note (wt_wdone: nothing left to do for these knobs) */
         wave_warm(t, tr);
 }
 static int wt_smooth(uint32_t f) { return f != 10u && f != 11u && f != 13u; }   /* (SAWSQ PULSE too: their edge a 1/128 turn ramp) */
@@ -181,15 +190,18 @@ static void wave_warm(track_t *t, uint32_t tr)
         (void)wave_prog(&wave_prg_b[tr], &wave_id_b[tr], fb, wk);
         return;
     }
-    if (!wt_key[tr][0] && many && !p[P_CAOS] && warp != WW_QUANT) {
+    if (!wt_key[tr][0] && many && !p[P_CAOS] && warp != WW_QUANT && wt_try[tr] != (uint16_t)(1u + fa * 128u + pos)) {
         int32_t st[FVM_MAXSTATE] = {0};
         uint32_t T[1] = {0}, W[1] = {0};
         fvm_env_t e = {{T, W, 0, 0, 0}, {0}, st};
         e.u[FU_AF] = pos * 516u;
         fvm_warm_tok = 0;
+        wt_try[tr] = (uint16_t)(1u + fa * 128u + pos);  /* (once a formula and POS: one wt_get refuses stays refused) */
         if (wt_get(tr, tr, 0, lofi_slot(tr), fa, pos, 1u, &e, wk) && wt_key[tr][0])
             wt_wm[tr] = 1;
+        return;
     }
+    wt_wdone[tr] = wave_wkey(t);                         /* (nothing to do: not looked at again until a knob moves) */
 }
 
 static void wave_note_on(track_t *t, voice_t *v)

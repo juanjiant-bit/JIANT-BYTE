@@ -777,9 +777,9 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 
 static void lofi_block(track_t *t)                   /* (engopt) BYTE's / FLOAT's formula compiled before the note */
 {
-    if (fvm_warm_tok && (t->p[P_E1] == RW_BYTE || t->p[P_E1] == RW_FLOAT) && trk_quiet(t)) {
+    if (fvm_warm_tok && (t->p[P_E1] == RW_BYTE || t->p[P_E1] == RW_FLOAT)) {
         uint32_t tr = (uint32_t)(t - trk) % NTRK, flt = t->p[P_E1] == RW_FLOAT, f = (uint32_t)t->p[P_E2] >> 2;
-        if (lofi_prg_id[tr] != 1u + (flt ? 64u : 0u) + f) {
+        if (lofi_prg_id[tr] != 1u + (flt ? 64u : 0u) + f && trk_quiet(t)) {
             fvm_warm_tok = 0;
             (void)lofi_prog(t, &lofi_work[MC_CPU() & 1u], flt, f);
         }

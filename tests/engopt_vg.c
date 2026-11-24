@@ -70,7 +70,7 @@ static void eo_notes(uint32_t k, uint32_t nn)
 
 /* the scenarios: name, setup */
 typedef struct { char name[32]; uint32_t kind, a, b, c; } scen_t;
-enum { SK_GEN, SK_WAVE, SK_DRUM, SK_MATH, SK_CLAY, SK_WAVEPLAY, SK_FXWALK };
+enum { SK_GEN, SK_WAVE, SK_DRUM, SK_MATH, SK_CLAY, SK_WAVEPLAY, SK_FXWALK, SK_HIVE };
 static uint32_t eo_walk;
 static scen_t SC[128];
 static uint32_t nsc;
@@ -100,6 +100,10 @@ static void build_list(void)
     for (uint32_t k = 0; k < ENG_DRUM.npresets && k < 8u; k++) {
         snprintf(n, sizeof n, "drum/%s", ENG_DRUM.presets[k].name);
         add(n, SK_DRUM, k, 0, 0);
+    }
+    for (uint32_t k = 0; k < ENG_HIVE.npresets && k < 4u; k++) {   /* (HIVE, BYTE 0.17: its first presets, 3 notes) */
+        snprintf(n, sizeof n, "hive/%s", ENG_HIVE.presets[k].name);
+        add(n, SK_HIVE, k, 3, 0);
     }
     add("math/BYTE", SK_MATH, RW_BYTE, 4, 0);
     add("math/FLOAT", SK_MATH, RW_FLOAT, 4, 0);
@@ -142,6 +146,12 @@ static void setup(const scen_t *s)
     case SK_WAVE:
         eo_quiet();
         eo_part(0, ENGI_WAVE, s->a);
+        trk[0].p[P_VOICE] = V_POLY; trk[0].p[P_SUS] = 127;
+        eo_notes(0, s->b);
+        break;
+    case SK_HIVE:
+        eo_quiet();
+        eo_part(0, ENGI_HIVE, s->a);
         trk[0].p[P_VOICE] = V_POLY; trk[0].p[P_SUS] = 127;
         eo_notes(0, s->b);
         break;
