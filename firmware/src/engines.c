@@ -41,13 +41,8 @@ static const engine_t ENG_GONE = {
     .render = phys_gone_render,
     .knob = {P_E0, P_E1, P_E2, P_E3},
 };
-/* (JIANT BYTE) INPUT (EXT and SWARM) retired: what compared a part's engine with it compares with this one, in no slot */
-static const engine_t ENG_ANA_GONE = {.name = "-", .page_title = {"-", "-"}, .note_on = phys_gone_note_on,
-                                      .render = phys_gone_render};   /* (JIANT BYTE: ANALOG retired, as INPUT) */
-static const engine_t ENG_VOX_GONE = {.name = "-", .page_title = {"-", "-"}, .note_on = phys_gone_note_on,
-                                      .render = phys_gone_render};   /* (.. VOICE) */
-static const engine_t ENG_EXT_GONE = {.name = "-", .page_title = {"-", "-"}, .note_on = phys_gone_note_on,
-                                      .render = phys_gone_render};
+/* (JIANT BYTE) INPUT (EXT and SWARM), ANALOG and VOICE retired: no slot holds them, so what compared a part's engine with
+ * them (ENG_EXT_GONE, ENG_ANA_GONE, ENG_VOX_GONE until BYTE's flash audit) is folded to its constant at each site */
 #define ENGI_PHYS_TO 0u          /* the engine a retired engine's sound plays as: ANALOG (its first preset) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */

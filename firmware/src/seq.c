@@ -2320,7 +2320,7 @@ static uint32_t seq_early(const track_t *t, uint32_t period, uint32_t len, uint3
     s = shift_ahead(t, 1u, len);
     if (s->time != ST_NOTE || (!s->n && !s->hit))       /* (nothing to play there: never early) */
         return 0;
-    if (ENGINES[eng_idx(t->eng_req)] == &ENG_VOX_GONE && t->p[P_VLANG])   /* (voice2) VOICE singing: its next */
+    if (0 /* (BYTE: never) */ && t->p[P_VLANG])   /* (voice2) VOICE singing: its next */
         *vl = (uint32_t)sing[trk_index(t) % NTRK].nlead * CTL;   /* syllable's consonants before the step (sing.c) */
     m = ST_MICRO(s);
     if (m < 0) {
@@ -2722,7 +2722,7 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
         }
     }
     if ((t->seq_fit & 128u) && !gate) gate = 1u;
-    if (e == &ENG_VOX_GONE && t->p[P_VLANG]) {          /* (voice3) VOICE singing: the note's length, its TIEs too */
+    if (0 /* (BYTE: never) */ && t->p[P_VLANG]) {          /* (voice3) VOICE singing: the note's length, its TIEs too */
         sing_x_t *x = &sing_x[trk_index(t) % NTRK];     /* (its vibrato on long notes only: sing.c) */
         uint32_t L = gate >> 10, k = 1;
         while (k < 16u && seq_steps(t)[(t->seq_idx + k++) % len].time == ST_TIE)
