@@ -2502,142 +2502,105 @@ static inline __attribute__((always_inline)) void fx_buses(const int32_t *cho_in
         k.tn = dtn; k.dg = dg; k.dgi = dgi; k.db = db;
         dly_lo(dly_in, dlo_x, dlo_xr, n, &k, wm, dwm);
     }
-    /* (engopt) the block in three passes, each with its state in registers (one loop calling out a sample -- the LFO,
-     * the grains -- held every glide, phase and index in memory): the chorus into ych / ysd, the delay into wet / dsd,
-     * then the sum and its side. Bit for bit the loop it was: the chorus's reads are 300 samples back at the least, the
-     * block it writes never among them */
-    int32_t ysd[CTL], dsd[CTL];                         /* (the chorus's mid is wet's first; the sides apart) */
-    {
-        int32_t cr[3], cdr[3] = {0, 0, 0};              /* (snd2) the chorus's read points, their step a sample; */
-        uint32_t clg = GFX(GF_CRATE) < 64 ? 6u : GFX(GF_CRATE) < 96 ? 4u : GFX(GF_CRATE) < 120 ? 3u : 2u;   /* .. the LFO
-                                                         * read every 64 / 16 / 8 / 4 samples */
-        uint32_t cw0 = fx.cho_w, cph = fx.cho_ph;
-        int32_t cd = fx.cd_cur, cwc = fx.cw_cur;
-        int16_t *cb = cho_buf;
-        for (i = 0; i < n; i++)
-            cb[(cw0 + i) & (CHO_LEN - 1u)] = (int16_t)clamp(cho_in[i] >> 1, -32768, 32767);
+    int32_t cr[3], cdr[3] = {0, 0, 0};                  /* (snd2) the chorus's read points, their step a sample; */
+    uint32_t clg = GFX(GF_CRATE) < 64 ? 6u : GFX(GF_CRATE) < 96 ? 4u : GFX(GF_CRATE) < 120 ? 3u : 2u;   /* .. the LFO read
+                                                         * every 64 / 16 / 8 / 4 samples */
+    grk_t gk;                                           /* (engopt) the grains' constants (grk_set) */
+    if (fx.gr_on || (fx.dl_xf && fx.gr_old))
+        grk_set(&gk, fx.dl_now);
+    if (cho)
+        cho_lfo(fx.cho_ph, fx.cd_cur, cr);              /* (at the sample before the block: the loop steps first) */
+    for (i = 0; i < n; i++) {
+        int32_t y = 0, x, side = 0, xr = 0, wr = 0;
+        /* chorus (0.5.1: an ensemble): three taps of the line, ~7, 9.5 and 12 ms, each swept by the LFO a third of a
+         * turn apart; the first left, the second right, the third in the middle: always stereo (WIDTH wider) */
+        cho_buf[fx.cho_w & (CHO_LEN - 1u)] = (int16_t)clamp(cho_in[i] >> 1, -32768, 32767);
+        fx.cho_ph += cinc;
+        fx.cd_cur += dcd; fx.cw_cur += dcw; fx.dm_cur += ddm;
         if (cho) {
-            cho_lfo(cph, cd, cr);                       /* (at the sample before the block: the loop steps first) */
-            for (i = 0; i < n; i++) {
-                int32_t sd;
-                cph += cinc;
-                cd += dcd; cwc += dcw;
-                if (!(i & ((1u << clg) - 1u))) {        /* (a segment: where the LFO will be at its end) */
-                    int32_t ce[3];
-                    cho_lfo(cph - cinc + (cinc << clg), cd - dcd + dcd * (1 << clg), ce);
-                    cdr[0] = (ce[0] - cr[0]) >> clg; cdr[1] = (ce[1] - cr[1]) >> clg; cdr[2] = (ce[2] - cr[2]) >> clg;
-                }
-                cr[0] += cdr[0]; cr[1] += cdr[1]; cr[2] += cdr[2];
-                wet[i] = cho_ens(cb, cw0 + i, cr, &sd);
-                ysd[i] = (sd * cwc) >> 7;
+            int32_t sd;
+            if (!(i & ((1u << clg) - 1u))) {            /* (a segment: where the LFO will be at its end) */
+                int32_t ce[3];
+                cho_lfo(fx.cho_ph - cinc + (cinc << clg), fx.cd_cur - dcd + dcd * (1 << clg), ce);
+                cdr[0] = (ce[0] - cr[0]) >> clg; cdr[1] = (ce[1] - cr[1]) >> clg; cdr[2] = (ce[2] - cr[2]) >> clg;
             }
-        } else {
-            cph += cinc * n;
-            cd += dcd * (int32_t)n; cwc += dcw * (int32_t)n;
-            for (i = 0; i < n; i++)
-                wet[i] = ysd[i] = 0;
+            cr[0] += cdr[0]; cr[1] += cdr[1]; cr[2] += cdr[2];
+            y += cho_ens(cho_buf, fx.cho_w, cr, &sd);
+            sd = (sd * fx.cw_cur) >> 7;
+            side += sd;
         }
-        fx.cho_w = cw0 + n; fx.cho_ph = cph;
-        fx.cd_cur = cd; fx.cw_cur = cwc;
-    }
-    {
-        int32_t dm = fx.dm_cur;
+        fx.cho_w++;
         if (dly_lo_on) {                                /* (0.8.4: dly_lo's, the right echo always there) */
-            for (i = 0; i < n; i++) {
-                int32_t x = dlo_x[i], xr = dlo_xr[i];
-                dm += ddm;
-                dsd[i] = mulq15(x - xr, dm);
-                wet[i] += mulq15(((x + xr) >> 1) << 1, dm);
-            }
+            x = dlo_x[i];
+            xr = dlo_xr[i];
+            wr = 1;
         } else {
-            uint32_t w = fx.dly_w, dln = fx.dl_now, dlo = fx.dl_old, drn = fx.dr_now, dro_ = fx.dr_old;
-            uint32_t xf = fx.dl_xf, rxf = fx.dr_xf, gon = fx.gr_on, gold = fx.gr_old;
-            int32_t hp = fx.dly_hp, dpk = fxg_dpk, t1 = fx.dt1, t2 = fx.dt2, lp = fx.dly_lp;
-            uint32_t gph = fx.gr_ph;
-            grk_t gk;
-            if (gon || (xf && gold))
-                grk_set(&gk, dln);
-            for (i = 0; i < n; i++) {
-                int32_t x, xr = 0, wr = 0, side = 0;
-                int32_t rsel = png ? 2 : wd || rxf || drn != dln ? 1 : 0;   /* (the right's read: PING, WIDE, its fade) */
-                dm += ddm;
-                /* delay with a low-passed (COLR) and low-cut (HPF) feedback */
-                if (gon || (xf && gold)) {              /* (dly_grain_adv's clock; a grain starting again: its constants) */
-                    gph = (gph + gr_inc) & 0xFFFFu;
-                    if (gph < gr_inc || ((gph + 32768u) & 0xFFFFu) < gr_inc) {
-                        fx.gr_ph = (gph - gr_inc) & 0xFFFFu;
-                        dly_grain_adv();
-                        grk_set(&gk, dln);
-                    }
-                }
-                wm += dwm;
-                x = gon ? gr_one(gk.bn[0], gk.e3[0], gk.up[0], gph, w) + gr_one(gk.bn[1], gk.e3[1], gk.up[1], (gph + 32768u) & 0xFFFFu, w)
-                        : dly_rd_of(dly_buf, w, dln, wm);
-                if (xf) {                               /* (0.6.81) the old read point fading out */
-                    int32_t xo;
-                    if (gold) {                         /* (a fade's ~21 ms: dly_grain, out of line, at the clock now) */
-                        fx.gr_ph = gph; fx.dly_w = w;
-                        xo = dly_grain(dlo, 0u);
-                    } else
-                        xo = dly_rd_of(dly_buf, w, dlo, wm);
-                    x += ((xo - x) * (int32_t)xf) >> DXF_LOG2;
-                    xf--;
-                }
-                if (rsel == 2) {                        /* (0.6.90) PING-PONG: the right, twice as far back */
-                    xr = dly_rd_of(dly_buf, w, dln * 2u, wm);
-                    if (xf) {
-                        int32_t xo = dly_rd_of(dly_buf, w, dlo * 2u, wm);
-                        xr += ((xo - xr) * (int32_t)xf) >> DXF_LOG2;
-                    }
-                    wr = 2;
-                } else if (rsel) {                      /* (JIANT) the right echo later (0.6.81: on until it has faded
-                                                         * back onto the left's, WIDE to 0 stepped; read before the line
-                                                         * is written, as the left: at WIDE 0, the same sample) */
-                    xr = dly_rd_of(dly_buf, w, drn, wm);
-                    if (rxf) {
-                        int32_t xo = dly_rd_of(dly_buf, w, dro_, wm);
-                        xr += ((xo - xr) * (int32_t)rxf) >> DXF_LOG2;
-                        rxf--;
-                    }
-                    wr = 1;
-                }
-                lp = x;                                 /* (0.6.89: no fixed low-pass in the loop) */
-                { int32_t ax = x < 0 ? -x : x; if (ax > dpk) dpk = ax; }   /* (the delay's own level: fx_gate) */
-                if (wr == 2) {                          /* (PING-PONG: the loop from the right tap; its level, too) */
-                    int32_t ax = xr < 0 ? -xr : xr; if (ax > dpk) dpk = ax;
-                    hp += (((xr << 8) - hp) * hk + 16384) >> 15;
+            /* delay with a low-passed (COLR) and low-cut (HPF) feedback */
+            if (fx.gr_on || (fx.dl_xf && fx.gr_old)) {  /* (dly_grain_adv's clock; a grain starting again: its constants) */
+                uint32_t q = (fx.gr_ph + gr_inc) & 0xFFFFu;
+                if (q < gr_inc || ((q + 32768u) & 0xFFFFu) < gr_inc) {
+                    dly_grain_adv();
+                    grk_set(&gk, fx.dl_now);
                 } else
-                    hp += (((x << 8) - hp) * hk + 16384) >> 15;
-                {
-                    int32_t lf = (wr == 2 ? xr : x) - ((hp + 128) >> 8), v;
-                    if (dton) lf = tone_run(&dtn, lf, &t1, &t2);
-                    lf = clamp(lf, -32767, 32767);
-                    if (db.a) lf = dly_band(lf, &db);   /* (snd2) the band (THROW's) */
-                    if (dg) lf = dly_drive(lf, dg, dgi);   /* (snd2) DRIVE */
-                    v = (dly_in[i] >> 1) + mulq15(lf, wr == 2 ? fb2 : fb);
-                    dly_buf[w & (DLY_LEN - 1u)] = (int16_t)(dig ? clamp(v, -32767, 32767) : dly_sat(v));   /* (DIGITAL:
-                                                         * clean, a clip at full scale only) */
-                }
-                if (wr == 2)
-                    xr = mulq15(clamp(xr, -65535, 65535), fb > 32767 ? 32767 : fb);   /* (the right: one repeat later,
-                                                         * FEEDBK softer) */
-                w++;
-                if (wr) {                               /* mid and side */
-                    side = mulq15(x - xr, dm);
-                    x = (x + xr) >> 1;
-                }
-                dsd[i] = side;
-                wet[i] += mulq15(x << 1, dm);
+                    fx.gr_ph = q;
             }
-            fx.gr_ph = gph;
-            fx.dly_w = w; fx.dly_hp = hp; fx.dly_lp = lp; fxg_dpk = dpk; fx.dt1 = t1; fx.dt2 = t2;
-            fx.dl_xf = (uint16_t)xf; fx.dr_xf = (uint16_t)rxf;
+            wm += dwm;
+            x = fx.gr_on ? gr_one(gk.bn[0], gk.e3[0], gk.up[0], fx.gr_ph, fx.dly_w) +
+                               gr_one(gk.bn[1], gk.e3[1], gk.up[1], (fx.gr_ph + 32768u) & 0xFFFFu, fx.dly_w)
+                         : dly_rd(fx.dl_now, wm);
+            if (fx.dl_xf) {                                 /* (0.6.81) the old read point fading out */
+                int32_t xo = fx.gr_old ? dly_grain(fx.dl_old, 0u) : dly_rd(fx.dl_old, wm);
+                x += ((xo - x) * (int32_t)fx.dl_xf) >> DXF_LOG2;
+                fx.dl_xf--;
+            }
+            if (png) {                                      /* (0.6.90) PING-PONG: the right, twice as far back */
+                xr = dly_rd(fx.dl_now * 2u, wm);
+                if (fx.dl_xf) {
+                    int32_t xo = dly_rd(fx.dl_old * 2u, wm);
+                    xr += ((xo - xr) * (int32_t)fx.dl_xf) >> DXF_LOG2;
+                }
+                wr = 2;
+            } else if (wd || fx.dr_xf || fx.dr_now != fx.dl_now) {   /* (JIANT) the right echo later (0.6.81: on until it has
+                                                             * faded back onto the left's, WIDE to 0 stepped; read before
+                                                             * the line is written, as the left: at WIDE 0, the same sample) */
+                xr = dly_rd(fx.dr_now, wm);
+                if (fx.dr_xf) {
+                    int32_t xo = dly_rd(fx.dr_old, wm);
+                    xr += ((xo - xr) * (int32_t)fx.dr_xf) >> DXF_LOG2;
+                    fx.dr_xf--;
+                }
+                wr = 1;
+            }
+            fx.dly_lp = x;                                  /* (0.6.89: no fixed low-pass in the loop; the DC block's
+                                                             * state 8 bits finer below: rounded coarse, it held a DC of up
+                                                             * to 364 in the loop) */
+            { int32_t ax = x < 0 ? -x : x; if (ax > fxg_dpk) fxg_dpk = ax; }   /* (the delay's own level: fx_gate) */
+            if (wr == 2) {                                  /* (PING-PONG: the loop from the right tap; its level, too) */
+                int32_t ax = xr < 0 ? -xr : xr; if (ax > fxg_dpk) fxg_dpk = ax;
+                fx.dly_hp += (((xr << 8) - fx.dly_hp) * hk + 16384) >> 15;
+            } else
+                fx.dly_hp += (((x << 8) - fx.dly_hp) * hk + 16384) >> 15;
+            {
+                int32_t lf = (wr == 2 ? xr : x) - ((fx.dly_hp + 128) >> 8), w;
+                if (dton) lf = tone_run(&dtn, lf, &fx.dt1, &fx.dt2);
+                lf = clamp(lf, -32767, 32767);
+                if (db.a) lf = dly_band(lf, &db);           /* (snd2) the band (THROW's) */
+                if (dg) lf = dly_drive(lf, dg, dgi);        /* (snd2) DRIVE */
+                w = (dly_in[i] >> 1) + mulq15(lf, wr == 2 ? fb2 : fb);
+                dly_buf[fx.dly_w & (DLY_LEN - 1u)] = (int16_t)(dig ? clamp(w, -32767, 32767) : dly_sat(w));   /* (DIGITAL: clean, a clip
+                                                             * at full scale only) */
+            }
+            if (wr == 2)
+                xr = mulq15(clamp(xr, -65535, 65535), fb > 32767 ? 32767 : fb);   /* (the right: one repeat later, FEEDBK softer) */
+            fx.dly_w++;
         }
-        fx.dm_cur = dm;
-    }
-    for (i = 0; i < n; i++) {                           /* (the side: left +, right -) */
-        int32_t side = ysd[i] + dsd[i];
-        if (side) {
+        if (wr) {                                       /* mid and side */
+            side += mulq15(x - xr, fx.dm_cur);
+            x = (x + xr) >> 1;
+        }
+        y += mulq15(x << 1, fx.dm_cur);
+        wet[i] = y;
+        if (side) {                                     /* (the side: left +, right -) */
             if (fxg_g < 32767)                          /* (0.6.14: gated as the rest, fx_gate) */
                 side = mulq15(side, fxg_g);
             fx_sl[i] += side;
