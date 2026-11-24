@@ -82,9 +82,6 @@ static const char ABOUT_CREDITS[] BTAPP_RO =
     "\003doi.org/10.1121/1.383940\0"
     "\001Hillenbrand, Getty, Clark and Wheeler (1995)\0"
     "\003doi.org/10.1121/1.411872\0"
-    "\010CMU DICT\0"                                 /* (JIANT 0.8.5) VOICE's English words (sing.c) */
-    "\001Carnegie Mellon University / BSD-2-Clause\0"
-    "\003github.com/cmusphinx/cmudict\0"
     "\013LICENSES + SOURCE\0"
     "\001DRUM + own samples: GPL-3.0-only\0"
     "\001Fonts and icons: their licences travel with the source and the release files.\0"

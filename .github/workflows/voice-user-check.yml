@@ -69,7 +69,6 @@ jobs:
           build/song-check/classic-octaves | tee build/song-check/classic-octaves.log
           cc -O1 -w -Wno-implicit-function-declaration -Ibuild/gen -Ifirmware/src tests/voice_test.c -lm -o build/song-check/voice-reading
           build/song-check/voice-reading | tee build/song-check/voice-reading.log
-          python3 tests/voice_web_test.py
       - name: FIT clock, persistence and audio timing
         run: |
           set -euo pipefail
