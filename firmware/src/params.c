@@ -743,6 +743,12 @@ static const param_desc_t XM_DESC[3] __attribute__((section(".rodata.tape"))) = 
     PD("AMOUNT", F_PCT, 0, 100, BAL_DEF), PD("NOISE", F_PCT, 0, 100, 0), PD("CRUSH", F_PCT, 0, 127, 0)};
 static int16_t bal_v __attribute__((section(".bss.tape")));   /* (BAL_DEF set at power-on: main.c, system_init) */
 static int16_t dnz_v[NTRK] __attribute__((section(".bss.tape")));
+/* (FM V10.8.36, the owner) FX > CHORUS's KNOB 4, MIX, 0..100, the song's (fx.c fx_buses, mix_part): at 0 the chorus as it
+ * was (bit for bit); towards 100 a part's dry goes down by its CHORUS send and the ensemble closes to its first voice
+ * alone, in the middle: MIX 100 and the send whole, a vibrato. Kept with the project ('C' 'M', project.c; absent: 0) */
+#define ID_CMIX (ID_EQ0 + 4u)
+static const param_desc_t CMIX_DESC __attribute__((section(".rodata.tape"))) = PD("MIX", F_PCT, 0, 100, 0);
+static int16_t cho_mix __attribute__((section(".bss.tape")));
 static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CRUSH (0..127: DIST's DRIVE, shown 0..100 %) */
 /* (V10.7.34, the owner: "organic, self-modulating voices") LIFE (life.c): HOME > LIFE's four, LIFE NUMBERS FRAGMENTS LINK (0..100;
  * LIFE 0: every voice and track as before, bit for bit), then each track's LIFE (EDIT > VOICES 3 KNOB 2, ID_LIF; 0..100,
@@ -798,7 +804,7 @@ static const page_t PAGES[] = {
                                                                                  * in DLY's TONE; G_DHPF stored, unused) */
     {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RTYPE, G_RSIZE, G_RDAMP, G_RPRE}},   /* TYPE: ROOM / SPRING */
     {"REVERB 2", FAM_FX, SC_GLOBAL, GR_NONE, {G_RMOD, G_RRATE, G_RFILT, G_RWIDE}},   /* JIANT: modulation, tone, width */
-    {"CHORUS", FAM_FX, SC_GLOBAL, GR_NONE, {G_CRATE, G_CDEPTH, G_CSTER, 0xFF}},   /* (0.6.9: STEREO) */
+    {"CHORUS", FAM_FX, SC_GLOBAL, GR_NONE, {G_CRATE, G_CDEPTH, G_CSTER, ID_CMIX}},   /* (0.6.9: STEREO; FM V10.8.36: MIX) */
     /* (0.6.81) the SLICER after the buses, before MASTER: DELAY, REVERB and CHORUS nearer at hand */
     {"SLICER", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLMODE, G_SLPAT, G_SLRATE, G_SLDEP}},   /* (0.6.3) one, on a bus */
     {"SLICER IN", FAM_FX, SC_GLOBAL, GR_SLCR, {G_SLT1, G_SLT1 + 1, G_SLT1 + 2, G_SLT1 + 3}},   /* what goes in */
@@ -1001,6 +1007,10 @@ static __attribute__((noinline)) const param_desc_t *page_desc_v(uint32_t id, in
         *valp = id == ID_BAL ? &bal_v : id == ID_DNZ ? &dnz_v[song.sel % NTRK] : &cru_v[song.sel % NTRK];
         return &XM_DESC[id - ID_BAL];
     }
+    if (id == ID_CMIX) {                              /* (FM V10.8.36) FX > CHORUS's MIX */
+        *valp = &cho_mix;
+        return &CMIX_DESC;
+    }
     if (id >= ID_EQ0 && id < ID_EQ0 + 4u) {           /* (p9) the master's EQ */
         *valp = &eq_v[id - ID_EQ0];
         return &EQ_DESC[id - ID_EQ0];
@@ -1031,7 +1041,7 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         *valp = &trks_ui;
         return &TRKS_DESC;
     }
-    if (id == ID_VMAX || (id >= ID_TAPE && id <= ID_LMODE) || (id >= ID_EQ0 && id < ID_EQ0 + 4u) || (id >= ID_BAL && id <= ID_LIF))   /* (0.9.18) the LFO's MODE and PHASE;
+    if (id == ID_VMAX || (id >= ID_TAPE && id <= ID_LMODE) || (id >= ID_EQ0 && id <= ID_CMIX) || (id >= ID_BAL && id <= ID_LIF))   /* (0.9.18) the LFO's MODE and PHASE;
                                                          * (snd8) the master's TAPE; (p9) its EQ */
         return page_desc_v(id, valp);
     if (id == G_LOADP) {                              /* (0.6.30) the same */

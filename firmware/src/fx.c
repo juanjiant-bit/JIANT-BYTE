@@ -2019,11 +2019,14 @@ static __attribute__((noinline)) void cho_lfo(uint32_t ph, int32_t depth, int32_
     r[1] = ((420 << 8) + ((osc_sine(ph + 0x55555555u) + 32768) * depth >> 8)) << 6;
     r[2] = ((540 << 8) + ((osc_sine(ph + 0xAAAAAAAAu) + 32768) * depth >> 8)) << 6;
 }
-static inline int32_t cho_ens(const int16_t *buf, uint32_t w, const int32_t *r, int32_t *sd)
+static inline int32_t cho_ens(const int16_t *buf, uint32_t w, const int32_t *r, int32_t *sd, int32_t wa, int32_t wo)
 {
     int32_t a = cho_tap(buf, w, r[0] >> 6), b = cho_tap(buf, w, r[1] >> 6), c = cho_tap(buf, w, r[2] >> 6);
     *sd = a - b;
-    return ((a + b + c) * 21845) >> 15;                 /* (x2 / 3 each: the sum at x2, as the one tap was) */
+    return (a * wa + (b + c) * wo) >> 15;               /* (x2 / 3 each: the sum at x2, as the one tap was; FM V10.8.36:
+                                                         * wo the other two's share, wa the first's (65535 - 2 wo): 21845
+                                                         * each the ensemble, bit for bit; wo 0 (MIX 100) the first tap
+                                                         * alone: one voice, a vibrato) */
 }
 
 /* process the three buses for one block; sends in, wet stereo-equal out */
@@ -2407,6 +2410,20 @@ static __attribute__((noinline)) int fx_rest(int32_t *wet, uint32_t n, uint32_t 
     dly_wow_adv(n, &wm, &dwm);
     return 1;
 }
+/* (0.6.9) the chorus's side, 0 as before, - to mono, + ~2x; (FM V10.8.36) CHORUS MIX (params.c cho_mix, 0..100): towards
+ * one voice (the other two taps' share 21845 .. 0) in the middle (the side .. 0, the glide's last steps taken: MIX 100
+ * the middle alone). The side in the low 16 bits, the share in the high. In the flash (fx_buses: the RAM code's room) */
+static __attribute__((noinline)) uint32_t cho_width(int32_t wd, uint32_t n)
+{
+    int32_t cs = song.g[G_CSTER], cw = 80 + wd / 2;
+    cw = cs >= 0 ? cw + cs * 2 : (cw * (64 + cs)) >> 6;
+    if (cho_mix) {
+        cw -= (cw * cho_mix * 41) >> 12;
+        if (fx.cw_cur - cw < (int32_t)n && cw - fx.cw_cur < (int32_t)n)
+            fx.cw_cur = cw;
+    }
+    return (uint32_t)(21845 - ((cho_mix * 13981) >> 6)) << 16 | (uint32_t)cw;
+}
 static inline __attribute__((always_inline)) void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t *rev_in, int32_t *wet,
                      uint32_t n)
 {
@@ -2442,8 +2459,14 @@ static inline __attribute__((always_inline)) void fx_buses(const int32_t *cho_in
     if (dig && fb > 32767) fb = 32767;                  /* (0.6.90) DIGITAL: 100 % at most, a repeat held for ever */
     if (dig && fb2 > 32767) fb2 = 32767;
     int32_t cho = sys_load != LOAD_ECO && cho_run;                /* (0.6.30) LOAD ECO: no chorus */
-    int32_t cs = song.g[G_CSTER], cw = 80 + wd / 2;    /* (0.6.9) the chorus's side: 0 as before, - to mono, + ~2x */
-    cw = cs >= 0 ? cw + cs * 2 : (cw * (64 + cs)) >> 6;
+    int32_t cw, cwo;                                    /* (0.6.9) the chorus's side; (FM V10.8.36) its MIX (cho_width) */
+    {
+        uint32_t (*f)(int32_t, uint32_t) = cho_width;
+        FM1_OPAQUE(f);
+        cw = (int32_t)f(wd, n);
+        cwo = (int32_t)((uint32_t)cw >> 16);
+        cw &= 0xFFFF;
+    }
 #ifndef FX_REST_OFF                                     /* (tests/fx_rest_test.c: the reference without it) */
     if (!any && fx.primed && fx_rest(wet, n, cinc, cdepth, cw, dmix)) {   /* (cpu5) at rest: not run */
         fx.db_t = 0; fx.db_a = 0;                       /* (snd2: the tail gone, THROW's band with it) */
@@ -2541,7 +2564,7 @@ static inline __attribute__((always_inline)) void fx_buses(const int32_t *cho_in
                 cdr[0] = (ce[0] - cr[0]) >> clg; cdr[1] = (ce[1] - cr[1]) >> clg; cdr[2] = (ce[2] - cr[2]) >> clg;
             }
             cr[0] += cdr[0]; cr[1] += cdr[1]; cr[2] += cdr[2];
-            y += cho_ens(cho_buf, fx.cho_w, cr, &sd);
+            y += cho_ens(cho_buf, fx.cho_w, cr, &sd, 65535 - 2 * cwo, cwo);
             sd = (sd * fx.cw_cur) >> 7;
             side += sd;
         }
@@ -2845,6 +2868,21 @@ static __attribute__((noinline)) void mix_spread(uint32_t ti, const int32_t *b, 
 
 /* one synth part into the dry mix and the sends; a part with no voice sounding costs
  * the LFO tick and a cleared buffer only (after the DIST tail has run out) */
+/* a part's pan gains at the block's start (p0) and their steps to its end (p1), into g: left, its step, right, its
+ * step. (FM V10.8.36) CHORUS MIX: the part's dry down by what it sends to the chorus (MIX 100 and the send whole: the
+ * chorus alone). In the flash (mix_part: the RAM code's room) */
+static __attribute__((noinline)) void mp_gains(const track_t *t, int32_t p0, int32_t p1, int32_t *g)
+{
+    int32_t gl = 4096 - (p0 > 0 ? p0 >> 2 : 0), gr = 4096 + (p0 < 0 ? p0 >> 2 : 0);   /* (pan << 8: x64 is >> 2) */
+    g[0] = gl;
+    g[1] = ((4096 - (p1 > 0 ? p1 >> 2 : 0)) - gl) >> CTL_LOG2;
+    g[2] = gr;
+    g[3] = ((4096 + (p1 < 0 ? p1 >> 2 : 0)) - gr) >> CTL_LOG2;
+    if (cho_mix && t->p[P_CHOR]) {
+        int32_t f = 4096 - ((cho_mix * t->p[P_CHOR] * 165) >> 9), k;
+        for (k = 0; k < 4; k++) g[k] = (g[k] * f) >> 12;
+    }
+}
 static inline __attribute__((always_inline)) void mix_part(track_t *t, uint32_t n)   /* (0.6.78: inlined in both
                                                          * copies of mix_part_m, flash and RAM) */
 {
@@ -2901,10 +2939,13 @@ static inline __attribute__((always_inline)) void mix_part(track_t *t, uint32_t 
         if (mp_pan[ti] - pan < 64 && pan - mp_pan[ti] < 64) mp_pan[ti] = pan;
         lq = l0;
         dl = (mp_lvl[ti] - l0) >> CTL_LOG2;
-        gl = 4096 - (p0 > 0 ? p0 >> 2 : 0);                 /* (pan << 8: x64 is >> 2) */
-        gr = 4096 + (p0 < 0 ? p0 >> 2 : 0);
-        dgl = ((4096 - (mp_pan[ti] > 0 ? mp_pan[ti] >> 2 : 0)) - gl) >> CTL_LOG2;
-        dgr = ((4096 + (mp_pan[ti] < 0 ? mp_pan[ti] >> 2 : 0)) - gr) >> CTL_LOG2;
+        {                                               /* (the pan's gains and their steps: mp_gains, in the flash) */
+            int32_t gg[4];
+            void (*f)(const track_t *, int32_t, int32_t, int32_t *) = mp_gains;
+            FM1_OPAQUE(f);
+            f(t, p0, mp_pan[ti], gg);
+            gl = gg[0]; dgl = gg[1]; gr = gg[2]; dgr = gg[3];
+        }
         int32_t c = t->p[P_CHOR] * 258, d = t->p[P_DLY] * 258, r = t->p[P_REV] * 258, pk = t->peak;
         int32_t xmax = c > d ? c : d, *ol = c1 ? c1_mix.l : mix_l, *or_ = c1 ? c1_mix.r : mix_r;
         int32_t *sc = c1 ? c1_mix.c : send_c, *sd = c1 ? c1_mix.d : send_d, *sr = c1 ? c1_mix.rv : send_r;

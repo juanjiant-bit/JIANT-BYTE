@@ -142,6 +142,8 @@ typedef struct {
     char name[PROJ_NAME_LEN];                  /* the project's name: upper-case ASCII 32..126, 0-padded; "" = none */
     uint8_t split[8];                         /* optional KS extension, absent = OFF */
     uint8_t fit[NTRK];                         /* FIT/SPAN per track; optional RF extension */
+    uint8_t cmix;                              /* (FM V10.8.36) FX > CHORUS's MIX (params.c cho_mix, 0..100): FUNC's 'C' 'M'
+                                                * after 'P' 'Q', when not 0 (absent: 0); in sum's padding */
     uint32_t sum;
 } project_t;
 /* Serialized FUN7 keeps the retained cache's exact extent. Params are biased
@@ -655,6 +657,8 @@ static uint32_t proj_packed_size(const project_t *q)
         n += 3u + 16u * proj_bits(proj_mf_tracks(q));
     if (proj_psq_used(q))                               /* (BYTE) PUNCH SEQ's */
         n += 2u + PSQ_BYTES;
+    if (q->cmix)                                        /* (FM V10.8.36) CHORUS MIX */
+        n += 3u;
     if (q->dx_hands >> 4)                               /* (snd1) the kit's GLUE, when on */
         n += 3u;
     if (q->g[G_DDRV])                                   /* (snd2) the delay's DRIVE, when on */
@@ -931,6 +935,10 @@ static int proj_pack(project_store_t *out, const project_t *q)
         b[pos++] = 'P'; b[pos++] = 'Q';
         memcpy(b + pos, q->psq, PSQ_BYTES);
         pos += PSQ_BYTES;
+    }
+    if (q->cmix) {                                      /* (FM V10.8.36) CHORUS MIX, the last (an older firmware stops
+                                                         * before it) */
+        b[pos++] = 'C'; b[pos++] = 'M'; b[pos++] = q->cmix;
     }
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
@@ -1333,6 +1341,10 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
                 if (q->psq[2u * PSQ_ROWS + i] >= PSQ_NFX) q->psq[2u * PSQ_ROWS + i] = PROJ_PSQ_DEF[2u * PSQ_ROWS + i];
             pos += 2u + PSQ_BYTES;
         }
+        if (pos + 3u <= room && b[pos] == 'C' && b[pos + 1u] == 'M') {   /* (FM V10.8.36) CHORUS MIX */
+            q->cmix = b[pos + 2u] > 100u ? 100u : b[pos + 2u];
+            pos += 3u;
+        }
     }
     for (i = 0; i < 8u; i++) if (q->dx_form[i] == DX_USER && !q->dx_text[i][0]) q->dx_form[i] = 0;
     if (b[65] != PROJ_DT_MARK)                          /* (V10.7.33) DIST TYPE CRUSH: CRUSH */
@@ -1495,6 +1507,7 @@ static __attribute__((noinline)) void proj_master_put(project_t *p)
     p->bal = (int8_t)(bal_v - BAL_DEF);                 /* (V10.7.30) BALANCE, the tracks' NOISE */
     memcpy(p->dnz, dnz_v, sizeof p->dnz);
     memcpy(p->cru, cru_v, sizeof p->cru);               /* (V10.7.33) CRUSH */
+    p->cmix = (uint8_t)clamp(cho_mix, 0, 100);          /* (FM V10.8.36) CHORUS MIX */
     for (k = 0; k < LIFE_N + NTRK; k++)                   /* (V10.7.34) LIFE, less its defaults */
         p->life[k] = (int8_t)(clamp(life_v[k], 0, 100) - life_def(k));
 }
@@ -1762,6 +1775,7 @@ static int project_restore_runtime(const project_t *input)
         memcpy(dnz_v, p->dnz, sizeof dnz_v);            /* (0 .. 100: proj_xm's, or the knob's) */
         for (k=0;k<NTRK;k++) voice_limit[k]=(int16_t)clamp(p->voice_limit[k] ? p->voice_limit[k] : NVOICE,1,NVOICE);
         memcpy(cru_v, p->cru, sizeof cru_v);            /* (V10.7.33) CRUSH (0 .. 127: proj_xm's, or the knob's) */
+        cho_mix = p->cmix > 100u ? 100 : p->cmix;       /* (FM V10.8.36) CHORUS MIX */
         for (k = 0; k < LIFE_N + NTRK; k++)               /* (V10.7.34) LIFE */
             life_v[k] = (int16_t)clamp(p->life[k] + life_def(k), 0, 100);
     }
@@ -1906,6 +1920,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     bal_v = 0;                                          /* (byte-cpu-light) BALANCE off, no NOISE */
     memset(dnz_v, 0, sizeof dnz_v);
     memset(cru_v, 0, sizeof cru_v);                     /* (V10.7.33) no CRUSH */
+    cho_mix = 0;                                        /* (FM V10.8.36) CHORUS MIX off */
     life_defaults(); voice_limits_default();                                    /* (V10.7.34) LIFE as at power-on */
     memset(clay, 0, sizeof clay);                       /* (BYTE) no DRONE CLAY */
     memset(clay_rec, 0, sizeof clay_rec);
@@ -2219,6 +2234,7 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &bal_v, sizeof bal_v);                /* (V10.7.30) BALANCE, NOISE */
     h = as_mix(h, dnz_v, sizeof dnz_v);
     h = as_mix(h, cru_v, sizeof cru_v);                 /* (V10.7.33) CRUSH */
+    h = as_mix(h, &cho_mix, sizeof cho_mix);            /* (FM V10.8.36) CHORUS MIX */
     h = as_mix(h, life_v, sizeof life_v);               /* (V10.7.34) LIFE */
     return as_mix(h, proj_name, sizeof proj_name);
 }
