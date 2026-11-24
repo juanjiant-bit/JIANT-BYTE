@@ -339,8 +339,6 @@ static void proj_fm4(project_t *q)
         uint32_t pr;
         if (d->engine != ENGI_DIGITAL)
             continue;
-        for (i = 0; i < P_COUNT; i++)
-            d->p[i] = (int16_t)clamp(d->p[i], param_desc_of(ENGI_DIGITAL, i)->min, param_desc_of(ENGI_DIGITAL, i)->max);
         pr = fm4_convert(d->p);
         d->engine = ENGI_FM6;
         if (d->preset < PROJ_DEF_KEEP)

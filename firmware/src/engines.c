@@ -48,7 +48,7 @@ static const engine_t ENG_GONE = {
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
 static const engine_t *const ENGINES[NENGINES] = {
     &ENG_WAVE,                   /* 0: (JIANT BYTE) ANALOG retired: plays as WAVE (a bad number too: eng_idx) */
-    &ENG_FM4_GONE,               /* 1: reserved (DIGITAL, retired: its sounds convert to FM6, fm4_convert.c) */
+    &ENG_GONE,                   /* 1: reserved (DIGITAL, retired: its sounds arrive as engine 12, fm4_convert.c) */
     &ENG_WAVE,                   /* 2: (JIANT BYTE) PHASE retired: plays as WAVE */
     &ENG_LOFI,                   /* 3 */
     &ENG_GONE,                   /* 4: reserved (SAMPLE, retired in JIANT) */
