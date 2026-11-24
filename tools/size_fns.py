@@ -22,21 +22,21 @@ SIZE_FILES = ["ui.c", "favorites.c", "menu_items.c", "icons.c", "ui_graph.c", "u
               "storage.c", "upreset.c", "project.c", "settings_persist.c",
               "editor.c", "editor_preferences.c", "editor_backup.c", "editor_menu.c", "console.c",
               "usb.c", "midi_uart.c", "midi_control.c", "midi_clock.c", "seq.c", "song_chain.c", "motion.c",
-              "panel.c", "lcd.c", "gfx.c", "ota.c", "ota_hw.c", "up_fm6.c", "params.c", "editor_fm6.c",
+              "panel.c", "lcd.c", "gfx.c", "ota.c", "ota_hw.c", "up_fm6.c", "params.c",
               "ui_layer.c", "ui_name.c", "ui_events.c", "song_main.c", "main.c", "libc.c", "storage_hw.c", "engines.c", "fm4_convert.c",
               # (0.9.0) the files the ones above include, missed until now (-16.7 KB): GEN, DICE, the lenses, the line
               # art, the beings, the tech graphs, the tools, the FM6 bank and VOICE's words (its sound side, reached
               # from the audio ISR through ENG[]'s hooks, keeps -Os: isr_reach follows globals)
-              "gen.c", "gen_tables.c", "song_dice.c", "ui_lens.c", "ui_organic.c", "ui_fm6op.c", "ui_being.c",
+              "gen.c", "gen_tables.c", "song_dice.c", "ui_lens.c", "ui_organic.c", "ui_being.c",
               "ui_engvis.c", "ui_tech.c", "ui_lzsave.c", "ui_lzfx.c", "ui_lzhome.c", "ui_lzedit.c", "ui_lzpage.c", "ui_dx.c",
-              "ui_tools.c", "fm6_vbank.c", "sing.c",
+              "ui_tools.c", "sing.c",
               # (0.9.7) the main-loop functions of the sound files (what the interrupts reach stays -Os, as above): the
               # MASTER pot's boot and poll, FM6's patch store, the kit's names and grids, MOD's names, the PUNCH lane
               "pfx.c", "master.c", "audio.c", "mod.c", "fx.c", "drumx_voice.c", "eng_drum.c", "eng_fm6.c",
               # (V10.29) the files added since, and the other engines' main-loop side (as 0.9.7's: what the
               # interrupts reach keeps -Os): EUCLID, SCENE, LIVE, MIDI LEARN, the song player, PERFORM, PLAYHEADS
               "ui_euclid.c", "ui_scene.c", "ui_live.c", "seq_live.c", "midi_learn.c", "song_play.c", "perform.c",
-              "fugue.c", "slicer.c", "voice.c", "fm6_core.c", "eng_add.c", "eng_analog.c", "eng_animal.c",
+              "fugue.c", "slicer.c", "voice.c", "eng_add.c", "eng_analog.c", "eng_animal.c",
               "eng_digital.c", "eng_formant.c", "eng_lofi.c", "eng_west.c", "eng_phase.c", "eng_string.c",
               "eng_wheel.c", "bt.c", "click.c",
               # Whole-song SAVE is main-loop storage work, added after this list.

@@ -1787,10 +1787,6 @@ sect:
         ms_ui_step = (uint8_t)clamp((int32_t)ms_ui_step + steps, 0, 15);
         return;
     }
-    if (fop_page(pg->graph)) {                           /* (0.6.10) FM6's operators: KNOB 1 OP, 2..4 its bytes (ui_fm6op.c) */
-        fop_knob(slot, steps);
-        return;
-    }
     if (pg->graph == GR_MOD && slot == 0u) {             /* MOD: KNOB 1 the slot, 2..4 its SRC DST AMT */
         mod_ui_slot = (uint8_t)clamp((int32_t)mod_ui_slot + (steps > 0 ? 1 : -1), 0, 3);
         return;
@@ -2750,7 +2746,6 @@ static void ui_input_frame(void)
     uint32_t lay, combo = 0, lytap, lkeys, glo, kq = 0;
     int32_t s, sel = 0, ks[4] = {0, 0, 0, 0};
     ui_btn_edges |= (uint16_t)pressed;
-    fm6_poll();                                         /* FM6: PTCH turned -> its patch */
     math_poll();                                        /* (JIANT BYTE) MATH's USER parts: a new seed -> its formula */
     dw_poll();                                          /* (DRUM-W) a table the kit wants, drawn */
     sc_beat();                                          /* (V10.6j) SCENE's DRUM: a key's beat into the kit */

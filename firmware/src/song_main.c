@@ -187,8 +187,6 @@ static int song_stage(uint32_t s, uint32_t row)
             }
             if (clip_mix && clip_go[k] == CLIP_STOP)    /* (V10.6s) CLIPS' OCT-: the track stops */
                 d->p[P_MUTE] = 1;
-            fm6_unpack(p->fm6[k], d->fm6);
-            fm6_sanitize(d->fm6);
             on |= p->motion.on & (1u << k);
             if (e == ENGI_DRUM && sec != own)
                 dx_from = sec;
@@ -654,8 +652,6 @@ static void song_poll(void)
     if (chain.applied) {
         chain.applied = 0;
         clip_seen();                                  /* (V10.6s) CLIPS: what sounds now */
-        for (k = 0; k < NTRK; k++)
-            fm6_adopt(k);                             /* (an FM6 track's SLOT: F n or OWN) */
         sync_reload = 1;
         ui.force = 1;
     }

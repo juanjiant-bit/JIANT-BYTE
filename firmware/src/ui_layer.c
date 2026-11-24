@@ -223,7 +223,7 @@ static __attribute__((noinline)) int16_t *mom_vp(uint32_t k, const param_desc_t 
         if (FIT_PAGE(pg) || pg->scope == SC_STEP || pg->scope == SC_TRK || ((act_cols() >> k) & 1u) || g == GR_COMP || g == GR_PUNCH || g == GR_SHAPE ||
             g == GR_FUGUE || g == GR_CHANCE || g == GR_DXSND || g == GR_SWARM || g == GR_FOCUS || (STAGE_PAGE(pg) && k < 2u) ||
             g == GR_EVENTS || g == GR_MOTION || g == GR_SONG || g == GR_BROWSE || g == GR_TOOLS || g == GR_SLOTS ||
-            g == GR_USER || g == GR_PATS || DX_KIT3(pg) || fop_page(g) ||
+            g == GR_USER || g == GR_PATS || DX_KIT3(pg) ||
             (k == 0u && (BAR_PAGE(pg) || g == GR_SLPIT || g == GR_MSEQ || g == GR_MOD)))
             return 0;
         *d = page_desc(pg, k, &vp);

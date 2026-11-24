@@ -1705,21 +1705,6 @@ static void draw_columns(void)
         pf_column(3, "SLEW", &TP[P_MSSLW], t->p[P_MSSLW], t->p[P_MSSLW] ? VAL(3u) : T_DIM, ICON_GLIDE);
         return;
     }
-    if (fop_page(cur_page()->graph)) {                   /* (0.6.10) FM6: OP, then three of its bytes (ui_fm6op.c) */
-        for (c = 0; c < 4u; c++) {
-            const char *lb, *u;
-            int32_t r;
-            uint32_t ic;
-            int on;
-            if (!fop_ok()) {                             /* (the engine changed before ui_draw left the page) */
-                empty_column(c);
-                continue;
-            }
-            on = fop_card(c, &lb, val, &u, &r, &ic);
-            draw_column(c, lb, val, u, on ? VAL(c) : T_DIM, r, ic);
-        }
-        return;
-    }
     if (cur_page()->graph == GR_MOD) {                   /* SLOT, then that slot's SRC DST AMT */
         const track_t *t = TSEL;
         uint32_t id = P_M1SRC + 3u * mod_ui_slot;

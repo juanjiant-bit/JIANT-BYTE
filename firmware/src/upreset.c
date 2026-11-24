@@ -270,8 +270,7 @@ static void up_values(const up_rec_t *r, int16_t *v)   /* mapped and clamped for
         v[i] = (int16_t)param_fit(param_desc_of(r->engine, i), v[i]);   /* (a retired KIT: the kit it plays) */
 }
 
-#include "up_fm6.c"                            /* the FM6 user presets' patches: the same kind of store */
-#include "fm6_vbank.c"                         /* FM6's voice bank (SLOT B1..B32; JIANT 0.6.11, from Felucca 1.4.1) */
+#include "up_fm6.c"                            /* (BYTE: FM6 removed) the retired FM6 objects' layouts, for the backups */
 
 static void up_boot(void)                      /* persist_boot: the banks from flash */
 {
@@ -280,8 +279,6 @@ static void up_boot(void)                      /* persist_boot: the banks from f
     for (b = 0; b < UP_SLOTS / UP_PER_BANK; b++)
         up_bank_check(b, flash_ok ? st_load(OBJ_UPRESET0 + b, &up_bank[b], sizeof up_bank[b]) : -1);
 #endif
-    upf_boot();                                  /* (after the banks: it may move the retired FM6 bank's patches) */
-    fvb_boot();                                  /* FM6's voice bank: a staged one finished, its voices */
 #ifdef FELUCCA_FAVORITES
     for (uint32_t k = 0; k < UP_SLOTS; k++)
         if (!up_used(k)) favorite_set(NENGINES, k, 0);
@@ -407,17 +404,9 @@ static int up_store(uint32_t k, const char *name)
         }
     }
     {
-        int rc = up_put(k, &r);                         /* the record first, then its FM6 patch (up_fm6.c) */
+        int rc = up_put(k, &r);
         if (rc == 0 || rc == 3)
             snd_mark(TSEL);                             /* (V10.7.33: the sound saved, PRESETS' mark off) */
-        if ((rc == 0 || rc == 3) && r.engine == ENGI_FM6) {
-            int u = upf_store(k, (uint32_t)(TSEL - trk));
-            if (u == 2)
-                rc = 2;
-        } else if ((rc == 0 || rc == 3) && r.engine == ENGI_VOICE) {
-            int u = upf_lyric_store(k, (uint32_t)(TSEL - trk));
-            if (u == 2) rc = 2;
-        }
         return rc;
     }
 }
@@ -463,7 +452,6 @@ static int up_load(uint32_t k)
                 t->p[i] = v[i];
         t->preset = 0;
         fm1_irq_on();
-        upf_track_load(t, k);                           /* FM6: the preset's own patch (up_fm6.c) */
         if (eng_gone(r->engine))                        /* a retired engine (core.h): ANALOG's first preset */
             set_engine_of(t, ENGI_PHYS_TO);
         if (r->engine == ENGI_FORM) {                   /* (BYTE) a FORM sound: WAVE's first, its modulators DRONE CLAY's */

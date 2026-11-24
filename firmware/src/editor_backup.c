@@ -57,12 +57,9 @@ static const uint8_t *ed_bk_object(uint32_t id, uint32_t *len)
         if (up_bank[id - 6u].magic == UP_BANK_MAGIC) *len = sizeof up_bank[0];
         return (const uint8_t *)&up_bank[id - 6u];
     }
-    if (id == 8u)                                   /* the retired FM6 patch bank: always empty */
+    if (id == 8u || id == 9u)                       /* the retired FM6 patch bank, the user presets' FM6 patches
+                                                     * (BYTE: FM6 removed): always empty */
         return ED_BK_RAW;
-    if (id == 9u) {                                 /* the user presets' FM6 patches */
-        if (upf_valid(&upf)) *len = sizeof upf;
-        return (const uint8_t *)&upf;
-    }
     if (id == 10u) {                                /* (JIANT) the song index, the current rows in it */
         song_idx.rows[song_cur] = chain_config;
         *len = sizeof song_idx;
@@ -144,14 +141,9 @@ static __attribute__((noinline)) uint32_t ed_bk_commit(void)
             p->rsize != sizeof(up_rec_t) || p->nslot != UP_PER_BANK)) return 2;
         /* Unknown record versions remain inert bytes, preserving future/older bank data. */
         obj = OBJ_UPRESET0 + ed_bk_id - 6u;
-    } else if (ed_bk_id == 8u) {                    /* an older archive's FM6 bank (retired, V10.6s): ignored */
+    } else if (ed_bk_id == 8u || ed_bk_id == 9u) {  /* an older archive's FM6 bank (retired, V10.6s), the user
+                                                     * presets' FM6 patches (BYTE: FM6 removed): ignored */
         return 0;
-    } else if (ed_bk_id == 9u) {                    /* the user presets' FM6 patches (0: none) */
-        const upf_t *u = (const upf_t *)raw;
-        if (ed_bk_len && (ed_bk_len != sizeof *u || !upf_valid(u) || (u->used >> (UP_SLOTS - 1u) >> 1))) return 2;
-        if (ed_bk_len) memcpy(&upf, raw, sizeof upf); else upf_empty();
-        sync_reload = 1; ui.force = 1;
-        return upf_save() == 2 ? 4u : 0u;           /* (a failed write keeps the restored RAM copy) */
     } else if (ed_bk_id == 10u) {                   /* (JIANT) the song index: rows and scenes; the current song stays */
         const song_index_t *p = (const song_index_t *)raw;
         uint32_t k;

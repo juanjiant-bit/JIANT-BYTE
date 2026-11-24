@@ -89,7 +89,6 @@ typedef struct {                      /* a track of a section, as the ISR puts i
     int16_t p[P_COUNT];
     uint8_t engine, preset;
     step_t step[NSTEP];
-    uint8_t fm6[FP_SIZE + 1u];        /* (unpacked: eng_fm6.c fm6_set_patch) */
 } sec_trk_t;
 static struct {
     sec_trk_t t[NTRK];

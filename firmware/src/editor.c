@@ -459,15 +459,6 @@ static int ed_flash_stop(void)
 
 #include "editor_preferences.c"
 #include "editor_backup.c"
-#ifndef FELUCCA_FM6_EDITOR
-#define FELUCCA_FM6_EDITOR 0                            /* (BYTE 0.16) FM6 retired: its editor commands out (1.5 KB of
-                                                         * flash for the sound's divisions as multiplies, build.py) */
-#endif
-#if FELUCCA_FM6_EDITOR
-#include "editor_fm6.c"
-#else
-static int ed_fm6_handle(uint32_t cmd, const uint8_t *a, uint32_t n) { (void)cmd; (void)a; (void)n; return 0; }
-#endif
 #include "editor_menu.c"
 #include "editor_screen.c"          /* the screen mirror (78, 79) */
 
@@ -552,7 +543,6 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
     ed_begin(cmd);
     if (ed_ui_handle(cmd, a, na)) { ed_send(); return; }
     if (ed_backup_handle(cmd, a, na)) { ed_send(); return; }
-    if (ed_fm6_handle(cmd, a, na)) { ed_send(); return; }
     if (ed_menu_handle(cmd, a, na)) { ed_send(); return; }
     if (ed_screen_handle(cmd, a, na)) return;          /* (it sends its own reply: editor_screen.c) */
     switch (cmd) {
@@ -588,14 +578,12 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         ed_b(0x55); ed_b(1); ed_b(ed_ui_caps());             /* tagged preferences v1: commands 34..38 */
         ed_b(0x4d); ed_b(1); ed_b(MOTION_MAX); ed_b(1); /* motion + chance v1 */
         ed_b(0x42); ed_b(1); ed_b(3); /* bounded full-backup read + restore */
-        ed_b(0x46); ed_b(1); ed_b(FM6_NFACTORY); ed_b(0);   /* FM6 patches: cmds 68..71 (no bank since 1.0.3) */
         ed_b(0x53); ed_b(1); ed_b(3);   /* live sync: bit 0 WATCH while on keeps the shadow, bit 1 no RELOAD echo */
-        ed_b(0x50); ed_b(1); ed_b(3);   /* FM6 patches v2: bit 0 no bank (SLOT F1..F8, 8 OWN), bit 1 user preset
-                                         * patches (FM6 target 3, backup id 9) */
+        /* (BYTE: FM6 removed: no 'F' (0x46), 'P' (0x50) or 'V' (0x56): no FM6 patches, user preset patches, voice
+         * bank; cmds 68..71 and 74..77 unknown) */
         ed_b(0x4E); ed_b(1); ed_b(ED_MENU_N);   /* MENU settings: cmds 72, 73; the items MENU_DESC offers */
         ed_b(0x52); ed_b(1); ed_b(4);   /* RATCH: a step's ratchet (1..4 hits) after its chance */
         ed_b(0x4C); ed_b(1); ed_b(1);   /* 1.1 parameter locks: MOTION ops 5..7, the kinds after the records */
-        ed_b(0x56); ed_b(1); ed_b(FM6_NBANK);   /* (JIANT 0.6.11, Felucca 1.4.1) FM6's voice bank: cmds 74..77, SLOT 9..40 */
         ed_b(0x4A); ed_b(1); ed_b(1);   /* (JIANT 0.6.62) 'J': this is JIANT (the web installer writes over it, web/index_pkg.html) */
         ed_b(0x4F); ed_b(1); ed_b(LM_N);   /* (0.8.5) 'O': the DRUM-X octaves, a step's lane modes 0..6 after its ratchet */
         ed_b(0x58); ed_b(1); ed_b(bt_hw_seg() ? 1u : 2u);   /* (1.3) 'X': the Bluetooth segment (flash 0xEA000: GEN, the

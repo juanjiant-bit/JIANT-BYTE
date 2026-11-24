@@ -30,7 +30,7 @@ static uint16_t heat_col(int32_t v);
 static uint16_t note_col(uint32_t n);                /* (V10.6i) ui_lzpage.c: a note's own colour */
 #include "ui_scene.c"                                /* (V10.25) SCL > SCENE: the multitimbral page */
 #include "ui_euclid.c"                               /* (V10.6) SEQ > EUCLID / MODES: the generator, its graph */
-#include "ui_fm6op.c"                                /* (0.6.10, from Felucca 1.5) EDIT > OPERATOR, OP ENV, OPERATOR 2 */
+static int32_t accel(uint32_t role, int32_t s, int32_t range);   /* (ui_input.c) */
 static uint16_t heat_col(int32_t v);
 /* (0.9.5, as the 0.6.36) JIANT (thermal): a card's colour its value as heat (ratio 0..1000, -1 none); bipolar (its range
  * across 0): by the distance from the centre, cold in the middle */
@@ -838,42 +838,6 @@ static uint32_t str_hash(uint32_t h, const char *s)
 /* The FM charts' parts: an operator box 21 x 17 (rows 23 px apart, columns 24), junction dots, Manhattan routes */
 #define FM_BH 17
 
-/* FM6's 32 algorithms as charts (0.9.6: as the colony, ui_engvis.c vx_fm6). FM6_CELL: per operator 1..6 its cell, the column in 24 px steps (bits 0..2) and
- * the row above the output bus (bits 4..5; row 0 = the carriers). The routes, the carriers and the feedback
- * operator are fm6_core.c's FM6_ALG itself (fm6_routes, fm6_car_ops, fm6_fb_op). ui_test.c checks the cells
- * against them (a modulator one row above what it modulates, the carriers on the bottom row and only they, one
- * operator per cell) and the routes against the 32 algorithms written out; ui_render.c lints every colony as drawn
- * (no two bichos overlapping, all inside the panel). The cells:
- * a search for the fewest and shortest bends, the operators numbered left to right. */
-/* algorithm a's routes: m[i] bit j: operator j + 1 modulates operator i + 1. FM6_ALG runs the operators sixth
- * first, each reading a bus (or none) and writing one (or adding to it): who wrote a bus modulates its reader */
-static void fm6_routes(uint32_t a, uint8_t *m)
-{
-    const uint8_t *f = FM6_ALG[a & 31u];
-    uint8_t bus[4] = {0, 0, 0, 0};
-    uint32_t k;
-    for (k = 0; k < 6u; k++) {
-        uint32_t op = 5u - k, in = (f[k] >> 4) & 3u, o = f[k] & 3u;
-        m[op] = in ? bus[in] : 0u;
-        bus[o] = (uint8_t)(((f[k] & FM6_OADD) ? bus[o] : 0u) | 1u << op);
-    }
-}
-/* the operator with feedback in algorithm a (0..5: operator 1..6) */
-static uint32_t fm6_fb_op(uint32_t a)
-{
-    uint32_t k;
-    for (k = 0; k < 5u && (FM6_ALG[a & 31u][5u - k] & 0xC0u) != 0xC0u; k++)
-        ;
-    return k;
-}
-/* the carriers of algorithm a: bit k operator k + 1 (fm6_carriers counts the sixth first) */
-static uint32_t fm6_car_ops(uint32_t a)
-{
-    uint32_t c = fm6_carriers(a), r = 0, k;
-    for (k = 0; k < 6u; k++)
-        r |= (c >> (5u - k) & 1u) << k;
-    return r;
-}
 /* Save-bank validity is expensive (CRC/import). Refresh it once per redraw or
  * twice per second, rather than parsing four projects on every UI frame. */
 static char graph_pname[4][13];                       /* .. and the slots' names ("" none) */
@@ -1367,10 +1331,6 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
             h = (h ^ q[i]) * 16777619u;
         h = (h ^ (psq_row * 7919u + psq_at * 40503u)) * 16777619u;
     }
-    if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_FM6)   /* the patch (PAT's algorithm, levels, FB) */
-        h ^= (fm6_pgen[(t - trk) % NTRK] + 1u) * 2246822519u;
-    if (fop_page(pg->graph))                         /* (0.6.77) OPERATOR, OP ENV (track pages): the patch, the operator */
-        h = (h ^ ((fm6_pgen[(t - trk) % NTRK] + 1u) * 2246822519u ^ (uint32_t)fop_op << 8 ^ fop_stg)) * 16777619u;
     if (save_on()) {                                 /* (0.8.5) SAVE's lens: the level, the library's scan, the being */
         lib_poll();
         h = (h ^ (save_level() + 1u) * 2654435761u ^ lib.next * 40503u ^ lib.gen) * 16777619u;

@@ -1529,15 +1529,12 @@ static uint32_t preset_nth(const engine_t *e, uint32_t n)
  * (fm4_convert.c). Every path that brings a DIGITAL sound into a track ends here: a track never keeps engine 1 */
 static void fm4_apply(track_t *t, int16_t *p)
 {
-    uint8_t v[FP_SIZE + 1u];
-    uint32_t pr = fm4_convert(p, v), tr = trk_index(t), f;
-    fm6_set_patch(tr, v);
+    uint32_t pr = fm4_convert(p), f;
     f = motion_guard();                               /* the audio ISR sees the old sound or the new one */
     memcpy(t->p, p, sizeof t->p);
     t->eng_req = ENGI_FM6;
     t->preset = (uint8_t)pr;
     motion_unguard(f);
-    fm6_adopt(tr);                                    /* SLOT OWN: the converted patch is the track's own */
 }
 static void fm4_track(track_t *t)                     /* t holds a DIGITAL sound (engine 1): convert it */
 {
@@ -1628,7 +1625,6 @@ static void apply_preset_to(track_t *t, uint32_t pi)
             t->p[P_DIST + i] = (int16_t)(pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);
         preset_mods(t, pr);                           /* (V10.6i) its movement: LFO, ENV 2, MOD, FILTER */
     }
-    fm6_track_loaded(t);                              /* FM6: the preset's patch (its SLOT) */
     load_end(t);
 }
 
@@ -1723,7 +1719,6 @@ static void init_sound_of(track_t *t, uint32_t ei)
         t->p[ENVP[i]] = TP[ENVP[i]].def;
     for (i = 0; i < 4u; i++)
         t->p[P_DIST + i] = 0;
-    fm6_init_voice(t);
     vel_at_route(t);                          /* (V10.6z6) the keys' pressure audible */
     load_end(t);
 }

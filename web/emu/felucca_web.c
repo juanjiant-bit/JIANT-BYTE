@@ -604,13 +604,8 @@ EXPORT uint32_t web_bk_put(uint32_t id, uint32_t len)   /* the bytes in web_bk_b
         return st_save(OBJ_SONGIDX, raw, len) ? 4u : 0u;
     }
     if (id == 6u || id == 7u) return !len ? 0u : st_save(OBJ_UPRESET0 + id - 6u, raw, len) ? 4u : 0u;   /* user presets */
-    if (id == 9u) {                                    /* their FM6 patches */
-        if (!len) return 0;
-        if (len != sizeof upf || !upf_valid((const upf_t *)raw)) return 2;
-        memcpy(&upf, raw, sizeof upf);
-        return upf_save() == 2 ? 4u : 0u;
-    }
-    return id == 1u || id == 8u || (id >= 2u && id <= 5u) ? 0u : 1u;   /* (settings, the retired bank, the current song's
+    return id == 1u || id == 8u || id == 9u || (id >= 2u && id <= 5u) ? 0u : 1u;   /* (settings, the retired bank and
+                                                         * FM6 patches (BYTE: FM6 removed), the current song's
                                                          * sections: the songs' ids carry them) */
 }
 EXPORT uint32_t web_bk_len(uint32_t id)   /* the object as it is now, into web_bk_buf(): its length, 0 none */

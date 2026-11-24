@@ -8,8 +8,7 @@
 /* The song, the audio ISR's part (song_chain.c: what it is). Included at the end of seq.c. */
 static uint32_t chain_bar(void) { return 16u * div_samples(2); }        /* a 4/4 bar: 16 steps of 1/16 (DIV 2) */
 
-/* (V10.6z8) track k's sound as snd_held sees it (k NTRK: the DRUM-X kit); FM6's SLOT left out (song_poll's
- * fm6_adopt sets it after a section) */
+/* (V10.6z8) track k's sound as snd_held sees it (k NTRK: the DRUM-X kit) */
 static uint32_t snd_sig(uint32_t k)
 {
     const track_t *t = &trk[k];
@@ -21,9 +20,9 @@ static uint32_t snd_sig(uint32_t k)
     }
     h = (uint32_t)voice_limit[k];
     for (j = 0; j < P_COUNT; j++)
-        if (!param_kept(j) && (j != P_E7 || t->eng_req != ENGI_FM6))
+        if (!param_kept(j))
             h = h * 31u + (uint16_t)t->p[j];
-    return as_mix(h + t->eng_req * 977u + t->preset, fm6_patch[k], FP_SIZE);
+    return h + t->eng_req * 977u + t->preset;
 }
 /* .. the player's: changed since the section before put it in */
 static uint32_t snd_own(uint32_t k)
@@ -50,8 +49,6 @@ static void sec_apply(void)
             t->eng_req = s->engine;
             t->preset = s->preset;
             t->user = 0;
-            memcpy(fm6_patch[i], s->fm6, FP_SIZE + 1u);
-            fm6_pgen[i]++;
         }
         t->seq_fit = sec_stage_fit[i];
         if (!own) voice_limit[i] = (int16_t)clamp(sec_extra.voices[i],1,NVOICE);

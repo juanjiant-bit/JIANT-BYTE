@@ -336,14 +336,12 @@ static void proj_fm4(project_t *q)
     uint32_t k, i, n, hit = 0;
     for (k = 0; k < NTRK; k++) {
         proj_trk_t *d = &q->t[k];
-        uint8_t v[FP_SIZE + 1u];
         uint32_t pr;
         if (d->engine != ENGI_DIGITAL)
             continue;
         for (i = 0; i < P_COUNT; i++)
             d->p[i] = (int16_t)clamp(d->p[i], param_desc_of(ENGI_DIGITAL, i)->min, param_desc_of(ENGI_DIGITAL, i)->max);
-        pr = fm4_convert(d->p, v);
-        fm6_pack(v, q->fm6[k]);
+        pr = fm4_convert(d->p);
         d->engine = ENGI_FM6;
         if (d->preset < PROJ_DEF_KEEP)
             d->preset = (uint8_t)pr;
@@ -588,7 +586,8 @@ static uint32_t proj_step_size(const step_t *s)
 }
 static int proj_fm_kept(const project_t *q, uint32_t t)
 {
-    return q->t[t].engine == ENGI_FM6 || memcmp(q->fm6[t], FM6_INIT, FM6_PACKED) != 0;
+    (void)q; (void)t;
+    return 0;                                           /* (BYTE: FM6 removed, no track keeps a patch) */
 }
 static int16_t proj_pdef(uint32_t engine, uint32_t i) { return param_store_def(engine, i); }
 /* the bytes q takes as FUNC up to the tail (PROJC_PFX_OFF: the room); more than the room: PART FULL */
@@ -1037,7 +1036,7 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
             if (pos + FM6_PACKED > room) return 0;
             for (i = 0; i < FM6_PACKED; i++) q->fm6[t][i] = b[pos++] & 0x7Fu;
         } else {
-            memcpy(q->fm6[t], FM6_INIT, FM6_PACKED);
+            memset(q->fm6[t], 0, FM6_PACKED);           /* (BYTE: FM6 removed; a patch read is skipped on load) */
         }
         for (i = 0; i < P_COUNT; i++) def[i] = proj_pdef(e, i);
         map = pos;
@@ -1341,7 +1340,7 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         proj_crush_mig(q);
     proj_new_tracks(q, nt);                             /* (a FUNC of fewer tracks: the rest at power-on) */
     for (t = nt; t < NTRK; t++)
-        memcpy(q->fm6[t], FM6_INIT, FM6_PACKED);
+        memset(q->fm6[t], 0, FM6_PACKED);
     memcpy(q->pfx_lane, b + PROJC_PFX_OFF, sizeof q->pfx_lane);
     q->pfx_ltgt = b[PROJC_PFX_OFF + sizeof q->pfx_lane] > 2u ? 0u : b[PROJC_PFX_OFF + sizeof q->pfx_lane];
     for (i = 0; i < 4u; i++)
@@ -1525,7 +1524,7 @@ static void project_capture(project_t *p)
         memcpy(p->t[i].step, trk[i].step, sizeof trk[i].step);
         clay_pack(clay[i], p->clay[i]);
         memcpy(p->clay_rec[i], clay_rec[i], CLAY_RN);
-        fm6_pack(fm6_patch[i], p->fm6[i]);
+        memset(p->fm6[i], 0, sizeof p->fm6[i]);         /* (BYTE: FM6 removed, the format's block empty) */
     }
     p->motion = motion;
     memcpy(p->dx, dx_kit, sizeof p->dx);
@@ -1701,12 +1700,6 @@ static void sound_put(project_t *p, uint32_t k)
     for (i = 0; i < P_COUNT; i++)
         if (!param_kept(i))
             t->p[i] = (int16_t)param_fit(param_desc_of(e, i), s->p[i]);
-    {
-        uint8_t v[FP_SIZE + 1u];
-        fm6_unpack(p->fm6[k % NTRK], v);
-        fm6_set_patch(k % NTRK, v);
-        fm6_adopt(k % NTRK);
-    }
     if (e == ENGI_DRUM) {
         memcpy(dx_kit, dx_kit_ok(p->dx) ? p->dx : DX_KIT_DEF, sizeof dx_kit);
         memcpy(dx_mot, p->dx_mot, sizeof dx_mot);
@@ -1846,12 +1839,6 @@ static int project_restore_runtime(const project_t *input)
         t->preset = (uint8_t)(ENGINES[e]->npresets ? (s->preset >= PROJ_DEF_KEEP ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
         memcpy(t->step, s->step, sizeof t->step);
         proj_steps(t->step);
-        {   /* the project's own FM6 patch, never reloaded from SLOT: F n if it is that factory patch, else OWN */
-            uint8_t v[FP_SIZE + 1u];
-            fm6_unpack(p->fm6[k], v);
-            fm6_set_patch(k, v);
-            fm6_adopt(k);
-        }
     }
     for (k = 0; k < NTRK; k++) {                        /* (BYTE) DRONE CLAY: the project's (a project before it: OFF) */
         clay_unpack(p->clay[k], clay[k]);
@@ -1952,7 +1939,6 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     memset(fg_set, 0, sizeof fg_set);                   /* (0.6.52) no FUGUE */
     live_reset();                                       /* (p2) no LIVE modifier (seq_live.c) */
     dx_mute_set(0);
-    fm6_init();
     for (i = 0; i < NTRK; i++) {
         track_t *t = &trk[i];
         motion_clear(t);
@@ -2216,7 +2202,6 @@ static uint32_t autosave_sig(void)
         h = as_mix(h, &t->eng_req, 1);
         h = as_mix(h, &t->preset, 1);
         h = as_mix(h, t->step, sizeof t->step);
-        h = as_mix(h, fm6_patch[i], sizeof fm6_patch[i]);
     }
     for (i = 0; i < G_COUNT; i++)
         if (i != G_SLOT && i != G_LOAD && i != G_SAVE) {
