@@ -304,8 +304,47 @@ static const preset_t WAVE_PRESETS[] = {
      MODS(MMOD(1, PS_VEL, PD_SHP, 30))},                               /* B into A's phase */
     {"FORMANT", {12, 50, 0, 0, 8, 40, 20, 0}, {30, 80, 90, 60}, 0, TAG(PAD), FX(0, 30, 30, 50), PAT(5),
      MODS(P_LRATE, 6, MMOD(1, PS_LFO, PD_SHP, 35))},
+    /* (wavepresets) appended: a stored number names the same sound. Each moves: ENV 2 (per voice on PD_SHP, POS; the
+     * latest note's on PD_E: AMT MIX) or the LFO; B a table (SINE ODD) where it plays with DETUNE (CPU) */
+    {"REESE", {4, 8, 0, 0, 0, 0, 90, 50}, {0, 70, 110, 25}, 0, 1 | TAG(BASS), FX(10, 0, 0, 10), PAT(2),
+     MODS(P_GLIDE, 8, P_FCUT, 76, P_FRES, 30, MLFO(LW_TRI, 20, 0, 14), MMOD(1, PS_LFO, PD_SHP, 16))},   /* the filter, POS drift */
+    {"ACID BASS", {3, 6, 0, 0, 0, 0, 0, 30}, {0, 60, 100, 15}, 0, 1 | TAG(BASS), FX(25, 0, 20, 0), PAT(2),
+     MODS(P_GLIDE, 12, P_FCUT, 46, P_FRES, 100, MENV2(0, 76, 0, 20), MMOD(1, PS_ENV2, PD_SHP, 50),
+          MMOD(2, PS_ENV2, PD_FCUT, 40))},                                 /* ENV 2: the sync and the filter snap */
+    {"FM GROWL", {5, 27, 5, 30, 2, 0, 0, 40}, {0, 70, 110, 20}, 0, 1 | TAG(BASS), FX(15, 0, 0, 0), PAT(2),
+     MODS(P_GLIDE, 6, MENV2(0, 75, 30, 30), MMOD(1, PS_ENV2, PD_E(3), 40), MLFO(LW_TRI, -5, 0, 0),
+          MMOD(2, PS_LFO, PD_E(3), 16), MMOD(3, PS_LFO, PD_SHP, 8))},     /* FM's index: struck, then a 1/4 growl */
+    {"808 BOOM", {5, 6, 0, 0, 0, 0, 0, 30}, {0, 100, 0, 50}, 0, 1 | TAG(BASS), FX(5, 0, 0, 5), PAT(2),
+     MODS(MENV2(0, 68, 0, 10), MMOD(1, PS_ENV2, PD_PITCH, 36), MMOD(2, PS_ENV2, PD_SHP, 40))},   /* the drop, the click */
+    {"WOBBLE", {7, 40, 0, 0, 0, 0, 0, 60}, {0, 70, 110, 20}, 0, 1 | TAG(BASS), FX(20, 0, 0, 0), PAT(2),
+     MODS(P_FCUT, 96, MLFO(LW_SIN, -8, 0, 20), MMOD(1, PS_LFO, PD_SHP, 40))},   /* the fold in 1/8, from each note */
+    {"SWEEP PAD", {7, 0, 0, 0, 0, 0, 40, 0}, {90, 90, 110, 100}, 0, TAG(PAD), FX(0, 30, 30, 70), PAT(5),
+     MODS(MENV2(115, 0, 127, 105), MMOD(1, PS_ENV2, PD_SHP, 63), P_LRATE, 10, MMOD(2, PS_LFO, PD_SHP, 14))},   /* ~4 s up */
+    {"MORPH PAD", {4, 30, 0, 0, 8, 64, 50, 0}, {70, 90, 110, 95}, 0, TAG(PAD), FX(0, 35, 25, 60), PAT(5),
+     MODS(MLFO(LW_TRI, -2, 0, 0), P_LPHASE, -1, MMOD(1, PS_LFO, PD_E(5), 30), MMOD(2, PS_LFO, PD_SHP, -20))},   /* A .. B, 2 bars */
+    {"GLASS PAD", {2, 62, 0, 0, 0, 40, 20, 0}, {40, 90, 100, 90}, 0, TAG(PAD), FX(0, 40, 35, 75), PAT(5),
+     MODS(P_LRATE, 30, MMOD(1, PS_LFO, PD_E(5), 30), MMOD(2, PS_VEL, PD_SHP, 8))},   /* the 4:1 glass, a sine in and out */
+    {"PWM STRNG", {9, 80, 0, 0, 0, 0, 0, 0}, {50, 90, 110, 80}, 0, TAG(PAD), FX(0, 60, 20, 60), PAT(5),
+     MODS(P_LRATE, 45, MMOD(1, PS_LFO, PD_SHP, 36))},                      /* the width swung */
+    {"SUPERSAW", {4, 0, 0, 0, 0, 0, 127, 20}, {20, 90, 110, 70}, 0, TAG(PAD), FX(0, 60, 30, 55), PAT(5),
+     MODS(MENV2(60, 100, 40, 70), MMOD(1, PS_ENV2, PD_SHP, 40))},          /* the saws bloom square, settle */
+    {"SHIMMER", {14, 40, 3, 20, 0, 0, 30, 0}, {80, 100, 110, 110}, 0, TAG(PAD), FX(0, 50, 60, 100), PAT(5),
+     MODS(MENV2(110, 0, 127, 110), MMOD(1, PS_ENV2, PD_SHP, 50), P_LRATE, 30, MMOD(2, PS_LFO, PD_E(3), 20))},   /* the fold's point */
+    {"DARK DRONE", {8, 30, 0, 0, 0, 0, 60, 60}, {100, 100, 127, 110}, 0, TAG(PAD), FX(10, 20, 20, 80), PAT(5),
+     MODS(P_FCUT, 60, P_FRES, 40, MLFO(LW_SIN, 4, 0, 16), MMOD(1, PS_LFO, PD_SHP, 30))},   /* the odd partials, slowly */
+    {"FM PLUCK", {1, 0, 0, 0, 0, 0, 0, 0}, {0, 85, 0, 60}, 0, TAG(PLUCK), FX(0, 15, 40, 40), PAT(6),
+     MODS(MENV2(0, 70, 0, 40), MMOD(1, PS_ENV2, PD_SHP, 63), MMOD(2, PS_VEL, PD_SHP, 20), P_ED_SHP, 40)},   /* the index struck */
+    {"METAL PLK", {2, 90, 1, 0, 0, 0, 0, 0}, {0, 82, 0, 55}, 0, TAG(PLUCK), FX(0, 10, 45, 45), PAT(6),
+     MODS(MENV2(0, 72, 0, 40), MMOD(1, PS_ENV2, PD_SHP, 30), MMOD(2, PS_ENV2, PD_E(3), 30))},   /* the ratio steps down */
+    {"YAH LEAD", {12, 20, 0, 0, 8, 30, 10, 0}, {5, 80, 110, 40}, 0, 1 | TAG(VOX), FX(0, 10, 40, 35), PAT(4),
+     MODS(P_GLIDE, 15, MENV2(65, 75, 30, 40), MMOD(1, PS_ENV2, PD_SHP, 45), P_LRATE, 88, P_LFADE, 70, P_LD_PIT, 1)},   /* "ya" */
+    {"CHIME", {6, 100, 0, 0, 0, 120, 0, 0}, {0, 100, 0, 95}, 0, TAG(BELL), FX(0, 20, 40, 65), PAT(7),
+     MODS(MENV2(0, 80, 0, 60), MMOD(1, PS_ENV2, PD_E(5), -50))},          /* the 5th and 7th die first */
+    {"NOISE RISE", {13, 0, 0, 0, 7, 50, 0, 0}, {60, 90, 127, 90}, 0, 1 | TAG(FX), FX(0, 20, 50, 70), PAT(3),
+     MODS(MENV2(112, 0, 127, 90), MMOD(1, PS_ENV2, PD_SHP, 63), MMOD(2, PS_ENV2, PD_PITCH, 40))},   /* finer, up */
 };
-static const uint8_t WAVE_ORDER[] = {1, 2, 3, 4, 6, 7, 5, 0};
+/* browsing: KEYS PLUCK, PAD, LEAD VOX, BASS, BELL, FX, INIT */
+static const uint8_t WAVE_ORDER[] = {1, 20, 21, 2, 13, 14, 15, 16, 17, 18, 19, 7, 3, 22, 4, 8, 9, 10, 11, 12, 6, 23, 5, 24, 0};
 _Static_assert(sizeof WAVE_ORDER == NELEM(WAVE_PRESETS), "WAVE's browsing order: every preset once");
 
 static void wave_render_x(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m);

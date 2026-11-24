@@ -90,6 +90,98 @@ static double zc(const double *a, uint32_t n, uint32_t skip)
     return c * (double)FS / (n - skip);
 }
 
+/* (wavepresets) the presets through the whole part (mix_block: the matrix, ENV 2, the LFO, the FILTER), dry: a held
+ * note (a bass's C2, a lead's C4) or a chord (C3 G3 C4 E4), 3 s. Each: sounding, no sample at full scale, no DC; one
+ * whose sound moves (a PAD, or ENV 2 / the LFO / ENV on POS AMT MIX or CUT) moves: its brightness (the RMS frequency,
+ * sqrt(E[dx^2] / E[x^2]) FS / 2 pi, a 4096-sample window) over the held note at least a third of an octave apart */
+#define MV_N (3u * FS)
+static double ym[MV_N];
+static const char *const N_PTAG[PT_N] = {"-", "BASS", "LEAD", "PAD", "KEYS", "PLUCK", "BELL", "VOX", "DRUM", "FX"};
+static uint32_t pr_moves(const preset_t *pr)
+{
+    const int8_t *m = pr->mod;
+    uint32_t k, src[4] = {0}, dst[4] = {0}, mv = PR_TAG(pr) == PT_PAD;
+    for (; m && m[0] >= 0; m += 2) {
+        for (k = 0; k < 4u; k++) {
+            if (m[0] == P_M1SRC + 3 * (int)k) src[k] = (uint32_t)m[1];
+            if (m[0] == P_M1DST + 3 * (int)k) dst[k] = (uint32_t)m[1];
+        }
+        mv |= (m[0] == P_ED_SHP || m[0] == P_LD_SHP) && m[1];
+    }
+    for (k = 0; k < 4u; k++)
+        mv |= (src[k] == PS_ENV2 || src[k] == PS_LFO) &&
+              (dst[k] == PD_SHP || dst[k] == PD_E(1) || dst[k] == PD_E(3) || dst[k] == PD_E(5) || dst[k] == PD_FCUT);
+    return mv;
+}
+static void presets_moving(void)
+{
+    static const uint8_t CH[4] = {48, 55, 60, 64};
+    static int32_t o[2 * CTL];
+    uint32_t pi, i, k, bad = 0, still = 0, nmove = 0, ncat[PT_N] = {0}, seen = 0, names = 0;
+    for (pi = 0; pi < NELEM(WAVE_PRESETS); pi++) {
+        const preset_t *pr = &WAVE_PRESETS[pi];
+        uint32_t tg = PR_TAG(pr), nn = PR_MONO(pr) || tg == PT_LEAD ? 1u : 4u, got = 0, w;
+        double pk = 0, s = 0, dc = 0, lo = 1e9, hi = 0, top = 0;
+        setup(pi, 0);
+        for (i = 0; i < 64u; i++) mix_block(o, CTL);
+        for (k = 0; k < nn; k++)
+            trk_note_on(&trk[0], nn == 1u ? (tg == PT_BASS ? 36u : 60u) : CH[k], 100);
+        while (got < MV_N) {
+            mix_block(o, CTL);
+            for (k = 0; k < CTL && got < MV_N; k++) {
+                double y = (o[2 * k] + o[2 * k + 1]) / 65536.0;
+                ym[got++] = y;
+                if (fabs(o[2 * k]) > pk * 32768) pk = fabs(o[2 * k]) / 32768;
+                if (fabs(o[2 * k + 1]) > pk * 32768) pk = fabs(o[2 * k + 1]) / 32768;
+                s += y * y, dc += y;
+            }
+        }
+        s = sqrt(s / MV_N), dc /= MV_N;
+        for (w = 0; w + 4096u <= MV_N; w += 2048u) {
+            double e = 0;
+            for (i = w; i < w + 4096u; i++) e += ym[i] * ym[i];
+            if (e > top) top = e;
+        }
+        for (w = 0; w + 4096u <= MV_N; w += 2048u) {   /* (a window under -30 dB of the loudest: a pluck's tail, left out) */
+            double e = 0, d = 0, f;
+            for (i = w + 1u; i < w + 4096u; i++) e += ym[i] * ym[i], d += (ym[i] - ym[i - 1]) * (ym[i] - ym[i - 1]);
+            if (e < top / 1000.0) continue;
+            f = sqrt(d / e) * FS / (2 * M_PI);
+            if (f < lo) lo = f;
+            if (f > hi) hi = f;
+        }
+        if (s < 0.02 || pk >= 0.99 || pk < 0.15 || fabs(dc) > 0.005) {
+            printf("wave: preset %-10s rms %.3f peak %.3f dc %+.4f\n", pr->name, s, pk, dc);
+            bad++;
+        }
+        if (pr_moves(pr) && (tg == PT_PAD || pi >= 8u)) {   /* (the PADs and the curated set from 8 on; FM KEYS' bark,
+                                                         * BIT TABLE's xor: a timbre, not a brightness, moved) */
+            nmove++;
+            if (hi < lo * 1.26) {
+                printf("wave: preset %-10s brightness %.0f .. %.0f Hz: still\n", pr->name, lo, hi);
+                still++;
+            }
+        }
+        if (getenv("WAVE_PRESETS"))
+            printf("wave:   %-10s %-5s rms %.3f peak %.3f dc %+.4f brightness %5.0f .. %5.0f Hz (%.2f oct)%s\n", pr->name,
+                   N_PTAG[tg], s, pk, dc, lo, hi, log2(hi / lo), pr_moves(pr) && (tg == PT_PAD || pi >= 8u) ? " moves" : "");
+        ncat[tg]++;
+        for (k = 0; pr->name[k] && (pr->name[k] == ' ' || (pr->name[k] >= 'A' && pr->name[k] <= 'Z') || (pr->name[k] >= '0' && pr->name[k] <= '9')); k++)
+            ;
+        names += pr->name[k] || k > 10u;
+        for (k = 0; k < pi; k++)
+            names += !strcmp(WAVE_PRESETS[k].name, pr->name);
+    }
+    for (k = 0; k < sizeof WAVE_ORDER; k++)
+        seen |= 1u << WAVE_ORDER[k];
+    ok(!bad, "every preset (%u) through the part, dry: rms >= 0.02, peak 0.15 .. 0.99, no DC", (unsigned)NELEM(WAVE_PRESETS));
+    ok(!still, "the %u moving presets (PADs; ENV 2 / LFO / ENV on POS AMT MIX CUT) move: a third of an octave or more", nmove);
+    ok(ncat[PT_BASS] >= 6u && ncat[PT_PAD] >= 6u && nmove >= 16u,
+       "a palette: %u BASS, %u PAD, %u KEYS, %u PLUCK, %u LEAD, %u VOX, %u BELL, %u FX", ncat[PT_BASS], ncat[PT_PAD], ncat[PT_KEYS],
+       ncat[PT_PLUCK], ncat[PT_LEAD], ncat[PT_VOX], ncat[PT_BELL], ncat[PT_FX]);
+    ok(!names && seen == (1u << NELEM(WAVE_PRESETS)) - 1u, "names: up to 10 of A-Z 0-9 and space, none twice; WAVE_ORDER shows each once");
+}
+
 int main(int argc, char **argv)
 {
     static fvm_cc_t cc;
@@ -182,6 +274,7 @@ int main(int argc, char **argv)
         g2 = goertzel(yb, NS, 220.0);
         ok(g2 > 100.0 * g1 + 1e-6, "SUB: the octave down added (power at 220 Hz %.2e -> %.2e)", g1, g2);
     }
+    presets_moving();
     printf(fails ? "wave: %d FAILED\n" : "wave: all ok\n", fails);
     return fails != 0;
 }
