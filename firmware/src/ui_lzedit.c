@@ -257,6 +257,10 @@ static __attribute__((noinline)) void graph_clay_lz(const track_t*t){
   cv_rect(cx,y,1,23,FT_YE);cv_rect(cx-2,y,5,1,FT_YE);cv_rect(cx-1,y+1,3,1,FT_YE);
   {int32_t w=text_w(&AF_X,b)+6;cv_rect(238-w,y,w,13,T_BG);cv_text_on(241-w,y+2-AF_X_CAP_Y,&AF_X,b,c[CL_ON]?T_TEXT:T_DIM,T_BG);}   /* (the owner: "the name can't be read": over everything, white) */
  }
+ /* (the owner's, as JIANT FM's) at the foot the four as thin bars, from the middle to what each adds now (form_st mv:
+  * clay_tick's, core 0), the MOD the knobs edit in the track's colour, the others MID; none without a DEST; OFF: dim */
+ for(m=0;m<4u;m++)if(c[CL_MF(m,0u)]){int32_t v=form_st[tr].mv[m],w=clamp(v<0?-v:v,0,128)*102>>7;
+  cv_rect(134-(v<0?w:0),126+3*(int32_t)m,w|1,2,!c[CL_ON]?T_DIM:m==((uint32_t)clay_km[tr]&3u)?tc:T_MID);}
  if(!c[CL_ON]){int32_t w=text_w(&AF_M,"CLAY OFF")+8;cv_rect(120-w/2,52,w,20,T_BG);cv_text_on(124-w/2,56-AF_M_CAP_Y,&AF_M,"CLAY OFF",T_TEXT,T_BG);}
 }
 /* the lens's panel for EDIT's page pg (1), else 0 (its own) */

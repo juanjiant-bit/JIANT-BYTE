@@ -1834,8 +1834,9 @@ sect:
         settings_save();
         return;
     }
-    if (vp >= clay_ui && vp < clay_ui + CLAY_NF) {      /* (BYTE) DRONE CLAY's settings, their view (clay.c clay_put) */
-        clay_put(song.sel, (uint32_t)(vp - clay_ui), was_clay, v);
+    if (vp >= clay_ui && vp <= clay_ui + CLAY_NF) {     /* (BYTE) DRONE CLAY's settings, their view (clay.c clay_put; the
+                                                         * last: CLAY TIME's KEYS, CL_KEYS) */
+        clay_put(song.sel, vp == clay_ui + CLAY_NF ? (uint32_t)CL_KEYS : (uint32_t)(vp - clay_ui), was_clay, v);
         return;
     }
     if (vp == &lmode_ui || vp == &lphase_ui) {          /* (0.9.18) LFO MODE / PHASE: P_LPHASE written back */

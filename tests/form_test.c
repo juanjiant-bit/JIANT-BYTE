@@ -211,6 +211,49 @@ int main(int argc, char **argv)
         ok &= clay_km[song.sel] == 2 && clay[song.sel][CL_MF(2, 3u)] < was && clay[song.sel][CL_MF(0, 3u)] == was0;
         OK(ok, "CLAY MOD: KNOB 1 scrolls to MOD 3 (%d), KNOB 4 its AMOUNT (%d -> %d)", clay_km[song.sel], was, clay[song.sel][CL_MF(2, 3u)]);
     }
+    {   /* (FM V10.8.30's) every AMOUNT 0, the EUCLIDs on, RATE HOLD, a plucked voice: the drone clean, one note-on in
+         * four bars (no HIT re-strikes it) */
+        setup(); mods_off(); trk[0].p[P_SUS] = 20;
+        for (unsigned m = 0; m < 4u; m++) clay[0][CL_MF(m, 2u)] = 3;
+        int32_t b[CTL * 2]; unsigned ons = 0;
+        transport_req = 1;
+        for (unsigned j = 0; j < 8u * FS / CTL; j++) {   /* (8 s: four bars at 120; the voices started: the only track's) */
+            uint32_t a = vage; mix_block(b, CTL); ons += vage != a;
+        }
+        transport_req = 2; for (unsigned j = 0; j < 40u; j++) mix_block(b, CTL);
+        OK(ons == 1u, "AMOUNT 0 everywhere, EUCLIDs on, HOLD: the drone struck %u time(s) in four bars", ons);
+    }
+    {   /* KEYS (CLAY TIME, RUN's bit 1 as JIANT FM): ON the keys CLAY's gestures, OFF notes while the drone sounds, no
+         * gesture; its knob, RUN's kept */
+        int ok = 1; unsigned w = white(2);
+        setup(); mods_off(); song.octave = 0; memset(form_st[0].g, 0, sizeof form_st[0].g);
+        int32_t b[CTL * 2]; transport_req = 1; for (unsigned j = 0; j < 40u; j++) mix_block(b, CTL);
+        clay[0][CL_RUN] |= 2;
+        key_down(w); mix_block(b, CTL); mix_block(b, CTL);
+        unsigned alive = 0, notes = 0;
+        for (unsigned g = 0; g < FORM_G; g++) alive |= form_st[0].g[g].fl & 8u;
+        for (unsigned v = 0; v < NVOICE; v++) notes += trk[0].v[v].active && trk[0].v[v].gate && trk[0].v[v].note != clay_dn[0];
+        key_up(w); mix_block(b, CTL);
+        unsigned held = 0; for (unsigned v = 0; v < NVOICE; v++) held += trk[0].v[v].active && trk[0].v[v].gate && trk[0].v[v].note != clay_dn[0];
+        ok &= !alive && notes >= 1u && !held && clay_dn[0];
+        clay[0][CL_RUN] &= ~2;
+        key_down(w); mix_block(b, CTL);
+        unsigned alive2 = 0; for (unsigned g = 0; g < FORM_G; g++) alive2 |= form_st[0].g[g].fl & 8u;
+        key_up(w); mix_block(b, CTL);
+        ok &= alive2 != 0u;
+        transport_req = 2; for (unsigned j = 0; j < 40u; j++) mix_block(b, CTL);
+        ui_power_on(); go_home(); frame(); clay_defaults(clay[song.sel]); clay[song.sel][CL_RUN] = 1;
+        ok &= nav_put(SEC_SEQ, "CLAY TIME") && cur_page()->id[2] == ID_CL0 + CL_KEYS;
+        int16_t *vp; const param_desc_t *d = clay_desc(TSEL, CL_KEYS, &vp);
+        ok &= d && !strcmp(d->label, "KEYS") && d->names && !strcmp(d->names[*vp], "ON");
+        turn(EN_K3, 1); frames(2);
+        ok &= clay[song.sel][CL_RUN] == 3;            /* (KEYS OFF: RUN's bit 1, FREE kept) */
+        turn(EN_K1, -1); frames(2);
+        ok &= clay[song.sel][CL_RUN] == 2;            /* (RUN SONG: KEYS kept) */
+        uint8_t pk[CLAY_NF]; clay_pack(clay[song.sel], pk); ok &= pk[CL_RUN] == 2u;
+        clay_defaults(clay[song.sel]);
+        OK(ok, "KEYS OFF: a key a note (%u), no gesture (%u), let go (%u); ON: a gesture (%u)", notes, alive, held, alive2);
+    }
     {   /* REC: the keys' gestures into the loop, played back round */
         setup(); mods_off(); song.octave = 0; memset(clay_rec, 0, sizeof clay_rec); clay_km[0] = 0;
         for (unsigned m = 0; m < 4u; m++) clay[0][CL_MF(m, 2u)] = 0;   /* (no euclid: the loop alone) */

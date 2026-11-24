@@ -137,7 +137,7 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
         }
         if (!playing)
             st->rp = ~0u;
-        if (!c[CL_ON] || tr >= trk_live || t->p[P_MUTE] || (!song.playing && c[CL_RUN] != 1 && !clay_klive(st))) {
+        if (!c[CL_ON] || tr >= trk_live || t->p[P_MUTE] || (!song.playing && !(c[CL_RUN] & 1) && !clay_klive(st))) {
             if (clay_dn[tr] | clay_nn[tr] | st->pn | form_lit[tr] | st->hb.on) clay_stop(tr);
             continue;
         }
@@ -163,7 +163,8 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
             if ((int16_t)s1 == st->lastm[k]) continue;
             st->lastm[k] = (int16_t)s1;
             form_lit[tr] = (uint8_t)(form_lit[tr] & ~(1u << k));
-            if (form_hit(eu, k, s1, seed))
+            if (c[CL_MF(k, 3u)] > 0 && (c[CL_MF(k, 0u)] || clay_sh(c[CL_MF(k, 1u)]) / 12u == FPG_HIT || clay_sh(c[CL_MF(k, 1u)]) / 12u == FPG_NOTE) && form_hit(eu, k, s1, seed))   /* (AMOUNT 0, or
+                                                         * no DEST but a HIT's or a NOTE's: nothing struck, the drone clean) */
                 clay_strike(tr, t, st, k, clay_sh(c[CL_MF(k, 1u)]), (s1 & 3u) ? 90u : 127u);
         }
         clay_eval(st, c, &o, t->at);
@@ -211,7 +212,8 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
             } else if (busy) {
                 if (clay_dn[tr]) seq_note_off(t, clay_dn[tr]);
                 clay_dn[tr] = 0;
-            } else if (clay_dn[tr] != dn || (r && (uint16_t)cnt != clay_lr[tr]) || rt) {   /* new, moved, its RATE's strike, a HIT's */
+            } else if (clay_dn[tr] != dn || (r && ((uint16_t)cnt != clay_lr[tr] || rt))) {   /* new, moved, its RATE's strike, a HIT's
+                                                         * (HOLD: held, never struck again) */
                 if (clay_dn[tr]) seq_note_off(t, clay_dn[tr]);
                 seq_note_on(t, dn, rt ? rt : 110u);
                 clay_dn[tr] = (uint8_t)dn;
@@ -246,6 +248,7 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
  * edit_param, then clay_put); MOD (CL_SEL) the modulator the pages' others edit (clay_page_desc) */
 static const char *const CL_ONN[] = {"OFF", "ON", 0};
 static const char *const CL_RUNN[] = {"SONG", "FREE", 0};
+static const char *const CL_KEYN[] = {"ON", "OFF", 0};
 static const char *const CL_MODN[] = {"1", "2", "3", "4", 0};
 static const char *const CL_NN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **valp)
@@ -263,8 +266,14 @@ static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **val
         d.label = "MOD"; d.max = 3; d.names = CL_MODN;
         return &d;
     }
+    if (f == CL_KEYS) {                                  /* (as JIANT FM: RUN's bit 1, 0 ON) */
+        clay_ui[CLAY_NF] = (int16_t)((clay[tr][CL_RUN] >> 1) & 1);
+        *valp = &clay_ui[CLAY_NF];
+        d.label = "KEYS"; d.max = 1; d.names = CL_KEYN;
+        return &d;
+    }
     f %= CLAY_NF;
-    clay_ui[f] = clay[tr][f];                           /* (its int16 view: ui_input.c edit_param writes it, clay_put back) */
+    clay_ui[f] = (int16_t)(f == CL_RUN ? clay[tr][f] & 1 : clay[tr][f]);                           /* (its int16 view: ui_input.c edit_param writes it, clay_put back) */
     *valp = &clay_ui[f];
     if (f == CL_ON) { d.label = "CLAY"; d.max = 1; d.names = CL_ONN; }
     else if (f == CL_OCT) {                              /* (the drone's note: its octave on the track's ROOT) */
@@ -312,7 +321,12 @@ static const param_desc_t *clay_page_desc(const track_t *t, uint32_t f, int16_t 
 static void clay_put(uint32_t tr, uint32_t f, int32_t was, int32_t v)
 {
     uint32_t m, any = 0;
-    tr %= NTRK; f %= CLAY_NF;
+    tr %= NTRK;
+    if (f >= CLAY_NF || f == CL_RUN) {                  /* (RUN bit 0, KEYS bit 1: the other kept) */
+        uint32_t b = f == CL_RUN ? 1u : 2u;
+        clay[tr][CL_RUN] = (clay_t)((clay[tr][CL_RUN] & ~b) | (v ? b : 0u));
+        return;
+    }
     clay[tr][f] = (clay_t)clamp(v, -128, 127);
     if (f != CL_ON || !v || was)
         return;
@@ -430,10 +444,12 @@ static void clay_key(track_t *t, uint32_t k, uint32_t vel, int on)
         if (clay_ke.tr == tr) clay_ke.held = 0;
     }
 }
-/* seq.c key_on / key_off: op 1 down, 0 up; 1 if DRONE CLAY took the key */
+/* seq.c key_on / key_off: op 1 down, 0 up; 1 if DRONE CLAY took the key. KEYS OFF (RUN's bit 1): the keys notes (none recorded into
+ * the loop); a key up as it went down (a note: its kb_sn) */
 static __attribute__((noinline)) int clay_kb(uint32_t k, track_t *t, int op)
 {
-    if (!clay_on((uint32_t)(t - trk) % NTRK) || drum_track(t))
+    uint32_t tr = (uint32_t)(t - trk) % NTRK;
+    if (!clay_on(tr) || drum_track(t) || (op ? (clay[tr][CL_RUN] & 2) != 0 : kb_sn[k] != 0))
         return 0;
     if (op == 1) { clay_key(t, k, KB_VEL(k), 1); kb_on[k] = 1; kb_sn[k] = 0; }
     else { kb_on[k] = 0; clay_key(t, k, 0, 0); }

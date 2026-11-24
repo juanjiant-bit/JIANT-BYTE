@@ -278,7 +278,7 @@ static const param_desc_t DXIMG_DESC = {"IMAGE", F_INT, 0, 127, 0, 0};       /* 
 #define ID_EU0 0xF0u
 #define ID_SC0 0xE8u                                    /* (V10.25) SCL > SCENE's four (ui_scene.c sc_desc) */
 #define ID_CL0 0xC0u                                    /* (BYTE) DRONE CLAY's CLAY_NF and its MOD (eng_form.c CL_*, CL_SEL; clay.c clay_desc) */
-_Static_assert(ID_CL0 + CL_SEL < 0xE0u && P_COUNT < ID_CL0, "DRONE CLAY's ids between the parameters and EQ's");
+_Static_assert(ID_CL0 + CL_KEYS < 0xE0u && P_COUNT < ID_CL0, "DRONE CLAY's ids between the parameters and EQ's");
 static const param_desc_t *clay_page_desc(const track_t *t, uint32_t f, int16_t **valp);   /* (seq.c clay.c) */
 static const param_desc_t *eu_desc(uint32_t k, int16_t **valp);
 static const param_desc_t *sc_desc(uint32_t k, int16_t **valp);   /* (V10.25) ui_scene.c */
@@ -821,11 +821,11 @@ static const page_t PAGES[] = {
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     /* (BYTE, the owner: FORM out as an engine) SEQ > DRONE CLAY: ON, the drone's OCT, its PITCH, its RATE; CLAY MOD and
      * CLAY RHYTHM: KNOB 1 the MOD (1 .. 4, scrolled as the sequences are; the black keys choose it too), the others its
-     * DEST SHAPE AMOUNT, its RATE EUCLID DECAY (MOD 1's ids: clay.c clay_page_desc); CLAY TIME: RUN SEED */
+     * DEST SHAPE AMOUNT, its RATE EUCLID DECAY (MOD 1's ids: clay.c clay_page_desc); CLAY TIME: RUN SEED KEYS */
     {"DRONE CLAY", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_ON, ID_CL0 + CL_OCT, ID_CL0 + CL_PIT, ID_CL0 + CL_RATE}},
     {"CLAY MOD", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_SEL, ID_CL0 + CL_M0, ID_CL0 + CL_M0 + 1u, ID_CL0 + CL_M0 + 3u}},
     {"CLAY RHYTHM", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_SEL, ID_CL0 + CL_M0 + 5u, ID_CL0 + CL_M0 + 2u, ID_CL0 + CL_M0 + 4u}},
-    {"CLAY TIME", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_RUN, ID_CL0 + CL_SEED, 0xFF, 0xFF}},
+    {"CLAY TIME", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_RUN, ID_CL0 + CL_SEED, ID_CL0 + CL_KEYS, 0xFF}},
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
@@ -1061,7 +1061,7 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return eu_desc(id - ID_EU0, valp);
     if (id >= ID_SC0 && id < ID_SC0 + 4u)            /* (V10.25) SCENE's */
         return sc_desc(id - ID_SC0, valp);
-    if (id >= ID_CL0 && id <= ID_CL0 + CL_SEL)          /* (BYTE) DRONE CLAY's (clay.c clay_page_desc) */
+    if (id >= ID_CL0 && id <= ID_CL0 + CL_KEYS)          /* (BYTE) DRONE CLAY's (clay.c clay_page_desc) */
         return clay_page_desc(TSEL, id - ID_CL0, valp);
     *valp = &TSEL->p[id];
     if (id == P_APRATE && TSEL->p[P_APSYNC])         /* (0.6.9) AUTO PAN on the tempo: a division */

@@ -191,17 +191,19 @@ typedef struct { int32_t sem, esum, hp, ha, hg, hn, hc; } clay_out_t;
 /* ---- (BYTE) DRONE CLAY: a track's settings (ui pages SEQ > DRONE CLAY, CLAY MOD, CLAY RHYTHM, CLAY TIME; the project's
  * 'C' 'L' block). ON, the drone's OCTave (C0 .. C3 on the track's ROOT), its RATE (HOLD: held; else struck again each
  * CLAY_RES step), RUN (SONG: while the transport plays; FREE: always), PITCH (the drone and its notes, -24 .. +36
- * semitones: FORM's FREQ's audio range), the SEED; each modulator's DEST (the matrix's, CLAY_MD), SHAPE (the knob's
+ * semitones: FORM's FREQ's audio range), the SEED; RUN's bit 1 KEYS OFF (as JIANT FM: 0 ON, the keys
+ * its gestures, clay.c clay_kb; OFF notes; an older project's ON); each modulator's DEST (the matrix's, CLAY_MD), SHAPE (the knob's
  * order: the HITS first, CLAY_SH), EUCLID (CLAY_EU), AMOUNT, DECAY and its own RATE (CLAY_RES, as FORM's MOD RATE) */
 enum { CL_ON, CL_OCT, CL_RATE, CL_RUN, CL_PIT, CL_SEED, CL_M0, CLAY_NF = CL_M0 + 24 };
 #define CL_MF(m, f) (CL_M0 + 6u * (m) + (f))        /* f: 0 DEST, 1 SHAPE, 2 EUCLID, 3 AMOUNT, 4 DECAY, 5 RATE */
 #define CL_SEL CLAY_NF                               /* (the pages' MOD: which modulator their knobs edit; not stored) */
+#define CL_KEYS (CLAY_NF + 1)                        /* (CLAY TIME's KEYS: RUN's bit 1; its view clay_ui[CLAY_NF]) */
 #define CL_PITB 24                                   /* (PITCH stored biased in the project: 0 .. 60) */
 #define CLAY_RN 32u                                  /* (the recorded loop: two bars of 1/16) */
 typedef int8_t clay_t;                               /* (a setting: -24 .. 127; RAMTEXT's room is full) */
 static clay_t clay[NTRK][CLAY_NF] __attribute__((section(".eu_keep")));   /* (RAMTEXT's room, as EUCLID's keep: the RAM is full; not zeroed
                                                          * there: main.c clay_boot) */
-static int16_t clay_ui[CLAY_NF] __attribute__((section(".eu_keep")));     /* (the pages' knobs: the selected track's, as int16, clay.c clay_desc) */
+static int16_t clay_ui[CLAY_NF + 1] __attribute__((section(".eu_keep")));     /* (the pages' knobs: the selected track's, as int16, clay.c clay_desc) */
 /* what modulator k of track tr adds now (Q15): mod.c's per-block source, the panel's */
 static int32_t clay_vk(uint32_t tr, uint32_t k) { return clamp(form_st[tr % NTRK].mv[k & 3u] * 256, -32767, 32767); }
 static uint8_t clay_dn[NTRK] __attribute__((section(".eu_keep"))), clay_nn[NTRK] __attribute__((section(".eu_keep")));          /* the drone's note sounding, a NOTE gesture's (0: none) */
