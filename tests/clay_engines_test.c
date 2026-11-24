@@ -98,8 +98,12 @@ int main(int argc, char **argv)
              * table's POS, WARP's AMT with WARP off, B with MIX 0) */
             unsigned kn = 0; double th = 0.08 + 1.5 * fl;
             for (unsigned d = 4; d < 12u; d++) kn += dd[d] > th;
-            ok &= (drum || func || dd[0] > th) && dd[1] > th && dd[3] > th && kn >= (func ? 2u : 3u);   /* (BYTE 0.17: FUNC's WAVE
-                                                         * no knob, its SONG's drums after 8 beats: A and D) */
+            ok &= (drum || func || dd[0] > th) && dd[1] > th && dd[3] > th * (drum ? 0.6 : 0.75) && kn >= (func ? 2u : 3u);   /* (BYTE 0.17: FUNC's WAVE
+                                                         * no knob, its SONG's drums after 8 beats: A and D. FM V10.8.40:
+                                                         * VOLUME at 3/4 of it, a kit's at 0.6: with the beat a multiple of
+                                                         * 24 samples (22032 at 120, was 22048) the beats folded here land
+                                                         * elsewhere; DRUM-W's VOLUME 0.36 against its noise's 0.28, was
+                                                         * 0.51 against 0.22, the modulation the same) */
             for (unsigned f = 0; f < 5u; f++) ok &= ff[f] > th;
         }
         ok &= kick > (drum ? 1.3 : 3.0);
