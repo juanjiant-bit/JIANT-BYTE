@@ -82,9 +82,16 @@ static uint32_t trk_nvoice(const track_t *t);   /* (voice.c) */
 #define WT_N 128u
 static int16_t wt_tab[NTRK][1][WT_N + 1u];          /* (A's only: 1.5 KB of RAM, all the RAM has) */
 static uint16_t wt_key[NTRK][1], wt_bkey[NTRK][1];  /* 1 + formula x 128 + POS (0: none); the one being drawn */
-static uint8_t wt_bi[NTRK][1], wt_bn[NTRK][1], wt_go[NTRK];   /* .. its next point, its points drawn; a quarter allowed
+static uint8_t wt_bi[NTRK][1], wt_bn[NTRK][1], wt_go[NTRK], wt_wm[NTRK];   /* .. its next point, its points drawn; a quarter allowed
                                                          * this block (wave_block), a bit an oscillator */
-static void wave_block(track_t *t) { wt_go[(uint32_t)(t - trk) % NTRK] = 3u; }
+static void wave_warm(track_t *t, uint32_t tr);
+static void wave_block(track_t *t)
+{
+    uint32_t tr = (uint32_t)(t - trk) % NTRK;
+    wt_go[tr] = 3u;
+    if (fvm_warm_tok && trk_quiet(t))              /* (engopt) its formulas, its first table, before its first note */
+        wave_warm(t, tr);
+}
 static int wt_smooth(uint32_t f) { return f != 10u && f != 11u && f != 13u; }   /* (SAWSQ PULSE too: their edge a 1/128 turn ramp) */
 static const int16_t *wt_get(uint32_t tr, uint32_t r, uint32_t o, const fvm_prog_t *pg, uint32_t f, uint32_t pos, uint32_t many,
                              const fvm_env_t *e0, lofi_work_t *wk)
@@ -96,6 +103,11 @@ static const int16_t *wt_get(uint32_t tr, uint32_t r, uint32_t o, const fvm_prog
     if (!many || (f == 3u && o))                        /* (one voice, no unison: the formula as written; B's TRISY: its
                                                          * sync edges exact) */
         return 0;
+    if (wt_wm[r]) {                                     /* (engopt) drawn by wave_warm alone: at another POS, as if */
+        wt_wm[r] = 0;                                   /* never drawn (the note's own drawn whole, as it was) */
+        if (wt_key[r][0] != key)
+            wt_key[r][0] = 0;
+    }
     if (wt_key[r][0] == key)
         return wt_tab[r][0];
     /* (BYTE, CPU: the owner, "one WAVE voice 453 us") a new POS redrawn a quarter a block (32 points), read meanwhile as
@@ -145,6 +157,38 @@ static inline void wt_read(const int16_t *t, const uint32_t *W, uint32_t n, uint
         uint32_t w = W[i] & 0xFFFFu, j = w >> 9;
         int32_t a = t[j];
         y[i] = (uint32_t)((a + (((t[j + 1u] - a) * (int32_t)(w & 511u)) >> 9)) * 2);
+    }
+}
+
+/* (engopt) a WAVE part with no voice: A's and B's programs compiled and A's first table drawn whole (wt_get), what its
+ * first note would do in the block it starts in, one of them a block (fvm_warm_tok), at POS as set (the matrix's SHAPE
+ * off; a note at another POS draws it again a quarter a block, as ever) */
+static void wave_warm(track_t *t, uint32_t tr)
+{
+    const int16_t *p = t->p;
+    uint32_t fa = (uint32_t)p[P_E0] % WAVE_NF, fb = (uint32_t)p[P_E4] % WAVE_NF, warp = (uint32_t)clamp(p[P_E2], 0, WW_FM);
+    uint32_t pos = (uint32_t)clamp(p[P_E1], 0, 127), many = p[P_E6] > 0 || trk_nvoice(t) > 1u;
+    lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
+    if (lofi_prg_id[tr] != 0x100u + fa) {
+        fvm_warm_tok = 0;
+        (void)wave_prog(lofi_slot(tr), &lofi_prg_id[tr], fa, wk);
+        return;
+    }
+    if ((p[P_E5] > 0 || warp == WW_FM) && wave_id_b[tr] != 0x100u + fb) {
+        if (!wave_prg_b[tr].ins)
+            fvm_prog_init(&wave_prg_b[tr], wave_ins_b[tr], 32u);
+        fvm_warm_tok = 0;
+        (void)wave_prog(&wave_prg_b[tr], &wave_id_b[tr], fb, wk);
+        return;
+    }
+    if (!wt_key[tr][0] && many && !p[P_CAOS] && warp != WW_QUANT) {
+        int32_t st[FVM_MAXSTATE] = {0};
+        uint32_t T[1] = {0}, W[1] = {0};
+        fvm_env_t e = {{T, W, 0, 0, 0}, {0}, st};
+        e.u[FU_AF] = pos * 516u;
+        fvm_warm_tok = 0;
+        if (wt_get(tr, tr, 0, lofi_slot(tr), fa, pos, 1u, &e, wk) && wt_key[tr][0])
+            wt_wm[tr] = 1;
     }
 }
 

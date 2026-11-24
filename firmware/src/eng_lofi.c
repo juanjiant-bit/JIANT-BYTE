@@ -306,9 +306,20 @@ static uint8_t xm_cur;
 static uint8_t xm_want, xm_live;                     /* (byte-cpu-light) bit k: a formula read Ok this block; the
                                                       * parts written (the reads of the block before): no copy, no
                                                       * clearing of a part no formula reads (a new read: 0 a block) */
+/* (engopt) a formula compiled, a first table drawn, before its part's first note: one a block (fvm_warm), in a part
+ * with no voice (its idle block, not the one that starts the song with every part's at once: CPU FULL) */
+static volatile uint8_t fvm_warm_tok;
+static int trk_quiet(const track_t *t)
+{
+    uint32_t k;
+    for (k = 0; k < NVOICE; k++)
+        if (t->v[k].active) return 0;
+    return 1;
+}
 static void xm_turn(void)
 {
     uint32_t k, c = (uint32_t)(xm_live | xm_want);
+    fvm_warm_tok = 1;
     xm_cur ^= 1u;
     for (k = 0; k < NTRK; k++)                         /* (the one written now: a silent part stays 0) */
         if ((c >> k) & 1u)
@@ -764,6 +775,16 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
     return k == 0u ? &LOFI_FCHIP : k == 2u ? &LOFI_FALGO : k == 5u ? &LOFI_FDCY : 0;
 }
 
+static void lofi_block(track_t *t)                   /* (engopt) BYTE's / FLOAT's formula compiled before the note */
+{
+    if (fvm_warm_tok && (t->p[P_E1] == RW_BYTE || t->p[P_E1] == RW_FLOAT) && trk_quiet(t)) {
+        uint32_t tr = (uint32_t)(t - trk) % NTRK, flt = t->p[P_E1] == RW_FLOAT, f = (uint32_t)t->p[P_E2] >> 2;
+        if (lofi_prg_id[tr] != 1u + (flt ? 64u : 0u) + f) {
+            fvm_warm_tok = 0;
+            (void)lofi_prog(t, &lofi_work[MC_CPU() & 1u], flt, f);
+        }
+    }
+}
 static void lofi_note_on(track_t *t, voice_t *v)
 {
     uint32_t id=(uint32_t)(t-trk)*NVOICE+(uint32_t)(v-t->v);
@@ -883,6 +904,7 @@ static const engine_t ENG_LOFI = {
     .npresets = NELEM(LOFI_PRESETS),
     .note_on = lofi_note_on,
     .render = lofi_render,
+    .block = lofi_block,
     .half = 1,
     .knob = {P_E1, P_E2, P_E3, P_REL},
     .keep = 0x31,                /* the held sample and the filter */
