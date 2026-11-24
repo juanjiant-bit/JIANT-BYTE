@@ -83,6 +83,33 @@ static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
     return w;
 }
 
+/* (waveframes) a voice's phases into W, bent by WARP (BEND MIRROR: their slopes once a block, no division a sample);
+ * the phase after them */
+typedef struct { uint32_t warp, amt, mb, r0, r1; } wph_t;
+static void wph_init(wph_t *q, uint32_t warp, uint32_t amt)
+{
+    q->warp = warp, q->amt = amt, q->mb = 0;
+    if (warp == WW_BEND || warp == WW_MIRROR) {
+        uint32_t top = warp == WW_BEND ? 32768u : 65535u;
+        q->mb = warp == WW_BEND ? 32768u - amt * 29491u / 127u : 65535u - amt * 32767u / 127u;
+        q->r0 = (top << 16) / q->mb, q->r1 = (top << 16) / (65536u - q->mb);   /* (32-bit: no 64-bit divide on the FM-1) */
+    }
+}
+static __attribute__((noinline)) uint32_t wave_phw(const wph_t *q, uint32_t *W, uint32_t n, uint32_t ph, uint32_t iu)
+{
+    uint32_t i, mb = q->mb;
+    for (i = 0; i < n; i++, ph += iu) {
+        uint32_t w = ph >> 16;
+        if (mb)
+            w = w < mb ? (uint32_t)(((uint64_t)w * q->r0) >> 16) : q->warp == WW_BEND ? 32768u + (uint32_t)(((uint64_t)(w - mb) * q->r1) >> 16)
+                : (uint32_t)(((uint64_t)(65535u - w) * q->r1) >> 16);
+        else if (q->warp == WW_SYNC || q->warp == WW_QUANT)
+            w = wave_warp(w, q->warp, q->amt);
+        W[i] = w & 0xFFFFu;
+    }
+    return ph;
+}
+
 /* (byte-cpu-light) A formula of the bank that is f(w, A) alone and smooth, drawn once into a table of 128 points a
  * part and an oscillator at its POS, read by every voice and unison voice of the part (linear between points: under
  * -48 dB for the bank's partials up to the 7th; SAWSQ's and PULSE's edges a ramp of 1/128 turn). BITS STEP NOISE stay exact, as CAOS
@@ -91,18 +118,9 @@ static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
 static uint32_t trk_nvoice(const track_t *t);   /* (voice.c) */
 #define WT_N 128u
 static int16_t wt_tab[NTRK][1][WT_N + 1u];          /* (A's only: 1.5 KB of RAM, all the RAM has) */
-static uint16_t wt_key[NTRK][1], wt_bkey[NTRK][1], wt_try[NTRK];  /* 1 + formula x 128 + POS (0: none); the one being drawn */
-static uint8_t wt_bi[NTRK][1], wt_bn[NTRK][1], wt_go[NTRK], wt_wm[NTRK];   /* .. its next point, its points drawn; a quarter allowed
+static uint16_t wt_key[NTRK][1], wt_bkey[NTRK][1];  /* 1 + formula x 128 + POS (0: none); the one being drawn */
+static uint8_t wt_bi[NTRK][1], wt_bn[NTRK][1], wt_go[NTRK];   /* .. its next point, its points drawn; a quarter allowed
                                                          * this block (wave_block), a bit an oscillator */
-static void wave_warm(track_t *t, uint32_t tr);
-static uint32_t wt_wdone[NTRK];
-static inline uint32_t wave_wkey(const track_t *t)   /* (what wave_warm looks at) */
-{
-    const int16_t *p = t->p;
-    return 0x80000000u | ((uint32_t)p[P_E0] & 15u) | ((uint32_t)p[P_E4] & 15u) << 4 | ((uint32_t)p[P_E1] & 127u) << 8 |
-           (uint32_t)(p[P_E5] > 0) << 15 | ((uint32_t)p[P_E2] & 7u) << 16 | (uint32_t)(p[P_E6] > 0) << 19 |
-           (uint32_t)(p[P_CAOS] > 0) << 20;
-}
 static int wt_smooth(uint32_t f) { return f != 10u && f != 11u && f != 13u; }   /* (SAWSQ PULSE too: their edge a 1/128 turn ramp) */
 static const int16_t *wt_get(uint32_t tr, uint32_t r, uint32_t o, const fvm_prog_t *pg, uint32_t f, uint32_t pos, uint32_t many,
                              const fvm_env_t *e0, lofi_work_t *wk)
@@ -114,11 +132,6 @@ static const int16_t *wt_get(uint32_t tr, uint32_t r, uint32_t o, const fvm_prog
     if (!many || (f == 3u && o))                        /* (one voice, no unison: the formula as written; B's TRISY: its
                                                          * sync edges exact) */
         return 0;
-    if (wt_wm[r]) {                                     /* (engopt) drawn by wave_warm alone: at another POS, as if */
-        wt_wm[r] = 0;                                   /* never drawn (the note's own drawn whole, as it was) */
-        if (wt_key[r][0] != key)
-            wt_key[r][0] = 0;
-    }
     if (wt_key[r][0] == key)
         return wt_tab[r][0];
     /* (BYTE, CPU: the owner, "one WAVE voice 453 us") a new POS redrawn a quarter a block (32 points), read meanwhile as
@@ -293,6 +306,19 @@ static __attribute__((noinline)) void wf_spec(const int16_t *src, int16_t *dst, 
     wf_fft(re, im, 1);
     for (i = 0; i < WF_N; i++) dst[i] = (int16_t)clamp(re[i] >> 4, -32768, 32767);
 }
+/* A's program compiled, else B's (b: wanted): 1 when one was (a step) */
+static int wf_comp(uint32_t tr, uint32_t fa, uint32_t fb, uint32_t b)
+{
+    lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
+    if (lofi_prg_id[tr] != 0x100u + fa) { (void)wave_prog(lofi_slot(tr), &lofi_prg_id[tr], fa, wk); return 1; }
+    if (b && wave_id_b[tr] != 0x100u + fb) {
+        if (!wave_prg_b[tr].ins)
+            fvm_prog_init(&wave_prg_b[tr], wave_ins_b[tr], 32u);
+        (void)wave_prog(&wave_prg_b[tr], &wave_id_b[tr], fb, wk);
+        return 1;
+    }
+    return 0;
+}
 /* a step of the frames' drawing: 32 points of a frame (A's at its POS, B's at 0 and 127, SHEPARD's base at AMT), or a
  * frame through its spectral warp; the programs compiled first (a step each) */
 static void wf_build(uint32_t tr, wf_t *f, uint32_t kind, uint32_t amt, lofi_work_t *wk)
@@ -300,13 +326,8 @@ static void wf_build(uint32_t tr, wf_t *f, uint32_t kind, uint32_t amt, lofi_wor
     int16_t *F = comb_buf[tr];
     uint32_t sh = kind == WW_SHEP, bf = f->bf, fa = f->key & 15u, fb = f->key >> 4 & 15u, slot, i;
     int32_t pq;
-    if (lofi_prg_id[tr] != 0x100u + fa) { (void)wave_prog(lofi_slot(tr), &lofi_prg_id[tr], fa, wk); return; }
-    if (f->nb && wave_id_b[tr] != 0x100u + fb) {
-        if (!wave_prg_b[tr].ins)
-            fvm_prog_init(&wave_prg_b[tr], wave_ins_b[tr], 32u);
-        (void)wave_prog(&wave_prg_b[tr], &wave_id_b[tr], fb, wk);
+    if (wf_comp(tr, fa, fb, f->nb))
         return;
-    }
     if (bf >= (uint32_t)f->na + f->nb + sh) { f->ok = 1; return; }
     if (sh && bf) {                                  /* (frames 7 .. 0 from the base in 0, drawn last) */
         wf_spec(F, F + (8u - bf) * WF_N, kind, amt, 0, 8u - bf);
@@ -376,41 +397,6 @@ static void wf_read(const int16_t *F, const uint32_t *W, uint32_t n, int32_t fi,
     }
 }
 
-/* (engopt) a WAVE part with no voice: A's and B's programs compiled and A's first table drawn whole (wt_get), what its
- * first note would do in the block it starts in, one of them a block (fvm_warm_tok), at POS as set (the matrix's SHAPE
- * off; a note at another POS draws it again a quarter a block, as ever) */
-static void wave_warm(track_t *t, uint32_t tr)
-{
-    const int16_t *p = t->p;
-    uint32_t fa = (uint32_t)p[P_E0] % WAVE_NF, fb = (uint32_t)p[P_E4] % WAVE_NF, warp = (uint32_t)clamp(p[P_E2], 0, WW_DISP);
-    uint32_t pos = (uint32_t)clamp(p[P_E1], 0, 127), many = 1u;   /* (waveframes: a single line reads the table too) */
-    lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
-    if (lofi_prg_id[tr] != 0x100u + fa) {
-        fvm_warm_tok = 0;
-        (void)wave_prog(lofi_slot(tr), &lofi_prg_id[tr], fa, wk);
-        return;
-    }
-    if ((p[P_E5] > 0 || warp == WW_FM) && wave_id_b[tr] != 0x100u + fb) {
-        if (!wave_prg_b[tr].ins)
-            fvm_prog_init(&wave_prg_b[tr], wave_ins_b[tr], 32u);
-        fvm_warm_tok = 0;
-        (void)wave_prog(&wave_prg_b[tr], &wave_id_b[tr], fb, wk);
-        return;
-    }
-    if (!wt_key[tr][0] && many && !p[P_CAOS] && warp != WW_QUANT && wt_try[tr] != (uint16_t)(1u + fa * 128u + pos)) {
-        int32_t st[FVM_MAXSTATE] = {0};
-        uint32_t T[1] = {0}, W[1] = {0};
-        fvm_env_t e = {{T, W, 0, 0, 0}, {0}, st};
-        e.u[FU_AF] = pos * 516u;
-        fvm_warm_tok = 0;
-        wt_try[tr] = (uint16_t)(1u + fa * 128u + pos);  /* (once a formula and POS: one wt_get refuses stays refused) */
-        if (wt_get(tr, tr, 0, lofi_slot(tr), fa, pos, 1u, &e, wk) && wt_key[tr][0])
-            wt_wm[tr] = 1;
-        return;
-    }
-    wt_wdone[tr] = wave_wkey(t);                         /* (nothing to do: not looked at again until a knob moves) */
-}
-
 /* (waveframes) a block of the part, sounding or not: which frames it wants (A B, the warp, the grid), drawn a step at a
  * time when they are not those; MIX's ramp; the sides (WIDTH); then the warm-up as before */
 static void wave_block(track_t *t)
@@ -463,9 +449,9 @@ static void wave_block(track_t *t)
     } else
         f->key = f->ok = 0;
     f->use = f->ok && !WF_NOFRAMES;
-    if (fvm_warm_tok && wt_wdone[tr] != wave_wkey(t) && trk_quiet(t))   /* (engopt) its formulas, its first table, before
-                                                         * its first note (wt_wdone: nothing left to do for these knobs) */
-        wave_warm(t, tr);
+    if (fvm_warm_tok && trk_quiet(t) && wf_comp(tr, fa, fb, p[P_E5] > 0 || warp == WW_FM))   /* (engopt) the formulas
+                                                         * compiled before the first note (no frames: BITS NOISE ..) */
+        fvm_warm_tok = 0;
 }
 
 /* (waveframes) UNISON: VOICES (P_MORPH) AUTO (DETUNE 0: one, else three, as before) or 1 .. 7, CLASSIC, SHIMMER (octaves)
@@ -496,15 +482,6 @@ static void wave_note_on(track_t *t, voice_t *v)
     wf_vpos[((uint32_t)(t - trk) % NTRK) * NVOICE + (uint32_t)(v - t->v) % NVOICE] = 0;
 }
 
-static __attribute__((noinline)) void wave_fm_read(const int16_t *ta, const fvm_prog_t *pa, const fvm_env_t *ea,
-                                                   fvm_scratch_t *sc, uint32_t c, uint32_t *y, int post)
-{
-    uint32_t k = MC_CPU() & 1u, *Wm = fl_wt[k][0], *Tm = fl_wt[k][1];   /* (formula_life.c: a core's, not the stack's) */
-    fvm_env_t em = *ea;                              /* (its LIFE after: on the moved phase too) */
-    if (fl.on && fl.link_amt && c <= FVM_BLK && fl_fm(ea, c, Wm, Tm)) { em.arr[FA_W] = Wm; if (ea->arr[FA_T]) em.arr[FA_T] = Tm; }
-    wt_read(ta, em.arr[FA_W], c, y);
-    if (post) fl_post(pa, &em, sc, c, y);
-}
 #define WAVE_CH FVM_BLK                               /* (BYTE 0.16) a part's samples: the block in two, its arrays half
                                                          * the stack (the audio's interrupt overflowed its 8 KB on the FM-1) */
 static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m, uint32_t o0)
@@ -520,7 +497,7 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
     uint32_t inc = pitch_inc(clamp(m->pitch16, 0, 2047)), need_b = mix || warp == WW_FM;
     uint32_t nu = p[P_MORPH] > 0 ? (p[P_MORPH] == 1 ? 1u : 3u) : det ? 3u : 1u;   /* (waveframes: the formula's three at most) */
     const fvm_prog_t *pa, *pb;
-    const int16_t *ta, *tb;
+    wph_t wq;
     uint32_t W[WAVE_CH], T[WAVE_CH], ya[WAVE_CH], yb[WAVE_CH];
     int32_t acc[WAVE_CH];
     fvm_env_t ea = {{T, W, 0, 0, 0}, {0}, &v->s[6]}, eb = {{T, W, 0, 0, 0}, {0}, &v->s[7]};
@@ -546,15 +523,7 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
     ea.u[FU_AF] = eb.u[FU_AF] = (uint32_t)acc[0];
     ea.u[FU_NOTE] = eb.u[FU_NOTE] = v->note;
     ea.u[FU_VEL] = eb.u[FU_VEL] = v->vel;
-    {   /* (byte-cpu-light) the parts' tables, CAOS off (POS still in the block) */
-        uint32_t many = nu > 1u || trk_nvoice(t) > 1u, exact = WF_IDEAL || caos || warp == WW_QUANT || (pt_ops & PT_TIME_OPS);   /* (the white punch-ins move t: the formula itself) */   /* (QUANT's steps land on the edges) */
-        uint32_t q0 = PROF_T();
-        uint32_t rb = pb && !exact && (fb == 0u || fb == 8u) ? wt_brow(tr) : NTRK;   /* (B's table: SINE, STEP
-                                                         * alone, under -60 dB of the formula's own; the rest exact) */
-        ta = exact ? 0 : wt_get(tr, tr, 0, pa, fa, (uint32_t)pos, many, &ea, wk);
-        tb = rb < NTRK ? wt_get(tr, rb, 1, pb, fb, (uint32_t)pos, many, &eb, wk) : 0;   /* (B: a borrowed row, wt_brow) */
-        PROF_ADD(PQ_WTAB, q0);
-    }
+    wph_init(&wq, warp, amt);
     {
         uint32_t posa[WAVE_CH];                       /* POS per sample (CAOS moves it): the formula reads A a block,
                                                       * so a CAOS block splits in runs of FVM_BLK at its first value */
@@ -563,26 +532,7 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
         for (u = 0; u < nu; u++) {
             uint32_t ph = v->ph[u], ui = u == 0u ? inc : u == 1u ? inc + (inc >> 16) * det * 3u : inc - (inc >> 16) * det * 3u;
             uint32_t o;
-            if (warp == WW_OFF || warp >= WW_FM) {       /* (BYTE 0.16, CPU) no warp: the phase as it is */
-                for (i = 0; i < n; i++, ph += ui)
-                    W[i] = ph >> 16;
-            } else if (warp == WW_BEND || warp == WW_MIRROR) {   /* (the two sides' slopes once a block: no division
-                                                         * a sample; Q16 reciprocals, a 64-bit product) */
-                uint32_t mb = warp == WW_BEND ? 32768u - amt * 29491u / 127u : 65535u - amt * 32767u / 127u;
-                uint32_t top = warp == WW_BEND ? 32768u : 65535u;
-                uint32_t r0 = (top << 16) / mb, r1 = (top << 16) / (65536u - mb);   /* (32-bit: no 64-bit divide on the FM-1) */
-                for (i = 0; i < n; i++, ph += ui) {
-                    uint32_t w = ph >> 16;
-                    W[i] = (w < mb ? (uint32_t)(((uint64_t)w * r0) >> 16)
-                            : warp == WW_BEND ? 32768u + (uint32_t)(((uint64_t)(w - mb) * r1) >> 16)
-                            : (uint32_t)(((uint64_t)(65535u - w) * r1) >> 16)) & 0xFFFFu;
-                }
-            } else {
-                for (i = 0; i < n; i++) {
-                    W[i] = (wave_warp(ph >> 16, warp, amt)) & 0xFFFFu;
-                    ph += ui;
-                }
-            }
+            ph = wave_phw(&wq, W, n, ph, ui);
             for (o = 0; o < n; o += FVM_BLK) {
                 uint32_t c = n - o < FVM_BLK ? n - o : FVM_BLK, k;
                 ea.arr[FA_T] = eb.arr[FA_T] = T + o;
@@ -590,19 +540,15 @@ static __attribute__((noinline)) void wave_part(track_t *t, voice_t *v, int32_t 
                 ea.u[FU_AF] = eb.u[FU_AF] = posa[o];
                 uint32_t q1 = PROF_T();
                 if (pb) {
-                    if (tb) { wt_read(tb, W + o, c, yb + o); if (!u) fl_post(pb, &eb, &wk->s, c, yb + o); }
-                    else (u ? fvm_run : formula_run)(pb, &eb, &wk->s, c, yb + o);   /* (byte-cpu-light: LIFE on the
+                    (u ? fvm_run : formula_run)(pb, &eb, &wk->s, c, yb + o);   /* (byte-cpu-light: LIFE on the
                                                      * first unison voice; the detuned two plain) */
                     if (warp == WW_FM)                   /* FM: B into A's phase, AMT the index (up to a turn) */
                         for (k = 0; k < c; k++)
                             W[o + k] = (W[o + k] + (uint32_t)(((int32_t)yb[o + k] * (int32_t)amt) >> 7)) & 0xFFFFu;
                 }
-                if (ta) {
-                    wave_fm_read(ta, pa, &ea, &wk->s, c, ya + o, !u);   /* (BYTE 0.16) LIFE LINK's cross-FM on the
-                                                     * table's read too, out of line: its copies off this frame */
-                }
-                else (u ? fvm_run : formula_run)(pa, &ea, &wk->s, c, ya + o);
-                PROF_ADD(ta || tb ? PQ_WRD : PQ_WVM, q1);
+                (u ? fvm_run : formula_run)(pa, &ea, &wk->s, c, ya + o);   /* (waveframes: the formula as written;
+                                                     * a table is wave_fpart's) */
+                PROF_ADD(PQ_WVM, q1);
             }
             if (!mix)                                    /* (Q16: A .. B; byte-cpu-light: the choice a block, and */
                 for (i = 0; i < n; i++)                  /* (d x MIX) >> 7 in 32 bits, exactly the 64-bit product's) */
@@ -727,7 +673,8 @@ static __attribute__((noinline)) void wave_fpart(track_t *t, voice_t *v, int32_t
     uint32_t mode = vc < 8u ? 0u : vc < 14u ? 1u : 2u, stp = wf_frames(p) & 1u, hs = vh_sh_c[cpu] == 1u;
     uint32_t inc = pitch_inc(clamp(m->pitch16, 0, 2047)), fr = F == comb_buf[tr] || F == wf_row[cpu];
     int32_t mx = rp->mx + rp->dmx * (int32_t)o0, fai = rp->fa + rp->dfa * (int32_t)o0, fbi = rp->fb + rp->dfb * (int32_t)o0;
-    uint32_t need_b = rp->mx || rp->dmx || warp == WW_FM, sm = 0, mb = 0, r0 = 0, r1 = 0;
+    uint32_t need_b = rp->mx || rp->dmx || warp == WW_FM;
+    wph_t wq;
     int32_t gc = nu > 1u ? 32768 - clamp(p[P_LRTRG], 0, 127) * 256 : 32768, gsd = 32768, khc, khs, rr;   /* (BLEND: the
                                                          * centre out, the sides kept) */
     int32_t wd = nu > 1u ? clamp(p[P_DXIMG], 0, 127) * (256 - clamp(p[P_DIST], 0, 64) * 3) >> 8 : 0;
@@ -762,13 +709,7 @@ static __attribute__((noinline)) void wave_fpart(track_t *t, voice_t *v, int32_t
         khc = (gc << 13) / rr;
         khs = (gsd << 13) / rr;
     }
-    if (warp == WW_SYNC)
-        sm = 16u + amt * 112u / 127u;
-    else if (warp == WW_BEND || warp == WW_MIRROR) {
-        uint32_t top = warp == WW_BEND ? 32768u : 65535u;
-        mb = warp == WW_BEND ? 32768u - amt * 29491u / 127u : 65535u - amt * 32767u / 127u;
-        r0 = (top << 16) / mb, r1 = (top << 16) / (65536u - mb);
-    }
+    wph_init(&wq, warp, amt);
     if (fr && nu > 4u && !stp && !rp->dfa && (fai & 4095)) {   /* (POS between two frames the run: blended once for
                                                          * the unison's voices) */
         F = wf_mix(F, fai);
@@ -788,7 +729,7 @@ static __attribute__((noinline)) void wave_fpart(track_t *t, voice_t *v, int32_t
         if (u && vc && det)                          /* (VOICES set: each its own slow drift, a quarter of the spread) */
             o += sine_i((uint32_t)v->s[2] * (19000u + u * 7300u)) >> 9;
         iu += (uint32_t)(int32_t)(((int64_t)(int32_t)((iu >> 16) * det * 3u) * o) >> 8);
-        if (!sm && !mb && !pb && !fl.on && (stp || (fai >> 12 == (fai + rp->dfa * (int32_t)(n - 1u)) >> 12))) {
+        if (!wq.mb && warp != WW_SYNC && !pb && !fl.on && (stp || (fai >> 12 == (fai + rp->dfa * (int32_t)(n - 1u)) >> 12))) {
             const int16_t *r = F + ((uint32_t)(fai + (stp ? 2048 : 0)) >> 12 & 7u) * WF_N, *q = F + ((((uint32_t)fai >> 12) + 1u) & 7u) * WF_N;
             int32_t fi = fai, b = !stp && (rp->dfa || (fai & 4095));   /* (the phase read as it runs: one frame or two) */
 
@@ -803,15 +744,7 @@ static __attribute__((noinline)) void wave_fpart(track_t *t, voice_t *v, int32_t
             }
             goto mixed;
         }
-        for (i = 0; i < n; i++, ph += iu) {
-            uint32_t w = ph >> 16;
-            if (sm)
-                w = (w * sm >> 4) & 0xFFFFu;
-            else if (mb)
-                w = (w < mb ? (uint32_t)(((uint64_t)w * r0) >> 16) : warp == WW_BEND ? 32768u + (uint32_t)(((uint64_t)(w - mb) * r1) >> 16)
-                     : (uint32_t)(((uint64_t)(65535u - w) * r1) >> 16)) & 0xFFFFu;
-            W[i] = w;
-        }
+        ph = wave_phw(&wq, W, n, ph, iu);
         if (pb) {
             if (FB || tb) {
                 if (FB) wf_read(FB, W, n, fbi, rp->dfb, 0u, yb); else wt_read(tb, W, n, yb);
