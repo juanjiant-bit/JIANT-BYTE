@@ -234,7 +234,7 @@ static uint16_t note_col(uint32_t n)
  * sounding, the scale, a cell a degree */
 static __attribute__((noinline)) void graph_key(const track_t *t, const page_t *pg)
 {
-    static const char *const NN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+    const char *const *NN = N_NOTE;                   /* (eumel, flash: params.c's) */
     uint32_t mask = scale_mask(t), i, k, rt = (uint32_t)clamp(t->p[P_ROOT], 0, 11), now = last_note % 12u, nd = 0, age = 0;
     uint32_t rot = ANIM_OFF() ? 0u : anim_fr * 60u;
     int32_t cx = 62, cy = 62, R = 52;
@@ -285,7 +285,6 @@ static __attribute__((noinline)) void graph_key(const track_t *t, const page_t *
  * alone "MIN9" */
 static void chord_label(const uint8_t *pn, uint32_t n, char *o, int lng)
 {
-    static const char NN12[12][3] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     static const char LQ[12][10] = {" DIM7", " HALF-DIM", " DIM", " AUG", " SUS4", " SUS2", " MIN7", " MIN MAJ7", " MIN", " MAJ7",
                                     " 7", " MAJ"};
     static const char SQ[15][5] = {"DIM7", "M7B5", "DIM", "AUG", "SUS4", "SUS2", "MIN7", "MIN", "MIN", "MAJ7", "7", "MAJ",
@@ -298,7 +297,7 @@ static void chord_label(const uint8_t *pn, uint32_t n, char *o, int lng)
     b7 = m >> 10 & 1; M7 = m >> 11 & 1; six = (m >> 9 & 1) && !dim; nine = (m >> 2 & 1) && !s2; d7 = dim && (m >> 9 & 1);
     q = dim ? (d7 ? 0u : b7 ? 1u : 2u) : aug ? 3u : s4 ? 4u : s2 ? 5u : mi ? (b7 ? 6u : M7 ? 7u : 8u) : M7 ? 9u : b7 ? 10u : 11u;
     if (lng) {
-        str_cpy(o, NN12[pn[0] % 12u], 24);
+        str_cpy(o, N_NOTE[pn[0] % 12u], 24);   /* (eumel, flash: params.c's names) */
         str_cpy(o + str_len(o), LQ[q], 24);
         if (six && !d7) str_cpy(o + str_len(o), " 6", 24);
         if (nine) str_cpy(o + str_len(o), b7 || M7 ? " 9" : " ADD9", 24);

@@ -2752,11 +2752,9 @@ static void ui_input_frame(void)
         if ((rt == 2u || rt == 4u) && song.g[G_RPRE] > 24) song.g[G_RPRE] = 24;
         rt0 = (uint8_t)rt;
     }
-    for (k = 0; k < NTRK; k++)                          /* a DIGITAL sound any other way (the paths convert it */
-        if (trk[k].eng_req == ENGI_DIGITAL)             /* already): FM6 (fm4_convert.c) */
-            fm4_track(&trk[k]);
-    for (k = 0; k < NTRK; k++)                          /* a retired engine's sound any other way (core.h): ANALOG */
-        if (eng_gone(trk[k].eng_req))
+    for (k = 0; k < NTRK; k++)                          /* a retired engine's sound any other way (core.h; DIGITAL's
+                                                         * too, eumel): ANALOG */
+        if (eng_gone(trk[k].eng_req) || trk[k].eng_req == ENGI_DIGITAL)
             set_engine_of(&trk[k], ENGI_PHYS_TO);
     perf_latch_on = fx_latch & 1u;                      /* (MENU > FX LATCH; a settings load sets it too) */
     fx_usb_fixed = (ui_prefs & PREF_USB_FIXED) != 0u;   /* (MENU > USB LEVEL: fx.c, audio.c) */

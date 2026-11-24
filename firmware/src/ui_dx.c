@@ -10,7 +10,7 @@
  * The values are the side's; the MORPH plays between the two (EDIT 2 MRPH). The panel shows the kit's specimen
  * with the sound's organ singled out (ui_plates.c graph_p_drum: the iris, its node lit). */
 static uint8_t dx_ui_seen = 0xFFu;                   /* the last key note followed */
-static const char *const DX_LANE_ABBR[8] = {"BD", "SD", "CP", "CH", "OH", "TM", "RS", "CB"};
+#define DX_LANE_ABBR (DRUM_AB + 1)                       /* (eumel, flash: eng_drum.c's table) */
 
 /* a key struck on the track (seq.c key_on: last_note) picks the sound it plays */
 static void dx_follow(void)

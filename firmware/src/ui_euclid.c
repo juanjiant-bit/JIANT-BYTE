@@ -463,7 +463,7 @@ static int16_t eu_v[EK_N];
 static param_desc_t eu_d;
 static const param_desc_t *eu_desc(uint32_t k, int16_t **valp)
 {
-    static const char *const LN[NLANE + 1] = {"ALL", "BD", "SD", "CP", "CH", "OH", "TM", "RS", "CB"};
+    const char *const *LN = DRUM_AB;                  /* (eng_drum.c's) */
     static const char *const MD[2][EU_M] = {{"CONTOUR", "RANGE", "MOTIF", "VARY"}, {"ACCENT", "GHOST", "RATCHET", "VARY"}};
     static const char *const CT[7] = {"WALK", "UP", "DOWN", "ARCH", "WAVE", "LEAP", "RANDOM"};   /* (V10.7.66, the owner) */
     static const char *const MO[5] = {"OFF", "2", "3", "4", "8"};

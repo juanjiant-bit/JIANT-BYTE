@@ -209,12 +209,13 @@ static const char *drum_lane_name(const track_t *t, uint32_t l)
     (void)t;
     return N[l & (NLANE - 1u)];
 }
-/* .. in two letters, the drum machine way (the grid's lane column) */
+/* .. in two letters, the drum machine way (the grid's lane column); (eumel, flash) one table for every lane list:
+ * DRUM_AB[0] ALL (EUCLID's LANE), DRUM_AB + 1 the lanes (DX_LANE_ABBR, the image's, EUCLID's picture) */
+static const char *const DRUM_AB[NLANE + 1] = {"ALL", "BD", "SD", "CP", "CH", "OH", "TM", "RS", "CB"};
 static const char *drum_lane_abbr(const track_t *t, uint32_t l)
 {
-    static const char *const N[NLANE] = {"BD", "SD", "CP", "CH", "OH", "TM", "RS", "CB"};
     (void)t;
-    return N[l & (NLANE - 1u)];
+    return DRUM_AB[1u + (l & (NLANE - 1u))];
 }
 
 /* the lanes step s strikes: its hits, and its notes on their lanes (a NOTE step only) */

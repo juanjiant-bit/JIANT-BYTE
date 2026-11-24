@@ -56,9 +56,8 @@
  * and no format or size changed. Firmware before RATCH refuses a project that holds a ratchet (those bytes out
  * of their range), as it would a newer format.
  *
- * DIGITAL (engine 1) was retired in 1.0 (fm4_convert.c): a track of it, in any format, loads as FM6 with the
- * patch converted from its values as the track's own (proj_fm4, on every import; the stored record keeps what it
- * holds until saved again). Its motion events on the EDIT or OP ENV values are dropped.
+ * DIGITAL (engine 1) was retired in 1.0: a track of it, in any format, loads as a retired engine's (proj_phys_gone:
+ * ANALOG's first sound; BYTE eumel: FM6, its conversion's target, is retired too, so no longer through fm4_convert.c).
  *
  * (JIANT 0.8.5) VOICE's lyrics (sing.c lyr_txt): each track's that is not empty, in FUNC's block 'L' 'Y' after the
  * others (track, length, its ASCII 32..126: 4 + length bytes; proj_packed_size counts it). A project without it (any
@@ -331,37 +330,6 @@ static void proj_new_tracks(project_t *q, uint32_t from)
     }
 }
 
-/* DIGITAL tracks (engine 1; without FELUCCA_FM4) -> FM6 with the converted patch as the track's own (fm4_convert.c,
- * whatever format the project is: the conversion runs on every load, the stored record keeps what it holds until it
- * is saved again). Their motion events on the EDIT values or the OP ENV values go: DIGITAL's meanings do not carry
- * over to FM6's macros. Idempotent */
-static void proj_fm4(project_t *q)
-{
-    uint32_t k, i, n, hit = 0;
-    for (k = 0; k < NTRK; k++) {
-        proj_trk_t *d = &q->t[k];
-        uint32_t pr;
-        if (d->engine != ENGI_DIGITAL)
-            continue;
-        pr = fm4_convert(d->p);
-        d->engine = ENGI_FM6;
-        if (d->preset < PROJ_DEF_KEEP)
-            d->preset = (uint8_t)pr;
-        hit |= 1u << k;
-    }
-    if (!hit)
-        return;
-    for (i = n = 0; i < q->motion.count && i < MOTION_MAX; i++) {
-        const motion_event_t *e = &q->motion.event[i];
-        if (((hit >> MOTION_TRK(e)) & 1u) && (MOTION_ID(e) >= P_E0 || (MOTION_ID(e) >= P_FM1_ATK && MOTION_ID(e) <= P_FM4_LEVEL)))
-            continue;
-        q->motion.event[n++] = *e;
-    }
-    for (i = n; i < q->motion.count && i < MOTION_MAX; i++)
-        memset(&q->motion.event[i], 0, sizeof q->motion.event[i]);
-    q->motion.count = (uint8_t)n;
-    q->sum = proj_sum(q);
-}
 
 /* tracks of a retired engine (PHYS 9 in TONIC; SAMPLE 4, GRAIN 8, SLICE 13 in JIANT: core.h eng_gone) -> ANALOG with its first preset's EDIT values
  * and envelope; the mix, the sends, the matrix and the steps stay. Their motion events on the EDIT values go (PHYS's
@@ -375,7 +343,7 @@ static void proj_phys_gone(project_t *q)
                                                          * retired engine's track ANALOG's first preset, its motion as
                                                          * it was) */
         proj_trk_t *d = &q->t[k];
-        if (!eng_gone(d->engine))
+        if (!eng_gone(d->engine) && d->engine != ENGI_DIGITAL)   /* (eumel, flash: DIGITAL as the others, not FM6) */
             continue;
         d->engine = ENGI_PHYS_TO;
         for (i = 0; i < 8u; i++)
@@ -490,7 +458,6 @@ static int proj_import(project_t *q, const void *b, int n)
         proj_sl_migrate(q);
         q->sum = proj_sum(q);
     }
-    proj_fm4(q);
     proj_phys_gone(q);
     proj_latch_drone(q);
     proj_func_in(q);
@@ -1717,7 +1684,6 @@ static void sound_put(project_t *p, uint32_t k)
     track_t *t = &trk[k % NTRK];
     const proj_trk_t *s;
     uint32_t i, e;
-    proj_fm4(p);
     proj_phys_gone(p);
     s = &p->t[k % NTRK];
     e = s->engine;
@@ -1770,7 +1736,6 @@ static int project_restore_runtime(const project_t *input)
     uint32_t i, k;
     if (!proj_ok(input) || !proj_engines_ok(input)) return 1;
     if (p != input) memcpy(p, input, sizeof *p);
-    proj_fm4(p);                                        /* .. that had DIGITAL tracks */
     proj_phys_gone(p);                                  /* .. or tracks of a retired engine (core.h eng_gone: ANALOG) */
     transport_req = 2;
     panic_req = (1u << NTRK) - 1u;

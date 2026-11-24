@@ -34,7 +34,7 @@
  * marks it (JIANT FM made them WEST's; BYTE keeps them: WEST is retired, core.h). Records of version 1..3 (16-bit values, before JIANT 0.3) have no room for the mark:
  * they are not migrated.
  * A record of engine 1 (DIGITAL, retired in 1.0) stays as it is (UP_PUT takes it too): its values are DIGITAL's,
- * and every load converts them to an FM6 sound with its own patch (ui.c fm4_apply, fm4_convert.c); lists count it
+ * and every load plays it as a retired engine's (ANALOG's first: eumel, FM6 retired too); lists count it
  * with FM6's (up_engine).
  *
  * With -DUP_HOST (host test) only the part above #ifndef UP_HOST is built;
@@ -430,12 +430,6 @@ static int up_load(uint32_t k)
     up_values(r, v);
     load_begin(t, LOAD_SOUND);
     panic_req |= (uint8_t)(1u << song.sel);
-    if (r->engine == ENGI_DIGITAL) {                    /* a DIGITAL sound (kept as it was stored): FM6 */
-        int16_t p[P_COUNT];
-        for (i = 0; i < P_COUNT; i++)
-            p[i] = param_kept(i) ? t->p[i] : v[i];
-        fm4_apply(t, p);
-    } else
     {
         fm1_irq_off();                                  /* the audio ISR must not see half a sound */
         t->eng_req = r->engine;
@@ -444,7 +438,8 @@ static int up_load(uint32_t k)
                 t->p[i] = v[i];
         t->preset = 0;
         fm1_irq_on();
-        if (eng_gone(r->engine))                        /* a retired engine (core.h): ANALOG's first preset */
+        if (eng_gone(r->engine) || r->engine == ENGI_DIGITAL)   /* a retired engine (core.h; eumel: DIGITAL too): ANALOG's
+                                                         * first preset */
             set_engine_of(t, ENGI_PHYS_TO);
         if (r->engine == ENGI_FORM) {                   /* (BYTE) a FORM sound: WAVE's first, its modulators DRONE CLAY's */
             clay_from_form(song.sel % NTRK, v);

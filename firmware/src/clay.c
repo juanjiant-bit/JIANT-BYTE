@@ -251,7 +251,7 @@ static const char *const CL_ONN[] = {"OFF", "ON", 0};
 static const char *const CL_RUNN[] = {"SONG", "FREE", 0};
 static const char *const CL_KEYN[] = {"ON", "OFF", 0};
 static const char *const CL_MODN[] = {"1", "2", "3", "4", 0};
-static const char *const CL_NN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+#define CL_NN N_NOTE                                   /* (eumel, flash: params.c's) */
 static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **valp)
 {
     static const char *nm[CLAY_ND + 1] __attribute__((section(".eu_keep"))), *on[5] __attribute__((section(".lowbuf")));   /* (DEST's: the sound's knobs by name) */
@@ -490,7 +490,7 @@ static int clay_card_text(char *a, char *b)
         str_cpy(a, CLAY_MODE[clay_ke.a & 3u], 24);
         str_cpy(b, "WHILE HELD: THE NEXT GESTURES", 40);
     } else if (clay_ke.kind == 4u) {
-        static const char *const NN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+        const char *const *NN = N_NOTE;              /* (params.c's) */
         str_cpy(a, "DRONE ", 24);
         str_cpy(a + 6, NN[((uint32_t)clamp(t->p[P_ROOT], 0, 11) + (uint32_t)clay_degree(t, clay_ke.a % 7u)) % 12u], 18);
         str_cpy(b, "THE DRONE ON THE SCALE'S DEGREE", 40);

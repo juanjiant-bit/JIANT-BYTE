@@ -198,7 +198,7 @@ static uint32_t vx_on_mask(const track_t *t)            /* (V10.49) the part's v
 }
 static void graph_dximg(const track_t *t)
 {
-    static const char *const AB[DV_NLANE] = {"BD", "SD", "CP", "CH", "OH", "TM", "RS", "CB"};
+    const char *const *AB = DRUM_AB + 1;               /* (eumel, flash: eng_drum.c's) */
     int32_t img = clamp(t->p[P_DXIMG], 0, 127), k = img ? dx_img_k(t) : 0, cx = PANEL_X0 + PANEL_W / 2;
     uint32_t l;
     if (trk_eng(t) != ENGI_DRUM) {                       /* (V10.52) a synth: the stereo field, L .. R; each voice sounding a

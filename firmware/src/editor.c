@@ -669,10 +669,7 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         if (na < 2u || a[0] >= NENGINES)
             return;
         ed_load_before(&b);
-        if (a[0] == ENGI_DIGITAL)                          /* a DIGITAL preset (retired): its sound, as FM6 */
-            fm4_load_preset(TSEL, a[1]);
-        else
-        {
+        {                                                  /* (DIGITAL's, retired: set_engine_of's ANALOG) */
             if (a[0] != TSEL->eng_req)
                 set_engine(a[0]);
             apply_preset(a[1]);
