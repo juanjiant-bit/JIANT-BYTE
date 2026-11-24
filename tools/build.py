@@ -119,6 +119,12 @@ def generate():
             failed.append(c[0].name)
     if failed:
         raise SystemExit(f"build: {', '.join(failed)} failed")
+    # (BYTE 0.17) every character of the firmware's strings in the faces that draw it (S M keep only the extras used)
+    p = subprocess.run([sys.executable, str(tools / "check_glyphs.py"), str(GEN / "ui_fonts.h"), str(FW / "src"), str(GEN)],
+                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    sys.stdout.write(p.stdout)
+    if p.returncode:
+        raise SystemExit("build: check_glyphs.py failed")
 
 
 # ---- update loader

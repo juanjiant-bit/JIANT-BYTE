@@ -41,6 +41,7 @@ import aa_raster as ar  # noqa: E402
 FONTS = Path(__file__).resolve().parents[1] / "fonts"
 LOCAL_INTER = os.path.expanduser("~/Library/Fonts/Inter.ttc")   # 4.001: 0 Regular, 10 Medium, 12 SemiBold
 EXTRAS = [0xA9, 0xB0, 0xB7, 0xC4, 0xD6, 0xDC, 0xE4, 0xF6, 0xFC, 0x2026]  # (c) deg . A: O: U: a: o: u: (Latin-1), ...
+UI_EXTRAS = [0xB7, 0x2026]             # (BYTE 0.17) the firmware's S and M: the middle dot, the ellipsis (gfx.c ELLIPSIS)
 CODE = {0x2026: 0x85}                  # characters outside Latin-1 -> their one-byte code in the firmware
 PHASES, PHASES_L = 1, 1                # horizontal phases per glyph (aa_raster.raster_font): S M, L. (JIANT 0.9.9-snd4, flash)
                                        # S M 2, were 4: 12.9 KB less of the glyph tables; a glyph within 1/4 px of its
@@ -81,7 +82,12 @@ def preset(name):
     if name == "byte-readable":
         # System labels regain JIANT's legible 12 px face; formula code keeps a
         # separate pixel monospace, so t and operators are never case-folded.
-        faces = preset("jiant-lab")
+        # (BYTE 0.17, flash) S and M keep the whole of printable ASCII (names, typed or loaded, are 32..126 only:
+        # editor.c, project.c, upreset.c, math_text.c; lowercase folds to capitals) and, of the extras, the middle
+        # dot and the ellipsis (UI_EXTRAS): no string of the firmware has a Latin-1 letter, the (c) or the degree
+        # (tools/check_glyphs.py fails the build on a character S or M lacks: it would draw as '?')
+        faces = [(n, fo, px, rng, UI_EXTRAS if n in ("S", "M") else ex, t, ph)
+                 for n, fo, px, rng, ex, t, ph in preset("jiant-lab")]
         f = FONTS.parent / "assets" / "fonts" / "pixel" / "fixed_5x8.bdf"
         return faces + [("F", "bdf:" + str(f), 8, (32, 126), [0x2026], 0.0, 1)]
     if name == "byte-pixel":                   # (JIANT BYTE) the demoscene's pixel faces (assets/fonts/pixel: public domain)
