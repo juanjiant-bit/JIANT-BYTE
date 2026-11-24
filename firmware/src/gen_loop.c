@@ -173,7 +173,7 @@ BTAPP_FN static void gls_counter(track_t *t, const track_t *src, uint32_t len)
     }
 }
 /* the build's roll (FROM LOOP): on the lane the loop's backbeat plays (its snare, clap or rim; else its busiest) */
-static uint32_t gls_snare(const track_t *t)
+BTAPP_FN static uint32_t gls_snare(const track_t *t)   /* (BYTE 0.17: gen.c gen_parts', in the segment with it) */
 {
     uint32_t i, l, n, best = 1, bn = 0;
     for (l = 1; l < NLANE; l++) {

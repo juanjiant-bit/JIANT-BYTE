@@ -1891,7 +1891,7 @@ static void gen_post(void);
 /* (0.8.3) a section's harmony against A's: the loop started on its predominant (IV or VI, the same chords turned: B,
  * the break; D, the club's break and the arc's apex), a one-chord loop going to its subdominant and back; the chords
  * of the section's plan as rot says */
-static uint32_t gsec_rot(void)
+BTAPP_FN static uint32_t gsec_rot(void)   /* (BYTE 0.17: gen_parts', in the segment with it) */
 {
     uint32_t k;
     if (gs.pn == 1u) {
@@ -1908,7 +1908,7 @@ static uint32_t gsec_rot(void)
 /* the pitched parts again over the section's plan (each from its own stream: the same motif, the same figures, on
  * these chords), the polish after; lift: the whole of it moved up that many semitones, the SCALE page's ROOT with it
  * (a real modulation, stored in the section: the song plays it in its key) */
-static void gen_pitched(uint32_t rot, int32_t lift)
+BTAPP_FN static void gen_pitched(uint32_t rot, int32_t lift)   /* (BYTE 0.17: gen_parts', in the segment with it) */
 {
     uint32_t k, i, j, dr = gs.trk_of[RL_DRUM];
     gs.kick = 0;                                        /* (the bass reads this section's kick) */
@@ -2170,7 +2170,7 @@ static __attribute__((noinline)) uint32_t gsong(uint8_t *pb, uint32_t plan, uint
         }
     return n;
 }
-static void gen_parts(void)
+BTAPP_FN static void gen_parts(void)   /* (BYTE 0.17: the segment's, as gen_make: its only caller) */
 {
     const ggenre_t *g = gs.g;
     uint32_t form = gform(), plan = form == FM_CLUB || gls.on, fx = plan ? 3u : 1u, half = gp.form < 2u;   /* (MY LOOP: the
@@ -2497,7 +2497,7 @@ BTAPP_FN static void gx_prog(uint32_t fam)    /* (V10.6y: gen_pick's, in the seg
 /* (V10.6n) the odd timbre: the odd role's engine far from its recipe's; (the fix: V10.6n's EXPLORE half ANALOG) any
  * other role's too, 40 % of the time (the bass 20 %): ANIMAL, WHEEL, MATH, ADD, FM6, PHASE, a VOICE on the lead or the
  * texture (gen_sound: ANIMAL and VOICE once a piece) */
-static int8_t gx_engine(uint32_t r)
+BTAPP_FN static int8_t gx_engine(uint32_t r)   /* (BYTE 0.17: gen_make's, in the segment with it) */
 {
     if (((gx.odd & GXO_TIMBRE) == 0u || r != gx.orole) && !gch(r == RL_BASS ? 20 : 40)) return -1;
     return (int8_t)(gch(50) ? ENGI_WAVE : ENGI_LOFI);
@@ -2580,7 +2580,7 @@ static __attribute__((noinline)) void gx_comps(void)
 /* PLAYHEADS: (V10.6n) a head on the odd role's track (or its components: gx_comps) reading
  * it at its own rate (1/4 .. x2), way and consonant interval in the scale; (V10.6n) cumbia's second voice: a head a
  * third under the lead, with it */
-static void gx_heads(void)
+BTAPP_FN static void gx_heads(void)   /* (BYTE 0.17: gen_make's, in the segment with it) */
 {
     static const int8_t IV[6] = {-7, -4, -2, 2, 4, 7};
     uint32_t ti = gs.trk_of[gx.orole % RL_N];
@@ -2726,7 +2726,7 @@ static void gen_scale_page(void)
  * generator's own state cleared; kept: what the player locked (the tempo under BPM LOCK), the project's name, the
  * sections of theirs (gen_parts). Nothing of the piece before stays in this one */
 static void system_init_named(void);                   /* (project.c: system_init, the project's name kept) */
-static void gen_clean(void)
+BTAPP_FN static void gen_clean(void)   /* (BYTE 0.17: gen_make's, in the segment with it) */
 {
     int16_t bpm = song.g[G_BPM];
     system_init_named();
@@ -2867,7 +2867,9 @@ BTAPP_FN static void gen_pick(void)
 static struct { uint16_t h[8], s[4]; uint8_t at, thrown, sat; } gsr __attribute__((section(".bss.dice")));   /* (the genre in
                                                          * h; V10.7.2: s the last four seeds thrown) */
 #include "gen_loop.c"
-static __attribute__((noinline)) void gen_make(void)
+/* (BYTE 0.17) in the Bluetooth segment (BTAPP_FN, as gen_pick: the image full); its one caller gen_go asks bt_hw_seg()
+ * first; main loop only */
+BTAPP_FN static void gen_make(void)
 {
     const ggenre_t *g;
     uint32_t k, dr = NTRK, nlive = trk_live < NTRK ? trk_live : NTRK, nmel, drums, next, wet;
