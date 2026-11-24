@@ -682,14 +682,24 @@ enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE,
 enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK };   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
        GR_SLCR, GR_MOD, GR_PATS_, GR_SONG, GR_TOOLS, GR_CHANCE_, GR_MOTION, GR_EVENTS, GR_DXSND, GR_MSEQ, GR_SLPIT,
-       GR_FMOP, GR_FMOP2, GR_FMENV,
+       GR_FMOP_, GR_FMOP2_, GR_FMENV_,
        GR_COMP, GR_EUCLID, GR_MORPH, GR_DXIMG, GR_FUGUE, GR_SHAPE, GR_PUNCH, GR_BUSES, GR_FOCUS, GR_STAGE,
-       GR_LYRIC, GR_GCOMP, GR_LIVE, GR_SCENE, GR_SONGSAVE, GR_SPLIT, GR_SPLIT2, GR_LYRSTEP, GR_TRACKGEN, GR_SWARM, GR_CLAY };   /* append only */   /* (0.8.5:
+       GR_LYRIC_, GR_GCOMP_, GR_LIVE, GR_SCENE, GR_SONGSAVE, GR_SPLIT, GR_SPLIT2, GR_LYRSTEP_, GR_TRACKGEN, GR_SWARM_, GR_CLAY };   /* append only */   /* (0.8.5:
                                                          * LENTE's EDIT > FOCUS, ENV > STAGE) */   /* (0.6.99) FX > PUNCH: the punch-in lane */   /* (JIANT 0.6.39) SEQ > COMP: the step components (ui_input.c comp_*, ui_graph.c graph_comp) */   /* (JIANT 0.6.10, from Felucca 1.5: FM6's operator pages, ui_fm6op.c) */
 
 /* (V10.7.33) PHRASES and CHANCE out (core.h FELUCCA_PHRASES): a value no page's byte holds, every test of them false */
 #define GR_PATS (FELUCCA_PHRASES ? GR_PATS_ : 0x100u)
 #define GR_CHANCE (FELUCCA_PHRASES ? GR_CHANCE_ : 0x101u)
+/* (BYTE, flash) the retired engines' pages, never shown: FM6's OPERATOR, OP ENV, OPERATOR 2, VOICE's WORDS and LYRICS,
+ * SWARM's two, GLO > COMP (removed). Their rows stay in PAGES (the indices), as MORPH's (GR_MORPH: page_visible hides
+ * it); their graphs values no page's byte holds, so every test of them folds away with the code it guarded */
+#define GR_FMOP 0x102u
+#define GR_FMOP2 0x103u
+#define GR_FMENV 0x104u
+#define GR_LYRIC 0x105u
+#define GR_GCOMP 0x106u
+#define GR_LYRSTEP 0x107u
+#define GR_SWARM 0x108u
 typedef struct {
     const char *title;
     uint8_t fam, scope, graph;
@@ -826,7 +836,7 @@ static const page_t PAGES[] = {
     {"CLAY MOD", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_SEL, ID_CL0 + CL_M0, ID_CL0 + CL_M0 + 1u, ID_CL0 + CL_M0 + 3u}},
     {"CLAY RHYTHM", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_SEL, ID_CL0 + CL_M0 + 5u, ID_CL0 + CL_M0 + 2u, ID_CL0 + CL_M0 + 4u}},
     {"CLAY TIME", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_RUN, ID_CL0 + CL_SEED, ID_CL0 + CL_KEYS, 0xFF}},
-    {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
+    {"WORDS", FAM_EDIT, SC_TRACK, GR_MORPH, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
     {"MORE", FAM_EDIT, SC_TRACK, GR_NONE, {P_LRTRG, P_GLMODE, P_DETUNE, P_TVEL}},   /* (JIANT FM V10.7.60, normalized) MATH BYTE /
@@ -843,9 +853,9 @@ static const page_t PAGES[] = {
     {"KIT LFO", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},     /* (JIANT 0.5.1) the kit's LFO on MORPH, RAND */
     {"STEREO", FAM_EDIT, SC_TRACK, GR_DXIMG, {P_DXIMG, 0xFF, 0xFF, 0xFF}}, /* (0.6.58) IMAGE: the kit's stereo placings; (0.7.8)
                                                          * with the kit's pages, before the sounds (the volumes last) */
-    {"OPERATOR", FAM_EDIT, SC_TRACK, GR_FMOP, {0xFF, 0xFF, 0xFF, 0xFF}},    /* FM6 only: KNOB 1 the operator, then its */
-    {"OP ENV", FAM_EDIT, SC_TRACK, GR_FMENV, {0xFF, 0xFF, 0xFF, 0xFF}},     /* bytes of the track's patch (ui_fm6op.c): */
-    {"OPERATOR 2", FAM_EDIT, SC_TRACK, GR_FMOP2, {0xFF, 0xFF, 0xFF, 0xFF}}, /* CRS FINE LEVEL / STG RATE LEVEL / MODE DTUN VEL */
+    {"OPERATOR", FAM_EDIT, SC_TRACK, GR_MORPH, {0xFF, 0xFF, 0xFF, 0xFF}},    /* FM6 only: KNOB 1 the operator, then its */
+    {"OP ENV", FAM_EDIT, SC_TRACK, GR_MORPH, {0xFF, 0xFF, 0xFF, 0xFF}},     /* bytes of the track's patch (ui_fm6op.c): */
+    {"OPERATOR 2", FAM_EDIT, SC_TRACK, GR_MORPH, {0xFF, 0xFF, 0xFF, 0xFF}}, /* CRS FINE LEVEL / STG RATE LEVEL / MODE DTUN VEL */
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E6}},   /* (JIANT 0.5) ANALOG: TYPE CUT RES DRV */
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_FCUT, P_FRES, P_SIMG}},   /* (BYTE 0.16: IMAGE; DIST on SENDS) */   /* .. a kit's, EXT's (on the part;
                                                          * DRV: the part's DIST, after it) */
@@ -887,7 +897,7 @@ static const page_t PAGES[] = {
                                                          * KNOB 1 USB's state OFF WAIT BUS ENUM MIDI, KNOB 2 the TRS messages come in */
     {"KEY SPLIT", FAM_GLO, SC_GLOBAL, GR_SPLIT, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"KEY SPLIT 2", FAM_GLO, SC_GLOBAL, GR_SPLIT2, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"LYRICS", FAM_SEQ, SC_TRACK, GR_LYRSTEP, {0xFF,0xFF,0xFF,0xFF}},
+    {"LYRICS", FAM_SEQ, SC_TRACK, GR_MORPH, {0xFF,0xFF,0xFF,0xFF}},
     {"TRACK GEN", FAM_SEQ, SC_TRACK, GR_TRACKGEN, {0xFF,0xFF,0xFF,0xFF}},   /* (codex/coherence: was GENERATE, beside HOME's GENE) */
     {"PUNCH SEQ", FAM_GLO, SC_GLOBAL, GR_PUNCH, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (BYTE) four rows of punch-ins on the
                                                          * transport: ROW EFFECT LEN RES (ui.c psq_knob, pfx.c psq) */
@@ -960,9 +970,9 @@ static const page_t PAGES[] = {
     {"CLIPS", FAM_SAVE, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (V10.6s) tracks x parts: KNOB 1 the track, 2 the part,
                                                          * OCT+ the cell, OCT- the track stops, F3-B3 a part, REC the song
                                                          * (ui_lzsave.c graph_clips, song_main.c clip_launch) */
-    {"SWARM", FAM_EDIT, SC_TRACK, GR_SWARM, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (V10.6z6) a SWARM track's FAR / NEAR: SIDE RATE MOVE
+    {"SWARM", FAM_EDIT, SC_TRACK, GR_MORPH, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (V10.6z6) a SWARM track's FAR / NEAR: SIDE RATE MOVE
                                                          * TONE, (SWARM 2) SIDE NOISE MOD NOW (ui_dx.c sw_ui_*) */
-    {"SWARM 2", FAM_EDIT, SC_TRACK, GR_SWARM, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"SWARM 2", FAM_EDIT, SC_TRACK, GR_MORPH, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E7}},   /* (V10.7.21) ANALOG's EDIT 1 (OSC): WAVE DETUNE MIX
                                                          * INT; its EDIT 2 gone (FILTER has TYPE CUT RES DRIVE), NOISE on
                                                          * FOCUS (ui.c page_visible) */
