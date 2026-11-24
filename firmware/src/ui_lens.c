@@ -102,8 +102,7 @@ static const nv_t CE_SEQ[] = {NV("STEP", 0, 0, LV_BAR), NV("PATTERN", "LENGTH", 
                               NV("PLAYHEADS", 0, 3, LV_PAT), NV("STRETCH", 0, 4, LV_PAT),
                               NV("STEP COND", 0, 5, LV_STEP), NV("COND 2", 0, 5, LV_STEP), NV("AUTO LIST", "LOCKS", 6, LV_BAR),
                               NV("LYRICS",0,6,LV_BAR),NV("TRACK GEN",0,7,LV_BAR),
-                              NV("DRONE CLAY", 0, 8, LV_PAT), NV("CLAY MOD 1", 0, 8, LV_PAT), NV("CLAY MOD 2", 0, 8, LV_PAT),
-                              NV("CLAY MOD 3", 0, 8, LV_PAT), NV("CLAY MOD 4", 0, 8, LV_PAT), NV("CLAY DECAY", 0, 8, LV_PAT),
+                              NV("DRONE CLAY", 0, 8, LV_PAT), NV("CLAY MOD", 0, 8, LV_PAT), NV("CLAY RHYTHM", 0, 8, LV_PAT),
                               NV("CLAY TIME", 0, 8, LV_PAT)};   /* (BYTE) DRONE CLAY: FORM's composer, a sequencer */   /* (V10.7.32, the owner) LOCKS:
                                                          * AUTOMATION and AUTO LIST one page (AUTO LIST's PAGES entry; ui_events.c) */
 static const ng_t CG_SEQ[] = {{"STEP", 0}, {"PATTERN", "PAT"}, {"EUCLID", "EUCL"}, {"PLAYHEADS", "HEAD"}, {"STRETCH", "STR"},

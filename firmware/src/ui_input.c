@@ -1834,8 +1834,8 @@ sect:
         settings_save();
         return;
     }
-    if (vp >= &clay[0][0] && vp < &clay[NTRK][0]) {    /* (BYTE) DRONE CLAY's settings (seq.c clay_put) */
-        clay_put((uint32_t)(vp - &clay[0][0]), was_clay, v);
+    if (vp >= clay_ui && vp < clay_ui + CLAY_NF) {      /* (BYTE) DRONE CLAY's settings, their view (clay.c clay_put) */
+        clay_put(song.sel, (uint32_t)(vp - clay_ui), was_clay, v);
         return;
     }
     if (vp == &lmode_ui || vp == &lphase_ui) {          /* (0.9.18) LFO MODE / PHASE: P_LPHASE written back */
@@ -3124,6 +3124,7 @@ static void ui_input_frame(void)
                         latch_drop_req |= (uint8_t)(1u << k);   /* (the held / latched notes: events_block) */
                     }
                     psq_clear();                        /* (BYTE) PUNCH SEQ's steps too */
+                    memset(clay_rec, 0, sizeof clay_rec);   /* (BYTE) DRONE CLAY's recorded loops */
                     ui_message("ALL CLEARED");
                 }
             } else if (kind == CF_INIT_SOUND) {         /* (DRUM: the factory DRUM-X kit too) */
@@ -3147,6 +3148,7 @@ static void ui_input_frame(void)
                 load_begin(t, LOAD_PAT);
                 track_defaults_steps(t);
                 load_end(t);
+                memset(clay_rec[ui.confirm_trk % NTRK], 0, CLAY_RN);   /* (BYTE) and DRONE CLAY's recorded loop */
                 latch_drop_req |= (uint8_t)(1u << (t - trk));   /* and the latched chord (events_block) */
                 if (kind == CF_CLEAR_TRK) {
                     char b[12] = "1 CLEARED";

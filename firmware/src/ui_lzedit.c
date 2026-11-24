@@ -215,12 +215,13 @@ static void ft_frame(int32_t y,int32_t h){int32_t x;
  for(x=32;x<238;x+=34)cv_rect(x,y+h-4,1,3,T_DIM);}
 /* (BYTE) DRONE CLAY's panel: OUT the track's level as it sounds; under it the four modulators, each a trace of what it
  * adds now, swept left to right, a strike colouring its line; each its tag (lit when it strikes), its SHAPE > DEST
- * (the destination's own name: a sound knob's label); the page's modulator white; OFF: the four dim, CLAY OFF */
+ * (the destination's own name: a sound knob's label); the pages' MOD white (CLAY MOD, CLAY RHYTHM); OFF: the four dim,
+ * CLAY OFF */
 static __attribute__((noinline)) void graph_clay_lz(const track_t*t){
  uint32_t tr=(uint32_t)(t-trk)%NTRK,m,i,sel=4u;
  const int16_t*c=clay[tr];uint16_t tc=TRK_COL[tr%6u];
  const page_t*pg=cur_page();
- if(pg->id[0]>=ID_CL0+CL_M0&&pg->id[0]<ID_CL0+CL_DEC)sel=(pg->id[0]-ID_CL0-CL_M0)/4u;
+ if(pg->id[0]==ID_CL0+CL_SEL)sel=(uint32_t)clay_km[tr]&3u;
  cv_oy=0;form_scope_tr=(uint8_t)tr;
  if(clay_card_on()&&clay_ke.tr==tr){                 /* (the owner: what the key does) the last key's card, a moment */
   char a[24],b[40];int32_t y;
@@ -235,7 +236,7 @@ static __attribute__((noinline)) void graph_clay_lz(const track_t*t){
   return;
  }
  if(hud_tick(0x20u|tr))
-  for(m=0;m<4u;m++){hud_put(m,hud_x,(uint32_t)(clamp(clay_v[tr][m]>>11,-8,7)+8));hud_put(4u+m,hud_x,((form_lit[tr]>>m)&1u)*15u);}
+  for(m=0;m<4u;m++){hud_put(m,hud_x,(uint32_t)(clamp(clay_vk(tr,m)>>11,-8,7)+8));hud_put(4u+m,hud_x,((form_lit[tr]>>m)&1u)*15u);}
  {int32_t px=0,py=0,pk=16;ft_frame(1,22);ft_tag(1,6,"OUT",0x0000,tc);
   for(i=0;i<64u;i++){int32_t v=form_scope[i]<0?-form_scope[i]:form_scope[i];if(v>pk)pk=v;}
   for(i=0;i<64u;i++){uint32_t j=(form_sc_i+i)&63u;int32_t x=32+(int32_t)i*205/63,y=20-form_scope[j]*18/pk;if(i)cv_line_t(px,py,x,y,c[CL_ON]?tc:T_DIM,1);px=x;py=y;}}

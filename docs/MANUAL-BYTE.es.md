@@ -928,10 +928,20 @@ tecla](byte-drone-clay.png)
 4. Apretá **PLAY**. En **RUN SONG** suena con el transporte; en **RUN FREE** suena siempre.
 
 **DRONE CLAY** (la página): **CLAY** lo prende; **DRONE** la nota del drone, de **C0** a **C3** sobre la tónica de la
-canción; **RATE** si el drone se sostiene (**HOLD**) o se vuelve a tocar cada **4BAR, 2BAR, 1BAR, 1/2, 1/4, 1/8, 1/16**;
-**RUN** **SONG** o **FREE**.
+canción; **PITCH** lo sube o lo baja (de **−24** a **+36** semitonos, el drone y las notas de los gestos, como el FREQ del
+viejo FORM); **RATE** si el drone se sostiene (**HOLD**) o se vuelve a tocar en cada paso de una resolución (ver abajo).
 
-**CLAY MOD 1–4**: cada modulador tiene
+**Las resoluciones** (el RATE del drone y el de cada modulador), siempre en la grilla del compás, con el primer paso en
+el primer tiempo de cada compás: primero las rectas **1/64, 1/32, 1/16, 1/8, 1/4, 1/2, 1BAR, 2BAR, 4BAR**; después las
+con puntillo **1/32D … 1/2D**, los tresillos **1/32T … 1/2T** y al final las polirrítmicas **1/5, 1/10, 1/20, 1/7, 1/14,
+1/28** (cinco o siete por compás).
+
+**CLAY MOD** y **CLAY RHYTHM**: **KNOB 1** es **MOD**, el modulador que editan las otras perillas (1 a 4, se recorre
+como las secuencias; las negras MOD 1–4 del teclado eligen el mismo). **CLAY MOD**: DEST, SHAPE, AMOUNT. **CLAY RHYTHM**:
+RATE (su propia resolución: cada modulador anda a la suya, no a la del drone), EUCLID, DECAY. **CLAY TIME**: **RUN**
+**SONG** o **FREE**, y **SEED**, la semilla de los FUSE.
+
+Cada modulador tiene
 
 - **DEST**: adónde va. Las perillas del sonido de la pista con su propio nombre (en WAVE: A, POS, WARP…), y además
   PITCH, CUTOFF, SHAPE, VOLUME, PAN, DIST, CHORUS, DELAY, REVERB, LFO RATE, VIBRATO, VOICE CUT, LEVEL y LIFE.
@@ -939,31 +949,44 @@ canción; **RATE** si el drone se sostiene (**HOLD**) o se vuelve a tocar cada *
 
   | Familia | Formas | Qué hacen |
   | --- | --- | --- |
-  | **HITS** | KICK, SNARE, HAT, OPEN HAT, CLAP, RIM, TOM, ZAP, BITHAT, NOISE DN, SWELL, CRASH | un golpe: varios movimientos juntos sobre el DEST (el KICK sube y cae en medio paso) |
+  | **HITS** | KICK, SNARE, HAT, OPEN HAT, CLAP, RIM, TOM, ZAP, BITHAT, NOISE DN, SWELL, CRASH | un golpe de batería con la voz de la pista, en cualquier motor: su altura (el KICK cae de G3 a G1), su ruido, el CUTOFF, y el drone que baja entre golpes según el AMOUNT; además mueve su DEST. En una pista DRUM-W toca el pad del kit |
   | **TABLES** | SINE, S&H, DRIFT, SPRING, STAIRS, BOUNCE, EXP UP, LOG DN, CHAOS, SWEEP, RND GATE, TRIPLET | curvas que se repiten |
   | **GESTURES** | RAMP UP, RAMP DN, TRI, GATE, ENV UP, ENV DN, RISER, STUTTER, STUT UP, DOWN, UP, REST | gestos que suben, bajan o tartamudean |
   | **NOTES** | ARP UP, ARP DN, ARP UPDN, ARP RND, CHORD m, CHORD M, SUS4, m7, CLUSTER, +OCT, +5TH, GLIDE DN | notas de verdad en la voz, sobre la escala, dos octavas arriba del drone |
-  | **FM** | FM x1/2, x1, x1.5, x2, x3, x5, x7 | modulación de frecuencia |
+  | **FM** | FM x1/2, x1, x1.5, x2, x3, x5, x7 | una onda sobre el DEST a esa razón del paso (x7: siete veces por paso) |
 
-- **EUCLID**: cuándo golpea: **--** (solo las teclas), **FUSE** (dos euclídeos fundidos que cambian solos) o un
-  euclídeo fijo (**1/4**, **3/8**, **5/16**…). Golpea en el primer paso de su ciclo, en fase con las otras pistas.
-- **AMOUNT**: cuánto.
-
-**CLAY DECAY**: cuánto dura el gesto de cada modulador. **CLAY TIME**: **STEP**, el paso de los moduladores (1/4, 1/8,
-1/16, 1/32), y **SEED**, la semilla de los FUSE.
+- **EUCLID**: cuándo golpea, en pasos de su RATE: **--** (solo las teclas y lo grabado), **FUSE** (dos euclídeos
+  fundidos que cambian solos), **1/1** (cada paso) o un euclídeo fijo: primero los rectos (**1/4**, **3/8**, **5/16**…),
+  después **5/12, 7/12** y al final los polirrítmicos (**2/5**, **3/7**…). Golpea en el primer paso de su ciclo, en fase
+  con las otras pistas.
+- **AMOUNT**: cuánto. **DECAY**: cuánto dura el gesto (en un HIT, el largo del golpe).
+- **RATE**: su resolución.
 
 **Las teclas.** Con CLAY prendido, en una pista que no es de batería, **las teclas son gestos, no notas**, y tocan
 también con el transporte parado:
 
 | Teclas | Qué hacen |
 | --- | --- |
-| Blancas **F3 … C5** | Lanzan una forma al modulador elegido; la velocidad es la cantidad, el aftertouch suma. **OCT** elige la familia: **0** HITS, **+1** TABLES, **+2** GESTURES, **−1** NOTES, **−2** FM |
+| Blancas **F3 … C5** | Lanzan una forma al modulador elegido; la velocidad es la cantidad, el aftertouch suma. **OCT** elige la familia: **0** HITS, **+1** TABLES, **+2** GESTURES, **−1** NOTES, **−2** FM (las siete, y las cinco blancas de arriba las primeras cinco invertidas) |
 | Negras **F# G# A#3, C#4** | **MOD 1–4**: tocada, elige el modulador; mantenida, las blancas van a ese mientras la tenés |
 | Negras **D#4, F#4, G#4, A#4** | Mientras las mantenés, los gestos siguientes: **LATCH** (quedan sonando), **x2** (más rápidos), **/2** (más lentos), **INV** (invertidos) |
-| Las últimas siete, **C#5 … G5** | El grado del drone en la escala |
+| Las últimas siete, **C#5 … G5** | El grado del drone en la escala de la pista (SCL › SCALE) |
+
+**Grabar.** Con **REC** armado en la pista y el transporte andando, las blancas (el gesto, su modulador) y los grados
+del drone se graban en el **loop de DRONE CLAY**: dos compases de 1/16, en el paso más cercano, sobre lo que había. Suena en
+loop con el transporte. **REC + F3** (borrar la secuencia de la pista) y **SEQ + REC** también lo borran; se guarda con el
+proyecto.
 
 Cada tecla muestra una **tarjeta** por un momento: en las páginas de CLAY el panel muestra la forma grande, su
 modulador y su DEST y qué hace en palabras ("DEST UP, FALLS IN HALF A STEP"); en las otras páginas, un mensaje.
+
+**Con cualquier motor.** WAVE, MATH (BYTE, FLOAT, USER, FUNC) y DRUM-W. Con **RATE HOLD** el drone se sostiene aunque
+el sonido de la pista sea un pluck (su envolvente no decae mientras CLAY lo tiene); con un RATE se vuelve a tocar en cada
+paso, con su propia envolvente. Una perilla de destino (CUTOFF, las del sonido, los envíos…) que está por encima de la
+mitad se mueve hacia abajo, y por debajo hacia arriba: una rampa o un golpe siempre tienen lugar para moverla. En
+**DRUM-W** el drone es el bombo del kit, tocado en cada paso del RATE (HOLD: cada compás) y afinado por DRONE, PITCH y el
+grado; los HITS tocan el pad que corresponde (KICK el bombo, SNARE el redoblante, HAT el hat…). En **MATH FUNC** la
+receta sigue su propio tiempo: DRONE y PITCH le llegan como nota, el destino PITCH solo si la receta lee la fase de la voz.
 
 **DRONE CLAY y el resto.** En una pista **MONO** o **LEGATO**, la nota de un paso o de una tecla toma la voz y después
 vuelven el drone y las notas de los gestos: el secuenciador y DRONE CLAY conviven. Un punch-in sobre el tiempo o la

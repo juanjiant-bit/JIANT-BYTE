@@ -123,8 +123,11 @@ typedef struct {
     uint8_t dx_form[8];                        /* (JIANT BYTE) its sounds' formulas (drumx_voice.c dx_form): 'D' 'F', 0 before */
     dw_lane_t dw[8];                           /* (DRUM-W) its sounds' tables, scans, noises, ticks (drumx_voice.c dw_kit): 'D' 'W' */
     uint8_t voice_limit[NTRK];                 /* VL tail: per-track voice budget */
-    uint8_t clay[NTRK][CLAY_NF];                  /* (BYTE) DRONE CLAY's settings (eng_form.c CL_*): 'C' 'Y' after VL, a block a
-                                                * track ON (a project before it: all OFF) */
+    uint8_t clay[NTRK][CLAY_NF];                  /* (BYTE) DRONE CLAY's settings (eng_form.c CL_*, clay.c clay_pack): 'C' 'L'
+                                                * after VL, a block a track ON (a project before it: all OFF; 'C' 'Y' the
+                                                * first layout's, clay_from_v1) */
+    uint8_t clay_rec[NTRK][CLAY_RN];           /* (BYTE) its recorded loop (clay.c clay_rec): 'C' 'R', a block a track ON
+                                                * with one (none: empty) */
     char dx_text[8][DX_TEXT];                 /* DU: editable bounded formula text per instrument */
     int8_t dx_fmod[8][DFM_N];                 /* DQ tail extension: RATE/BEND/CRUSH, absent = exact bypass */
     uint8_t mac_form[4];                       /* (JIANT BYTE) the macros' equations (mod.c macro_f): 'M' 'F', 0 before */
@@ -638,6 +641,13 @@ static uint32_t proj_bits(uint32_t m)
 }
 static const uint8_t PROJ_PSQ_DEF[PSQ_BYTES] = PSQ_DEF_BYTES;
 static int proj_psq_used(const project_t *q) { return memcmp(q->psq, PROJ_PSQ_DEF, PSQ_BYTES) != 0; }   /* (BYTE) PUNCH SEQ's block */
+static int proj_clay_rec(const project_t *q, uint32_t t)   /* (BYTE) DRONE CLAY's loop: its block, one recorded */
+{
+    uint32_t i;
+    for (i = 0; i < CLAY_RN; i++)
+        if (q->clay_rec[t][i]) return 1;
+    return 0;
+}
 static uint32_t proj_packed_size(const project_t *q)
 {
     uint32_t n = (proj_sc_used(q) ? 6u : 0u) + (q->g[G_DRTIM] ? 3u : 0u) + 68u + sizeof q->chain + 4u + q->motion.count * sizeof q->motion.event[0] + 2u + G_SL_N, t, i;
@@ -670,9 +680,11 @@ static uint32_t proj_packed_size(const project_t *q)
         if (q->mac_form[i]) { n += 2u + sizeof q->mac_form; break; }
     if (proj_fg_used(q))                                /* (0.6.52) FUGUE's */
         n += 2u + sizeof q->fugue;
-    for (t = 0; t < NTRK; t++)                          /* (BYTE) DRONE CLAY's */
-        if (q->clay[t][CL_ON])
-            n += 3u + CLAY_NF;
+    for (t = 0; t < NTRK; t++)                          /* (BYTE) DRONE CLAY's, its loop's */
+        if (q->clay[t][CL_ON]) {
+            n += 4u + CLAY_NF;
+            if (proj_clay_rec(q, t)) n += 3u + CLAY_RN;
+        }
     for (t = 0; t < NTRK; t++)                          /* (0.8.5) the lyrics' */
         if (proj_lyr_len(q->lyr[t]))
             n += 4u + proj_lyr_len(q->lyr[t]);
@@ -903,11 +915,18 @@ static int proj_pack(project_store_t *out, const project_t *q)
     }
     b[pos++] = 'V'; b[pos++] = 'L';
     for (i=0;i<NTRK;i++) b[pos++] = (uint8_t)clamp(q->voice_limit[i] ? q->voice_limit[i] : NVOICE,1,NVOICE);
-    for (t = 0; t < NTRK; t++)                          /* (BYTE) DRONE CLAY, a track ON: after VL (before it, the reading stops) */
+    for (t = 0; t < NTRK; t++)                          /* (BYTE) DRONE CLAY, a track ON: after VL (before it, the reading
+                                                         * stops), its count of settings with it (a later one reads what it
+                                                         * knows); then its recorded loop */
         if (q->clay[t][CL_ON]) {
-            b[pos++] = 'C'; b[pos++] = 'Y'; b[pos++] = (uint8_t)t;
+            b[pos++] = 'C'; b[pos++] = 'L'; b[pos++] = (uint8_t)t; b[pos++] = (uint8_t)CLAY_NF;
             memcpy(b + pos, q->clay[t], CLAY_NF);
             pos += CLAY_NF;
+            if (proj_clay_rec(q, t)) {
+                b[pos++] = 'C'; b[pos++] = 'R'; b[pos++] = (uint8_t)t;
+                memcpy(b + pos, q->clay_rec[t], CLAY_RN);
+                pos += CLAY_RN;
+            }
         }
     if (proj_psq_used(q)) {                             /* (BYTE) PUNCH SEQ, after the CY blocks (before it, the reading
                                                          * stops: an older firmware loads the rest without it) */
@@ -1289,15 +1308,26 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
     }
     memset(q->voice_limit, NVOICE, sizeof q->voice_limit);
     memset(q->clay, 0, sizeof q->clay);
+    memset(q->clay_rec, 0, sizeof q->clay_rec);
     memcpy(q->psq, PROJ_PSQ_DEF, PSQ_BYTES);            /* (BYTE) PUNCH SEQ: empty, unless its block follows */
     if (pos + 2u <= room && b[pos]=='V' && b[pos+1u]=='L') {
         if (pos + 2u + NTRK > room) return 0;
         for (i=0;i<NTRK;i++) q->voice_limit[i]=(uint8_t)clamp(b[pos+2u+i],1,NVOICE);
         pos += 2u + NTRK;
-        while (pos + 3u + CLAY_NF <= room && b[pos] == 'C' && b[pos + 1u] == 'Y') {   /* (BYTE) DRONE CLAY */
-            if (b[pos + 2u] >= NTRK) return 0;
-            for (i = 0; i < CLAY_NF; i++) q->clay[b[pos + 2u]][i] = b[pos + 3u + i] & 127u;
-            pos += 3u + CLAY_NF;
+        while (pos + 3u <= room && b[pos] == 'C' && (b[pos + 1u] == 'Y' || b[pos + 1u] == 'L' || b[pos + 1u] == 'R')) {   /* (BYTE) DRONE CLAY */
+            uint32_t tr = b[pos + 2u], k = b[pos + 1u], len = k == 'Y' ? CLAY_V1 : k == 'R' ? CLAY_RN : pos + 4u <= room ? b[pos + 3u] : 0u,
+                     at = pos + (k == 'L' ? 4u : 3u);
+            if (tr >= NTRK || !len || at + len > room) return 0;
+            if (k == 'Y')                               /* (the first layout's: clay.c clay_from_v1) */
+                clay_from_v1(b + at, q->clay[tr]);
+            else if (k == 'R')
+                memcpy(q->clay_rec[tr], b + at, CLAY_RN);
+            else {                                      /* (a later one's more: left; fewer: the rest as a first one's) */
+                uint8_t d[CLAY_NF];
+                clay_pack(clay_v2_def, d);
+                for (i = 0; i < CLAY_NF; i++) q->clay[tr][i] = (uint8_t)((i < len ? b[at + i] : d[i]) & 127u);
+            }
+            pos = at + len;
         }
         if (pos + 2u + PSQ_BYTES <= room && b[pos] == 'P' && b[pos + 1u] == 'Q') {   /* (BYTE) PUNCH SEQ */
             memcpy(q->psq, b + pos + 2u, PSQ_BYTES);
@@ -1493,7 +1523,8 @@ static void project_capture(project_t *p)
         p->t[i].engine = trk[i].eng_req;
         p->t[i].preset = trk[i].preset;
         memcpy(p->t[i].step, trk[i].step, sizeof trk[i].step);
-        for (uint32_t j = 0; j < CLAY_NF; j++) p->clay[i][j] = (uint8_t)clamp(clay[i][j], 0, 127);
+        clay_pack(clay[i], p->clay[i]);
+        memcpy(p->clay_rec[i], clay_rec[i], CLAY_RN);
         fm6_pack(fm6_patch[i], p->fm6[i]);
     }
     p->motion = motion;
@@ -1823,7 +1854,9 @@ static int project_restore_runtime(const project_t *input)
         }
     }
     for (k = 0; k < NTRK; k++) {                        /* (BYTE) DRONE CLAY: the project's (a project before it: OFF) */
-        for (i = 0; i < CLAY_NF; i++) clay[k][i] = (int16_t)(p->clay[k][i] & 127u);
+        clay_unpack(p->clay[k], clay[k]);
+        memcpy(clay_rec[k], p->clay_rec[k], CLAY_RN);
+        form_st[k].rk = 0;
         if (p->t[k].engine == ENGI_FORM)                /* (a FORM part: its modulators as stored, below WAVE) */
             clay_from_form(k, p->t[k].p);
         clay_dn[k] = clay_nn[k] = 0;
@@ -1889,6 +1922,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     memset(cru_v, 0, sizeof cru_v);                     /* (V10.7.33) no CRUSH */
     life_defaults(); voice_limits_default();                                    /* (V10.7.34) LIFE as at power-on */
     memset(clay, 0, sizeof clay);                       /* (BYTE) no DRONE CLAY */
+    memset(clay_rec, 0, sizeof clay_rec);
     for (i = 0; i < 5u; i++) song.g[KEEP[i]] = kept[i];
     kept[0] = dice_secs;
     chain_defaults(&chain_config);

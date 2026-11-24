@@ -277,9 +277,9 @@ static const param_desc_t DXIMG_DESC = {"IMAGE", F_INT, 0, 127, 0, 0};       /* 
 /* (V10.6) SEQ > EUCLID / MODES' knobs (ui_euclid.c: ids ID_EU0 + EK_*, the views of the selected track's settings) */
 #define ID_EU0 0xF0u
 #define ID_SC0 0xE8u                                    /* (V10.25) SCL > SCENE's four (ui_scene.c sc_desc) */
-#define ID_CL0 0xC0u                                    /* (BYTE) DRONE CLAY's CLAY_NF (eng_form.c CL_*, seq.c clay_desc) */
-_Static_assert(ID_CL0 + CLAY_NF <= 0xE0u && P_COUNT < ID_CL0, "DRONE CLAY's ids between the parameters and EQ's");
-static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **valp);   /* (seq.c) */
+#define ID_CL0 0xC0u                                    /* (BYTE) DRONE CLAY's CLAY_NF and its MOD (eng_form.c CL_*, CL_SEL; clay.c clay_desc) */
+_Static_assert(ID_CL0 + CL_SEL < 0xE0u && P_COUNT < ID_CL0, "DRONE CLAY's ids between the parameters and EQ's");
+static const param_desc_t *clay_page_desc(const track_t *t, uint32_t f, int16_t **valp);   /* (seq.c clay.c) */
 static const param_desc_t *eu_desc(uint32_t k, int16_t **valp);
 static const param_desc_t *sc_desc(uint32_t k, int16_t **valp);   /* (V10.25) ui_scene.c */
 static const char *const N_CHRD[] = {"OFF", "TRIAD", "7TH", "ADD9", "SUS2", "SUS4", "MAJ", "MIN", "7", "MAJ7", "MIN7",
@@ -819,15 +819,13 @@ static const page_t PAGES[] = {
                                                          * mode: SCENE, TRACK, ROLE, CHORD (ui_scene.c) */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
-    /* (BYTE, the owner: FORM out as an engine) SEQ > DRONE CLAY: ON, the drone's OCT, its RATE, RUN; CLAY MOD 1 .. 4: DEST
-     * SHAPE EUCLID AMOUNT; CLAY DECAY: the four's; CLAY TIME: STEP SEED (eng_form.c CL_*, seq.c clay_desc) */
-    {"DRONE CLAY", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_ON, ID_CL0 + CL_OCT, ID_CL0 + CL_RATE, ID_CL0 + CL_RUN}},
-    {"CLAY MOD 1", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + 4u, ID_CL0 + 5u, ID_CL0 + 6u, ID_CL0 + 7u}},
-    {"CLAY MOD 2", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + 8u, ID_CL0 + 9u, ID_CL0 + 10u, ID_CL0 + 11u}},
-    {"CLAY MOD 3", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + 12u, ID_CL0 + 13u, ID_CL0 + 14u, ID_CL0 + 15u}},
-    {"CLAY MOD 4", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + 16u, ID_CL0 + 17u, ID_CL0 + 18u, ID_CL0 + 19u}},
-    {"CLAY DECAY", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_DEC, ID_CL0 + CL_DEC + 1u, ID_CL0 + CL_DEC + 2u, ID_CL0 + CL_DEC + 3u}},
-    {"CLAY TIME", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_STEP, ID_CL0 + CL_SEED, 0xFF, 0xFF}},
+    /* (BYTE, the owner: FORM out as an engine) SEQ > DRONE CLAY: ON, the drone's OCT, its PITCH, its RATE; CLAY MOD and
+     * CLAY RHYTHM: KNOB 1 the MOD (1 .. 4, scrolled as the sequences are; the black keys choose it too), the others its
+     * DEST SHAPE AMOUNT, its RATE EUCLID DECAY (MOD 1's ids: clay.c clay_page_desc); CLAY TIME: RUN SEED */
+    {"DRONE CLAY", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_ON, ID_CL0 + CL_OCT, ID_CL0 + CL_PIT, ID_CL0 + CL_RATE}},
+    {"CLAY MOD", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_SEL, ID_CL0 + CL_M0, ID_CL0 + CL_M0 + 1u, ID_CL0 + CL_M0 + 3u}},
+    {"CLAY RHYTHM", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_SEL, ID_CL0 + CL_M0 + 5u, ID_CL0 + CL_M0 + 2u, ID_CL0 + CL_M0 + 4u}},
+    {"CLAY TIME", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_RUN, ID_CL0 + CL_SEED, 0xFF, 0xFF}},
     {"WORDS", FAM_EDIT, SC_TRACK, GR_LYRIC, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
@@ -1063,8 +1061,8 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return eu_desc(id - ID_EU0, valp);
     if (id >= ID_SC0 && id < ID_SC0 + 4u)            /* (V10.25) SCENE's */
         return sc_desc(id - ID_SC0, valp);
-    if (id >= ID_CL0 && id < ID_CL0 + CLAY_NF)          /* (BYTE) DRONE CLAY's (seq.c clay_desc) */
-        return clay_desc(TSEL, id - ID_CL0, valp);
+    if (id >= ID_CL0 && id <= ID_CL0 + CL_SEL)          /* (BYTE) DRONE CLAY's (clay.c clay_page_desc) */
+        return clay_page_desc(TSEL, id - ID_CL0, valp);
     *valp = &TSEL->p[id];
     if (id == P_APRATE && TSEL->p[P_APSYNC])         /* (0.6.9) AUTO PAN on the tempo: a division */
         return &AP_BEAT;

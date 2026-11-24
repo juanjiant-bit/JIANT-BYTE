@@ -385,18 +385,45 @@ static __attribute__((noinline)) void ms_tick(track_t *t)
  * 0 = no slot active (then nothing changed) */
 /* (BYTE, as JIANT FM's port) DRONE CLAY's four slots, only when its track's CLAY is on: out of mod_begin, which every
  * part runs every block */
+/* (a per-block destination id moved by x, Q15 of its range: its slot among the block's, kept to put back) */
+static void clay_off(track_t *t, mod_t *mp, int32_t *off, uint32_t id, int32_t x)
+{
+    const param_desc_t *pd = mod_track_desc(t, id);
+    uint32_t j;
+    for (j = 0; j < mp->nk && mp->kid[j] != id; j++)
+        ;
+    if (j == mp->nk) {
+        mp->kid[j] = (uint8_t)id;
+        mp->keep[j] = t->p[id];
+        off[j] = 0;
+        mp->nk++;
+    }
+    off[j] += (x * (id == P_LRATE ? 127 : pd->max - pd->min)) >> 15;
+}
 static __attribute__((noinline)) void clay_mod(track_t *t, mod_t *mp, int32_t *off, uint32_t tr)
 {
-    const int16_t *p = t->p;
-    uint32_t k, j;
+    const clay_hb_t *hb = &form_st[tr].hb;
+    uint32_t k;
+    if (hb->on) {                                       /* (BYTE) the HITs' bundle (seq.c clay_tick): the voice as a drum,
+                                                         * any engine: its pitch and noise, its level gated, the CUTOFF */
+        mp->pit += hb->pit;
+        mp->amp = 1u;
+        mp->gain = mulq15(mp->gain, hb->gain);
+        if (hb->cut)
+            clay_off(t, mp, off, mod_param(MD_FCUT), hb->cut);
+    }
+    if (!clay[tr][CL_RATE] && t->p[P_SUS] < 100)      /* (the owner: "any engine") a held drone held: a decaying envelope
+                                                         * (a pluck's, any engine's) sustains while it is (RATE: struck) */
+        clay_off(t, mp, off, P_SUS, (100 - t->p[P_SUS]) * 258);
     for (k = 0; k < 4u; k++) {                   /* (BYTE) DRONE CLAY's four: what each adds now on its DEST, as a
                                                          * slot of the whole range (seq.c clay_tick; its AMOUNT in it) */
-        uint32_t d = CLAY_MD[clamp(clay[tr][CL_MF(k, 0u)], 0, CLAY_ND - 1)], id;
-        int32_t x = clay_v[tr][k];
-        const param_desc_t *pd;
+        uint32_t d = CLAY_MD[clamp(clay[tr][CL_MF(k, 0u)], 0, CLAY_ND - 1)];
+        int32_t x = clay_vk(tr, k);
         if (!d || !x)
             continue;
         if (d <= MD_AMP) {
+            if (clay_is_hit(clay[tr], k) && (d == MD_PITCH || d == MD_AMP))
+                continue;                               /* (a HIT's pitch and level: its bundle's) */
             mp->amp |= d == MD_AMP;
             mod_voice_add(MS_LFO, d, x, 64, &mp->pit, &mp->cut, &mp->shp, &mp->gain);
             continue;
@@ -405,17 +432,14 @@ static __attribute__((noinline)) void clay_mod(track_t *t, mod_t *mp, int32_t *o
             mp->lof = (int16_t)clamp(mp->lof + ((x * 100) >> 15), -100, 100);
             continue;
         }
-        id = mod_param(d);
-        pd = mod_track_desc(t, id);
-        for (j = 0; j < mp->nk && mp->kid[j] != id; j++)
-            ;
-        if (j == mp->nk) {
-            mp->kid[j] = (uint8_t)id;
-            mp->keep[j] = p[id];
-            off[j] = 0;
-            mp->nk++;
+        {   /* (the owner: "any engine, a sensible depth") a knob over its middle moved down, under it up: a
+             * one-sided shape (a ramp, a hit, a gate) always has room to move it (an open CUTOFF is closed) */
+            uint32_t id = mod_param(d);
+            const param_desc_t *pd = mod_track_desc(t, id);
+            if (id != P_LRATE && 2 * (int32_t)t->p[id] > pd->max + pd->min)
+                x = -x;
+            clay_off(t, mp, off, id, x);
         }
-        off[j] += (x * (id == P_LRATE ? 127 : pd->max - pd->min)) >> 15;
     }
 }
 static __attribute__((noinline)) int mod_begin(track_t *t)

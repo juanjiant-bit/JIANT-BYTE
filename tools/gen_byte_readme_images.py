@@ -92,7 +92,7 @@ clay 2
 nav SEQ DRONE CLAY
 ms 3000
 shot {B}/clay.ppm
-nav SEQ CLAY MOD 1
+nav SEQ CLAY MOD
 ms 2000
 shot {B}/claymod.ppm
 nav SEQ DRONE CLAY
