@@ -203,6 +203,32 @@ int main(int argc, char **argv)
     vpol_on = 0;
     build_list();
     if (argc < 2) return 2;
+    if (!strcmp(argv[1], "COMPILE")) {             /* the compiler (a formula's change: in the audio): every bank's
+                                                     * formula, the programs' hash (the same compiler: the same) */
+        static fvm_full_t pf;
+        static lofi_work_t wk;
+        uint32_t h = 2166136261u, k, j, r, e;
+        CALLGRIND_ZERO_STATS;
+        for (r = 0; r < 3u; r++)
+            for (k = 0; k < WAVE_NF + FVM_NBYTE + FVM_NFLOAT; k++) {
+                const char *f = k < WAVE_NF ? WAVE_BANK[k] : k < WAVE_NF + FVM_NBYTE ? FVM_BYTE_BANK[k - WAVE_NF]
+                              : FVM_FLOAT_BANK[k - WAVE_NF - FVM_NBYTE];
+                fvm_err_t er;
+                CALLGRIND_TOGGLE_COLLECT;
+                e = fvm_compile(&wk.c, FVM_FULL(&pf), f, (uint32_t)strlen(f), &er);
+                CALLGRIND_TOGGLE_COLLECT;
+                h = (h ^ e ^ ((uint32_t)er.pos << 8)) * 16777619u;
+                {
+                    const uint8_t *q = (const uint8_t *)&pf.p;
+                    for (j = sizeof(fvm_ins_t *); j < sizeof pf.p; j++) h = (h ^ q[j]) * 16777619u;
+                    q = (const uint8_t *)pf.ins;
+                    for (j = 0; j < pf.p.n * sizeof(fvm_ins_t); j++) h = (h ^ q[j]) * 16777619u;
+                }
+            }
+        CALLGRIND_DUMP_STATS_AT("total");
+        printf("%08x\n", h);
+        return 0;
+    }
     if (!strcmp(argv[1], "LIST")) {
         for (i = 0; i < nsc; i++) printf("%s\n", SC[i].name);
         return 0;

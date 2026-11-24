@@ -334,6 +334,8 @@ typedef struct {
     struct {char name[8];uint8_t kind,slot,ty;} binding[8];
     struct {char name[8],arg[8];uint8_t root;} fn[2];
     uint8_t nb,nlocal,nfn,in_fn,gen_depth,call_depth,parse_depth;
+    int8_t bat_k;                /* (engopt) fvm_binat's last answer, at bat_i (the text's index, blanks skipped) */
+    uint16_t bat_i;
 } fvm_cc_t;                      /* ~2 KB: compiled outside the audio (the UI, the editor), one at a time */
 
 static void fvm_fail(fvm_cc_t *c, uint32_t code)
@@ -698,23 +700,50 @@ static const struct { char t[3]; uint8_t lv, tk; } FVM_BINS[] = {
     {"==", 4, TK_EQ}, {"!=", 4, TK_NE},
     {"&", 5, TK_AND}, {"^", 6, TK_XOR}, {"|", 7, TK_OR}, {"&&", 8, TK_LAND}, {"||", 9, TK_LOR},
 };
+/* (engopt) the binary operator next (the blanks before it skipped, as fvm_eat does): its FVM_BINS index, NELEM for
+ * >>>, -1 none. At most one of the table's can be there (fvm_eat's one-character rule: < of <<, & of &&, ..), so each
+ * level asks this once, not each of its operators in turn (eighteen fvm_eat a level and an operand: most of a formula's
+ * compiling, in the audio when a part's formula changes); the same tree */
+static int fvm_binat(fvm_cc_t *c)
+{
+    uint32_t k, a, b;
+    fvm_ws(c);
+    if (c->bat_i == c->i)                            /* (each level asks at the same place: once) */
+        return c->bat_k;
+    c->bat_i = (uint16_t)c->i;
+    c->bat_k = -1;
+    a = fvm_ch(c);
+    b = c->i + 1u < c->len ? (uint8_t)c->s[c->i + 1u] : 0u;
+    if (a == '>' && b == '>' && c->i + 2u < c->len && c->s[c->i + 2u] == '>')
+        return c->bat_k = (int8_t)NELEM(FVM_BINS);
+    for (k = 0; k < NELEM(FVM_BINS); k++) {
+        const char *t = FVM_BINS[k].t;
+        if ((uint8_t)t[0] != a) continue;
+        if (t[1]) { if ((uint8_t)t[1] == b) return c->bat_k = (int8_t)k; continue; }
+        if ((a == '<' || a == '>') && (b == a || b == '=')) continue;
+        if ((a == '&' || a == '|') && b == a) continue;
+        if ((a == '=' || a == '!') && b == '=') continue;
+        return c->bat_k = (int8_t)k;
+    }
+    return -1;
+}
 static uint32_t fvm_level(fvm_cc_t *c, uint32_t lv)
 {
-    uint32_t a = lv ? fvm_level(c, lv - 1u) : fvm_unary(c), k, hit;
-    do {
-        hit = 0;
+    uint32_t a = lv ? fvm_level(c, lv - 1u) : fvm_unary(c);
+    for (;;) {
+        int k;
         if (c->err.code)
             return 0u;
-        if (lv == 2u && fvm_eat(c, ">>>"))           /* (JavaScript's unsigned shift: the same on INT) */
-            a = fvm_binop(c, TK_SHR, a, fvm_level(c, 1u)), hit = 1;
-        for (k = 0; !hit && k < NELEM(FVM_BINS); k++)
-            if (FVM_BINS[k].lv == lv && fvm_eat(c, FVM_BINS[k].t)) {
-                uint32_t b = lv ? fvm_level(c, lv - 1u) : fvm_unary(c);
-                a = fvm_binop(c, FVM_BINS[k].tk, a, b);
-                hit = 1;
-            }
-    } while (hit);
-    return a;
+        k = fvm_binat(c);
+        if (k == (int)NELEM(FVM_BINS) && lv == 2u) {   /* (JavaScript's unsigned shift: the same on INT) */
+            c->i += 3u;
+            a = fvm_binop(c, TK_SHR, a, fvm_level(c, 1u));
+        } else if (k >= 0 && k < (int)NELEM(FVM_BINS) && FVM_BINS[k].lv == lv) {
+            c->i += FVM_BINS[k].t[1] ? 2u : 1u;
+            a = fvm_binop(c, FVM_BINS[k].tk, a, lv ? fvm_level(c, lv - 1u) : fvm_unary(c));
+        } else
+            return a;
+    }
 }
 static uint32_t fvm_cond(fvm_cc_t *c)
 {
@@ -894,6 +923,7 @@ static uint32_t fvm_compile(fvm_cc_t *c, fvm_prog_t *p, const char *src, uint32_
     c->err.code = FE_OK;
     c->err.pos = 0;
     c->sp = c->maxsp = 0; c->nb=c->nlocal=c->nfn=c->in_fn=c->gen_depth=c->call_depth=c->parse_depth=0;
+    c->bat_i = 0xFFFFu;
     fvm_ws(c);
     if (c->i >= len) {
         c->err.code = FE_EMPTY;
