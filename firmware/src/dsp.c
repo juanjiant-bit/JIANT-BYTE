@@ -7,6 +7,10 @@
 #define VOICE_FS 24000           /* per-voice level: one voice peaks near -6 dBFS before the master */
 
 static inline int32_t mulq15(int32_t a, int32_t b) { return (a * b) >> 15; }
+/* (engopt) x / 3 as C rounds it (towards zero), exact for every int32, as one 32x32 -> 64 product: the FM-1's clang
+ * makes a constant's division its divide instruction (iterative), outside tools/build.py DIV_FNS */
+static inline int32_t sdiv8(int32_t x) { return (x + ((x >> 31) & 7)) >> 3; }   /* (x / 8 towards zero) */
+static inline int32_t sdiv3(int32_t x) { return (int32_t)(((int64_t)x * 0x55555556) >> 32) + (int32_t)((uint32_t)x >> 31); }
 /* a * k / 65536 without 64-bit: a up to 2^31, k Q16 */
 static inline int32_t mulq16(int32_t a, uint32_t k)
 {
