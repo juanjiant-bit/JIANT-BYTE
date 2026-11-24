@@ -825,6 +825,24 @@ static void test_new_types(void)
             check(what, early > 1e9 && pk < (1 << 20) && late < early * 0.25);
         }
     }
+    {   /* (FM V10.8.36) CLOUD starts with the note: a steady send's wet at half its level within 0.15 s (the send
+         * straight into the network, half the grains near the write: was ~0.18 .. 0.3 s, the grains alone) */
+        double side, st = 0, e;
+        uint32_t w, j;
+        jreset();
+        song.g[G_DMIX] = 0;
+        song.g[G_RTYPE] = 4; song.g[G_RSIZE] = 70; song.g[G_RDAMP] = 40; song.g[G_RMOD] = 30; song.g[G_RRATE] = 60;
+        song.g[G_RWIDE] = 0;
+        jrun(0, noise_on, FS * 2u, &side);
+        for (w = FS * 6u / 5u; w < FS * 2u; w++) st += (double)jw[w] * jw[w];
+        st /= FS * 4u / 5u;
+        for (w = 0; w + 441u <= FS; w += 441u) {
+            for (e = 0, j = 0; j < 441u; j++) e += (double)jw[w + j] * jw[w + j];
+            if (e / 441u >= st * 0.25) break;
+        }
+        printf("reverb:   (CLOUD: half its level at %u ms)\n", w * 1000u / FS);
+        check("CLOUD: a send's wet at half its level within 0.15 s (it starts with the note)", w < FS * 3u / 20u);
+    }
     {   /* CLOUD FREEZE: SIZE full, the line stops being written: the cloud still sounds after 2 s */
         double side;
         jreset();

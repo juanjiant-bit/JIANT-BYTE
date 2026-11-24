@@ -1692,7 +1692,8 @@ static uint32_t cl_rand(void) { fx.cl_rng = fx.cl_rng * 1664525u + 1013904223u; 
 /* CLOUD (G_RTYPE 4, JIANT 0.5, made wet in 0.5.1): a granular wash. The input and the cloud's own tail fed back
  * (SIZE: the tail ~0.09, the grains ~0.43: the wash builds on itself) are written at half rate into a 0.74 s line;
  * up to 12 overlapping
- * grains (RATE: their density; 45 .. 140 ms long, triangle windows) read it from anywhere behind the write, MOD of
+ * grains (RATE: their density; 45 .. 140 ms long, triangle windows) read it from behind the write (FM V10.8.36:
+ * near it or 1 .. 3 sixteenths back, cl_spawn; the send into the network straight too), MOD of
  * them an octave up, down or a fifth up; each grain panned at random (WIDE: how far, left and right). The grains go
  * through ROOM's network (SIZE its decay, DAMP its tone; MOD chorusing it, WIDE its combs apart): the grains are not
  * heard dry, they bloom into a tail around the sound. SIZE full freezes the line (the cloud holds) */
@@ -1716,7 +1717,14 @@ static void cl_spawn(int32_t gap, int32_t wd, uint32_t ar)
                                                          * across the write, a click each) */
         back = inc > 32768u ? (uint32_t)(umul64(cl_g[k].len, inc - 32768u) >> 16) : 0u;   /* (faster than
                                                          * the line is written: started that much further back) */
-        cl_g[k].pos = ((fx.cl_w >> 1) - 200u - back - cl_rand() % (CL_LEN - 6000u - back)) << 16;
+        {   /* (FM V10.8.36, the owner: "always late, a strange delay") where it reads from: near the write head half
+             * the time (the cloud starts with the note), else 1, 2 or 3 sixteenths of the tempo behind it (the repeats
+             * on the grid, not anywhere in the last 0.47 s) */
+            uint32_t r = cl_rand(), q = r & 7u, off = 48u + back + ((r >> 3) & 127u);
+            off += ((q * q) >> 4) * (beat_samples() >> 3);   /* 0 0 0 0 1 1 2 3 sixteenths (the line at half rate) */
+            if (off > CL_LEN - 6000u) off = 48u + back;
+            cl_g[k].pos = ((fx.cl_w >> 1) - off) << 16;
+        }
         cl_g[k].inc = inc + (cl_rand() % 129u) - 64u;   /* (the line at half rate; each grain
                                                          * a few cents off: a chorused shimmer, not one pitch) */
         cl_g[k].age = 0;
@@ -1828,6 +1836,8 @@ static __attribute__((noinline)) void rev_cloud(const int32_t *rev_in, int32_t *
                                                          * was, x2 at its output: 6 dB more room before ROOM's lines bend) */
         if (air > 0)                                     /* (AIR up: the grains' highs lifted) */
             g[i] += sdiv3(sdiv8((m - fx.cl_lp) * air));   /* (/ 24: a product, not the divide a sample) */
+        g[i] += rev_in[i] >> 3;                          /* (FM V10.8.36) the send straight into the network too: the
+                                                         * bloom starts with the note, the grains come into it */
         t[i] = 0;
         if (wd) {                                        /* the grains' own place, left and right (a side) */
             int32_t sd = ((l - r) * wd) >> 9;
@@ -1844,7 +1854,8 @@ static __attribute__((noinline)) void rev_cloud(const int32_t *rev_in, int32_t *
     else
         rev_room(g, t, n);
     for (i = 0; i < n; i++) {
-        out[i] += t[i] * 3 + (g[i] >> 1);                /* the bloom (+3.5 dB, 0.5.1), the grains themselves under it */
+        out[i] += t[i] * 2 + ((g[i] - (rev_in[i] >> 3)) >> 1);   /* the bloom (FM V10.8.36: x2, was x3, the send in it
+                                                         * too), the grains themselves under it (without the send) */
         shim_fb[i] = t[i];                               /* (the tail into the line, next block) */
     }
 }
