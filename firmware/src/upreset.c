@@ -31,8 +31,7 @@
  * bits firmware before RATCH drops when it loads the pattern, so the record is the same version. A drum grid
  * has no room for it (its flags are the accents): it loads x1.
  * (V10.7.36) A record of engine 11 without UP_WEST_MARK (every one stored until V10.7.35) holds NOISE's values: up_migrate
- * makes them WEST's (core.h west_from_noise, a DUST patch) in the RAM mirror and marks it (flash keeps the old record
- * until its bank is written again). Records of version 1..3 (16-bit values, before JIANT 0.3) have no room for the mark:
+ * marks it (JIANT FM made them WEST's; BYTE keeps them: WEST is retired, core.h). Records of version 1..3 (16-bit values, before JIANT 0.3) have no room for the mark:
  * they are not migrated.
  * A record of engine 1 (DIGITAL, retired in 1.0) stays as it is (UP_PUT takes it too): its values are DIGITAL's,
  * and every load converts them to an FM6 sound with its own patch (ui.c fm4_apply, fm4_convert.c); lists count it
@@ -55,7 +54,7 @@
 #define UP_DT_MARK 'D'                           /* up_migrate: CRUSH 3, RECT 4, AMP 5); */
 #define UP_CRU_AT (UP_DT_AT - 1u)                /* .. a DIST TYPE CRUSH's DRIVE, migrated: up_load sets the track's CRUSH */
 #define UP_WEST_AT (UP_CRU_AT - 1u)              /* (V10.7.36) the byte before: UP_WEST_MARK, engine 11 is WEST (else */
-#define UP_WEST_MARK 'W'                         /* NOISE's values: up_migrate, core.h west_from_noise) */
+#define UP_WEST_MARK 'W'                         /* NOISE's values: up_migrate marks them) */
 typedef struct {
     uint8_t used, ver, engine, np;               /* UP_USED, UP_VER, engine, P_COUNT when stored */
     char name[12];                               /* ASCII 32..126, 0-padded (no 0 when 12 long) */
@@ -114,14 +113,7 @@ static void up_migrate(up_rec_t *r)
         r->packed[UP_DT_AT] = UP_DT_MARK;
     }
     if (r->ver >= 4u && r->np <= UP_WEST_AT && r->packed[UP_WEST_AT] != UP_WEST_MARK) {   /* (V10.7.36) NOISE -> WEST */
-        if (r->engine == ENGI_WEST) {
-            int16_t e[8];
-            uint32_t i;
-            for (i = 0; i < 8u; i++) e[i] = up_value(r, r->np - 8u + i);
-            west_from_noise(e);
-            for (i = 0; i < 8u; i++) up_set_value(r, r->np - 8u + i, e[i]);
-        }
-        r->packed[UP_WEST_AT] = UP_WEST_MARK;
+        r->packed[UP_WEST_AT] = UP_WEST_MARK;           /* (BYTE: WEST retired, NOISE's values kept: core.h) */
     }
 }
 

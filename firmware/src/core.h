@@ -371,29 +371,9 @@ static inline int eng_gone(uint32_t e)
 {
     return e == ENGI_PHYS || e == ENGI_SAMPLE || e == ENGI_TRIO;   /* (0.9.9-snd5: GRAIN's 8 and SLICE's 13 are STRING and ADD) */   /* (0.9.9-snd5: GRAIN's 8 and SLICE's 13 are STRING and ADD) */
 }
-/* (V10.7.36) engine 11 was NOISE until V10.7.35, WEST since: a sound of NOISE -> WEST's values, e its P_E0..P_E7 in
- * place ({MODE COLOR FREQ PEAK TRK DENSE DRIFT CRUSH} -> {FOLD SYMM MOD RATIO GATE DECAY RES DUST}). NOISE was a noise
- * source through a filter, its level the ADSR's: its noise modes become DUST (ANLG's white noise 127, DUST's impulses
- * 96: the core silent), the gate a low-pass alone (GATE 0) held open as far as FREQ was (less for a pink or brown
- * COLOR: DECAY 88..127), RES its PEAK; the register tones (LFSR, META) a folded, modulated tone (FOLD 90, RATIO 0.5 or
- * 1.41, DECAY 127). TRK DRIFT CRUSH have no place. Projects (project.c proj_phys_gone: those without PROJ_PHYS 3),
- * user presets (upreset.c up_migrate: those without UP_WEST_MARK). Not idempotent: the callers mark what they did */
-static __attribute__((noinline)) void west_from_noise(int16_t *e)
-{
-    int32_t mode = e[0] < 0 ? 0 : e[0] > 3 ? 3 : e[0], colr = e[1] < 0 ? 0 : e[1] > 127 ? 127 : e[1];
-    int32_t peak = e[3] < 0 ? 0 : e[3] > 127 ? 127 : e[3], cut = e[2] - (colr > 32 ? (colr - 32) / 3 : 0);
-    int16_t w[8] = {0, 0, 0, 1, 0, 0, 0, 0};
-    uint32_t i;
-    cut = cut < 0 ? 0 : cut > 127 ? 127 : cut;
-    w[5] = (int16_t)(88 + cut * 39 / 127);
-    w[6] = (int16_t)peak;
-    w[7] = (int16_t)(mode == 1 ? 96 : 127);
-    if (mode >= 2) {                                    /* LFSR, META */
-        w[0] = 90; w[1] = 30; w[2] = 45; w[3] = (int16_t)(mode == 2 ? 0 : 2); w[4] = 64; w[5] = 127; w[7] = 0;
-    }
-    for (i = 0; i < 8u; i++)
-        e[i] = w[i];
-}
+/* (V10.7.36) engine 11 was NOISE until V10.7.35, WEST since; JIANT FM rewrote a NOISE sound's values as WEST's
+ * (west_from_noise). BYTE: WEST is retired too (its number plays as WAVE), so the values stay as they were stored; the
+ * stores still mark what they read (PROJ_PHYS 3, UP_WEST_MARK) */
 /* SAMPLE SET 4 was PERC, the GM-mapped drum kit (tools/gen_samples.py); retired after 1.0.2: its index stays
  * (SET / GRAIN SRC 4 is an alias of PIANO; 5..7, once USR1..3, clamp to it). A sound that selected it is the DRUM engine with
  * its default kit (eng_drum.c DRUM_PRESETS[0]: the same GM key map, so its patterns still play as drums): its E
