@@ -70,7 +70,7 @@ static void eo_notes(uint32_t k, uint32_t nn)
 
 /* the scenarios: name, setup */
 typedef struct { char name[32]; uint32_t kind, a, b, c; } scen_t;
-enum { SK_GEN, SK_WAVE, SK_DRUM, SK_MATH, SK_CLAY, SK_WAVEPLAY, SK_FXWALK, SK_HIVE };
+enum { SK_GEN, SK_WAVE, SK_DRUM, SK_MATH, SK_CLAY, SK_WAVEPLAY, SK_FXWALK, SK_HIVE, SK_WAVEBASS, SK_WAVELFO };
 static uint32_t eo_walk;
 static scen_t SC[128];
 static uint32_t nsc;
@@ -97,6 +97,15 @@ static void build_list(void)
     add("wave8/SUPERSAW", SK_WAVE, eo_preset(ENGI_WAVE, "SUPERSAW"), 8, 0);
     add("waveseq/MORPH PAD", SK_WAVEPLAY, eo_preset(ENGI_WAVE, "MORPH PAD"), 0, 0);
     add("waveseq/ACID BASS", SK_WAVEPLAY, eo_preset(ENGI_WAVE, "ACID BASS"), 0, 0);
+    {   /* (waveframes) the basses, one line (LEGATO) on sixteenths, every step a note: the mono path's spikes */
+        static const char *const B[] = {"SUB BASS", "REESE", "ACID BASS", "FM GROWL", "808 BOOM", "WOBBLE", "SYNC LEAD"};
+        for (uint32_t k = 0; k < sizeof B / sizeof B[0]; k++) {
+            snprintf(n, sizeof n, "wavemono/%s", B[k]);
+            add(n, SK_WAVEBASS, eo_preset(ENGI_WAVE, B[k]), 0, 0);
+        }
+    }
+    add("wavelfo/SAW PAD", SK_WAVELFO, eo_preset(ENGI_WAVE, "SAW PAD"), 3, 0);   /* (waveframes) POS on a fast LFO */
+    add("wavelfo/FM KEYS", SK_WAVELFO, eo_preset(ENGI_WAVE, "FM KEYS"), 1, 0);
     for (uint32_t k = 0; k < ENG_DRUM.npresets && k < 8u; k++) {
         snprintf(n, sizeof n, "drum/%s", ENG_DRUM.presets[k].name);
         add(n, SK_DRUM, k, 0, 0);
@@ -162,6 +171,26 @@ static void setup(const scen_t *s)
         eo_fx(4, 0, 1);
         transport_req = 1; ui_input();
         eo_blocks = 2048u;
+        break;
+    case SK_WAVEBASS:                              /* (waveframes) sixteenths, LEGATO, a slide now and then */
+        eo_quiet();
+        eo_part(0, ENGI_WAVE, s->a);
+        {
+            static const uint8_t N[16] = {36, 36, 48, 36, 39, 36, 43, 36, 36, 48, 36, 41, 36, 39, 46, 36};
+            static const uint8_t F[16] = {1, 0, 2, 0, 0, 1, 0, 2, 0, 0, 1, 0, 0, 2, 0, 0};
+            load_pat16(&trk[0], N, F);
+        }
+        trk[0].p[P_VOICE] = V_LEGATO;
+        song.g[G_BPM] = 128;
+        transport_req = 1; ui_input();
+        eo_blocks = 2048u;
+        break;
+    case SK_WAVELFO:                               /* (waveframes) POS swept by a fast LFO (~8 Hz) */
+        eo_quiet();
+        eo_part(0, ENGI_WAVE, s->a);
+        trk[0].p[P_VOICE] = V_POLY; trk[0].p[P_SUS] = 127;
+        trk[0].p[P_LWAVE] = 0; trk[0].p[P_LRATE] = 100; trk[0].p[P_LD_SHP] = 63; trk[0].p[P_E1] = 64;
+        eo_notes(0, s->b);
         break;
     case SK_DRUM:
         eo_quiet();
