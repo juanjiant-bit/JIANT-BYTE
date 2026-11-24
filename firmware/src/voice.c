@@ -1233,7 +1233,9 @@ static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, 
     uint8_t *vs = &vh_sh_c[MC_CPU() & 1u];
     int32_t hb[CTL / 2], x = 0, pv = vh_c[vi] >> 3;
     vmod_t h = *m;
-    if (n != CTL || st == VH_OUT) {
+    if ((n != CTL && !(st == VH_ON && gen && !(n & 1u))) || st == VH_OUT) {   /* (waveframes) a part of the block (a
+                                                         * note started or let go inside it, voice_block) at half the rate
+                                                         * too, an even number of samples (track_render: on an even one) */
         if (st == VH_OUT && n == CTL && gen) {
             x = out[1];
             e->render(t, v, out + 1, CTL - 1u, m);
@@ -1243,7 +1245,7 @@ static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, 
         vh_c[vi] = (int32_t)(st == VH_ON ? VH_RE : st == VH_OUT ? VH_OFF : st);
         return;
     }
-    if (e->half == 2u && ((vh_quart >> (vi / NVOICE)) & 1u)) {   /* (V10.7.56) FM6 at a quarter: 11 kHz, CTL / 4
+    if (e->half == 2u && n == CTL && ((vh_quart >> (vi / NVOICE)) & 1u)) {   /* (V10.7.56) FM6 at a quarter: 11 kHz, CTL / 4
                                                          * samples, each the last of its four, the others on the line */
         int32_t hq[CTL / 4];
         h.amp1 = 4 * m->amp1 - 3 * m->amp0;
@@ -1273,10 +1275,11 @@ static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, 
         if (e->half == 1u)                              /* (half 3: cutoff is not a filter's there, PHASE's DCW) */
             h.cutoff += HALF_CUT;
     }
-    for (i = 0; i < CTL / 2u; i++)
+    n >>= 1;                                            /* (the samples at half the rate) */
+    for (i = 0; i < n; i++)
         hb[i] = 0;
     *vs = 1;
-    e->render(t, v, hb, CTL / 2u, &h);
+    e->render(t, v, hb, n, &h);
     *vs = 0;
     if (st != VH_ON)                                    /* the sample before the first: the one rendered, else a line back */
         pv = st == VH_IN && gen ? 2 * x - hb[0] : 2 * hb[0] - hb[1];
@@ -1284,12 +1287,12 @@ static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, 
                                                          * (one pole, ~5.5 kHz at 22 kHz): no fizz of the half rate's
                                                          * folds, no bright floor of many tails */
         int32_t y = st == VH_ON ? vh_lp[vi] : hb[0];
-        for (i = 0; i < CTL / 2u; i++)
+        for (i = 0; i < n; i++)
             hb[i] = y += ((hb[i] - y) * 3) >> 2;           /* (pole 0.25: ~5.5 kHz at 22 kHz) */
         vh_lp[vi] = y;
     } else
-        vh_lp[vi] = hb[CTL / 2u - 1u];
-    for (i = 0; i < CTL / 2u; i++) {
+        vh_lp[vi] = hb[n - 1u];
+    for (i = 0; i < n; i++) {
         out[2u * i] += (pv + hb[i]) >> 1;
         out[2u * i + 1u] += pv = hb[i];
     }
@@ -2274,8 +2277,9 @@ static uint32_t voice_block(track_t *t, const engine_t *e, voice_t *v, int32_t *
         }
         if(fl.on)fl_bind(t,v,(uint32_t)c->lv);
         vi += c->ti * NVOICE;
-        if (VH_ST(vh_c[vi]) && e->half && !off)         /* (codex/voices) at half the rate */
-            voice_half(t, e, v, out, n, &m, vi);
+        if (VH_ST(vh_c[vi]) && e->half && (!off || VH_ST(vh_c[vi]) == VH_ON))   /* (codex/voices) at half the rate;
+                                                         * (waveframes) a part from inside the block too */
+            voice_half(t, e, v, out + off, n, &m, vi);
         else
             e->render(t, v, out + off, n, &m);
         if(fl.on)fl_unbind();
@@ -2371,6 +2375,9 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
             }
             /* (ctl64) a start or a release kept for its sample k (voice_begin, voice_off_at) */
             k--;
+            if (VH_ST(vh_c[ti * NVOICE + i]) == VH_ON && (e->half == 1u || e->half == 3u))
+                k &= ~1u;                               /* (waveframes) a voice at half the rate: from an even sample, both
+                                                         * parts at half the rate (voice_half; were both at the full) */
             v->sub = 0;
             if (v->stage == 4u) {                       /* given up meanwhile: its fade, nothing starts */
                 nr += voice_block(t, e, v, out, 0, n, &c, 0);
