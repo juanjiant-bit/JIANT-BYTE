@@ -3,7 +3,8 @@
 // Portions Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant)
 // Local, complete musical archives. Requests name whitelisted objects, never flash addresses.
 // 8: the FM6 patch bank of 1.0..1.0.2 (listed empty since 1.0.3: a restore of an older archive's bank moves its patches
-// into the user presets restored before it); 9: the user presets' FM6 patches (1.0.3).
+// into the user presets restored before it); 9: the user presets' FM6 patches (1.0.3). (JIANT BYTE: FM6 removed: the
+// device lists 8 and 9 empty and ignores them on restore; an archive keeps them, empty, so its layout stays.)
 // 32..34 were the user sample slots (JIANT has none): an older archive's entries for them are skipped on read.
 // JIANT: 10 the song index (every song's rows and scenes), 40..71 every song's sections (40 + 4 x song + section); the
 // sections of each song are restored by its number, after 2..5 (the current song's, as before).
