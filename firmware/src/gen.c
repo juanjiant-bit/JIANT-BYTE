@@ -3114,6 +3114,9 @@ static __attribute__((noinline)) void gen_make(void)
                                                          * the feedback short of self-oscillation */
         song.g[G_DPIT] = (int16_t)(gch(10) ? (gch(50) ? 12 : -12) : 0);   /* (V10.8: seldom, octaves only, spray
                                                          * short: a pitched delay's cascade read as discord) */
+        if (g->rtype == 4)                              /* (BYTE, the owner's CPU FULL: CLOUD + the pitched grain delay, the two
+                                                         * heaviest buses at once, doubled FX's time) a CLOUD piece: no pitch */
+            song.g[G_DPIT] = 0;
         song.g[G_DSPRY] = (int16_t)(gch(15) ? grr(10, 40) : 0);
         song.g[G_DPING] = (int16_t)(gr() % 2u);
         song.g[G_DFDBK] = (int16_t)clamp(song.g[G_DFDBK], 0, 85);
