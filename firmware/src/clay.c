@@ -118,12 +118,10 @@ static void clay_play(uint32_t tr, track_t *t, form_st_t *st)
     ev -= 8u;
     clay_strike(tr, t, st, ev / 55u & 3u, ev % 55u, (j & 3u) ? 100u : 120u);
 }
-static void func_tick(void);                            /* (funcplay.c: FUNC's recorded loop) */
 static int func_kb(uint32_t k, track_t *t, int op);   /* (funcplay.c: the selected FUNC part's keys, after DRONE CLAY's) */
 static __attribute__((noinline)) void clay_tick(uint32_t n)
 {
     uint32_t s16 = div_samples(2), bps = beat_samples(), b, tr, k, playing = song.playing && clk_pos != CLK_START;
-    func_tick();
     if (playing)                                        /* (Q16 beats from PLAY: the bar's start; wraps at 16384 bars) */
         b = ((clk_n & 0x3FFFFu) << 14) + (clk_pos << 14) / (s16 ? s16 : 1u);
     else

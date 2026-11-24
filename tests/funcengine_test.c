@@ -68,7 +68,7 @@ static void fp_setup(uint32_t form)
 {
     setup(form - 1u);
     TSEL->p[P_DLY] = TSEL->p[P_REV] = TSEL->p[P_CHOR] = 0;
-    memset(fp_st, 0, sizeof fp_st); memset(fp_rec, 0, sizeof fp_rec);
+    memset(fp_st, 0, sizeof fp_st);
     song.g[G_BPM] = 120;
     {   /* (the same start each time: the buses' tails out, the generators' seeds) */
         int32_t x[CTL * 2]; uint32_t j;
@@ -292,59 +292,24 @@ static void funcplay_checks(int argc, char **argv)
         trk[1].p[P_FFB] = 0; math_poll(); assert(fp_b[1].tr == 3u);
     }
     puts("funcplay: layer B blends (0 nothing, 127 B alone, between both), its mute, two slots PASS");
-    /* 6 the keys' loop: REC armed, the transport playing, the events into the loop; saved, loaded, played back */
+    /* 6 the project: a FUNC part's GROOVE (its slots), its BLEND and KEYS ('F' 'P'), saved and loaded; a project of
+     * before (no 'F' 'P' block) as written whatever its slots held */
     {
         project_t *pa = &a, *pb2 = &b;
         fp_setup(1);
-        song.rec = 1u;
-        fp_at_blk = fp_beat_blk(1.0) ? fp_beat_blk(1.0) : 20u; fp_ev = 0;
-        {   /* white 3 (BUILD) at ~beat 1, black 4 (FREEZE) at ~beat 9; white 6 (ROLL) held 6.1 .. 6.6 */
-            int32_t x[CTL * 2]; uint32_t n = FS * 6u / CTL;
-            transport_req = 1;
-            for (j = 0; j < n; j++) {
-                uint32_t P = func_clock_end;
-                fm1_in.notes = P >= 0x10000u && P < 0x12000u ? 1u << 4 : P >= 0x61000u && P < 0x69000u ? 1u << 9 : P >= 0x90000u && P < 0x92000u ? 1u << 8 : 0u;
-                mix_block(x, CTL);
-            }
-            fm1_in.notes = 0;
-            transport_req = 2;
-            for (j = 0; j < 40u; j++) mix_block(x, CTL);
-        }
-        song.rec = 0;
-        for (d = 0, k = 0; k < FP_RN; k++) d += fp_rec[0][k] != 0;
-        printf("the loop: %u steps written (BUILD at step 3, ROLL held 25 .. 26, FREEZE at 35)\n", d);
-        assert(d == 4u);
-        assert(fp_rec[0][3] >> 3 == 3u && fp_rec[0][35] >> 3 == 16u);   /* (on the 1/16 playing as the key went down) */
-        for (k = 25; k < 26u; k++) assert((fp_rec[0][k] & 7u) == FF_ROLL);
-        assert(fp_st[0].sec == FS_BUILD && (fp_st[0].mut & FM_FREEZE));
+        TSEL->p[P_FDEN] = -20; TSEL->p[P_FSWG] = 40; TSEL->p[P_FFB] = 16; fp_kp[0][0] = 90; fp_kp[0][1] = 1;
         project_capture(pa);
-        assert(pa->fpx[0] & 128u);
-        assert(proj_pack(&stored, pa) && proj_import(pb2, stored.raw, sizeof stored.raw) && !memcmp(pb2->frec[0], fp_rec[0], FP_RN));
-        memset(fp_rec, 0, sizeof fp_rec);
-        assert(!project_restore_runtime(pb2) && !memcmp(fp_rec[0], pa->frec[0], FP_RN) && fp_st[0].sec == FS_GROOVE);
-        math_poll(); frame();
-        {   /* played back: BUILD at bar 2's line, FREEZE at beat 9 */
-            int32_t x[CTL * 2]; uint32_t n = FS * 6u / CTL, built = 0, froze = 0, rolled = 0;
-            transport_req = 1;
-            for (j = 0; j < n; j++) {
-                mix_block(x, CTL);
-                if (!built && fp_st[0].sec == FS_BUILD) built = func_clock_end;
-                if (!froze && (fp_st[0].mut & FM_FREEZE)) froze = func_clock_end;
-                if (fp_st[0].fill == FF_ROLL) rolled = 1;
-            }
-            transport_req = 2;
-            for (j = 0; j < 40u; j++) mix_block(x, CTL);
-            printf("played back: BUILD from beat %.3f, FREEZE from %.3f, ROLL %u\n", built / 65536.0, froze / 65536.0, rolled);
-            assert(built >= 0x40000u && built < 0x41000u && froze >= 0x8C000u && froze < 0x94000u && rolled);
-        }
-        /* cleared with the track's steps (CLEAR TRACK's) */
-        memset(fp_rec[0], 0, FP_RN);
-        /* a project of before: no 'F' 'P' block, its FUNC part as written whatever its slots held */
+        assert(pa->fpx[0] == (128u | 4u) && pa->fbl[0] == 90u);
+        assert(proj_pack(&stored, pa) && proj_import(pb2, stored.raw, sizeof stored.raw) && pb2->fpx[0] == pa->fpx[0] && pb2->fbl[0] == 90u);
+        fp_kp[0][0] = 64; fp_kp[0][1] = 0; TSEL->p[P_FDEN] = 0;
+        assert(!project_restore_runtime(pb2));
+        assert(fp_kp[0][0] == 90 && fp_kp[0][1] == 1 && TSEL->p[P_FDEN] == -20 &&
+               TSEL->p[P_FSWG] == 40 && TSEL->p[P_FFB] == 16 && fp_st[0].sec == FS_GROOVE);
         project_capture(pa); pa->fpx[0] = 0; pa->t[0].p[P_FFB] = 3; pa->t[0].p[P_FSWG] = 90;
         assert(proj_pack(&stored, pa) && proj_import(pb2, stored.raw, sizeof stored.raw) && !pb2->fpx[0]);
-        assert(!project_restore_runtime(pb2) && TSEL->p[P_FFB] == 0 && TSEL->p[P_FSWG] == 0 && !func_live(TSEL));
+        assert(!project_restore_runtime(pb2) && TSEL->p[P_FFB] == 0 && TSEL->p[P_FSWG] == 0 && fp_kp[0][0] == 64 && !func_live(TSEL));
     }
-    puts("funcplay: the keys' loop recorded, saved in the project, loaded and played back; an old project as written PASS");
+    puts("funcplay: GROOVE, BLEND and KEYS saved in the project and loaded; an old project as written PASS");
     /* 7 the keys: the selected FUNC part's alone, PLAY KEYS ON, running; OFF (or stopped) they are notes again */
     {
         int32_t x[CTL * 2];

@@ -700,24 +700,21 @@ static const char *math_func_text(const track_t*t,const char*custom){const char*
 /* (funcplay, the owner: "FUNC to play, not to listen to") FUNC played live (funcplay.c): its SECTION (GROOVE as written,
  * INTRO BUILD DROP BREAK: at the next bar line), a FILL held (ROLL STUTTER REVERSE DOUBLE: from the next 1/16 to the 1/16
  * after the key is let go), the mutations (NOTES RHYTHM SWAP FREEZE), the parts muted (bit 0 the drums, 1 the notes,
- * 2 layer B), the root's degree; what the panel and the render read. The keys (seq.c key_on), the recorded loop and GEN
- * (func_gen_set) write it; the pool's (zeroed: GROOVE, nothing held) */
+ * 2 layer B), the root's degree; what the panel and the render read. The keys (seq.c key_on) and GEN (func_gen_set) write
+ * it; the pool's (zeroed: GROOVE, nothing held) */
 enum { FS_GROOVE, FS_INTRO, FS_BUILD, FS_DROP, FS_BREAK };
 enum { FF_ROLL = 1, FF_STUT, FF_REV, FF_DBL };
 enum { FM_NOTES = 1, FM_RHYTHM = 2, FM_SWAP = 4, FM_FREEZE = 8 };
 typedef struct {
-    uint8_t sec, sreq, dreq, fill, fkey, lfill, mut, mute;   /* (sreq dreq: + 1, 0 none; these and semi gden: live) */
+    uint8_t sec, sreq, dreq, fill, fkey, mut, mute;   /* (sreq dreq: + 1, 0 none; these and semi gden: live) */
     int8_t semi, gden, dsemi, cut;      /* the root's semitones, GEN's density, the semitones asked, the block's CUT move */
     uint8_t deg, rsv[3];
-    uint32_t qbar, sbar, fs, fe, frz, lastP, rp;   /* bars, Q16 beats: the asked's line, the section's first, the fill's
-                                         * start and end (0 open), the bar frozen; the last P; the loop's step */
+    uint32_t qbar, sbar, fs, fe, frz, lastP;   /* bars, Q16 beats: the asked's line, the section's first, the fill's
+                                         * start and end (0 open), the bar frozen; the last P */
 } fp_t;
 static fp_t fp_st[NTRK] __attribute__((section(".pool")));
 static int16_t fp_kp[NTRK][2] __attribute__((section(".pool")));   /* LAYERS' BLEND (0 A .. 64 both .. 127 B) and KEYS
                                                          * (0 ON): the knobs' own, the project's 'F' 'P' */
-#define FP_RN 64u                                       /* the recorded loop: four bars of 1/16, a byte each (fill 0..4, an
-                                                         * event << 3: funcplay.c fp_ev) */
-static uint8_t fp_rec[NTRK][FP_RN] __attribute__((section(".pool")));
 typedef struct { fvm_prog_t p; uint8_t tr, form; } fpb_t;   /* layer B's program: two parts at once (the pool's room) */
 static fpb_t fp_b[2] __attribute__((section(".pool")));
 static fvm_ins_t fp_bins[2][FVM_MAXINS] __attribute__((section(".pool")));

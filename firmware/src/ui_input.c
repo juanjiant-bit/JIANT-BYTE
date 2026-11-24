@@ -3104,7 +3104,6 @@ static void ui_input_frame(void)
                     }
                     psq_clear();                        /* (BYTE) PUNCH SEQ's steps too */
                     memset(clay_rec, 0, sizeof clay_rec);   /* (BYTE) DRONE CLAY's recorded loops */
-                    memset(fp_rec, 0, sizeof fp_rec);   /* (funcplay) FUNC's */
                     ui_message("ALL CLEARED");
                 }
             } else if (kind == CF_INIT_SOUND) {         /* (DRUM: the factory DRUM-X kit too) */
@@ -3129,7 +3128,6 @@ static void ui_input_frame(void)
                 track_defaults_steps(t);
                 load_end(t);
                 memset(clay_rec[ui.confirm_trk % NTRK], 0, CLAY_RN);   /* (BYTE) and DRONE CLAY's recorded loop */
-                memset(fp_rec[ui.confirm_trk % NTRK], 0, FP_RN);   /* (funcplay) and FUNC's */
                 latch_drop_req |= (uint8_t)(1u << (t - trk));   /* and the latched chord (events_block) */
                 if (kind == CF_CLEAR_TRK) {
                     char b[12] = "1 CLEARED";

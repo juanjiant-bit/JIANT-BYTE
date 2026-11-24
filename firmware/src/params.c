@@ -390,6 +390,8 @@ static const param_desc_t *param_desc_of(uint32_t e, uint32_t id)
 {
     if (id == P_GAIN && e == ENGI_FORM)                 /* (gainall) a FORM part's RATE B there (eng_form.c P_FRB), as stored */
         return &HUM_DESC[2];
+    if (e == ENGI_FUNC && func_pdesc(id))             /* (funcplay) DENSITY RANGE bipolar: a FUNC part's ranges */
+        return func_pdesc(id);
     return id >= P_E0 ? &ENGINES[e]->edit[id - P_E0] : &TP[id];
 }
 /* (V10.6z4) the default a store (projects, user presets) leaves out or fills in: GATE's 50 % as every store before

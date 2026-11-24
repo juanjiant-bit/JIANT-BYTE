@@ -146,7 +146,6 @@ typedef struct {
                                                 * after 'P' 'Q', when not 0 (absent: 0); in sum's padding */
     uint8_t fpx[NTRK], fbl[NTRK];              /* (funcplay) a FUNC part's: bit 7 its 'F' 'P' block (none: its GROOVE and
                                                 * LAYERS as written, eng_lofi.c func_neutral), bit 2 KEYS OFF; its BLEND */
-    uint8_t frec[NTRK][FP_RN];                 /* .. its recorded loop (eng_lofi.c fp_rec): 'F' 'P' track flags loop */
     uint32_t sum;
 } project_t;
 /* Serialized FUN7 keeps the retained cache's exact extent. Params are biased
@@ -662,8 +661,8 @@ static uint32_t proj_packed_size(const project_t *q)
         n += 2u + PSQ_BYTES;
     if (q->cmix)                                        /* (FM V10.8.36) CHORUS MIX */
         n += 3u;
-    for (t = 0; t < NTRK; t++)                          /* (funcplay) FUNC's, its loop */
-        if (q->fpx[t] & 128u) n += 5u + FP_RN;
+    for (t = 0; t < NTRK; t++)                          /* (funcplay) FUNC's */
+        if (q->fpx[t] & 128u) n += 5u;
     if (q->dx_hands >> 4)                               /* (snd1) the kit's GLUE, when on */
         n += 3u;
     if (q->g[G_DDRV])                                   /* (snd2) the delay's DRIVE, when on */
@@ -945,12 +944,10 @@ static int proj_pack(project_store_t *out, const project_t *q)
                                                          * before it) */
         b[pos++] = 'C'; b[pos++] = 'M'; b[pos++] = q->cmix;
     }
-    for (t = 0; t < NTRK; t++)                          /* (funcplay) a FUNC part's PARTS KEYS and loop, after CM (an
+    for (t = 0; t < NTRK; t++)                          /* (funcplay) a FUNC part's KEYS and BLEND, after CM (an
                                                          * older firmware stops before them) */
         if (q->fpx[t] & 128u) {
             b[pos++] = 'F'; b[pos++] = 'P'; b[pos++] = (uint8_t)t; b[pos++] = q->fpx[t] & 7u; b[pos++] = q->fbl[t];
-            memcpy(b + pos, q->frec[t], FP_RN);
-            pos += FP_RN;
         }
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
@@ -1329,7 +1326,6 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
     memset(q->clay_rec, 0, sizeof q->clay_rec);
     memset(q->fpx, 0, sizeof q->fpx);                   /* (funcplay) none: a FUNC part as written */
     memset(q->fbl, 64, sizeof q->fbl);
-    memset(q->frec, 0, sizeof q->frec);
     memcpy(q->psq, PROJ_PSQ_DEF, PSQ_BYTES);            /* (BYTE) PUNCH SEQ: empty, unless its block follows */
     if (pos + 2u <= room && b[pos]=='V' && b[pos+1u]=='L') {
         if (pos + 2u + NTRK > room) return 0;
@@ -1360,11 +1356,10 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
             q->cmix = b[pos + 2u] > 100u ? 100u : b[pos + 2u];
             pos += 3u;
         }
-        while (pos + 5u + FP_RN <= room && b[pos] == 'F' && b[pos + 1u] == 'P' && b[pos + 2u] < NTRK) {   /* (funcplay) FUNC's */
+        while (pos + 5u <= room && b[pos] == 'F' && b[pos + 1u] == 'P' && b[pos + 2u] < NTRK) {   /* (funcplay) FUNC's */
             q->fpx[b[pos + 2u]] = (uint8_t)(128u | (b[pos + 3u] & 7u));
             q->fbl[b[pos + 2u]] = b[pos + 4u] & 127u;
-            memcpy(q->frec[b[pos + 2u]], b + pos + 5u, FP_RN);
-            pos += 5u + FP_RN;
+            pos += 5u;
         }
     }
     for (i = 0; i < 8u; i++) if (q->dx_form[i] == DX_USER && !q->dx_text[i][0]) q->dx_form[i] = 0;
@@ -1559,7 +1554,6 @@ static void project_capture(project_t *p)
         memcpy(p->clay_rec[i], clay_rec[i], CLAY_RN);
         p->fpx[i] = trk[i].eng_req == ENGI_FUNC ? (uint8_t)(128u | (fp_kp[i][1] ? 4u : 0u)) : 0u;   /* (funcplay) */
         p->fbl[i] = (uint8_t)(fp_kp[i][0] & 127);
-        memcpy(p->frec[i], fp_rec[i], FP_RN);
         memset(p->fm6[i], 0, sizeof p->fm6[i]);         /* (BYTE: FM6 removed, the format's block empty) */
     }
     p->motion = motion;
@@ -1883,7 +1877,6 @@ static int project_restore_runtime(const project_t *input)
         memcpy(clay_rec[k], p->clay_rec[k], CLAY_RN);
         form_st[k].rk = 0;
         memset(&fp_st[k], 0, sizeof fp_st[k]);           /* (funcplay) FUNC: GROOVE, nothing held; its own, or as written */
-        memcpy(fp_rec[k], p->frec[k], FP_RN);
         fp_kp[k][0] = p->fbl[k]; fp_kp[k][1] = (int16_t)(p->fpx[k] >> 2 & 1u);
         if (trk[k].eng_req == ENGI_FUNC && !(p->fpx[k] & 128u)) func_neutral(&trk[k]);
         if (p->t[k].engine == ENGI_FORM)                /* (a FORM part: its modulators as stored, below WAVE) */
@@ -1953,7 +1946,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     life_defaults(); voice_limits_default();                                    /* (V10.7.34) LIFE as at power-on */
     memset(clay, 0, sizeof clay);                       /* (BYTE) no DRONE CLAY */
     memset(clay_rec, 0, sizeof clay_rec);
-    memset(fp_rec, 0, sizeof fp_rec);                   /* (funcplay) no FUNC loop, nothing held */
+    /* (funcplay) FUNC: nothing held */
     memset(fp_st, 0, sizeof fp_st);
     for (i = 0; i < 5u; i++) song.g[KEEP[i]] = kept[i];
     kept[0] = dice_secs;

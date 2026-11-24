@@ -19,9 +19,8 @@
  *   ROOT     the last seven keys: the scale's degree, at the next bar
  * The keys (seq.c key_on / key_off: after DRONE CLAY's, the selected FUNC part's alone, KEYS ON and RUN PLAY playing or
  * FREE; a layer button held, SCENE, the DRUM grid first, as ever): whites 1..5 the sections, 6..9 the fills, blacks 1..5
- * the mutations, 6..8 the parts' mutes (DRUMS NOTES B), the last seven the root. REC armed, the transport playing: the
- * events into a loop of four bars (fp_rec: a byte a 1/16, the fill held its low 3 bits, an event above), played back
- * on the transport's 1/16 (func_tick) */
+ * the mutations, 6..8 the parts' mutes (DRUMS NOTES B), the last seven the root. (The keys recorded into a loop of
+ * four bars: out for the flash's room, kept on branch funcplay-loop) */
 
 /* ---- the render's side (eng_lofi.c lofi_func_render) */
 static int func_live(const track_t *t)                 /* anything to do: else the formula as before, bit for bit */
@@ -83,7 +82,7 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
         if (!f->qbar) f->qbar = (P[0] >> 18) + 1u;
         for (s = 0; s < n && P[s] >> 18 < f->qbar; s++) {}
     }
-    fk = f->fkey ? f->fkey : f->lfill;                  /* the fill held: the key's, else the loop's */
+    fk = f->fkey;                                       /* the fill held */
     if (fk && fk != f->fill) {                          /* from the next 1/16 */
         f->fill = (uint8_t)fk;
         f->fs = (P[0] + 0x3FFFu) & ~0x3FFFu;
@@ -154,7 +153,7 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
                 Y[i] = (uint32_t)((((int32_t)Y[i] >> 1) * (int32_t)g[0] >> 14) + (g[1] ? ((int32_t)Yb[i] >> 1) * (int32_t)g[1] >> 14 : 0));
     }
 }
-/* ---- the keys' and the loop's (audio, core 0) */
+/* ---- the keys' (audio, core 0) */
 static int32_t clay_degree(const track_t *t, uint32_t d);
 /* event ev (1 .. 20) on part tr: 1..5 a section (+1: GROOVE INTRO BUILD DROP BREAK), 6..12 the root's degree, 13..16 a
  * mutation (NOTES RHYTHM SWAP FREEZE), 17 RESET, 18..20 a part muted (DRUMS NOTES B) */
@@ -171,8 +170,7 @@ static void func_apply(uint32_t tr, uint32_t ev)
 }
 static const uint8_t FUNC_SKEY[5] = {2, 1, 3, 4, 5};    /* whites 1..5: INTRO GROOVE BUILD DROP BREAK */
 /* seq.c key_on / key_off (clay.c clay_kb, DRONE CLAY's first): op 1 down, 0 up; 1 if FUNC took the key: the selected
- * FUNC part's, KEYS ON, running by itself (RUN PLAY playing, FREE); its up the one it took down. REC armed, the
- * transport playing: the event into the loop, on the 1/16 playing (heard now) */
+ * FUNC part's, KEYS ON, running by itself (RUN PLAY playing, FREE); its up the one it took down */
 static int func_kb(uint32_t k, track_t *t, int op)
 {
     uint32_t tr = song.sel % NTRK, c = CLAY_KMAP[k % 27u], ev;
@@ -187,29 +185,8 @@ static int func_kb(uint32_t k, track_t *t, int op)
         return 1;
     }
     ev = c < 5u ? FUNC_SKEY[c] : c >= 32u ? c - 26u : c - 16u < 8u ? c - 3u : 0u;
-    if (op && ev) {
-        uint8_t *r = &fp_rec[tr][clk_n % FP_RN];
-        func_apply(tr, ev);
-        if (rec_on(t) && clk_pos != CLK_START) *r = (uint8_t)((*r & 7u) | ev << 3);
-    }
+    if (op && ev) func_apply(tr, ev);
     return 1;
-}
-/* each block (clay.c clay_tick): the loop on the transport's 1/16, a fill held recorded as it passes */
-static __attribute__((noinline)) void func_tick(void)
-{
-    uint32_t tr, s = clk_n, j, live = song.playing && clk_pos != CLK_START;
-    for (tr = 0; tr < NTRK; tr++) {
-        track_t *t = &trk[tr];
-        fp_t *f = &fp_st[tr];
-        uint8_t *r = fp_rec[tr];
-        if (!live || !func_on(t)) { f->lfill = 0; f->rp = ~0u; continue; }
-        if (s == f->rp) continue;
-        f->rp = s;
-        j = s % FP_RN;                                  /* (a new 1/16) */
-        if (f->fkey && rec_on(t)) r[j] = (uint8_t)((r[j] & ~7u) | f->fkey);
-        f->lfill = r[j] & 7u;
-        if (r[j] >> 3) func_apply(tr, r[j] >> 3);
-    }
 }
 /* (funcplay) GEN's hook (none yet): part tr's FUNC to section s (0 GROOVE 1 INTRO 2 BUILD 3 DROP 4 BREAK) at its next
  * bar, its density moved by dens (-64 .. 64) on top of DENSITY's */
