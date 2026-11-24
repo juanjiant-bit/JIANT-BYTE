@@ -225,7 +225,7 @@ static __attribute__((noinline)) void graph_clay_lz(const track_t*t){
  cv_oy=0;form_scope_tr=(uint8_t)tr;
  if(clay_card_on()&&clay_ke.tr==tr){                 /* (the owner: what the key does) the last key's card, a moment */
   char a[24],b[40];int32_t y;
-  if(clay_ke.kind==1u){uint32_t sh=clay_ke.a%FORM_NSH;const char*h=CLAY_HOW[sh],*p=h;char l[24];uint32_t n=0;
+  if(clay_ke.kind==1u){uint32_t sh=clay_ke.a%FORM_NSH;const char*h=str_nth(CLAY_HOW,sh),*p=h;char l[24];uint32_t n=0;
    cv_text_on(8,18-AF_L_CAP_Y,&AF_L,FORM_SHAPE[sh],FT_YE,T_BG);
    clay_card_text(a,b);{const char*q=a;while(*q&&!(q[0]=='M'&&q[1]>='1'&&q[1]<='4'))q++;ft_tag(8,48,*q?q:"-",0x0000,tc);}
    while(*p&&*p!='|'&&n<23u)l[n++]=*p++;l[n]=0;cv_text(8,72-AF_M_CAP_Y,&AF_M,l,T_TEXT);

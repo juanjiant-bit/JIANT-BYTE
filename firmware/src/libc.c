@@ -46,6 +46,14 @@ static unsigned str_len(const char *s)
     return n;
 }
 
+/* the i-th of s's texts, each ended by a 0 (a table of names as one string: no pointer each) */
+static const char *str_nth(const char *s, unsigned i)
+{
+    for (; i; i--)
+        s += str_len(s) + 1u;
+    return s;
+}
+
 static void str_cpy(char *d, const char *s, unsigned max)
 {
     unsigned i = 0;

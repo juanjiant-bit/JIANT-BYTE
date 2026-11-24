@@ -169,6 +169,8 @@ static void func_apply(uint32_t tr, uint32_t ev)
     } else f->mute ^= (uint8_t)(1u << (ev - 18u));
 }
 static const uint8_t FUNC_SKEY[5] = {2, 1, 3, 4, 5};    /* whites 1..5: INTRO GROOVE BUILD DROP BREAK */
+static uint8_t fk_last;                                 /* (the UI's, ui_layer.c fk_map; not fp_t, not .eu_keep) the last */
+static uint32_t fk_ms;                                  /* key FUNC took (1 + k), when a key went down or up (fm1_ms) */
 /* seq.c key_on / key_off (clay.c clay_kb, DRONE CLAY's first): op 1 down, 0 up; 1 if FUNC took the key: the selected
  * FUNC part's, KEYS ON, running by itself (RUN PLAY playing, FREE); its up the one it took down */
 static int func_kb(uint32_t k, track_t *t, int op)
@@ -179,6 +181,8 @@ static int func_kb(uint32_t k, track_t *t, int op)
         return 0;
     kb_on[k] = (uint8_t)op;
     kb_sn[k] = 0;
+    if (op) fk_last = (uint8_t)(k + 1u);
+    fk_ms = fm1_ms;
     if (c - 5u < 4u) {                                  /* whites 6..9: a fill, held */
         if (op) f->fkey = (uint8_t)(c - 4u);
         else if (f->fkey == c - 4u) f->fkey = 0;

@@ -338,6 +338,25 @@ static void func_peek(const fvm_prog_t *p, const uint32_t *u, uint32_t P, uint32
         else if (op == FO_LP || op == FO_HP || op == FO_PH) stack[sp - 1u] = 0;
     }
 }
+/* (funcplay, the owner's mock-up B, "the map on a touch") FUNC's keys (funcplay.c func_kb, by clay.c CLAY_KMAP): each
+ * one's name and what it does, in order (the whites 0..11, the blacks 16..23, the root's 32..38; 9..11 none) */
+static const char FK_T[] = "INTRO\0NO DRUMS\0GROOVE\0AS WRITTEN\0BUILD\0RISING\0DROP\0DENSER\0BREAK\0NO DRUMS\0"
+    "ROLL\0RATCHETS\0STUT\0REPEAT 1/8\0REV\0BACKWARDS\0DBL\0DOUBLE TIME\0\0\0\0\0\0\0"
+    "NOTES\0NEW NOTES\0RHYTHM\0NEW RHYTHM\0SWAP\0A FOR B\0FREEZE\0BAR AGAIN\0RESET\0ALL BACK\0"
+    "DRUMS\0MUTE\0NOTES\0MUTE\0B\0MUTE\0I\0\0II\0\0III\0\0IV\0\0V\0\0VI\0\0VII";   /* (the root's: "ROOT", fk_map) */
+/* the groups' colours: sections, fills, (none), mutations, mutes, the root */
+static const uint16_t FK_COL[6] = {HUD_YE, 0xF9D6u, 0, 0x3E9Fu, 0x7FF3u, 0xA47Fu};
+/* key k's name (by CLAY_KMAP; its words after it), *g its group (ui_layer.c fk_kf, fk_map) */
+static const char *fk_txt(uint32_t k, uint32_t *g)
+{
+    uint32_t c = CLAY_KMAP[k];                         /* (k < 27) */
+    c = c < 12u ? c : c < 24u ? c - 4u : c - 12u;
+    *g = (c >= 5u) + (c >= 9u) + (c >= 12u) + (c >= 17u) + (c >= 20u);
+    return str_nth(FK_T, c * 2u);
+}
+/* ui_layer.c: the keyboard drawn, each key by a pk_kf_t (its fill; its name and ink); FUNC's keys on it */
+typedef uint16_t (*pk_kf_t)(uint32_t a, int blk, uint32_t i, char *nm, uint16_t *ink);
+static int fk_map(const track_t *t, int32_t x, int32_t y, int32_t wd, int32_t ht);
 /* the bar now: 16 steps (the one playing outlined), a lane for each drum the program calls and each eu() action, the
  * note (or the table's pick: the recipes' w * x), the four knobs by their FORM's names */
 static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32_t wd, int32_t ht, uint16_t tc)
@@ -348,7 +367,7 @@ static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
     int32_t lx = x + 34, cw = (wd - 36) / 16, row = 12, yy;
     fpeek_t pk = {{0}, {0}, 0, 0, 0, 0}, now = pk;
     char b[24];
-    if (cw < 4) return;
+    if (cw < 4 || fk_map(t, x, y, wd, ht)) return;      /* (funcplay) a key held: the keys' map */
     for (k = 0; k < 4u; k++) { uint32_t a = (uint32_t)clamp(t->p[P_E2 + k], 0, 127); u[FU_A + k] = a * 2u; u[FU_AF + k] = a * 65536u / 127u; }
     u[FU_NOTE] = (uint32_t)clamp(60 + t->p[P_E6], 0, 127); u[FU_VEL] = 100; u[FU_BPS] = bps;
     if (func_bar(t)) { pos = func_clock_end; live = 1; }
@@ -387,13 +406,13 @@ static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
     }
     {   /* (funcplay) the part played live: its SECTION (lit when not GROOVE), the one asked, the FILL held, the mutations
          * and the mutes (a letter each, a dot when off: NOTES RHYTHM SWAP FREEZE, DRUMS NOTES B), layer B */
-        static const char SN[5][7] = {"GROOVE", "INTRO", "BUILD", "DROP", "BREAK"}, FN[5][5] = {"", "ROLL", "STUT", "REV", "DBL"};
-        const fp_t *fs = &fp_st[(uint32_t)(t - trk) % NTRK];
-        int32_t ry = y + ht - 32, sx = x + hud_tag(x, ry, SN[fs->sec % 5u], 0x0000, fs->sec ? HUD_YE : T_MID) + 4;
+        const fp_t *fs = &fp_st[(uint32_t)(t - trk) % NTRK];   /* (the names: FK_T's, INTRO and GROOVE swapped) */
+        uint32_t sc = fs->sec % 5u, rq = (fs->sreq - 1u) % 5u;
+        int32_t ry = y + ht - 32, sx = x + hud_tag(x, ry, str_nth(FK_T, (sc ^ (sc < 2u)) * 2u), 0x0000, fs->sec ? HUD_YE : T_MID) + 4;
         char m[40];
         uint32_t n = 0;
-        if (fs->sreq) { m[n++] = '>'; str_cpy(m + n, SN[(fs->sreq - 1u) % 5u], 8); n = str_len(m); m[n++] = ' '; }
-        str_cpy(m + n, FN[fs->fill % 5u], 6); n = str_len(m); m[n++] = ' ';
+        if (fs->sreq) { m[n++] = '>'; str_cpy(m + n, str_nth(FK_T, (rq ^ (rq < 2u)) * 2u), 8); n = str_len(m); m[n++] = ' '; }
+        str_cpy(m + n, str_nth(FK_T, fs->fill % 5u ? fs->fill % 5u * 2u + 8u : 18u), 6); n = str_len(m); m[n++] = ' ';
         for (k = 0; k < 7u; k++) m[n++] = (k < 4u ? fs->mut >> k : fs->mute >> (k - 4u)) & 1u ? "NRSFDNB"[k] : '\xb7';
         m[n++] = ' ';
         str_cpy(m + n, N_FUNC_FB[clamp(t->p[P_FFB], 0, 20)] + (t->p[P_FFB] > 0 ? 0 : 3), 12);   /* (B OFF: none) */

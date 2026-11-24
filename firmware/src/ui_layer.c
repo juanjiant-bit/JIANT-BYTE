@@ -956,17 +956,15 @@ static uint32_t layer_leds(uint32_t *br)
  * the accent, a muted track KEY, unavailable its name DIM, its note under it; KNOBS the four as gauges in their knobs'
  * colours over the layer's keys (the keycaps' words); STATE what is on, as chips. (Until 0.8.8: cells with note names,
  * the Felucca map.) The keys and knobs do what they did: only the drawing is new */
-static const char *const PF_NAME[PF_N] = {"RPT 1/8", "RPT 1/16", "RPT 1/32", "REVERSE", "TAPESTOP",   /* (perform.c PF_*) */
-    "OCT -", "OCT +", "HALF", "WOBBLE", "REPEAT", "STEP 8", "STEP 16", "BITS", "MIRROR", "SCRAMBLE",   /* (BYTE 0.16) the formulas' time (formula_perf.c pt_time; pfx.c) */
-    "PITCH UP", "PITCH DN", "FREEZE", "REV ALL", "DLY ALL", "CAOS MAX", "GLITCH", "LOOP 3", "LOOP 5", "LOOP 7", "LIFE MAX",
-    "COMB"};
+static const char PF_NAME[] = "RPT 1/8\0RPT 1/16\0RPT 1/32\0REVERSE\0TAPESTOP\0"   /* (perform.c PF_*; str_nth) */
+    "OCT -\0OCT +\0HALF\0WOBBLE\0REPEAT\0STEP 8\0STEP 16\0BITS\0MIRROR\0SCRAMBLE\0"   /* (BYTE 0.16) the formulas' time (formula_perf.c pt_time; pfx.c) */
+    "PITCH UP\0PITCH DN\0FREEZE\0REV ALL\0DLY ALL\0CAOS MAX\0GLITCH\0LOOP 3\0LOOP 5\0LOOP 7\0LIFE MAX\0COMB";
 static const char W_NOTE[16] = {'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G'};
 static const char B_NOTE[11] = {'F', 'G', 'A', 'C', 'D', 'F', 'G', 'A', 'C', 'D', 'F'};   /* black keys 1..11: F# G# .. F#5 */
 static const uint8_t PK_BLK[11] = {1, 2, 3, 5, 6, 8, 9, 10, 12, 13, 15};   /* a black key: left of white key n */
 enum { LS_OFF, LS_SEL, LS_HELD, LS_WAIT, LS_DIM, LS_MUTE };
 static const char *const GLO_GROUP[4] = {"KICK", "SNARE", "HAT", "PERC"};
-static const char *const TL_NAME[TL_N] = {"CLEAR", "REVERSE", "SHIFT <", "SHIFT >", "RANDOM", "COOK", "BEAT", "CLR AUTO",
-    "CLR", "REV", "FILL", "RND"};
+static const char TL_NAME[] = "CLEAR\0REVERSE\0SHIFT <\0SHIFT >\0RANDOM\0COOK\0BEAT\0CLR AUTO\0CLR\0REV\0FILL\0RND";   /* (TL_*; str_nth) */
 #define LMC_TW 140                                       /* MACRO's routes: their width (x 92 .. 232) */
 static uint32_t macro_routes(uint32_t m, char *b, uint32_t n)
 {
@@ -1015,7 +1013,7 @@ static uint32_t ly_keyname(uint32_t l, int blk, uint32_t p, char *nm)
                       : p == PF_NW ? PF_COMB : PF_N;   /* (V10.7.36: G5 COMB, was CLR AUTO) */
         if (e >= PF_N)
             return LS_OFF;
-        str_cpy(nm, PF_NAME[e], 12);
+        str_cpy(nm, str_nth(PF_NAME, e), 12);
         return !((perf_avail() >> e) & 1u) ? LS_DIM : !((held >> e) & 1u) ? LS_OFF :
                ((perf_act >> e) & 1u) || ((PF_NOTES >> e) & 1u) ? LS_HELD : LS_WAIT;
     }
@@ -1079,7 +1077,7 @@ static uint32_t ly_keyname(uint32_t l, int blk, uint32_t p, char *nm)
         }
         if (!tl_cell(TSEL, p))
             return LS_OFF;
-        str_cpy(nm, TL_NAME[p], 12);
+        str_cpy(nm, str_nth(TL_NAME, p), 12);
         if (p >= TL_LCLR) {                             /* the lane's: "CLR BD" */
             str_cpy(nm + str_len(nm), " ", 2);
             str_cpy(nm + str_len(nm), drum_lane_abbr(TSEL, ui.lane), 12 - str_len(nm));
@@ -1134,28 +1132,80 @@ static uint16_t pk_fill(uint32_t st, int blk, int n, uint16_t *ink)
         return blk ? T_BG : ux_mix(T_BG, T_TEXT, 7);
     return blk ? ux_mix(T_BG, T_THEME, 34) : ux_mix(T_BG, T_TEXT, 17);
 }
-static void ly_piano(uint32_t l)
+/* a key's name from its foot yb up (at most maxh rows); flat: one that fits across, across (2: in M
+ * where it fits, across or up) */
+static void pk_name(int32_t x0, int32_t yb, int32_t w, const char *nm, uint16_t ink, uint16_t fill, int32_t maxh, int flat)
 {
-    int32_t h = (int32_t)graph_h() - 6, y = 3, bh = 54, i;
-    char nm[12], nt[2] = {0, 0};
+    const aafont_t *f = &AF_X;
+    int32_t ch = AF_X_CAP_H, cy = AF_X_CAP_Y;
+    if (flat > 1 && (text_w(&AF_M, nm) < w || text_w(&AF_X, nm) >= w)) { f = &AF_M; ch = AF_M_CAP_H; cy = AF_M_CAP_Y; }
+    if (flat && text_w(f, nm) < w)
+        cv_text_in(x0, yb + 1 - ch - cy, w, f, nm, ink, fill);
+    else
+        cv_text_up(x0 + HALF_UP(w - ch) - cy, yb, f, nm, ink, fill, maxh);
+}
+/* the keyboard F3 .. G5 in {x, y, wd, h}, its blacks bh tall: each key's fill, its name (nm) and its ink by kf (a: kf's own);
+ * nt: each white's note under its name, else the names large (pk_name) */
+static void pk_board(int32_t x, int32_t y, int32_t wd, int32_t h, int32_t bh, pk_kf_t kf, uint32_t a, int nt)
+{
+    int32_t i, f = nt ? 14 : 4;
+    char nm[12], ntx[2] = {0, 0};
     for (i = 0; i < 16; i++) {                          /* the white keys */
-        int32_t x0 = 4 + i * 232 / 16, w = 4 + (i + 1) * 232 / 16 - x0 - 1;
-        uint16_t ink, fill = pk_fill(ly_keyname(l, 0, (uint32_t)i, nm), 0, nm[0] != 0, &ink);
+        int32_t x0 = x + i * wd / 16, w = x + (i + 1) * wd / 16 - x0 - 1;
+        uint16_t ink, fill = kf(a, 0, (uint32_t)i, nm, &ink);
         cv_rect(x0, y, w, h, fill);
         if (nm[0])
-            cv_text_up(x0 + HALF_UP(w - AF_X_CAP_H) - AF_X_CAP_Y, y + h - 14, &AF_X, nm, ink, fill, h - 14 - bh - 6);
-        nt[0] = W_NOTE[i];                              /* (its note, the letter) */
-        GFX_HOOK_ALIGN(x0, 0, x0 + w, 0, AL_H, "layer key's note centred");
-        cv_text_in(x0, y + h - 9 - AF_X_CAP_Y, w, &AF_X, nt, ink, fill);
+            pk_name(x0, y + h - f, w, nm, ink, fill, h - f - bh - 6, nt ? 0 : 2);
+        if (nt) {
+            ntx[0] = W_NOTE[i];                         /* (its note, the letter) */
+            GFX_HOOK_ALIGN(x0, 0, x0 + w, 0, AL_H, "layer key's note centred");
+            cv_text_in(x0, y + h - 9 - AF_X_CAP_Y, w, &AF_X, ntx, ink, fill);
+        }
     }
     for (i = 0; i < 11; i++) {                          /* the black keys over them */
-        int32_t x0 = 4 + PK_BLK[i] * 232 / 16 - 5;
-        uint16_t ink, fill = pk_fill(ly_keyname(l, 1, (uint32_t)i, nm), 1, nm[0] != 0, &ink);
+        int32_t x0 = x + PK_BLK[i] * wd / 16 - 5;
+        uint16_t ink, fill = kf(a, 1, (uint32_t)i, nm, &ink);
         cv_rect(x0 - 1, y, 12, bh + 1, T_BG);
         cv_rect(x0, y, 10, bh, fill);
         if (nm[0])
-            cv_text_up(x0 + HALF_UP(10 - AF_X_CAP_H) - AF_X_CAP_Y, y + bh - 4, &AF_X, nm, fill == T_BG ? T_DIM : ink, fill, bh - 8);
+            pk_name(x0, y + bh - 4, 10, nm, fill == T_BG ? T_DIM : ink, fill, bh - 8, !nt);
     }
+}
+static uint16_t ly_kf(uint32_t l, int blk, uint32_t i, char *nm, uint16_t *ink)
+{
+    return pk_fill(ly_keyname(l, blk, i, nm), blk, nm[0] != 0, ink);
+}
+static void ly_piano(uint32_t l)
+{
+    pk_board(4, 3, 232, (int32_t)graph_h() - 6, 54, ly_kf, l, 1);
+}
+/* fk_map's keys (a: the one held, 1 + k): the key k of white i (F G A B C D E from F3) or of the black left of it,
+ * named, in its group's colour; the held one lit */
+static uint16_t fk_kf(uint32_t a, int blk, uint32_t i, char *nm, uint16_t *ink)
+{
+    uint32_t w = blk ? PK_BLK[i] : i, k = w / 7u * 12u + (uint32_t)"\0\2\4\6\7\11\13"[w % 7u] - (uint32_t)blk, g;
+    uint16_t c;
+    str_cpy(nm, fk_txt(k, &g), 7);
+    c = FK_COL[g];
+    *ink = blk ? T_TEXT : c;
+    if (k + 1u == a) { *ink = 0x0000; return c; }       /* the key held: lit */
+    return g == 2u ? ux_mix(T_BG, T_TEXT, 7) : ux_mix(T_BG, c, blk ? 45 : 18);
+}
+/* ui_byte.c hud_func's, in its {x, y, wd, ht}: while a FUNC key is held, and 1 s after; over the formula's panel whole
+ * (the owner: the keys as large as they can be), the name and its words a line on top */
+static int fk_map(const track_t *t, int32_t x, int32_t y, int32_t wd, int32_t ht)
+{
+    uint32_t a = fk_last, g;
+    const char *s;
+    if (!a || (uint32_t)(t - trk) != song.sel % NTRK || (!kb_on[a - 1u] && fm1_ms - fk_ms >= 1000u))
+        return 0;
+    s = fk_txt(a - 1u, &g);
+    y -= 20; ht += 20;
+    cv_rect(x - 2, y, wd + 4, ht, T_BG);
+    cv_text(x, y - AF_M_CAP_Y, &AF_M, s, FK_COL[g]);
+    cv_text(x + text_w(&AF_M, s) + 6, y - AF_M_CAP_Y, &AF_M, g == 5u ? "ROOT" : s + str_len(s) + 1u, T_TEXT);
+    pk_board(x, y + 14, wd, ht - 15, (ht - 15) * 9 / 20, fk_kf, a, 0);
+    return 1;
 }
 /* (V10.7.36, the owner: "larger, without the keys that do nothing") REC's and SAVE's map: only the white keys that act,
  * as large tiles, each its key (note and octave) and what it does; a line on top says what the layer is for */
@@ -1344,7 +1394,7 @@ static __attribute__((noinline)) void layer_state(uint32_t l)
         lst_chip("FX LATCH", perf_latch_on ? "ON" : "OFF", perf_latch_on);
         for (e = 0; e < PF_N; e++)
             if ((held >> e) & 1u)
-                lst_chip(PF_NAME[e], 0, 1);
+                lst_chip(str_nth(PF_NAME, e), 0, 1);
     } else if (l == LAYER_GLO) {                        /* the tracks, the DRUM groups, UNDO */
         for (k = 0; k < NTRK; k++) {
             char t[3] = {'T', (char)('1' + k), 0};
@@ -1414,7 +1464,7 @@ static void hold_banner(void)
     int32_t w = 212, h = 52, x = (240 - w) / 2, y = ((int32_t)graph_h() - h) / 2;
     if (!k)
         return;
-    nm = PF_NAME[(k - 64u) % PF_N];
+    nm = str_nth(PF_NAME, (k - 64u) % PF_N);
     sub = "PUNCH IN";
     cv_rrect(x, y, w, h, 6, T_SURF, T_BG);
     cv_rect(x, y, w, 2, rec ? T_ACCENT : T_THEME);
