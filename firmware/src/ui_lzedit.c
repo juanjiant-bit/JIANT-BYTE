@@ -219,7 +219,7 @@ static void ft_frame(int32_t y,int32_t h){int32_t x;
  * CLAY OFF */
 static __attribute__((noinline)) void graph_clay_lz(const track_t*t){
  uint32_t tr=(uint32_t)(t-trk)%NTRK,m,i,sel=4u;
- const int16_t*c=clay[tr];uint16_t tc=TRK_COL[tr%6u];
+ const clay_t*c=clay[tr];uint16_t tc=TRK_COL[tr%6u];
  const page_t*pg=cur_page();
  if(pg->id[0]==ID_CL0+CL_SEL)sel=(uint32_t)clay_km[tr]&3u;
  cv_oy=0;form_scope_tr=(uint8_t)tr;
