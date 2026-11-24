@@ -82,7 +82,7 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                      "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
                                      "CLIP", "PNCH",   /* (JIANT: the master, FX > MASTER) */
                                      "D.TIM", "D.FB", "D.TON", "D.MIX", "R.SIZ", "R.DMP", "C.RAT", "C.DEP", "F.CUT", "LEVEL", "LIFE",
-                                     "M1 AMT", "M1 DEC", "M2 AMT", "M2 DEC", "M3 AMT", "M3 DEC", "M4 AMT", "M4 DEC"};   /* (BYTE 0.17: FORM's modulators, mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
+                                     "M1 AMT", "M1 DEC", "M2 AMT", "M2 DEC", "M3 AMT", "M3 DEC", "GAIN", "M4 DEC"};   /* (BYTE 0.17: FORM's modulators, mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
@@ -169,7 +169,10 @@ static const param_desc_t TP[P_COUNT] = {
                 [P_FM##k##_SUS] = PD("SUS", F_PCT, 0, 127, 127), \
                 [P_FM##k##_REL] = PD("REL", F_TIME, 0, 127, 0), \
                 [P_FM##k##_LEVEL] = PD("LEVEL", F_PCT, 0, 127, 127)
-    FMOP(1), FMOP(2), FMOP(3), FMOP(4),
+    FMOP(1), FMOP(3), FMOP(4),
+    [P_FM2_ATK] = PD("ATK", F_TIME, 0, 127, 0), [P_FM2_DEC] = PD("DEC", F_TIME, 0, 127, 0),
+    [P_GAIN] = PD("GAIN", F_INT_DB, 0, 12, 0),    /* (gainall) a synth's GAIN, 0 .. +12 dB (core.h P_GAIN; was OP2's SUS, HUMAN GATE) */
+    [P_FM2_REL] = PD("REL", F_TIME, 0, 127, 0), [P_FM2_LEVEL] = PD("LEVEL", F_PCT, 0, 127, 127),
     [P_CAOS] = PD("CAOS", F_PCT, 0, 127, 0),      /* (JIANT BYTE) WHEEL's ROTOR's two (127 before, its 100 %): MATH's CAOS and */
     [P_KEY] = PD("TIME", F_INT, 0, 127, 0),       /* (JIANT BYTE: MATH's TIME 0..2 (MATH_CAOS); DRUM's GAIN 0..127) */         /* KEY start at 0 (the formula as written, LIBRE); MATH_CAOS shows them */
 
@@ -367,7 +370,6 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
         case P_E2SUS: return &ENV2_DESC[2];
         case P_E2REL: return &ENV2_DESC[3];
         case P_HTIM: return &HUM_DESC[1];
-        case P_HGAT: return &HUM_DESC[2];
         case P_HRQ: return &RECQ_DESC;
         case P_DRIFT: return &DRIFT_DESC;
         case P_TVEL: return &TVEL_DESC;
@@ -382,6 +384,8 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
  * only; range and default are the same): what the editor protocol, user presets and projects use */
 static const param_desc_t *param_desc_of(uint32_t e, uint32_t id)
 {
+    if (id == P_GAIN && e == ENGI_FORM)                 /* (gainall) a FORM part's RATE B there (eng_form.c P_FRB), as stored */
+        return &HUM_DESC[2];
     return id >= P_E0 ? &ENGINES[e]->edit[id - P_E0] : &TP[id];
 }
 /* (V10.6z4) the default a store (projects, user presets) leaves out or fills in: GATE's 50 % as every store before
@@ -415,7 +419,7 @@ static int param_kept(uint32_t i)
 {
     return i == P_LEVEL || i == P_PAN || i == P_MUTE || (i >= P_AMODE && i <= P_SGATE) ||
            (i >= P_SLCR && i <= P_SLDEPTH) || i == P_SOFS || i == P_POFS ||
-           (i == P_HVEL || i == P_HTIM || i == P_HGAT || i == P_HRQ) ||   /* (0.6.87) HUMAN: the sequencer's, a sound
+           (i == P_HVEL || i == P_HTIM || i == P_HRQ) ||   /* (gainall: HUMAN GATE's slot the sound's GAIN) */   /* (0.6.87) HUMAN: the sequencer's, a sound
                                                          * keeps it (FELUCCA_FM4: DIGITAL's OP SUS / LEVEL there) */
            (i == P_CHRD || i == P_CVOI || i == P_CSTR || i == P_CLEN || i == P_TCHAN);   /* (0.7.0)
                                                          * SCL > CHORD, C.LEN, CHANCE: the sequencer's too (a community
@@ -429,6 +433,8 @@ static int param_kept(uint32_t i)
  * loaded */
 static int32_t param_fit(const param_desc_t *d, int32_t v)
 {
+    if (d == &TP[P_GAIN] && v > d->max)                 /* (gainall) an older store's 127 there (HUMAN GATE): 0 dB */
+        v = 0;
     v = clamp(v, d->min, d->max);
     return v;
 }
@@ -625,6 +631,7 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         }
         break;
     case F_SEMI:
+    case F_INT_DB:                                      /* (gainall) GAIN: "+6" dB */
         fmt_int(val, v);
         if (v > 0) {
             char t[8];
@@ -632,7 +639,7 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
             val[0] = '+';
             str_cpy(val + 1, t, 6);
         }
-        *unit = "st";
+        *unit = d->fmt == F_SEMI ? "st" : "dB";
         break;
     case F_ENUM:
         str_cpy(val, d->names[v < d->min ? d->min : v > d->max ? d->max : v], 6);
@@ -833,7 +840,8 @@ static const page_t PAGES[] = {
     {"WORDS", FAM_EDIT, SC_TRACK, GR_MORPH, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
-    {"MORE", FAM_EDIT, SC_TRACK, GR_NONE, {P_LRTRG, P_GLMODE, P_DETUNE, P_TVEL}},   /* (JIANT FM V10.7.60, normalized) MATH BYTE /
+    {"MORE", FAM_EDIT, SC_TRACK, GR_NONE, {P_LRTRG, P_GLMODE, P_DETUNE, P_GAIN}},   /* (gainall) KNOB 4 GAIN, as every
+                                                         * synth's MORE (VEL: PLAY's KNOB 4) */   /* (JIANT FM V10.7.60, normalized) MATH BYTE /
                                                          * FLOAT's MORE: RESTART first (was RETRIG) */
     {"CAOS", FAM_EDIT, SC_TRACK, GR_NONE, {P_CAOS, P_KEY, 0xFF, 0xFF}},   /* (JIANT BYTE) MATH: from tonal to wild, the keys */
     {"GAIN", FAM_EDIT, SC_TRACK, GR_NONE, {P_KEY, P_E7, 0xFF, 0xFF}},   /* (JIANT BYTE) DRUM-X: GAIN and DRIVE, the kit's power */
@@ -930,7 +938,8 @@ static const page_t PAGES[] = {
     {"EUCLID", FAM_SEQ, SC_TRACK, GR_EUCLID, {ID_EU0, ID_EU0 + 1u, ID_EU0 + 2u, ID_EU0 + 3u}},   /* (V10.6, MUTATE's place)
                                                          * HITS STEPS ROTATE, LANE / VARY (ui_euclid.c) */
     /* (0.8.5) LENTE everywhere (ui_lens.c): pages the mock-up added, appended (the table's order is no one's index) */
-    {"MORE", FAM_EDIT, SC_TRACK, GR_NONE, {ID_VMAX, 0xFF, 0xFF, 0xFF}},   /* (BYTE 0.16: UNISON VEL on PLAY, GL MODE off the
+    {"MORE", FAM_EDIT, SC_TRACK, GR_NONE, {ID_VMAX, 0xFF, 0xFF, P_GAIN}},   /* (gainall) KNOB 4 GAIN (JIANT FM: EDIT 1, OCT+
+                                                         * held; BYTE has no held alternate: MORE, every synth's) */   /* (BYTE 0.16: UNISON VEL on PLAY, GL MODE off the
                                                          * panel, as JIANT FM V10.7.63; VOICES, the CPU's own limit, kept here) */   /* (JIANT FM V10.7.60, normalized: was VOICES 2;
                                                          * ALLOC and PRIO off the panel, kept for the editor, NRPN, projects) */   /* ALLOC, UNISON's detune (in TP since
                                                          * Felucca, on no page until 0.8.5), (after V10.7.2) VEL,

@@ -92,7 +92,8 @@ enum {
     /* (V10.7.21) F_INT with its unit (no unit pointer in every descriptor: 4 B each, ~1.6 KB of flash): ct, C, st, and
      * F_REG64 (V10.6d, ANIMAL's SIZE: a register stored 0..127, shown as semitones from 64, 64 - v: smaller is higher,
      * "+0" the key played; params.c param_format). The editor protocol sees F_INT and the unit (desc_fmt, desc_unit) */
-    F_INT_CT, F_INT_C, F_INT_ST, F_REG64
+    F_INT_CT, F_INT_C, F_INT_ST, F_REG64,
+    F_INT_DB                     /* (gainall) F_INT in dB, shown signed ("+6 dB"): EDIT > MORE's GAIN (P_GAIN) */
 };
 
 typedef struct {
@@ -104,7 +105,7 @@ typedef struct {
 static inline uint32_t desc_fmt(const param_desc_t *d) { return d->fmt >= F_INT_CT ? (uint32_t)F_INT : d->fmt; }
 static inline const char *desc_unit(const param_desc_t *d)   /* F_INT_CT .. F_REG64's, else 0 */
 {
-    static const char *const U[] = {"ct", "C", "st", ""};
+    static const char *const U[] = {"ct", "C", "st", "", "dB"};
     return d->fmt >= F_INT_CT ? U[d->fmt - F_INT_CT] : 0;
 }
 
@@ -220,6 +221,13 @@ enum {                          /* per-track parameters */
 #define P_HVEL P_FM1_SUS
 #define P_HTIM P_FM1_LEVEL
 #define P_HGAT P_FM2_SUS
+/* (gainall, the owner: "every synth engine must have GAIN in EDIT, so you don't need distortion just to get more level")
+ * EDIT > MORE KNOB 4, every synth's (MATH FUNC WAVE HIVE; DRUM-W keeps its own, EDIT 8 on COLOR): 0 .. +12 dB, a dB a
+ * step, clean into a soft knee after the part's filter (voice.c part_gain), ramped a block. In HUMAN GATE's slot (folded
+ * into P_HVEL in 0.6.92 and forced 127 by every load since: read by nothing), its stored default now 0, so a store that
+ * left it out at the old 127 loads 0 dB; a stored value past 12 (an older store's 127, HUMAN of 0.6.87 .. 0.6.91) is
+ * 0 dB too (params.c param_fit). FORM's RATE B of before (P_FRB) is the same slot: a FORM part's keeps its 127 */
+#define P_GAIN P_HGAT
 #define P_HRQ P_FM2_LEVEL              /* (0.6.88) SEQ > TIMING's REC Q: how much live recording snaps to the grid, 127 (every
                                          * project before it) 100 %: on it; less: the notes keep that much of where they were */
 /* (JIANT 0.7.8) three more in DIGITAL's last slots; SUS and LEVEL slots hold 127 in every project and preset before them,

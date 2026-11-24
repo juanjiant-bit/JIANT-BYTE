@@ -586,6 +586,38 @@ static __attribute__((noinline)) void track_filter(track_t *t, int32_t *out, uin
     }
 }
 
+/* (gainall, the owner: "GAIN in EDIT, so you don't need distortion just to get more level") a synth part's GAIN (EDIT >
+ * MORE, core.h P_GAIN: 0 .. +12 dB) on its sum after the filter, before its LEVEL, DIST and sends: clean into the soft
+ * knee DRUM-W's GAIN has (eng_drum.c drum_bus: the half scale's 24000; +12 dB on a loud part tops out at the knee's
+ * ceiling, never a hard clip, and the part's limiter, fx.c part_limit, takes it under full scale), ramped across the
+ * block from the last one's (no zipper), IMAGE's
+ * sides with the sum. 0, and the block before 0 too: not run, the part bit for bit as before. A part with GAIN on runs
+ * track_post every block (tf_on 2: voice_limit_apply), so it is here, in the flash */
+static uint8_t pg_db[NTRK];                             /* the GAIN of the block before, dB */
+static const uint16_t PG_Q12[13] = {4096, 4596, 5157, 5786, 6492, 7284, 8173, 9170, 10289, 11544, 12953, 14533, 16306};
+static __attribute__((noinline)) void part_gain(uint32_t ti, const track_t *t, int32_t *out, uint32_t n)
+{
+    dx_core_t *dc = &DXC;                               /* (this core's IMAGE: its sides with the sum) */
+    int32_t d1 = clamp(t->p[P_GAIN], 0, 12), d0 = pg_db[ti], g, dg, k = 4096;
+    uint32_t i, side = dc->xon & 1u;
+    if (!(d0 | d1))
+        return;
+    pg_db[ti] = (uint8_t)d1;
+    g = PG_Q12[d0] << 8;
+    dg = ((PG_Q12[d1] << 8) - g) / (int32_t)(n ? n : 1u);
+    for (i = 0; i < n; i++, g += dg) {
+        int32_t s = ((out[i] >> 3) * (g >> 8)) >> 10, y = soft_knee(s, 24000);   /* (Q12 on the half scale, as drum_bus:
+                                                         * eight loud voices x4 still inside the knee's reach) */
+        out[i] = y << 1;
+        if (side) {
+            if (!(i & 3u))                              /* (the sum's gain, the knee's with it: y within +-41000) */
+                k = s > 256 || s < -256 ? (y << 12) / s * (g >> 8) >> 12 : g >> 8;
+            dc->sl[i] = ((dc->sl[i] >> 2) * k) >> 10;
+            dc->sr[i] = ((dc->sr[i] >> 2) * k) >> 10;
+        }
+    }
+}
+
 /* the FILTER after the voices: ANALOG's and LOFI's COMB here (their own filters are per voice), every other engine's
  * whole filter (track_filter). Its own function: the audio ISR's loop stays as it was */
 static __attribute__((noinline)) void track_post(track_t *t, const engine_t *e, int32_t *out, uint32_t n)
@@ -605,6 +637,8 @@ static __attribute__((noinline)) void track_post(track_t *t, const engine_t *e, 
         fn_pm(ti, out, n);
     if (tf_on[ti] == 2u)                                /* (no SVF ran: the flag voice_block put, again next block) */
         tf_on[ti] = 0;
+    if (ok)
+        part_gain(ti, t, out, n);                       /* (gainall) GAIN, after it all */
 }
 
 static void track_lfo_tick(track_t *t)
@@ -1331,7 +1365,10 @@ static __attribute__((noinline)) int voice_room(track_t *t, int soft)   /* (V10.
 /* Kept outside the RAM render routine: fade out retired slots, then skip their DSP entirely. */
 static __attribute__((noinline)) void voice_limit_apply(track_t *t)
 {
-    uint32_t i;
+    uint32_t i, ti = (uint32_t)(t - trk) % NTRK;
+    if ((t->p[P_GAIN] | pg_db[ti]) && !tf_on[ti])      /* (a kit's: track_post leaves it, part_gain not run) */
+        tf_on[ti] = 2;                                  /* (gainall) GAIN on (or ramping off): track_post this block,
+                                                         * part_gain in it (as FILTER 2's flag, fn_voice) */
     for (i=trk_nvoice(t);i<NVOICE;i++) if (t->v[i].active) {
         t->v[i].sub=0;t->v[i].pn_flags=0;voice_kill(&t->v[i]);
     }

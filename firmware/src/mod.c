@@ -63,6 +63,7 @@ static const uint8_t CLAY_MD[] = {MD_OFF, MD_PITCH, MD_FCUT, MD_SHP, MD_AMP, MD_
                                   MD_CUT, MD_LEVEL, MD_LIFE};   /* (CUTOFF: the part's filter, every engine's; VOICE CUT: a voice's own) */
 #define CLAY_ND ((int32_t)sizeof CLAY_MD)
 static const uint8_t FORM_XDST[MD_N - MD_X1] = {P_CAOS, P_ASWING, P_AORDER, P_AGATE, P_CVOI, P_CSTR, P_FRB, P_KEY};   /* (BYTE 0.17) the modulators' AMOUNT and DECAY */
+#define MD_GAIN (MD_X1 + 6u)     /* (gainall) FORM_XDST's P_FRB: P_GAIN, a synth's GAIN (EDIT > MORE), per block */
 /* (V10.7.34) LIFE (life.c), appended: the sources LIFE (the track's breath: its being's pulse, bipolar) and BEING (its being's
  * height in HOME > LIFE's water, bipolar, up +), the destination LIFE (per block: the track's LIFE, AMT 64 at a full source
  * = 100 %, on top of EDIT > VOICES 3's) */
@@ -661,7 +662,8 @@ BTAPP_FN static int mod_dst_ok(const track_t *t, uint32_t d)
     if (d == MD_CUT) {
     }
     if (d == MD_SHP && e == ENGI_DRUM) return 0;
-    if (d >= MD_X1) return 0;                            /* (FORM's own: retired, DRONE CLAY routes the matrix's) */
+    if (d >= MD_X1) return d == MD_GAIN && e != ENGI_DRUM;   /* (FORM's own: retired, DRONE CLAY routes the matrix's;
+                                                         * gainall: its RATE B's, a synth's GAIN) */
     if (d == MD_PITCH && e == ENGI_DRUM) return 0;
     if (d >= MD_E1 && d < MD_CLIP) {
         const param_desc_t *pd = track_desc(t, P_E0 + (k = d - MD_E1));

@@ -1845,9 +1845,10 @@ static int project_restore_runtime(const project_t *input)
                                * GATE apart keeps the largest of them (not DIGITAL's operator slots, FELUCCA_FM4) */
             int16_t m = t->p[P_HVEL];
             if (t->p[P_HTIM] < m) m = t->p[P_HTIM];
-            if (t->p[P_HGAT] < m) m = t->p[P_HGAT];
+            if (s->p[P_GAIN] > 12 && s->p[P_GAIN] < m) m = s->p[P_GAIN];   /* (gainall: GATE's slot GAIN's, 0 .. 12; more: a
+                                                         * GATE of before, 0 dB: param_fit) */
             t->p[P_HVEL] = m;
-            t->p[P_HTIM] = t->p[P_HGAT] = 127;
+            t->p[P_HTIM] = 127;
         }
         t->preset = (uint8_t)(ENGINES[e]->npresets ? (s->preset >= PROJ_DEF_KEEP ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
         memcpy(t->step, s->step, sizeof t->step);
