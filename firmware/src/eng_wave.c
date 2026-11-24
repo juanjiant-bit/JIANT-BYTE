@@ -668,9 +668,11 @@ static const preset_t WAVE_PRESETS[] = {
     {"PWM STRNG", {9, 80, 0, 0, 0, 0, 0, 0}, {50, 90, 110, 80}, 0, TAG(PAD), FX(0, 60, 20, 60), PAT(5),
      MODS(P_LRATE, 45, MMOD(1, PS_LFO, PD_SHP, 36))},                      /* the width swung */
     {"SUPERSAW", {4, 0, 0, 0, 0, 0, 127, 20}, {20, 90, 110, 70}, 0, TAG(PAD), FX(0, 60, 30, 55), PAT(5),
-     MODS(MENV2(60, 100, 40, 70), MMOD(1, PS_ENV2, PD_SHP, 40))},          /* the saws bloom square, settle */
+     MODS(MENV2(60, 100, 40, 70), MMOD(1, PS_ENV2, PD_SHP, 40), P_MORPH, 7, P_DXIMG, 90)},   /* the saws bloom square,
+                                                         * settle; (waveframes) seven of them, across */
     {"SHIMMER", {14, 40, 3, 20, 0, 0, 30, 0}, {80, 100, 110, 110}, 0, TAG(PAD), FX(0, 50, 60, 100), PAT(5),
-     MODS(MENV2(110, 0, 127, 110), MMOD(1, PS_ENV2, PD_SHP, 50), P_LRATE, 30, MMOD(2, PS_LFO, PD_E(3), 20))},   /* the fold's point */
+     MODS(MENV2(110, 0, 127, 110), MMOD(1, PS_ENV2, PD_SHP, 50), P_LRATE, 30, MMOD(2, PS_LFO, PD_E(3), 20), P_MORPH, 11,
+          P_DXIMG, 80)},                                                    /* the fold's point; (waveframes) octaves */
     {"DARK DRONE", {8, 30, 0, 0, 0, 0, 60, 60}, {100, 100, 127, 110}, 0, TAG(PAD), FX(10, 20, 20, 80), PAT(5),
      MODS(P_FCUT, 60, P_FRES, 40, MLFO(LW_SIN, 4, 0, 16), MMOD(1, PS_LFO, PD_SHP, 30))},   /* the odd partials, slowly */
     {"FM PLUCK", {1, 0, 0, 0, 0, 0, 0, 0}, {0, 85, 0, 60}, 0, TAG(PLUCK), FX(0, 15, 40, 40), PAT(6),
@@ -683,9 +685,22 @@ static const preset_t WAVE_PRESETS[] = {
      MODS(MENV2(0, 80, 0, 60), MMOD(1, PS_ENV2, PD_E(5), -50))},          /* the 5th and 7th die first */
     {"NOISE RISE", {13, 0, 0, 0, 7, 50, 0, 0}, {60, 90, 127, 90}, 0, 1 | TAG(FX), FX(0, 20, 50, 70), PAT(3),
      MODS(MENV2(112, 0, 127, 90), MMOD(1, PS_ENV2, PD_SHP, 63), MMOD(2, PS_ENV2, PD_PITCH, 40))},   /* finer, up */
+    /* (waveframes) the frames' own: SHEPARD round and round a bar (the LFO's saw on POS), the PPG's steps down an
+     * envelope (FRAMES STEP), a wave sequence (FRAMES SEQ: the STEP MOD lane, a frame a sixteenth, glided), seven saws
+     * wide */
+    {"SHEPARD", {4, 64, 8, 10, 0, 0, 30, 0}, {90, 90, 110, 100}, 0, TAG(PAD), FX(0, 40, 30, 70), PAT(5),
+     MODS(MLFO(LW_SAW, -3, 0, 0), P_LD_SHP, 63, P_MORPH, 5, P_DXIMG, 70)},
+    {"PPG STEP", {2, 0, 0, 0, 0, 0, 0, 0}, {0, 80, 40, 50}, 0, TAG(KEYS), FX(0, 20, 35, 40), PAT(6),
+     MODS(MENV2(0, 85, 0, 50), MMOD(1, PS_ENV2, PD_SHP, 63), P_KEY, 2)},
+    {"WAVE SEQ", {1, 0, 0, 0, 0, 0, 12, 0}, {0, 80, 100, 40}, 0, TAG(KEYS), FX(0, 25, 40, 40), PAT(6),
+     MODS(P_KEY, 3, P_MSLEN, 8, P_MSDIV, 2, P_MSSLW, 12, P_MS0, 0, P_MS0 + 1, 90, P_MS0 + 2, 36, P_MS0 + 3, 127,
+          P_MS0 + 4, 18, P_MS0 + 5, 72, P_MS0 + 6, 108, P_MS0 + 7, 54)},
+    {"HYPER SAW", {4, 0, 0, 0, 0, 0, 100, 0}, {10, 90, 110, 70}, 0, TAG(PAD), FX(0, 30, 30, 60), PAT(5),
+     MODS(P_MORPH, 7, P_DXIMG, 127, P_LRTRG, 40)},
 };
 /* browsing: KEYS PLUCK, PAD, LEAD VOX, BASS, BELL, FX, INIT */
-static const uint8_t WAVE_ORDER[] = {1, 20, 21, 2, 13, 14, 15, 16, 17, 18, 19, 7, 3, 22, 4, 8, 9, 10, 11, 12, 6, 23, 5, 24, 0};
+static const uint8_t WAVE_ORDER[] = {1, 20, 21, 26, 27, 2, 13, 14, 15, 16, 17, 18, 19, 25, 28, 7, 3, 22, 4, 8, 9, 10, 11, 12, 6,
+                                    23, 5, 24, 0};
 _Static_assert(sizeof WAVE_ORDER == NELEM(WAVE_PRESETS), "WAVE's browsing order: every preset once");
 
 static void wave_render_x(track_t *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m);
