@@ -242,6 +242,12 @@ enum {                          /* per-track parameters */
 #define P_VLANG P_LRTRG
 #define P_DKEYMODE P_LRTRG        /* DRUM-X only: 0 classic, 1 extended performance octaves. */
 #define P_VLYR P_DXIMG
+/* (hive2) HIVE's third page, TOUCH (eng_hive.c HV_PG3): TOUCH PAIR TIME HOLD, lists, in slots a HIVE part has free (DRUM's
+ * IMAGE, MORPH, MATH's TIME, its RTRG: 0 there, set by its presets), its E1..E8 the eight a matrix moves */
+#define P_HVTCH P_DXIMG
+#define P_HVPAIR P_MORPH
+#define P_HVTIME P_KEY
+#define P_HVHOLD P_LRTRG
 /* (V10.6y, alex.knip) VOICE's CONS (EDIT > WORDS KNOB 3): its consonants' length, 50 .. 400 %, in DRUM-X's lane 2 level
  * slot. 127 there (what every synth part holds) is 100 %, so a project or preset of before sings as it did: the knob's
  * place (vcons_rank, params.c param_turn) is the value + 33, mod 128 (127 at 32: 50 .. 98 % left of it, 103 .. 400 %

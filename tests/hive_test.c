@@ -6,6 +6,10 @@
  *   CROSS           moves the spectrum (the partner's length modulation); PAIR / two keys: the second pair on the second
  *   the rows        the COMB line and the kit row given back clean (the engine changed, the voice ended)
  *   low notes       the strings at 11 kHz / an octave up, bounded; the CPU of a block against WAVE's one voice
+ *   ECHO (hive2)    the strings' own level kept (the echo on top: no wall of its loop through the strings), a repeat
+ *                   at TIME's delay over TIME's range, no runaway at a low FEEDBK
+ *   the new E1..E8  STIFF BODY POS DRIVE each move the spectrum, the level kept; each moved by the matrix's LFO with
+ *                   no zipper (the output's roughest step against the knob still)
  *   HIVE_WAV_DIR=dir writes each preset's render there (5 s: the note 3 s, then let go)
  *   cc -O2 -Ibuild/gen -Ifirmware/src -Itests -o build/host/hive_test tests/hive_test.c -lm && build/host/hive_test */
 #include <stdarg.h>
@@ -40,6 +44,7 @@ static void setup(uint32_t engine, uint32_t preset)
 {
     track_t *t = &trk[0];
     memset(trk, 0, sizeof trk);
+    memset(drum_kit, 0, sizeof drum_kit);                /* (no state from the render before) */
     host_tracks_init();
     host_preset(t, engine, preset);
     t->p[P_DIST] = t->p[P_CHOR] = t->p[P_DLY] = t->p[P_REV] = 0;
@@ -198,7 +203,7 @@ int main(void)
         r0 = rms(ya + FS / 4u, FS);                      /* held: 0.25 .. 1.25 s */
         r1 = rms(ya + 4u * FS, FS);                      /* let go 1 s before */
         ok(finite_all(ya, NS) && pk < 0.99 && r0 > 0.01, "%-15s sounds: rms %.3f, peak %.3f, bounded", p->name, r0, pk);
-        if (p->e[7])
+        if (trk[0].p[P_HVHOLD])
             ok(r1 > 0.3 * r0, "%-15s HOLD: the drone on after the key (rms %.3f of %.3f held)", p->name, r1, r0);
         else
             ok(r1 < 0.5 * r0, "%-15s no HOLD: let go, it fades (rms %.3f of %.3f held)", p->name, r1, r0);
@@ -208,13 +213,13 @@ int main(void)
     {   /* FEEDBK low: a pluck that dies under the held key; high: on by itself (HOLD off, the key held) */
         double e0, e1, s0, s1;
         setup(ENGI_HIVE, 3);                             /* (KOTO) */
-        trk[0].p[P_E0] = 20; trk[0].p[P_E7] = 0;
+        trk[0].p[P_E0] = 20; trk[0].p[P_HVHOLD] = 0;
         play(C3, 1, NS, ya, 3u * FS);
         e0 = rms(ya + FS / 20u, FS / 10u);
         e1 = rms(ya + 2u * FS, FS / 2u);
         ok(e0 > 0.01 && e1 < 0.05 * e0, "FEEDBK 20: a pluck that dies, the key held (rms %.4f -> %.5f)", e0, e1);
         setup(ENGI_HIVE, 3);
-        trk[0].p[P_E0] = 122; trk[0].p[P_E7] = 0;
+        trk[0].p[P_E0] = 122; trk[0].p[P_HVHOLD] = 0;
         play(C3, 1, NS, ya, 3u * FS);
         s0 = rms(ya + FS / 20u, FS / 10u);
         s1 = rms(ya + 2u * FS, FS / 2u);
@@ -239,9 +244,92 @@ int main(void)
         play(C3, 1, NS, ya, 3u * FS);
         setup(ENGI_HIVE, 0);
         play(DYAD, 2, NS, yb, 3u * FS);
-        g1 = goertzel(ya + 2u * FS, FS, 196.0);          /* G3: the second key (55) */
-        g2 = goertzel(yb + 2u * FS, FS, 196.0);
-        ok(g2 > 3.0 * g1, "two keys: the second pair on the second (power at G3 %.2e -> %.2e)", g1, g2);
+        g1 = goertzel(ya + 2u * FS, FS, 196.0) / goertzel(ya + 2u * FS, FS, 130.8);   /* G3 (the second key, 55) over C3 */
+        g2 = goertzel(yb + 2u * FS, FS, 196.0) / goertzel(yb + 2u * FS, FS, 130.8);
+        ok(g2 > 2.0 * g1, "two keys: the second pair on the second (G3 over C3 %.2f -> %.2f)", g1, g2);
+    }
+    {   /* (hive2) ECHO: the strings' level kept, a repeat at the delay, no runaway */
+#define KOTO0() (trk[0].p[P_E3] = trk[0].p[P_E4] = trk[0].p[P_E6] = 0)   /* (the bare strings) */
+        static const uint8_t TM[5] = {1, 4, 6, 8, 12};
+        static const double TD[5] = {0.06, 0.28, 0.65, 0.25, 1.0};   /* (1/8 and 1/2 at 120 BPM) */
+        uint32_t k, bad = 0;
+        double worst = 0, wl = 99;
+        for (k = 0; k < 5u; k++) {                       /* a short pluck (KOTO, FEEDBK 20): before the repeat, the same */
+            double d0, d1, r0, r1, tap;
+            setup(ENGI_HIVE, 3); trk[0].p[P_E0] = 20; trk[0].p[P_E2] = 0; trk[0].p[P_HVTIME] = TM[k]; KOTO0();
+            play(C3, 1, NS, ya, 2u * FS);
+            setup(ENGI_HIVE, 3); trk[0].p[P_E0] = 20; trk[0].p[P_E2] = 127; trk[0].p[P_HVTIME] = TM[k]; KOTO0();
+            play(C3, 1, NS, yb, 2u * FS);
+            d0 = rms(ya, (uint32_t)(TD[k] * 0.9 * FS)); d1 = rms(yb, (uint32_t)(TD[k] * 0.9 * FS));
+            r0 = rms(ya + (uint32_t)(TD[k] * FS), FS * 3u / 100u); r1 = rms(yb + (uint32_t)(TD[k] * FS), FS * 3u / 100u);
+            tap = 20 * log10(sqrt(fmax(r1 * r1 - r0 * r0, 1e-12)) / rms(ya, FS * 3u / 100u));
+            printf("hive: ECHO 127 TIME %-5s: dry %+.2f dB before the repeat, the repeat %.1f dB under the touch\n",
+                   N_HVTIME[TM[k]], 20 * log10(d1 / d0), tap);
+            bad |= fabs(20 * log10(d1 / d0)) > 1.0 || tap < -9.0;
+            if (tap < wl) wl = tap;
+        }
+        ok(!bad, "ECHO 127: the dry pluck within 1 dB before its repeat, the repeat at TIME (60MS .. 1/2) %.1f dB at worst", wl);
+        bad = 0;
+        for (k = 0; k < ENG_HIVE.npresets; k++) {        /* each preset's own: the level with ECHO 127 not under ECHO 0's */
+            double a, b;
+            setup(ENGI_HIVE, k); trk[0].p[P_E2] = 0;
+            play(C3, 1, NS, ya, 3u * FS);
+            setup(ENGI_HIVE, k); trk[0].p[P_E2] = 127;
+            play(C3, 1, NS, yb, 3u * FS);
+            a = rms(ya + FS * 3u / 2u, FS * 3u / 2u); b = rms(yb + FS * 3u / 2u, FS * 3u / 2u);
+            if (20 * log10(b / a) < -1.0) bad++;
+            if (20 * log10(b / a) > worst) worst = 20 * log10(b / a);
+        }
+        ok(!bad && worst < 15.0, "ECHO 0 -> 127 on every preset: never quieter than 1 dB, at most %+.1f dB (no wall)", worst);
+        setup(ENGI_HIVE, 1); trk[0].p[P_E0] = 70; trk[0].p[P_E2] = 127;   /* (BATIDO: was 0.59, the echo's loop saturated) */
+        play(C3, 1, NS, ya, 3u * FS);
+        ok(rms(ya + 2u * FS, FS) < 0.1, "FEEDBK 70 ECHO 127: the repeats die away, no loop through the strings (rms %.3f)",
+           rms(ya + 2u * FS, FS));
+    }
+    {   /* (hive2) STIFF BODY POS DRIVE: the spectrum moved, the level kept; the matrix's LFO on them smooth */
+        static const uint8_t EK[4] = {3, 4, 6, 7}, PR[4] = {3, 3, 3, 0}, EV[4] = {110, 90, 127, 110};
+        static const char *const EN[4] = {"STIFF", "BODY", "POS", "DRIVE"};
+        uint32_t k, b;
+        for (k = 0; k < 4u; k++) {
+            double A[96], Bs[96], dev = 0, lv;
+            setup(ENGI_HIVE, PR[k]); trk[0].p[P_E2] = 0; trk[0].p[P_E0 + EK[k]] = 0;
+            play(C3, 1, NS, ya, 3u * FS);
+            setup(ENGI_HIVE, PR[k]); trk[0].p[P_E2] = 0; trk[0].p[P_E0 + EK[k]] = EV[k];
+            play(C3, 1, NS, yb, 3u * FS);
+            spectrum(ya + FS, 2u * FS, A);
+            spectrum(yb + FS, 2u * FS, Bs);
+            for (b = 0; b < 96u; b++)
+                if (fmax(A[b], Bs[b]) > 1e-5 && fabs(10 * log10((A[b] + 1e-12) / (Bs[b] + 1e-12))) > dev)
+                    dev = fabs(10 * log10((A[b] + 1e-12) / (Bs[b] + 1e-12)));
+            lv = 20 * log10(rms(yb + FS / 4u, 2u * FS) / rms(ya + FS / 4u, 2u * FS));
+            ok(dev > 6.0 && fabs(lv) < 7.0 && peak(yb, 3u * FS) < 0.99, "%-6s %3u: the spectrum moved (a band %.0f dB), the level %+.1f dB",
+               EN[k], EV[k], dev, lv);
+        }
+        for (k = 0; k < 6u; k++) {                       /* the matrix's LFO (fast, deep) on each: its roughest step */
+            static const uint8_t MK[6] = {3, 4, 6, 7, 1, 5};
+            static int32_t blk[CTL];
+            double d2[2];
+            uint32_t r, got, i;
+            for (r = 0; r < 2u; r++) {
+                track_t *t = &trk[0];
+                setup(ENGI_HIVE, 0); t->p[P_E2] = 0; t->p[P_E0 + MK[k]] = 64;
+                if (r) { t->p[P_M1SRC] = PS_LFO; t->p[P_M1DST] = PD_E(MK[k]); t->p[P_M1AMT] = 60; t->p[P_LRATE] = 60; }   /* (~10 Hz, 0 .. 127) */
+                trk_note_on(t, 48, 100);
+                d2[r] = 0;
+                for (got = 0; got < 2u * FS; got += CTL) {
+                    mod_begin(t);
+                    track_render(t, blk, CTL);
+                    mod_end(t);
+                    for (i = 0; i < CTL; i++) ya[got + i] = blk[i] / 32768.0;
+                }
+                for (i = FS / 2u; i < 2u * FS; i++) {   /* (the second difference: a step, a click) */
+                    double d = fabs(ya[i] - 2 * ya[i - 1] + ya[i - 2]);
+                    if (d > d2[r]) d2[r] = d;
+                }
+            }
+            ok(d2[1] < 2.5 * d2[0] + 1e-4, "the matrix's LFO on %-6s: smooth (its roughest step %.4f, still %.4f)",
+               ENG_HIVE.edit[MK[k]].label, d2[1], d2[0]);
+        }
     }
     {   /* low notes: 11 kHz, octaves up where nothing fits; high: bounded */
         static const uint8_t LO[1] = {24}, HI[1] = {96};
@@ -285,7 +373,7 @@ int main(void)
         trk_note_off(&trk[0], 48);
         for (b = 0; b < 50u; b++) track_render(&trk[0], blk, CTL);
         ok(trk[0].v[0].active && trk[0].v[0].gate, "HOLD: the key let go, the drone held (gate on)");
-        trk[0].p[P_E7] = 0;
+        trk[0].p[P_HVHOLD] = 0;
         for (b = 0; b < 2000u; b++) track_render(&trk[0], blk, CTL);
         ok(!trk[0].v[0].active, "HOLD turned OFF with no key down: the drone lets go, ends");
         setup(ENGI_HIVE, 0);                             /* STOP and MUTE let a held drone go, as DRONE's */

@@ -686,7 +686,7 @@ static uint32_t trk_vmode(const track_t *t)
 static inline int trk_drone(const track_t *t) { return t->p[P_VOICE] == V_DRONE && t->engine != ENGI_DRUM; }   /* (DRUM: the one oneshot) */
 /* (BYTE 0.17) HIVE's HOLD: its notes held as DRONE's (trk_note_on / off; out of line: no byte more in the RAM code, which
  * inlines trk_drone; MUTE and STOP let it go in eng_hive.c hive_block) */
-static __attribute__((noinline)) int hv_hold(const track_t *t) { return t->engine == ENGI_HIVE && t->p[P_E7] > 0; }
+static __attribute__((noinline)) int hv_hold(const track_t *t) { return t->engine == ENGI_HIVE && t->p[P_HVHOLD] > 0; }
 
 /* ------------------------------------------------- the shared voice budget --- */
 /* (JIANT 0.6.16) the load budget: while it is set the sound may not grow: a new note takes a voice instead of adding

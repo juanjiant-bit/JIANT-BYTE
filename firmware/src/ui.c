@@ -672,6 +672,8 @@ static int page_visible(uint32_t i)
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)   /* (0.6.10) OPERATOR, OP ENV, OPERATOR 2: FM6's
                                                          * (JIANT BYTE: retired) */
         return 0;
+    if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_HVTCH && PAGES[i].id[1] == P_HVPAIR)   /* (hive2) TOUCH: HIVE's */
+        return te == ENGI_HIVE;
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_WRDEP)   /* (0.7.8) ROTOR: WHEEL's (JIANT BYTE: retired) */
         return 0;
     if (PAGES[i].fam == FAM_EDIT && (PAGES[i].graph == GR_MSEQ || PAGES[i].id[0] == P_MORPH || PAGES[i].id[1] == P_MSDIV))

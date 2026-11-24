@@ -97,6 +97,7 @@ static const param_desc_t TP[P_COUNT];
  * range (ui.c apply_preset_to, tests/hostsim.c) */
 _Static_assert(P_E0 <= 127, "preset_t.mod names a parameter in an int8_t");
 static const param_desc_t *track_desc(const track_t*,uint32_t);
+static const param_desc_t HV_PG3[4];                    /* (hive2: eng_hive.c, HIVE's TOUCH page) */
 static void preset_mods(track_t *t, const preset_t *pr)
 {
     const int8_t *m = pr->mod;
@@ -325,6 +326,8 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
     const engine_t *en = ENGINES[eng_idx(t->eng_req)];   /* (filters2: once) */
     if (id == MOT_DJF)                                /* (0.9.1) a DJ FILTER record (motion.c): the global's */
         return &GP[G_DJF];
+    if (en == &ENG_HIVE && (id == P_HVTCH || id == P_HVPAIR || id == P_HVTIME || id == P_HVHOLD))   /* (hive2) its TOUCH */
+        return &HV_PG3[id == P_HVTCH ? 0 : id == P_HVPAIR ? 1 : id == P_HVTIME ? 2 : 3];
     if (id == P_SIMG && en != &ENG_DRUM)              /* (V10.49) a synth's STEREO IMAGE (codex/coherence:
                                                          * PLAY 2's KNOB 4; EXT: none, its voice is one) */
         return 0 /* (BYTE: never) */ ? &NONE_DESC : &SIMG_DESC;
@@ -983,6 +986,8 @@ static const page_t PAGES[] = {
     {"UNISON", FAM_EDIT, SC_TRACK, GR_NONE, {P_MORPH, P_DXIMG, P_LRTRG, P_E6}},
     {"FRAMES", FAM_EDIT, SC_TRACK, GR_NONE, {P_KEY, P_MSDIV, P_CAOS, 0xFF}},
     {"WSEQ", FAM_EDIT, SC_TRACK, GR_MSEQ, {0xFF, P_MS0, P_MSLEN, P_MSSLW}},
+    {"TOUCH", FAM_EDIT, SC_TRACK, GR_NONE, {P_HVTCH, P_HVPAIR, P_HVTIME, P_HVHOLD}},   /* (hive2) HIVE's third: TOUCH PAIR
+                                                         * TIME HOLD (ui.c page_visible: its alone) */
 };
 #define SPLIT_PAGE(pg) (FELUCCA_SPLIT && (uint32_t)((pg)->graph - GR_SPLIT) < 2u)   /* (V10.7.32: out, core.h) */
 #define STAGE_PAGE(pg) (FELUCCA_ENVX && (pg)->graph == GR_STAGE)   /* (V10.7.32: ENV > STAGE out, core.h) */
