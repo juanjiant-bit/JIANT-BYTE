@@ -318,7 +318,8 @@ static const char *const N_FNMD[] = {"DUST", "BREAK", "METAL", "STEP", "SOFT", 0
 static const char *const N_FRAT[] = {"x4", "x3", "x2.76", "x2", "x1.5", "x1.41", "x1", "x0.5", 0};
 static const char *const N_FDIV[] = {"1/32", "1/16T", "1/16", "1/8", 0};
 static const char *const N_FDST[] = {"PITCH", "P75", "MIX", "F75", "FILT", 0};   /* (filter2-mod) DEST: P75 3/4 on the pitch */
-static const param_desc_t FN_DESC[9] = {{"KEY TRK", F_PCTINV, 0, 127, 127, 0}, {"NOISE", F_PCTINV, 0, 127, 127, 0},
+/* (KEY TRK: -1 NOTE, past 100 %: voice.c kt_note) */
+static const param_desc_t FN_DESC[9] = {{"KEY TRK", F_PCTINV, -1, 127, 127, 0}, {"NOISE", F_PCTINV, 0, 127, 127, 0},
     {"RATE", F_PCTINV, 0, 127, 127, 0}, {"MODE", F_INT, 0, 127, 127, N_FNMD}, {"DRIVE", F_PCTINV, 0, 127, 127, 0},
     {"KEY TRK", F_PCT, 0, 127, 127, 0}, {"RATIO", F_INT, 0, 127, 127, N_FRAT}, {"DIV", F_INT, 0, 127, 127, N_FDIV},
     {"DEST", F_INT, 0, 127, 127, N_FDST}};
@@ -435,7 +436,8 @@ static int32_t param_fit(const param_desc_t *d, int32_t v)
 {
     if (d == &TP[P_GAIN] && v > d->max)                 /* (gainall) an older store's 127 there (HUMAN GATE): 0 dB */
         v = 0;
-    v = clamp(v, d->min, d->max);
+    v = clamp(v, d->min - (d == &TP[P_FKEY]), d->max);   /* (a synth's KEY TRK NOTE: -1, its lane's slot; a kit's
+                                                         * level reads 0 .. 127, eng_drum.c) */
     return v;
 }
 
@@ -562,6 +564,11 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
     }
     if (d == &FKEYA_DESC)                               /* (filters2) ANALOG's KEY: its place */
         v = (int32_t)fkey_rank(v);
+    if (d == &FN_DESC[0] && v < 0) {                    /* KEY TRK NOTE (voice.c kt_note) */
+        str_cpy(val, "NOTE", 6);
+        fmt_named = 1;
+        return;
+    }
     switch (d->fmt) {
     case F_PCT:                                     /* a 0..100 range (SWG) is its value, others a share of 127 */
         fmt_int(val, d->max == 100 || d->max == 120 ? v : (v * 100 + 63) / 127);   /* (0.6.86: DLY FEEDBK 0..120 %, 100 the

@@ -216,6 +216,26 @@ static inline int32_t fn_sin(uint32_t ph)               /* a sine near enough (a
     return q * (32768 - (q < 0 ? -q : q)) >> 13;
 }
 static uint32_t beat_samples(void);                     /* (fx.c) */
+/* (as JIANT FM V10.8.37 / 38) KEY TRK NOTE (P_FKEY stored -1, past 100 %: params.c FN_DESC): 100 % (exact: 299 of the
+ * Q8 cut a semitone, KT_NOTE_KQ) and the cut after all its modulation on the nearest semitone (A4 is cut 13905: SVF_G's
+ * 127 steps 30 Hz .. 16 kHz, an octave 3589), then moved so the resonance's peak sits on it: an LP's peak lies under its
+ * cutoff, an HP's over (f0 sqrt(1 - k^2 / 2): a quarter of a semitone at RES 120, a semitone at 105), the cut moved by
+ * 3589 / 2 x -log2(1 - x), x = k^2 / 2 (three terms of its series); BP rings at f0. Last, half a unit of tsvf_coef_k's
+ * g (Q12, short between the table's points) back. A block's, per voice (fn_voice: MATH's own filter) or the part's
+ * (tf_run, the newest note), out of the sample loops */
+#define KT_NOTE(p) ((p)[P_FKEY] < 0)
+#define KT_NOTE_KQ 4784
+static __attribute__((noinline)) int32_t kt_note(int32_t cut, int32_t res, uint32_t ft)
+{
+    int32_t k = 8192 - clamp(res, 0, 127) * 7600 / 127, x = (k * k) >> 13, x2;
+    cut = 13905 + (((cut - 13905) * 219 + 32768) >> 16) * 3589 / 12;
+    if (x > 2458)
+        x = 2458;                                       /* (little resonance: no peak to place) */
+    x2 = (x * x) >> 12;
+    x = ((x + (x2 >> 1) + ((x2 * x) >> 12) / 3) * 2589) >> 12;
+    cut += ft == FT_LP ? x : ft == FT_HP ? -x : 0;
+    return cut + 2589 / SVF_G[clamp(cut, 0, 127 << 8) >> 8];
+}
 /* a block's FILTER 2 (track_post): the modulator's value, KEY (CUT's Q8 per 1/16 semitone, Q8: 1024 ANALOG's own 4, a
  * fifth of the key; 127 / 27 of it the whole key), LP24's DRIVE */
 static __attribute__((noinline)) void fn_tick(const track_t *t, const engine_t *e, uint32_t ti, uint32_t ok)
@@ -226,7 +246,8 @@ static __attribute__((noinline)) void fn_tick(const track_t *t, const engine_t *
     fnb_t *b = &fnb[ti];
     int32_t d = 0 /* (BYTE, the owner: FILTER 2's NOISE gone, its CPU with it; was fn_inv(P_FNZ)) */, r = fn_inv(t->p, P_FNRT), v, dep;
     uint32_t o = s->ph, m = fn_mode(t->p), z, pw;
-    b->kq = !ok ? 0 : (int32_t)(0 /* (BYTE: never) */ ? fkey_rank(t->p[P_FKEY]) : (uint32_t)fn_inv(t->p, P_FKEY)) * 1024 / 27;
+    b->kq = !ok ? 0 : KT_NOTE(t->p) ? KT_NOTE_KQ : (int32_t)(0 /* (BYTE: never) */ ? fkey_rank(t->p[P_FKEY]) :
+                                                           (uint32_t)fn_inv(t->p, P_FKEY)) * 1024 / 27;
     b->drv = (uint8_t)(0 /* (BYTE: never) */ ? t->p[P_E6] & 127 : ok ? fn_inv(t->p, P_FDRV) : 0);
     b->cut = b->span = b->pit = b->pmd = s->mdep = s->src = 0;
     b->amt = (uint8_t)((d * (d + 127)) >> 8);
@@ -323,16 +344,23 @@ static __attribute__((noinline)) int32_t fn_src(const track_t *t)
 /* a voice's block (voice_block, a synth's): FILTER 2 on its own filter (ANALOG, LOFI): the NOISE's CUT, the KEY (ANALOG's
  * a fifth of it eng_analog.c's, as ever: the rest here), the last block's (track_post) when on; FILTER 2 or DRIVE on and
  * the filter open: track_render calls track_post for them (tf_on 2: track_render, in RAM, as it was) */
-static __attribute__((noinline)) int32_t fn_voice(const track_t *t, int32_t p16, uint32_t ti)
+static __attribute__((noinline)) int32_t fn_voice(const track_t *t, int32_t p16, uint32_t ti, int32_t cut)
 {
     const int16_t *p = t->p;
     const engine_t *e = ENGINES[t->engine];
     if (e == &ENG_DRUM || 0 /* (BYTE: never) */)
-        return 0;
-    if ((p[P_FDRV] & p[P_FKEY]) < 127 && !tf_on[ti])
+        return cut;
+    if (((p[P_FDRV] & p[P_FKEY]) < 127 || KT_NOTE(p)) && !tf_on[ti])
         tf_on[ti] = 2;
-    return 1 /* (BYTE: always) */ && !ENG_IS_MATH(e) ? 0 : 
-           (p[P_FKEY] < 127 ? ((p16 - 60 * 16) * (fnb[ti].kq - (0 /* (BYTE: never) */ ? 1024 : 0))) >> 8 : 0);
+    if (!ENG_IS_MATH(e) || p[P_FKEY] == 127)
+        return cut;
+    cut += ((p16 - 60 * 16) * fnb[ti].kq) >> 8;
+    if (KT_NOTE(p)) {                                   /* (KEY TRK NOTE: MATH's whole cut, eng_lofi.c lofi_render's
+                                                         * CUT and RES, 50 at least) */
+        int32_t b = p[P_FCUT] << 8;
+        cut = kt_note(b + cut, p[P_FRES] > 50 ? p[P_FRES] : 50, ft_voice(p)) - b;
+    }
+    return cut;
 }
 /* (codex/filters2) FILTER's DRIVE on a part (every engine but ANALOG, whose DRIVE drives each voice): its sum into the
  * soft clip before the filter, x1 .. x6 (filter2-mod: was x3) */
@@ -458,7 +486,8 @@ static __attribute__((noinline)) void tf_run(track_t *t, int32_t *out, uint32_t 
             comb_pq[ti] = 0;                            /* (snd1: no glide in, its damping from rest) */
             comb_lp[ti] = 0;
         }
-        track_comb(t, out, n, ccut, cres, ft == FT_COMBN);
+        track_comb(t, out, n, KT_NOTE(p) && FN_OK(t) ? (ccut + 1) & ~1 : ccut, cres, ft == FT_COMBN);   /* (KEY TRK
+                                                         * NOTE: CUT half a semitone a step, on whole ones) */
         tf_cmb[ti] = 1;
         return;
     }
@@ -480,8 +509,11 @@ static __attribute__((noinline)) void tf_run(track_t *t, int32_t *out, uint32_t 
             cut = (127 << 8) - span > 0 ? (127 << 8) - span : 0;
     }
     cut += ((mulq15(t->lfo_val, t->lfo_fade) * p[P_LD_FLT]) >> 7) + ((envq * p[P_ED_FLT]) >> 7) + fnb[ti].cut;
-    if ((kq = fnb[ti].kq) != 0)                         /* (filters2) KEY: the newest note's */
+    if ((kq = fnb[ti].kq) != 0) {                       /* (filters2) KEY: the newest note's */
         cut += ((trk_newest(t, 60 * 16) - 60 * 16) * kq) >> 8;
+        if (KT_NOTE(p))                                 /* (KEY TRK NOTE: on the semitone, the peak on it) */
+            cut = kt_note(cut, cres, ft);
+    }
     if (FT_IS_LP24(ft)) {                               /* (V10.22; filters2: its DRIVE, MS20's number hot) */
         tf_lp24(ti, out, n, cut, cres, fnb[ti].drv);
         return;
@@ -2301,7 +2333,7 @@ static uint32_t voice_block(track_t *t, const engine_t *e, voice_t *v, int32_t *
     m.shape = (64 << 8) + ((c->lfo * p[P_LD_SHP]) >> 7) + ((m.envq15 * p[P_ED_SHP]) >> 7);
     if (MOD.on == 1u)                               /* the modulation matrix (mod.c) */
         mod_voice(t, v, &m, fsum);
-    m.cutoff += fn_voice(t, v->pitch16, c->ti);     /* (filters2) FILTER 2 */
+    m.cutoff = fn_voice(t, v->pitch16, c->ti, m.cutoff);   /* (filters2) FILTER 2's KEY (KEY TRK NOTE: the cut) */
     vo_off_c[MC_CPU() & 1u] = (uint8_t)off;
     {
         static const int8_t VP[8] = {-64, 64, -32, 32, -48, 48, -16, 16};
