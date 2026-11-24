@@ -328,10 +328,18 @@ static void sw_heard(const uint8_t *p, uint32_t n, uint32_t lv, uint32_t ch, uin
     d->ch = (uint8_t)ch;
     d->hit = 1;
 }
+#ifndef FELUCCA_SWARM
+#define FELUCCA_SWARM 0                                 /* (BYTE 0.16) INPUT retired (it plays as MATH): SWARM's synth out, ~4.5 KB of flash */
+#endif
 void bt_air_tap(const uint8_t *p, uint32_t n, uint32_t w, uint32_t ch)   /* the BLE RX interrupt */
 {
+#if FELUCCA_SWARM                                       /* (BYTE, flash: SWARM out, no voice hears the devices; the
+                                                         * segment still calls here) */
     if (n >= 8u)
         sw_heard(p, n, (w & 63u) + (w >> 8 & 63u), ch, fm1_ticks());
+#else
+    (void)p; (void)n; (void)w; (void)ch;
+#endif
 }
 /* (V10.6z6) a block's values of every voice, for ain_swarm's samples (sw_prep: once a block, built for size) */
 struct sw_blk {
@@ -517,9 +525,6 @@ static __attribute__((noinline)) void ain_swarm(uint32_t n)
     }
     sm.nr = nr;
 }
-#ifndef FELUCCA_SWARM
-#define FELUCCA_SWARM 0                                 /* (BYTE 0.16) INPUT retired (it plays as MATH): SWARM's synth out, ~4.5 KB of flash */
-#endif
 #if FELUCCA_SWARM
 static void (*const volatile AIN_SWARM)(uint32_t) = ain_swarm;   /* (mod.c macro_master: RAM code) */
 #endif
