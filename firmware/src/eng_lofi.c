@@ -346,7 +346,7 @@ static void xm_env(fvm_env_t *e, const fvm_prog_t *p)   /* O1 .. O6, when the fo
 #define LOFI_N 64u                                   /* a render's samples at most (CTL); the FVM runs FVM_BLK at once */
 _Static_assert(CTL <= LOFI_N, "MATH: a render longer than its arrays");
 /* the formula over m samples (the variables' arrays m long), FVM_BLK at a time */
-static void lofi_run(const fvm_prog_t *pg, fvm_env_t *en, lofi_work_t *wk, uint32_t m, uint32_t *out)
+static __attribute__((noinline)) void lofi_run(const fvm_prog_t *pg, fvm_env_t *en, lofi_work_t *wk, uint32_t m, uint32_t *out)
 {
     uint32_t o, k;
     const uint32_t *a0[FA_N];
@@ -695,7 +695,34 @@ static inline int func_free(const track_t*t){return func_on(t)&&t->p[P_E0]==6;}
  * place); stopped, NOTE from the key, FREE its own */
 #define func_bar(t) (song.playing&&!func_free(t))
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
-static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:t->p[P_E7]==3?MATH_FUNC_GROWL:t->p[P_E7]==4?MATH_FUNC_HALF:t->p[P_E7]>=5&&t->p[P_E7]<(int)FUNC_NFORM?MATH_FUNC_R[t->p[P_E7]-5]:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
+static const char *func_form_text(int32_t f){return f==1?MATH_FUNC_DEFAULT:f==2?MATH_FUNC_BEAT:f==3?MATH_FUNC_GROWL:f==4?MATH_FUNC_HALF:f>=5&&f<(int)FUNC_NFORM?MATH_FUNC_R[f-5]:0;}
+static const char *math_func_text(const track_t*t,const char*custom){const char*s=func_form_text(t->p[P_E7]);return s?s:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
+/* (funcplay, the owner: "FUNC to play, not to listen to") FUNC played live (funcplay.c): its SECTION (GROOVE as written,
+ * INTRO BUILD DROP BREAK: at the next bar line), a FILL held (ROLL STUTTER REVERSE DOUBLE: from the next 1/16 to the 1/16
+ * after the key is let go), the mutations (NOTES RHYTHM SWAP FREEZE), the parts muted (bit 0 the drums, 1 the notes,
+ * 2 layer B), the root's degree; what the panel and the render read. The keys (seq.c key_on), the recorded loop and GEN
+ * (func_gen_set) write it; the pool's (zeroed: GROOVE, nothing held) */
+enum { FS_GROOVE, FS_INTRO, FS_BUILD, FS_DROP, FS_BREAK };
+enum { FF_ROLL = 1, FF_STUT, FF_REV, FF_DBL };
+enum { FM_NOTES = 1, FM_RHYTHM = 2, FM_SWAP = 4, FM_FREEZE = 8 };
+typedef struct {
+    uint8_t sec, sreq, dreq, fill, fkey, lfill, mut, mute;   /* (sreq dreq: + 1, 0 none; these and semi gden: live) */
+    int8_t semi, gden, dsemi, cut;      /* the root's semitones, GEN's density, the semitones asked, the block's CUT move */
+    uint8_t deg, rsv[3];
+    uint32_t qbar, sbar, fs, fe, frz, rph, lastP, rp;   /* bars, Q16 beats: the asked's line, the section's first, the fill's
+                                         * start and end (0 open), the bar frozen; the riser's phase; the last P; the loop's step */
+} fp_t;
+static fp_t fp_st[NTRK] __attribute__((section(".pool")));
+static int16_t fp_kp[NTRK][2] __attribute__((section(".pool")));   /* LAYERS' PARTS (0 BOTH, 1 A DRUMS B NOTES, 2 B DRUMS
+                                                         * A NOTES) and KEYS (0 ON): the knobs' own, the project's 'F' 'P' */
+#define FP_RN 64u                                       /* the recorded loop: four bars of 1/16, a byte each (fill 0..4, an
+                                                         * event << 3: funcplay.c fp_ev) */
+static uint8_t fp_rec[NTRK][FP_RN] __attribute__((section(".pool")));
+typedef struct { fvm_prog_t p; uint8_t tr, form; } fpb_t;   /* layer B's program: two parts at once (the pool's room) */
+static fpb_t fp_b[2] __attribute__((section(".pool")));
+static fvm_ins_t fp_bins[2][FVM_MAXINS] __attribute__((section(".pool")));
+static void func_run(track_t*t,voice_t*v,const fvm_prog_t*pa,fvm_env_t*en,uint32_t n,uint32_t*Y,uint32_t*W,uint32_t*P);
+static int func_live(const track_t*t);
 static uint32_t math_music_cost(const track_t*t){
     if(t->p[P_E1]!=RW_FUNC)return 2u;
     const fvm_prog_t*p=lofi_slot((uint32_t)(t-trk)%NTRK);uint32_t cost=2;
@@ -740,7 +767,8 @@ static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32
     for(uint32_t i=0;i<n;i++){T[i]=q+(i<<sh);W[i]=ph>>16;S[i]=sv;sv+=ss;sr+=srm;if(sr>=sd){sr-=sd;sv++;}ph+=inc;P[i]=pos&0x7fffffffu;pos+=step;carry+=rem;while(carry>=den){carry-=den;pos++;}}
     if(pt_ops&PT_BEAT_OPS)pt_beat_blk(P,n,func_bar(t)); /* (BYTE punchfx) the white punch-ins on FUNC's time: its P (a
                                                          * LOOP's only on the song's: FREE, stopped, its own clock) */
-    lofi_run(p,&en,&lofi_work[MC_CPU()&1u],n,Y);
+    if(func_live(t))func_run(t,v,p,&en,n,Y,W,P);       /* (funcplay) its sections, fills, groove, layer B */
+    else lofi_run(p,&en,&lofi_work[MC_CPU()&1u],n,Y);
     int32_t y1=v->s[4],y2=v->s[5],kd=8192-(t->p[P_FRES]>50?t->p[P_FRES]:50)*7600/127;
     for(uint32_t i=0;i<n;i++){int32_t sample=fvm_sample(FT_FIX,Y[i]);out[i]+=voice_amp(soft_knee(svf_mode(flt,sample>>1,&y1,&y2,ft_voice(t->p),kd),16000)<<1,m,i);}
     v->s[2]=(int32_t)(q+(n<<sh));v->ph[0]=ph;v->s[4]=y1;v->s[5]=y2;
@@ -785,9 +813,40 @@ static const char *const FUNC_TIPS[FUNC_NFORM][4]={
 #undef FUNC_SEED
 static uint32_t func_form(const track_t*t){return t->p[P_E7]>=1&&t->p[P_E7]<(int)FUNC_NFORM?(uint32_t)t->p[P_E7]:0u;}
 
-/* its line of help: one of FUNC_KNOBS's, else 0 (knob_hint's own table) */
+/* (funcplay) GROOVE (every recipe's: on its time and its calls, funcplay.c) and LAYERS: their knobs (core.h P_FDEN ..),
+ * PARTS and KEYS views of fp_kp (params.c ID_FP0) */
+static const char *const N_FUNC_FB[]={"OFF","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK",
+    "NIBBLE","BITS","DRUMS","SCREECH","DUB","AMEN","TRANCE","AMBIENT","MINIMAL","JUNGLE"};
+_Static_assert(NELEM(N_FUNC_FB)==FUNC_NFORM,"FUNC: FORM B's names");
+static const char *const N_FPARTS[]={"BOTH","DR A","DR B",0},*const N_FKEYS[]={"ON","OFF",0};
+static const param_desc_t FUNC_PX[8]={{"DENSITY",F_BIPCT,-64,63,0,0},{"SWING",F_PCT,0,127,0,0},{"COMPLEX",F_PCTINV,0,127,127,0},
+    {"RANGE",F_BIPCT,-64,63,0,0},{"FORM B",F_ENUM,0,FUNC_NFORM-1u,0,N_FUNC_FB},{"BLEND",F_PCT,0,127,64,0},
+    {"PARTS",F_ENUM,0,2,0,N_FPARTS},{"KEYS",F_ENUM,0,1,0,N_FKEYS}};
+static const char *const FUNC_PXT[8]={"THIN .. FILL HITS","ODD 1/16S LATER","STRAIGHT..BROKEN","NOTES 8VA DOWN..UP",
+    "A SECOND RECIPE","A .. A+B .. B","DRUMS FROM A OR B","SECTIONS, FILLS"};
+static const uint8_t FUNC_PID[6]={P_FDEN,P_FSWG,P_FCPX,P_FRNG,P_FFB,P_FBLD};
+static const param_desc_t *func_pdesc(uint32_t id)    /* (params.c track_desc: a FUNC part's) */
+{
+    uint32_t k;
+    for(k=0;k<6u;k++)if(FUNC_PID[k]==id)return &FUNC_PX[k];
+    return 0;
+}
+static const param_desc_t *func_view(uint32_t k,int16_t**valp)   /* (params.c page_desc: LAYERS' PARTS, KEYS) */
+{
+    *valp=&fp_kp[song.sel%NTRK][k&1u];
+    return &FUNC_PX[6u+(k&1u)];
+}
+/* a FUNC part as written: GROOVE and LAYERS at their middles (apply_preset_to, project.c, math_poll) */
+static void func_neutral(track_t*t)
+{
+    uint32_t k;
+    for(k=0;k<6u;k++)t->p[FUNC_PID[k]]=FUNC_PX[k].def;
+    fp_kp[(uint32_t)(t-trk)%NTRK][0]=fp_kp[(uint32_t)(t-trk)%NTRK][1]=0;
+}
+/* its line of help: one of FUNC_KNOBS's (FUNC_PX's), else 0 (knob_hint's own table) */
 static const char *func_knob_tip(const param_desc_t*d){
-    uintptr_t o=(uintptr_t)d-(uintptr_t)&FUNC_KNOBS[0][0];
+    uintptr_t o=(uintptr_t)d-(uintptr_t)&FUNC_KNOBS[0][0],q=(uintptr_t)d-(uintptr_t)FUNC_PX;
+    if(q<sizeof FUNC_PX)return FUNC_PXT[q/sizeof(param_desc_t)];
     return o<sizeof FUNC_KNOBS?FUNC_TIPS[o/sizeof FUNC_KNOBS[0]][o%sizeof FUNC_KNOBS[0]/sizeof(param_desc_t)]:0;
 }
 /* (BYTE 0.17) FUNC's EDIT k: RUN ROOT FORM its own, A B C D by FORM (WAVE 0: edit[], FUNC alone) */
@@ -846,6 +905,10 @@ static void lofi_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
     vmod_t mg = *m;                                     /* (0.9.11) the engine's level: on the block's amplitude ramp */
     mg.amp0 = mulq15(m->amp0, LOFI_GAIN);
     mg.amp1 = mulq15(m->amp1, LOFI_GAIN);
+    if (p[P_E1] == RW_FUNC) {                           /* (funcplay) the root's degree, the section's CUT */
+        mg.pitch16 += fp_st[tr % NTRK].semi * 16;
+        mg.cutoff += fp_st[tr % NTRK].cut * 256;
+    }
     inc = pitch_inc(clamp(mg.pitch16, 0, 2047));       /* (the track's LFO in m->pitch16 already) */
     tsvf_coef(&flt, (p[P_FCUT] << 8) + mg.cutoff + pt_cw, rs);   /* (JIANT 0.5: the FILTER page's CUT; punchfx: WOBBLE's) */
     if(p[P_E1]==RW_FUNC)lofi_func_render(t,v,destination,n,&mg,inc,&flt);

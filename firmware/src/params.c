@@ -82,7 +82,8 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
                                      "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
                                      "CLIP", "PNCH",   /* (JIANT: the master, FX > MASTER) */
                                      "D.TIM", "D.FB", "D.TON", "D.MIX", "R.SIZ", "R.DMP", "C.RAT", "C.DEP", "F.CUT", "LEVEL", "LIFE",
-                                     "M1 AMT", "M1 DEC", "M2 AMT", "M2 DEC", "M3 AMT", "M3 DEC", "GAIN", "M4 DEC"};   /* (BYTE 0.17: FORM's modulators, mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
+                                     "M1 AMT", "M1 DEC", "M2 AMT", "M2 DEC", "M3 AMT", "M3 DEC", "GAIN", "M4 DEC",
+                                     "DENS", "SWING", "CMPLX", "RANGE"};   /* (funcplay) FUNC's GROOVE */   /* (BYTE 0.17: FORM's modulators, mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
 static const char *const N_ENGNAME[] = {"ANALOG", "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
@@ -348,6 +349,8 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
         return id == P_FKEY && 0 /* (BYTE: never) */ ? &FKEYA_DESC : m == 2u ? &FN_DESC[6] : m == 1u ? &FN_DESC[7] :
                &FN_DESC[id - P_FKEY];
     }
+    if (en == &ENG_FUNC && func_pdesc(id))            /* (funcplay) FUNC's GROOVE and LAYERS (core.h P_FDEN ..) */
+        return func_pdesc(id);
     if (id >= P_E0 && id <= P_E7) {                   /* the engine asked for (t->engine follows after a fade) */
         const engine_t *e = en;
         const param_desc_t *d = e->desc ? e->desc(t, id - P_E0) : 0;   /* a mode-dependent label / names */
@@ -767,6 +770,7 @@ static int16_t dnz_v[NTRK] __attribute__((section(".bss.tape")));
  * was (bit for bit); towards 100 a part's dry goes down by its CHORUS send and the ensemble closes to its first voice
  * alone, in the middle: MIX 100 and the send whole, a vibrato. Kept with the project ('C' 'M', project.c; absent: 0) */
 #define ID_CMIX (ID_EQ0 + 4u)
+#define ID_FP0 0xE5u                                    /* (funcplay) FUNC's LAYERS: PARTS, KEYS (eng_lofi.c func_view) */
 static const param_desc_t CMIX_DESC __attribute__((section(".rodata.tape"))) = PD("MIX", F_PCT, 0, 100, 0);
 static int16_t cho_mix __attribute__((section(".bss.tape")));
 static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CRUSH (0..127: DIST's DRIVE, shown 0..100 %) */
@@ -1004,6 +1008,10 @@ static const page_t PAGES[] = {
     {"WSEQ", FAM_EDIT, SC_TRACK, GR_MSEQ, {0xFF, P_MS0, P_MSLEN, P_MSSLW}},
     {"TOUCH", FAM_EDIT, SC_TRACK, GR_NONE, {P_HVTCH, P_HVPAIR, P_HVTIME, P_HVHOLD}},   /* (hive2) HIVE's third: TOUCH PAIR
                                                          * TIME HOLD (ui.c page_visible: its alone) */
+    /* (funcplay) FUNC's GROOVE (every recipe's DENSITY SWING COMPLEX RANGE) and LAYERS (a second recipe: FORM B, BLEND,
+     * PARTS, the keys'), its alone (ui.c page_visible) */
+    {"GROOVE", FAM_EDIT, SC_TRACK, GR_NONE, {P_FDEN, P_FSWG, P_FCPX, P_FRNG}},
+    {"LAYERS", FAM_EDIT, SC_TRACK, GR_NONE, {P_FFB, P_FBLD, ID_FP0, ID_FP0 + 1u}},
 };
 #define SPLIT_PAGE(pg) (FELUCCA_SPLIT && (uint32_t)((pg)->graph - GR_SPLIT) < 2u)   /* (V10.7.32: out, core.h) */
 #define STAGE_PAGE(pg) (FELUCCA_ENVX && (pg)->graph == GR_STAGE)   /* (V10.7.32: ENV > STAGE out, core.h) */
@@ -1099,6 +1107,8 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return eu_desc(id - ID_EU0, valp);
     if (id >= ID_SC0 && id < ID_SC0 + 4u)            /* (V10.25) SCENE's */
         return sc_desc(id - ID_SC0, valp);
+    if (id - ID_FP0 < 2u)                                /* (funcplay) LAYERS' PARTS and KEYS (eng_lofi.c fp_kp) */
+        return func_view(id - ID_FP0, valp);
     if (id >= ID_CL0 && id <= ID_CL0 + CL_KEYS)          /* (BYTE) DRONE CLAY's (clay.c clay_page_desc) */
         return clay_page_desc(TSEL, id - ID_CL0, valp);
     *valp = &TSEL->p[id];

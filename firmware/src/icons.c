@@ -193,7 +193,7 @@ static uint32_t mod_dst_icon(const track_t *t, int32_t d)
     if (d < MD_E1)
         return I[d];
     if (d >= MD_X1)                                     /* (FORM 2) FORM's own */
-        return param_icon(track_desc(t, FORM_XDST[d - MD_X1]), t->p[FORM_XDST[d - MD_X1]]);
+        return param_icon(track_desc(t, mod_param((uint32_t)d)), t->p[mod_param((uint32_t)d)]);
     if (d >= MD_CLIP)                                   /* (the master's CLIP / PNCH) */
         return d == MD_CLIP ? ICON_DIST : ICON_LEVEL;
     id = P_E0 + (uint32_t)(d - MD_E1);

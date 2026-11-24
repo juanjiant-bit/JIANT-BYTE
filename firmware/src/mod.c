@@ -55,14 +55,16 @@ static uint32_t ms_clock;        /* (JIANT) samples since PLAY on the transport'
                                   * 0): MS_STEP's place */
 enum { MD_OFF, MD_PITCH, MD_CUT, MD_SHP, MD_AMP, MD_PAN, MD_DIST, MD_CHO, MD_DLY, MD_REV, MD_RATE, MD_VIB, MD_E1,
        MD_CLIP = MD_E1 + 8, MD_PNCH, MD_DTIME, MD_DFDBK, MD_DCOL, MD_DMIX, MD_RSIZE, MD_RDAMP, MD_CRATE, MD_CDEPTH, MD_MASTER_END,
-       MD_FCUT = MD_MASTER_END, MD_LEVEL, MD_LIFE, MD_X1, MD_N = MD_X1 + 8 };
+       MD_FCUT = MD_MASTER_END, MD_LEVEL, MD_LIFE, MD_X1, MD_FX1 = MD_X1 + 8, MD_N = MD_FX1 + 4 };
 /* (FORM 2) MD_X1..: FORM's own beyond its eight (a FORM part's only, per block): every one of its pages' values */
 /* (BYTE) DRONE CLAY's DEST knob -> the matrix's destination: every per-voice and per-track one but the master's */
 static const uint8_t CLAY_MD[] = {MD_OFF, MD_PITCH, MD_FCUT, MD_SHP, MD_AMP, MD_PAN, MD_DIST, MD_CHO, MD_DLY, MD_REV, MD_RATE,
                                   MD_VIB, MD_E1, MD_E1 + 1, MD_E1 + 2, MD_E1 + 3, MD_E1 + 4, MD_E1 + 5, MD_E1 + 6, MD_E1 + 7,
                                   MD_CUT, MD_LEVEL, MD_LIFE};   /* (CUTOFF: the part's filter, every engine's; VOICE CUT: a voice's own) */
 #define CLAY_ND ((int32_t)sizeof CLAY_MD)
-static const uint8_t FORM_XDST[MD_N - MD_X1] = {P_CAOS, P_ASWING, P_AORDER, P_AGATE, P_CVOI, P_CSTR, P_FRB, P_KEY};   /* (BYTE 0.17) the modulators' AMOUNT and DECAY */
+/* (funcplay) MD_FX1..: a FUNC part's GROOVE (core.h P_FDEN ..), appended */
+static const uint8_t FUNC_XDST[MD_N - MD_FX1] = {P_FDEN, P_FSWG, P_FCPX, P_FRNG};
+static const uint8_t FORM_XDST[MD_FX1 - MD_X1] = {P_CAOS, P_ASWING, P_AORDER, P_AGATE, P_CVOI, P_CSTR, P_FRB, P_KEY};   /* (BYTE 0.17) the modulators' AMOUNT and DECAY */
 #define MD_GAIN (MD_X1 + 6u)     /* (gainall) FORM_XDST's P_FRB: P_GAIN, a synth's GAIN (EDIT > MORE), per block */
 /* (V10.7.34) LIFE (life.c), appended: the sources LIFE (the track's breath: its being's pulse, bipolar) and BEING (its being's
  * height in HOME > LIFE's water, bipolar, up +), the destination LIFE (per block: the track's LIFE, AMT 64 at a full source
@@ -190,7 +192,7 @@ static uint32_t mod_param(uint32_t d)
                                       [MD_REV] = P_REV, [MD_RATE] = P_LRATE, [MD_VIB] = P_LD_PIT};
     if (d == MD_FCUT) return P_FCUT;
     if (d == MD_LEVEL) return P_LEVEL;
-    if (d >= MD_X1) return FORM_XDST[d - MD_X1];
+    if (d >= MD_X1) return d >= MD_FX1 ? FUNC_XDST[d - MD_FX1] : FORM_XDST[d - MD_X1];
     return d >= MD_E1 ? P_E0 + d - MD_E1 : ID[d];
 }
 
@@ -496,6 +498,8 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
                 continue;
             }
             pd = mod_track_desc(t, id);
+            if (d == MD_FX1 + 2u)                       /* (funcplay) COMPLEX, stored the other way round */
+                x = -x;
             for (j = 0; j < mp->nk && mp->kid[j] != id; j++)
                 ;
             if (j == mp->nk) {
@@ -662,6 +666,7 @@ BTAPP_FN static int mod_dst_ok(const track_t *t, uint32_t d)
     if (d == MD_CUT) {
     }
     if (d == MD_SHP && e == ENGI_DRUM) return 0;
+    if (d >= MD_FX1) return e == ENGI_FUNC;              /* (funcplay) FUNC's GROOVE */
     if (d >= MD_X1) return d == MD_GAIN && e != ENGI_DRUM;   /* (FORM's own: retired, DRONE CLAY routes the matrix's;
                                                          * gainall: its RATE B's, a synth's GAIN) */
     if (d == MD_PITCH && e == ENGI_DRUM) return 0;
@@ -684,7 +689,7 @@ BTAPP_FN static int mod_dst_offer_bt(const track_t *t, uint32_t d)
  * packages retain the generic selector; never call an unmatched segment. */
 static int mod_dst_offer(const track_t *t, uint32_t d)
 {
-    return bt_hw_seg() ? mod_dst_offer_bt(t, d) : d < MD_X1;
+    return bt_hw_seg() ? mod_dst_offer_bt(t, d) : d < MD_X1 || (d >= MD_FX1 && d < MD_N && eng_idx(t->eng_req) == ENGI_FUNC);
 }
 
 /* Bounded, clamped navigation. An old unavailable route survives until edited. */
@@ -715,7 +720,7 @@ BTAPP_FN static const char *mod_dst_name_bt(const track_t *t, int32_t v)
     v = clamp(v, 0, MD_N - 1);
     if (!mod_dst_ok(t, (uint32_t)v)) return "N/A";
     if (v >= MD_E1 && v < MD_CLIP) return track_desc(t, P_E0 + (uint32_t)v - MD_E1)->label;
-    if (v >= MD_X1) return track_desc(t, FORM_XDST[v - MD_X1])->label;
+    if (v >= MD_X1) return track_desc(t, mod_param((uint32_t)v))->label;
     if (v == MD_CUT) {
         static const uint8_t CUT_ID[NENGINES] = {P_E4, P_FCUT, P_E2, P_FCUT, P_FCUT, P_E0, P_FCUT, P_FCUT,
                                                 P_FCUT, P_FCUT, P_FCUT, P_E2, P_E2, P_FCUT, P_FCUT, P_FCUT, P_FCUT, P_E5, P_FCUT};   /* (HIVE: BRIGHT; FUNC: the filter's) */

@@ -34,6 +34,12 @@ static __attribute__((noinline)) void fvm_func_run(const fvm_prog_t *p,const fvm
     }
 }
 
+/* (funcplay) eu() through DENSITY: thinned (its hits taken away) or filled (steps added), by a hash of the step */
+static __attribute__((noinline)) uint32_t fu_eu(const fu_cx_t*c,uint32_t s,uint32_t seed)
+{
+    int32_t h=(int32_t)(fvm_hash(s*0x85EBCA77u^seed^c->seed)&127u);
+    return c->dens<0?(h<-2*c->dens?0u:fvm_eu(s,seed)):h<2*c->dens?1u:fvm_eu(s,seed);
+}
 /* (BYTE 0.16, the owner: "MATH in FUNC is what costs most") a FUNC with no state of its own (no state, ph, lp, hp: every
  * sample its own, none depending on the one before) runs as the block machine does: each instruction over the block's
  * samples at once, not the whole program a sample (its decoding once a block, not 32 times). Its locals in the scratch's
@@ -58,6 +64,7 @@ static __attribute__((noinline)) int fvm_func_block(const fvm_prog_t *p,const fv
         L=sc->s[sp-1];
         if(FO_ISBIN(op)){                              /* (the commonest inline, the rest the shared operations: the
                                                          * flash's room) */
+            if(op==FO_EU&&e->fx&&e->fx->dens){for(i=0;i<n;i++)L[i]=fu_eu(e->fx,L[i],R?R[i]:b);continue;}   /* (funcplay) */
             if(R){                                     /* (no copy of a constant: the stack's bytes are counted) */
                 if(op==FO_ADD)for(i=0;i<n;i++)L[i]+=R[i];
                 else if(op==FO_SUB)for(i=0;i<n;i++)L[i]-=R[i];
@@ -76,7 +83,8 @@ static __attribute__((noinline)) int fvm_func_block(const fvm_prog_t *p,const fv
             continue;}
         switch(op){
         case FO_MUSIC:{const uint32_t*Z=0,*Y=0;if(in->k<2u){Z=sc->s[--sp];Y=sc->s[--sp];}L=sc->s[sp-1];
-            for(i=0;i<n;i++)L[i]=fvm_music(in->k,L[i],Y?Y[i]:0u,Z?Z[i]:0u,e,i);break;}
+            for(i=0;i<n;i++){uint32_t x=L[i],y=Y?Y[i]:0u;   /* (funcplay: FUNC's groove on its calls, fu_music) */
+                L[i]=e->fx&&fu_music(in->k,&x,&y,e,i)?0u:fvm_music(in->k,x,y,Z?Z[i]:0u,e,i);}break;}
         case FO_SEL:{const uint32_t*Y=sc->s[--sp],*X=sc->s[--sp];L=sc->s[sp-1];for(i=0;i<n;i++)L[i]=L[i]?X[i]:Y[i];break;}
         case FO_TAB:{const uint8_t*tb=p->pool+(in->k>>8);uint32_t len=in->k&255u;for(i=0;i<n;i++)L[i]=tb[L[i]%len];break;}
         default:break;

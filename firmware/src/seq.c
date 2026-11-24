@@ -3424,3 +3424,4 @@ static void events_block(uint32_t n)
 
 #include "song_play.c"                           /* the song: the ISR's part (song_chain.c) */
 #include "clay.c"                                 /* (BYTE) DRONE CLAY: FORM's composer, a track's sequencer */
+#include "funcplay.c"                             /* (funcplay) FUNC played live: its keys, its loop, layer B */

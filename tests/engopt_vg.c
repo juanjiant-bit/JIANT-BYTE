@@ -70,7 +70,7 @@ static void eo_notes(uint32_t k, uint32_t nn)
 
 /* the scenarios: name, setup */
 typedef struct { char name[32]; uint32_t kind, a, b, c; } scen_t;
-enum { SK_GEN, SK_WAVE, SK_DRUM, SK_MATH, SK_CLAY, SK_WAVEPLAY, SK_FXWALK, SK_HIVE, SK_WAVEBASS, SK_WAVELFO };
+enum { SK_GEN, SK_WAVE, SK_DRUM, SK_MATH, SK_CLAY, SK_WAVEPLAY, SK_FXWALK, SK_HIVE, SK_WAVEBASS, SK_WAVELFO, SK_FUNC };
 static uint32_t eo_walk;
 static scen_t SC[128];
 static uint32_t nsc;
@@ -118,6 +118,12 @@ static void build_list(void)
     add("math/FLOAT", SK_MATH, RW_FLOAT, 4, 0);
     add("math/FUNC", SK_MATH, RW_FUNC, 4, 0);
     add("math/USER", SK_MATH, RW_USER, 4, 0);
+    add("func/AMEN", SK_FUNC, 15, 0, 0);             /* (funcplay) FORM 16 as written; live (GROOVE knobs, BUILD, a ROLL); */
+    add("func/AMEN.live", SK_FUNC, 15, 1, 0);        /* with ACID as layer B (BLEND 50 %), and both */
+    add("func/AMEN+ACID", SK_FUNC, 15, 0, 5);
+    add("func/AMEN+ACID.live", SK_FUNC, 15, 1, 5);
+    add("func/SONG", SK_FUNC, 0, 0, 0);
+    add("func/SONG+TRANCE.live", SK_FUNC, 0, 1, 17);
     add("fx/walk", SK_FXWALK, 0, 0, 0);
     add("fx/walk.lofi", SK_FXWALK, 1, 0, 0);
     add("clay/WAVE", SK_CLAY, ENGI_WAVE, (uint32_t)-1, 0);
@@ -222,6 +228,18 @@ static void setup(const scen_t *s)
         eo_walk = 1u + s->a;
         eo_blocks = 6144u;
         transport_req = 1; ui_input();
+        break;
+    case SK_FUNC:                                   /* (funcplay) the transport playing it */
+        eo_quiet();
+        eo_part(0, ENGI_FUNC, s->a);
+        if (s->b) {
+            trk[0].p[P_FDEN] = 30; trk[0].p[P_FSWG] = 60; trk[0].p[P_FCPX] = 60; trk[0].p[P_FRNG] = 30;
+            fp_st[0].sec = FS_BUILD; fp_st[0].fkey = FF_ROLL; fp_st[0].mut = FM_RHYTHM;
+        }
+        trk[0].p[P_FFB] = (int16_t)s->c;
+        math_poll(); frame();
+        transport_req = 1; ui_input();
+        eo_blocks = 2048u;
         break;
     case SK_CLAY:
         ui_power_on(); song.sel = 0; select_engine(s->a); frame();

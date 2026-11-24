@@ -5,7 +5,8 @@
  * PNGs). Commands: ms N (run N ms), shot PATH, sel T, play, stop, keys MASK (bit k: key k, F3..G5), btn MASK (panel.c
  * B_*), enc ROLE N, oct O, nav SECTION PAGE (ui_lens.c nav_put), clay T (DRONE CLAY on, its first sound), chord T V,
  * eng T E P (track T engine E, its preset P),
- * voice T V, gen GENRE SEED ENERGY FORM (web_gen), info, genres */
+ * voice T V, gen GENRE SEED ENERGY FORM (web_gen), info, genres, fp T EV (funcplay.c func_apply: a FUNC part's section,
+ * mutation, mute, root), fpfill T F (its fill held), fpp T K V (FUNC_PID[K], GROOVE and LAYERS, to V) */
 #include "felucca_web.c"
 static void run_ms(uint32_t ms){ while(ms--){ web_ms(); ring_r = ring_w; } }
 static void shot(const char *path){
@@ -42,6 +43,9 @@ int main(void){
         else if(!strcmp(cmd,"eng")) { int t,e,pr; sscanf(a,"%d %d %d",&t,&e,&pr); set_engine_of(&trk[t],(uint32_t)e); apply_preset_to(&trk[t],(uint32_t)pr); math_poll(); ui.force=1; }
         else if(!strcmp(cmd,"chord")) { int t,v; sscanf(a,"%d %d",&t,&v); trk[t].p[P_CHRD]=(int16_t)v; }
         else if(!strcmp(cmd,"voice")) { int t,v; sscanf(a,"%d %d",&t,&v); trk[t].p[P_VOICE]=(int16_t)v; }
+        else if(!strcmp(cmd,"fp")) { int t,e; sscanf(a,"%d %d",&t,&e); func_apply((uint32_t)t,(uint32_t)e); }
+        else if(!strcmp(cmd,"fpfill")) { int t,f; sscanf(a,"%d %d",&t,&f); fp_st[t].fkey=(uint8_t)f; }
+        else if(!strcmp(cmd,"fpp")) { int t,k,v; sscanf(a,"%d %d %d",&t,&k,&v); trk[t].p[FUNC_PID[k%6]]=(int16_t)v; math_poll(); }
         else if(!strcmp(cmd,"genres")) { for(unsigned g=0;g<NGENRE;g++) fprintf(stderr,"%u %s\n",g+1,GENRE[g].name); }
         else fprintf(stderr,"? %s\n",cmd);
     }

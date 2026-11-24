@@ -7,6 +7,9 @@
 #define UI_TEST_NO_MAIN 1
 #include "ui_test.c"
 #include <assert.h>
+#include <sys/mman.h>
+#include <sys/wait.h>
+#include <unistd.h>
 static project_t a, b;
 static project_store_t stored;
 static void wav(const char *path, const int16_t *x, uint32_t n)
@@ -28,7 +31,7 @@ static void setup(uint32_t preset)
     for (uint32_t j = 0; j < 20; j++) mix_block(o, CTL);
 }
 /* the mix of the transport playing for ms: its peak and RMS (and its samples into pcm, when asked) */
-static int16_t pcm[FS * 9u * 2u];
+static int16_t pcm[FS * 9u * 2u], dpcm[FS * 24u * 2u];
 static void play(uint32_t ms, int32_t *peak, double *rms, int keep)
 {
     int32_t o[CTL * 2];
@@ -48,6 +51,366 @@ static void play(uint32_t ms, int32_t *peak, double *rms, int keep)
     *rms = sqrt(e / (n * CTL * 2.0));
     transport_req = 2;
     for (uint32_t j = 0; j < FS / 4u / CTL; j++) mix_block(o, CTL);
+}
+
+/* ---- (funcplay) FUNC played live: its sections, fills, groove, layers, the keys' loop */
+#define FPN (FS * 12u)
+static int16_t *fa, *fbuf;
+static uint32_t fpb[FPN / CTL + 4u];                   /* each block's P (Q16 beats) at its start */
+typedef void (*fp_cb_t)(uint32_t blk);
+static uint32_t fp_beat_blk(double beat)               /* the block whose P range holds beat */
+{
+    uint32_t j;
+    for (j = 1; j < FPN / CTL; j++) if (fpb[j] > (uint32_t)(beat * 65536.0)) return j - 1u;
+    return 0;
+}
+static void fp_setup(uint32_t form)
+{
+    setup(form - 1u);
+    TSEL->p[P_DLY] = TSEL->p[P_REV] = TSEL->p[P_CHOR] = 0;
+    memset(fp_st, 0, sizeof fp_st); memset(fp_rec, 0, sizeof fp_rec);
+    song.g[G_BPM] = 120;
+    {   /* (the same start each time: the buses' tails out, the generators' seeds) */
+        int32_t x[CTL * 2]; uint32_t j;
+        for (j = 0; j < FS * 2u / CTL; j++) mix_block(x, CTL);
+        rng_state = 0x1234567u; clay_rng = 1u; dx_mot_rng = 0x9E3779B9u; mod_seed = 0x2545F491u;
+        ap_rng = 0x2545F491u; pfx_seed = 0x9E3779B9u; mns_clk = 0; lev_env = 0; lev_g = lev_cur = 32768; lev_dg = 0;
+        memset(TSEL->v, 0, sizeof TSEL->v); TSEL->lfo_ph = 0; TSEL->lfo_val = TSEL->lfo_fade = 0; fx_trip(0, CTL); memset(&fx, 0, sizeof fx);
+        tf_ic1[0] = tf_ic2[0] = 0; memset(fns, 0, sizeof fns); memset(fnb, 0, sizeof fnb); drift_clk[0] = 0; pl_g[0] = 0; dist_w[0] = 0; memset(l24_s, 0, sizeof l24_s); memset(ms_s, 0, sizeof ms_s); memset(dist_nlp, 0, sizeof dist_nlp);
+    }
+}
+/* the transport playing ms from its start, the left channel into o, a call before each block */
+static void fp_play(uint32_t ms, int16_t *o, fp_cb_t cb)
+{
+    int32_t x[CTL * 2];
+    uint32_t n = FS / 1000u * ms / CTL, j, i;
+    transport_req = 1;
+    for (j = 0; j < n && (j + 1u) * CTL <= FPN; j++) {
+        if (cb) cb(j);
+        mix_block(x, CTL);
+        fpb[j] = func_clock_begin;
+        for (i = 0; i < CTL; i++) o[j * CTL + i] = (int16_t)clamp(x[2u * i], -32768, 32767);
+    }
+    fpb[j] = func_clock_end;
+    transport_req = 2;
+    for (j = 0; j < FS / 4u / CTL; j++) mix_block(x, CTL);
+}
+/* (each run from the same state: a child process plays it, the parent's state untouched; its output, its blocks' P
+ * and its FUNC state after, shared) */
+static struct { uint32_t fpb[FPN / CTL + 4u]; fp_t st; } *fp_sh;
+static void fp_run(uint32_t ms, int16_t *o, fp_cb_t cb)
+{
+    int st = 0;
+    pid_t pid;
+    fflush(stdout);
+    pid = fork();
+    if (!pid) { fp_play(ms, o, cb); memcpy(fp_sh->fpb, fpb, sizeof fpb); fp_sh->st = fp_st[0]; _exit(0); }
+    waitpid(pid, &st, 0);
+    assert(WIFEXITED(st) && !WEXITSTATUS(st));
+    memcpy(fpb, fp_sh->fpb, sizeof fpb);
+}
+static uint32_t fp_first_diff(const int16_t *a, const int16_t *b, uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < n && a[i] == b[i]; i++) {}
+    return i;
+}
+static double fp_rms(const int16_t *a, uint32_t from, uint32_t to)
+{
+    double e = 0; uint32_t i;
+    for (i = from; i < to; i++) e += (double)a[i] * a[i];
+    return sqrt(e / (to > from ? to - from : 1u));
+}
+static uint32_t fp_at_blk, fp_ev, fp_key, fp_up_blk;
+static void fp_cb_ev(uint32_t j) { if (j == fp_at_blk) func_apply(0, fp_ev); }
+static void fp_cb_key(uint32_t j)                      /* a key down at fp_at_blk, up at fp_up_blk: the keyboard's way */
+{
+    if (j == fp_at_blk) fm1_in.notes = 1u << fp_key;
+    if (j == fp_up_blk) fm1_in.notes = 0;
+}
+static void funcplay_checks(int argc, char **argv)
+{
+    uint32_t j, d, k, f;
+    fa = mmap(0, FPN * 4u + sizeof *fp_sh, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    assert(fa != MAP_FAILED);
+    fbuf = fa + FPN; fp_sh = (void *)(fbuf + FPN);
+    /* 1 as written at the middles (old projects, presets): its render the old path; the live path at the middles the
+     * same samples, bit for bit (a GROOVE asked: func_run runs, nothing moves) */
+    for (f = 1; f < FUNC_NFORM; f++) {
+        fp_setup(f);
+        for (k = 0; k < 6u; k++) assert(TSEL->p[FUNC_PID[k]] == FUNC_PX[k].def);
+        assert(!func_live(TSEL));
+        fp_run(3000, fa, 0);
+        fp_at_blk = 0; fp_ev = 1;                           /* (GROOVE asked at the start: the live path all along) */
+        fp_run(3000, fbuf, fp_cb_ev);
+        d = fp_first_diff(fa, fbuf, FS * 3u);
+        if (d < FS * 3u - CTL) fprintf(stderr, "FORM %u: the live path differs at %u (%d %d)\n", f, d, fa[d], fbuf[d]);
+        assert(d >= FS * 3u - CTL);
+    }
+    puts("funcplay: every FORM at the middles: the old render, and the live path bit for bit PASS");
+    /* 2 a section lands on the bar line: INTRO asked in bar 2 changes nothing before bar 3's first sample */
+    for (f = 1; f < FUNC_NFORM; f += 3u) {
+        uint32_t b8;
+        fp_setup(f); fp_run(8000, fa, 0);
+        fp_at_blk = fp_beat_blk(5.3); fp_ev = 2;            /* (INTRO) */
+        fp_run(8000, fbuf, fp_cb_ev);
+        b8 = fp_beat_blk(8.0);
+        d = fp_first_diff(fa, fbuf, FS * 8u);
+        printf("FORM %2u INTRO asked at beat 5.3: first change at block %u (bar 3 in block %u)\n", f, d / CTL, b8);
+        assert(d / CTL >= b8 && d / CTL <= b8 + 1u && d < FS * 8u && fp_sh->st.sec == FS_INTRO);
+        fp_run(8000, fa, fp_cb_ev);                         /* (the same again: deterministic) */
+        assert(fp_first_diff(fa, fbuf, FS * 8u) == FS * 8u);
+    }
+    /* INTRO and BREAK: the drums gone (AMEN, all drums: near silence), BUILD denser, DROP denser */
+    {
+        double r[5];
+        static const uint8_t EV[5] = {1, 2, 3, 4, 5};
+        for (k = 0; k < 5u; k++) {
+            if (!k) fp_setup(16);
+            fp_at_blk = 0; fp_ev = EV[k];
+            fp_run(6000, fa, fp_cb_ev);
+            r[k] = fp_rms(fa, FS * 2u + FS / 10u, FS * 6u);
+        }
+        printf("AMEN by section: GROOVE %.0f INTRO %.0f BUILD %.0f DROP %.0f BREAK %.0f\n", r[0], r[1], r[2], r[3], r[4]);
+        assert(r[1] < r[0] * 0.05 && r[4] < r[0] * 0.05 && r[3] > r[0] && r[2] > r[1]);
+    }
+    puts("funcplay: sections on the bar line, deterministic; INTRO / BREAK no drums, BUILD and DROP denser PASS");
+    /* 3 a fill held through the keys (white 6: ROLL): from the next 1/16, and back as written after the 1/16 past the
+     * key-up (the formula's time; the filter's memory a little longer) */
+    {
+        uint32_t s0, e0;
+        fp_setup(16); fp_run(6000, fa, 0);
+        fp_key = 9; fp_at_blk = fp_beat_blk(4.1); fp_up_blk = fp_beat_blk(5.6);
+        fp_run(6000, fbuf, fp_cb_key);
+        s0 = fp_first_diff(fa, fbuf, FS * 6u) / CTL;
+        assert(s0 >= fp_beat_blk(4.25) && s0 < fp_beat_blk(5.75));
+        printf("ROLL: from beat %.4f to %.4f\n", fp_sh->st.fs / 65536.0, fp_sh->st.fe / 65536.0);
+        assert(fp_sh->st.fs == 0x44000u && fp_sh->st.fe == 0x5C000u);      /* (pressed at 4.1, up at 5.6: 4.25 .. 5.75) */
+        for (e0 = FS * 6u - 1u; e0 > 0 && fa[e0] == fbuf[e0]; e0--) {}
+        printf("ROLL held 4.1 .. 5.6: changed blocks %u .. %u (the 1/16s at 4.25: %u, 5.75: %u)\n", s0, e0 / CTL,
+               fp_beat_blk(4.25), fp_beat_blk(5.75));
+        assert(fp_sh->st.fill == 0 && !fp_sh->st.fkey);
+        {   /* after 5.75 + a beat: within a hair of as written */
+            uint32_t a0 = (fp_beat_blk(6.75) + 1u) * CTL, i; int32_t mx = 0;
+            for (i = a0; i < FS * 6u; i++) { int32_t q = fa[i] - fbuf[i]; if (q < 0) q = -q; if (q > mx) mx = q; }
+            printf("  after the release: the largest difference %d\n", mx);
+            assert(mx < 64);
+        }
+        /* each fill on the formula's time: grid-locked from its start, its time back after its end */
+        for (k = FF_ROLL; k <= FF_DBL; k++) {
+            fp_t ff; fp_q_t q;
+            memset(&ff, 0, sizeof ff); memset(&q, 0, sizeof q); q.ck = q.rc = ~0u;
+            ff.fill = (uint8_t)k; ff.fs = 0x40000u + 0x4000u; ff.fe = ff.fs + 0x10000u;
+            assert(func_tp(&ff, &q, ff.fs - 1u) == ff.fs - 1u && func_tp(&ff, &q, ff.fe) == ff.fe && func_tp(&ff, &q, ff.fe + 777u) == ff.fe + 777u);
+            assert(func_tp(&ff, &q, ff.fs) == ff.fs);
+            assert(func_tp(&ff, &q, ff.fs + 0xB000u) != ff.fs + 0xB000u);
+        }
+    }
+    puts("funcplay: a fill held on the keys: from the next 1/16, released at the 1/16 after, as written again PASS");
+    /* 4 the groove: SWING's odd 1/16 later, COMPLEX broken by its share, DENSITY thins / fills, RANGE octaves */
+    {
+        fp_t ff; fp_q_t q; uint32_t r, late = 0, moved, sw[3];
+        memset(&ff, 0, sizeof ff);
+        memset(&q, 0, sizeof q); q.ck = q.rc = ~0u; q.S = 6000u; q.r1 = (0x4000u << 16) / (0x4000u + q.S); q.r2 = (0x4000u << 16) / (0x4000u - q.S);
+        for (r = 0; r < 0x10000u && func_tp(&ff, &q, r) < 0x4000u; r++) {}
+        late = r;
+        assert(late >= 0x4000u + 5990u && late <= 0x4000u + 6010u && func_tp(&ff, &q, 0x8000u) == 0x8000u && func_tp(&ff, &q, 0) == 0);
+        for (k = 0; k <= 127u; k += 127u) {
+            memset(&q, 0, sizeof q); q.ck = q.rc = ~0u; q.cpx = k; q.seed = 99u;
+            for (moved = 0, r = 0; r < 64u; r++) moved += func_tp(&ff, &q, r << 14 | 0x100u) >> 14 != r;
+            sw[k ? 1 : 0] = moved;
+        }
+        memset(&q, 0, sizeof q); q.ck = q.rc = ~0u; q.cpx = 64u; q.seed = 99u;
+        for (moved = 0, r = 0; r < 64u; r++) moved += func_tp(&ff, &q, r << 14 | 0x100u) >> 14 != r;
+        sw[2] = moved;
+        printf("SWING 100%%: step 2 at %.4f beat; COMPLEX 0 / 50 / 100 %%: %u %u %u of 64 steps moved\n", late / 65536.0, sw[0], sw[2], sw[1]);
+        assert(sw[0] == 0 && sw[2] > 16u && sw[2] < 48u && sw[1] >= 60u);
+        {   /* DENSITY: AMEN's hits away at -64, fewer at -32, more at +32 (its energy); ACID's eu() steps */
+            double r0, rm, rl, rp, a0, am;
+            fp_setup(16); fp_run(4000, fa, 0); r0 = fp_rms(fa, FS / 2u, FS * 4u);
+            TSEL->p[P_FDEN] = -64; fp_run(4000, fa, 0); rm = fp_rms(fa, FS / 2u, FS * 4u);
+            TSEL->p[P_FDEN] = -32; fp_run(4000, fa, 0); rl = fp_rms(fa, FS / 2u, FS * 4u);
+            TSEL->p[P_FDEN] = 40; fp_run(4000, fa, 0); rp = fp_rms(fa, FS / 2u, FS * 4u);
+            fp_setup(5); fp_run(4000, fa, 0); a0 = fp_rms(fa, FS / 2u, FS * 4u);
+            TSEL->p[P_FDEN] = -64; fp_run(4000, fa, 0); am = fp_rms(fa, FS / 2u, FS * 4u);
+            printf("DENSITY AMEN -64 %.0f -32 %.0f 0 %.0f +40 %.0f; ACID 0 %.0f -64 %.0f\n", rm, rl, r0, rp, a0, am);
+            assert(rm < r0 * 0.02 && rl < r0 && rp > r0 && am < a0 * 0.8);
+        }
+        {   /* RANGE: every note an octave up at +64, down at -64; the calls' pitch (fu_music) */
+            fu_cx_t c = {0, 64, 0, 0, 5u};
+            uint32_t P = 0x12345u, T0 = 0, x, y, i, up = 0;
+            const uint32_t *ar[FA_N] = {0};
+            fvm_env_t e = {{0}, {0}, 0, &c};
+            ar[FA_BEAT] = &P; ar[FA_T] = &T0;
+            memcpy(e.arr, ar, sizeof ar);
+            for (i = 0; i < 16u; i++) { x = 60; y = 0x1000u; P = i << 14 | 0x1000u; assert(!fu_music(0, &x, &y, &e, 0)); up += x == 72u; }
+            c.range = -64;
+            for (i = 0; i < 16u; i++) { x = 60; y = 0x1000u; P = i << 14 | 0x1000u; assert(!fu_music(0, &x, &y, &e, 0)); assert(x == 48u); }
+            c.range = 0; c.mask = 1;
+            x = 0x1000u; y = 0; assert(fu_music(2, &x, &y, &e, 0) && !fu_music(0, &x, &y, &e, 0));
+            assert(up == 16u);
+        }
+        {   /* SWING, COMPLEX, RANGE heard: the pattern moves (and back as written at their middles: part 1) */
+            fp_setup(1); fp_run(3000, fa, 0);
+            TSEL->p[P_FSWG] = 100; fp_run(3000, fbuf, 0); assert(fp_first_diff(fa, fbuf, FS * 3u) < FS * 3u); TSEL->p[P_FSWG] = 0;
+            TSEL->p[P_FCPX] = 20; fp_run(3000, fbuf, 0); assert(fp_first_diff(fa, fbuf, FS * 3u) < FS * 3u); TSEL->p[P_FCPX] = 127;
+            TSEL->p[P_FRNG] = 50; fp_run(3000, fbuf, 0); assert(fp_first_diff(fa, fbuf, FS * 3u) < FS * 3u); TSEL->p[P_FRNG] = 0;
+        }
+    }
+    puts("funcplay: SWING the odd 1/16s later, COMPLEX its share broken, DENSITY thins and fills, RANGE octaves PASS");
+    /* 5 layers: B at BLEND 0 nothing (bit for bit), at 127 B alone (as A playing it), in the middle both */
+    {
+        double ra, rb, rab;
+        fp_setup(16); fp_run(4000, fa, 0); ra = fp_rms(fa, FS / 2u, FS * 4u);
+        TSEL->p[P_FFB] = 5; TSEL->p[P_FBLD] = 0; math_poll(); assert(fp_b[0].tr == 1u && fp_b[0].form == 5u);
+        fp_run(4000, fbuf, 0); assert(fp_first_diff(fa, fbuf, FS * 4u) == FS * 4u);
+        TSEL->p[P_FBLD] = 127; fp_run(4000, fbuf, 0);
+        TSEL->p[P_FFB] = 0; math_poll(); TSEL->p[P_E7] = 5; for (k = 0; k < 4u; k++) TSEL->p[P_E2 + k] = FUNC_PRESETS[4].e[2u + k];
+        math_poll(); fp_run(4000, fa, 0); rb = fp_rms(fa, FS / 2u, FS * 4u);
+        {
+            int32_t mx = 0, q; uint32_t i;
+            for (i = 0; i < FS * 4u; i++) { q = fa[i] - fbuf[i]; if (q < 0) q = -q; if (q > mx) mx = q; }
+            printf("AMEN + ACID: BLEND 127 against ACID alone: the largest difference %d\n", mx);
+            assert(mx < 16);
+        }
+        fp_setup(16); TSEL->p[P_FFB] = 5; TSEL->p[P_FBLD] = 64; math_poll(); fp_run(4000, fbuf, 0);
+        rab = fp_rms(fbuf, FS / 2u, FS * 4u);
+        printf("AMEN %.0f ACID %.0f AMEN+ACID (BLEND 50 %%) %.0f\n", ra, rb, rab);
+        assert(rab > ra * 0.6 && rab > rb * 0.6);
+        /* PARTS: AMEN (all drums) with TRANCE (all notes): DR A both heard, DR B (AMEN's drums and TRANCE's notes
+         * away) silence */
+        {
+            double p1, p2;
+            fp_setup(16); TSEL->p[P_FFB] = 17; fp_kp[0][0] = 1; math_poll(); fp_run(2000, fbuf, 0); p1 = fp_rms(fbuf, FS / 2u, FS * 2u);
+            fp_kp[0][0] = 2; fp_run(2000, fbuf, 0); p2 = fp_rms(fbuf, FS / 2u, FS * 2u);
+            printf("PARTS AMEN + TRANCE: DR A %.0f, DR B %.0f\n", p1, p2);
+            assert(p1 > 800.0 && p2 < p1 * 0.05);
+            fp_kp[0][0] = 0;
+        }
+        /* a third part with B: no slot (two at once), its A alone */
+        for (k = 1; k < 3u; k++) { set_engine_of(&trk[k], ENGI_FUNC); trk[k].eng_req = ENGI_FUNC; trk[k].p[P_FFB] = 3; }
+        math_poll();
+        assert(fp_b[0].tr == 1u && fp_b[1].tr == 2u);
+        trk[1].p[P_FFB] = 0; math_poll(); assert(fp_b[1].tr == 3u);
+    }
+    puts("funcplay: layer B blends (0 nothing, 127 B alone, between both), PARTS by layer, two slots PASS");
+    /* 6 the keys' loop: REC armed, the transport playing, the events into the loop; saved, loaded, played back */
+    {
+        project_t *pa = &a, *pb2 = &b;
+        fp_setup(1);
+        song.rec = 1u;
+        fp_at_blk = fp_beat_blk(1.0) ? fp_beat_blk(1.0) : 20u; fp_ev = 0;
+        {   /* white 3 (BUILD) at ~beat 1, black 4 (FREEZE) at ~beat 9; white 6 (ROLL) held 6.1 .. 6.6 */
+            int32_t x[CTL * 2]; uint32_t n = FS * 6u / CTL;
+            transport_req = 1;
+            for (j = 0; j < n; j++) {
+                uint32_t P = func_clock_end;
+                fm1_in.notes = P >= 0x10000u && P < 0x12000u ? 1u << 4 : P >= 0x61000u && P < 0x69000u ? 1u << 9 : P >= 0x90000u && P < 0x92000u ? 1u << 8 : 0u;
+                mix_block(x, CTL);
+            }
+            fm1_in.notes = 0;
+            transport_req = 2;
+            for (j = 0; j < 40u; j++) mix_block(x, CTL);
+        }
+        song.rec = 0;
+        for (d = 0, k = 0; k < FP_RN; k++) d += fp_rec[0][k] != 0;
+        printf("the loop: %u steps written (BUILD at step 3, ROLL held 25 .. 26, FREEZE at 35)\n", d);
+        assert(d == 4u);
+        assert(fp_rec[0][3] >> 3 == 3u && fp_rec[0][35] >> 3 == 16u);   /* (on the 1/16 playing as the key went down) */
+        for (k = 25; k < 26u; k++) assert((fp_rec[0][k] & 7u) == FF_ROLL);
+        assert(fp_st[0].sec == FS_BUILD && (fp_st[0].mut & FM_FREEZE));
+        project_capture(pa);
+        assert(pa->fpx[0] & 128u);
+        assert(proj_pack(&stored, pa) && proj_import(pb2, stored.raw, sizeof stored.raw) && !memcmp(pb2->frec[0], fp_rec[0], FP_RN));
+        memset(fp_rec, 0, sizeof fp_rec);
+        assert(!project_restore_runtime(pb2) && !memcmp(fp_rec[0], pa->frec[0], FP_RN) && fp_st[0].sec == FS_GROOVE);
+        math_poll(); frame();
+        {   /* played back: BUILD at bar 2's line, FREEZE at beat 9 */
+            int32_t x[CTL * 2]; uint32_t n = FS * 6u / CTL, built = 0, froze = 0, rolled = 0;
+            transport_req = 1;
+            for (j = 0; j < n; j++) {
+                mix_block(x, CTL);
+                if (!built && fp_st[0].sec == FS_BUILD) built = func_clock_end;
+                if (!froze && (fp_st[0].mut & FM_FREEZE)) froze = func_clock_end;
+                if (fp_st[0].fill == FF_ROLL) rolled = 1;
+            }
+            transport_req = 2;
+            for (j = 0; j < 40u; j++) mix_block(x, CTL);
+            printf("played back: BUILD from beat %.3f, FREEZE from %.3f, ROLL %u\n", built / 65536.0, froze / 65536.0, rolled);
+            assert(built >= 0x40000u && built < 0x41000u && froze >= 0x8C000u && froze < 0x94000u && rolled);
+        }
+        /* cleared with the track's steps (CLEAR TRACK's) */
+        memset(fp_rec[0], 0, FP_RN);
+        /* a project of before: no 'F' 'P' block, its FUNC part as written whatever its slots held */
+        project_capture(pa); pa->fpx[0] = 0; pa->t[0].p[P_FFB] = 3; pa->t[0].p[P_FSWG] = 90;
+        assert(proj_pack(&stored, pa) && proj_import(pb2, stored.raw, sizeof stored.raw) && !pb2->fpx[0]);
+        assert(!project_restore_runtime(pb2) && TSEL->p[P_FFB] == 0 && TSEL->p[P_FSWG] == 0 && !func_live(TSEL));
+    }
+    puts("funcplay: the keys' loop recorded, saved in the project, loaded and played back; an old project as written PASS");
+    /* 7 the keys: the selected FUNC part's alone, PLAY KEYS ON, running; OFF (or stopped) they are notes again */
+    {
+        int32_t x[CTL * 2];
+        fp_setup(1);
+        transport_req = 1; for (j = 0; j < 20u; j++) mix_block(x, CTL);
+        fm1_in.notes = 1u << 7; mix_block(x, CTL); fm1_in.notes = 0; mix_block(x, CTL);   /* (white 5: BREAK) */
+        assert(fp_st[0].sreq == 5u || fp_st[0].sec == FS_BREAK);
+        fp_kp[0][1] = 1; memset(fp_st, 0, sizeof fp_st);
+        fm1_in.notes = 1u << 7; mix_block(x, CTL); fm1_in.notes = 0; mix_block(x, CTL);
+        assert(!fp_st[0].sreq && fp_st[0].sec == FS_GROOVE);
+        fp_kp[0][1] = 0;
+        transport_req = 2; for (j = 0; j < 40u; j++) mix_block(x, CTL);
+        fm1_in.notes = 1u << 7; mix_block(x, CTL); fm1_in.notes = 0; mix_block(x, CTL);   /* (stopped: a note) */
+        assert(!fp_st[0].sreq);
+        func_gen_set(0, FS_DROP, 20); assert(fp_st[0].sreq == FS_DROP + 1u && fp_st[0].gden == 20);
+    }
+    puts("funcplay: the keys the selected FUNC part's (KEYS ON, playing), notes otherwise; GEN's hook PASS");
+    /* 8 its pages: RECIPE KNOBS GROOVE LAYERS, FUNC's alone; the names, their help */
+    {
+        fp_setup(1);
+        assert(nav_put(SEC_EDIT, "GROOVE") && !strcmp(nav_page_name(), "GROOVE")); frame();
+        assert(nav_put(SEC_EDIT, "LAYERS") && !strcmp(nav_page_name(), "LAYERS")); frame();
+        for (k = 0; k < 8u; k++) { int16_t *vp; const param_desc_t *dd = page_desc(cur_page(), k & 3u, &vp); (void)dd; }
+        for (k = 0; k < 8u; k++) assert(strlen(FUNC_PX[k].label) + 2u + strlen(FUNC_PXT[k]) <= 26u && func_knob_tip(&FUNC_PX[k]));
+        for (k = 0; k < 6u; k++) assert(track_desc(TSEL, FUNC_PID[k]) == &FUNC_PX[k]);
+        for (k = MD_FX1; k < MD_N; k++) assert(mod_dst_ok(TSEL, k) && mod_param(k) == FUNC_XDST[k - MD_FX1]);
+        select_engine(ENGI_LOFI); frame();
+        assert(!nav_put(SEC_EDIT, "GROOVE") && !mod_dst_ok(TSEL, MD_FX1));
+    }
+    puts("funcplay: GROOVE and LAYERS FUNC's own pages, named, a line of help each; the matrix's DENSITY .. BLEND PASS");
+    if (argc > 1) {                                     /* the demos: INTRO -> BUILD -> DROP with a ROLL; DENSITY, SWING
+                                                         * swept; AMEN + ACID */
+        char path[300];
+        int32_t x[CTL * 2]; uint32_t n, i, at;
+        /* HOUSE: INTRO two bars, BUILD four (asked in bar 2: from bar 3), a ROLL held over its last two beats, DROP four */
+        fp_setup(7); fp_st[0].sec = FS_INTRO;
+        n = FS * 20u / CTL; at = 0; transport_req = 1;
+        for (j = 0; j < n; j++) {
+            uint32_t P = func_clock_end;
+            if (P >= 0x70000u && !fp_st[0].sreq && fp_st[0].sec == FS_INTRO) func_apply(0, 3);
+            if (P >= 0x170000u && P < 0x178000u && fp_st[0].sec == FS_BUILD && !fp_st[0].sreq) func_apply(0, 4);
+            fp_st[0].fkey = P >= 0x160000u && P < 0x17C000u ? FF_ROLL : 0;
+            mix_block(x, CTL);
+            for (i = 0; i < CTL; i++) if (at < NELEM(dpcm) / 2u) { dpcm[2u * at] = (int16_t)clamp(x[2u * i], -32768, 32767); dpcm[2u * at + 1u] = (int16_t)clamp(x[2u * i + 1u], -32768, 32767); at++; }
+        }
+        transport_req = 2; for (j = 0; j < 40u; j++) mix_block(x, CTL);
+        snprintf(path, sizeof path, "%s/funcplay_house_intro_build_drop_roll.wav", argv[1]); wav(path, dpcm, at); printf("wrote %s\n", path);
+        for (k = 0; k < 2u; k++) {                      /* DENSITY -64 .. +64, SWING 0 .. 100 %, over 16 s */
+            fp_setup(k ? 1 : 16);
+            n = FS * 16u / CTL; at = 0; transport_req = 1;
+            for (j = 0; j < n; j++) {
+                if (k) TSEL->p[P_FSWG] = (int16_t)(j * 127u / n);
+                else TSEL->p[P_FDEN] = (int16_t)((int32_t)(j * 128u / n) - 64);
+                mix_block(x, CTL);
+                for (i = 0; i < CTL; i++) if (at < NELEM(dpcm) / 2u) { dpcm[2u * at] = (int16_t)clamp(x[2u * i], -32768, 32767); dpcm[2u * at + 1u] = (int16_t)clamp(x[2u * i + 1u], -32768, 32767); at++; }
+            }
+            transport_req = 2; for (j = 0; j < 40u; j++) mix_block(x, CTL);
+            snprintf(path, sizeof path, "%s/funcplay_%s.wav", argv[1], k ? "song_swing_sweep" : "amen_density_sweep");
+            wav(path, dpcm, at); printf("wrote %s\n", path);
+        }
+        fp_setup(16); TSEL->p[P_FFB] = 5; TSEL->p[P_FBLD] = 64; math_poll();
+        { int32_t pk; double r; play(8000, &pk, &r, 1); }
+        snprintf(path, sizeof path, "%s/funcplay_amen_acid_layers.wav", argv[1]); wav(path, pcm, FS * 8u); printf("wrote %s\n", path);
+    }
 }
 int main(int argc, char **argv)
 {
@@ -177,7 +540,8 @@ int main(int argc, char **argv)
     }
     puts("funcengine: AMEN DUB MINIMAL JUNGLE's drums where their patterns put them PASS");
 
-    if (argc > 1) {                                     /* the new recipes heard: a WAV each (8 s, 120 BPM) */
+    funcplay_checks(argc, argv);
+    if (argc > 2) {                                     /* the new recipes heard: a WAV each (8 s, 120 BPM) */
         for (f = 15; f < FUNC_NFORM; f++) {
             char path[256]; int32_t pk; double r;
             setup(f - 1u);

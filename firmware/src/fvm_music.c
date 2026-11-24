@@ -25,6 +25,18 @@ static int32_t fvm_music_tone(int32_t note,uint32_t tick,int32_t color)
     color=clamp(color,0,65536);
     return (a*3+mulq15(b+c/2,color>>1))/5;
 }
+/* (funcplay) a call through FUNC's groove (fu_cx_t): 1 muted; its age (y a note's, x a drum's) and pitch moved */
+static __attribute__((noinline)) int fu_music(uint32_t kind,uint32_t*x,uint32_t*y,const fvm_env_t*e,uint32_t i)
+{
+    const fu_cx_t*c=e->fx;uint32_t*age=kind<2u?y:x,P=e->arr[FA_BEAT]?e->arr[FA_BEAT][i]:0u,h;
+    if(c->mask>>(kind<2u)&1u)return 1;
+    h=fvm_hash(((P-*age)>>14)*0x9E3779B1u^c->seed);   /* (the 1/16 it began on) */
+    if((int32_t)(h&127u)<-2*c->dens)return 1;
+    if((int32_t)(h>>8&127u)<2*c->dens&&(int32_t)*age>=0)*age&=0x3FFFu;
+    if(kind<2u){int32_t r=(int32_t)(h>>16&127u),o=c->range>0&&r<2*c->range?12:c->range<0&&r<-2*c->range?-12:0;
+        if(c->notes)o+=(int32_t)(0xC050700u>>(h>>24&3u)*8u&255u);*x+=(uint32_t)o;}
+    return 0;
+}
 static uint32_t fvm_music(uint32_t kind,uint32_t x,uint32_t y,uint32_t z,const fvm_env_t*e,uint32_t i)
 {
     uint32_t tick=e->arr[FA_T]?e->arr[FA_T][i]:0;

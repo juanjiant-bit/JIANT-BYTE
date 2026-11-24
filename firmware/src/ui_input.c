@@ -53,7 +53,8 @@ static const char *const MDST_FULL[] = {
     "REVERB SIZE|FX BUS, ALL TRACKS", "REVERB DAMPING|FX BUS, ALL TRACKS", "CHORUS RATE|FX BUS, ALL TRACKS",
     "CHORUS DEPTH|FX BUS, ALL TRACKS", "FILTER CUTOFF|THE TRACK'S FILTER", "TRACK LEVEL", "LIFE DEPTH|HOME > LIFE",
     "OLD FORM M1 AMOUNT|RETIRED", "OLD FORM M1 DECAY|RETIRED", "OLD FORM M2 AMOUNT|RETIRED", "OLD FORM M2 DECAY|RETIRED",
-    "OLD FORM M3 AMOUNT|RETIRED", "OLD FORM M3 DECAY|RETIRED", "GAIN|LEVEL BOOST, NO DISTORTION", "OLD FORM M4 DECAY|RETIRED"};
+    "OLD FORM M3 AMOUNT|RETIRED", "OLD FORM M3 DECAY|RETIRED", "GAIN|LEVEL BOOST, NO DISTORTION", "OLD FORM M4 DECAY|RETIRED",
+    "FUNC DENSITY|GROOVE, KNOB 1", "FUNC SWING|GROOVE, KNOB 2", "FUNC COMPLEX|GROOVE, KNOB 3", "FUNC RANGE|GROOVE, KNOB 4"};
 _Static_assert(NELEM(MSRC_FULL) == MS_N && NELEM(MDST_FULL) == MD_N, "a full name for every SRC and DEST");
 /* SRC (src 1) or DEST v of track t in full into b (n), what it is into w (wn) when w */
 static void mod_full(const track_t *t, uint32_t src, int32_t v, char *b, uint32_t n, char *w, uint32_t wn)
@@ -3103,6 +3104,7 @@ static void ui_input_frame(void)
                     }
                     psq_clear();                        /* (BYTE) PUNCH SEQ's steps too */
                     memset(clay_rec, 0, sizeof clay_rec);   /* (BYTE) DRONE CLAY's recorded loops */
+                    memset(fp_rec, 0, sizeof fp_rec);   /* (funcplay) FUNC's */
                     ui_message("ALL CLEARED");
                 }
             } else if (kind == CF_INIT_SOUND) {         /* (DRUM: the factory DRUM-X kit too) */
@@ -3127,6 +3129,7 @@ static void ui_input_frame(void)
                 track_defaults_steps(t);
                 load_end(t);
                 memset(clay_rec[ui.confirm_trk % NTRK], 0, CLAY_RN);   /* (BYTE) and DRONE CLAY's recorded loop */
+                memset(fp_rec[ui.confirm_trk % NTRK], 0, FP_RN);   /* (funcplay) and FUNC's */
                 latch_drop_req |= (uint8_t)(1u << (t - trk));   /* and the latched chord (events_block) */
                 if (kind == CF_CLEAR_TRK) {
                     char b[12] = "1 CLEARED";

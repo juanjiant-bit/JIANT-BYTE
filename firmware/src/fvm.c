@@ -68,10 +68,16 @@ static inline void fvm_prog_init(fvm_prog_t *p, fvm_ins_t *ins, uint32_t cap)
 typedef struct { fvm_prog_t p; fvm_ins_t ins[FVM_MAXINS]; } fvm_full_t;
 #define FVM_FULL(x) (fvm_prog_init(&(x)->p, (x)->ins, FVM_MAXINS), &(x)->p)
 
+/* (funcplay) FUNC's live groove on its music calls and eu() (eng_lofi.c func_run): DENSITY (-64 thins every hit and
+ * note away .. +64 retriggers them each 1/16, by a hash of the step they started on), RANGE (-64 .. +64: that share of
+ * the notes an octave down / up), NOTES (a mutation: an interval of 0 7 5 12 by the same hash), the parts muted (bit 0
+ * the drums, bit 1 the notes). 0 (every host but FUNC's live path): the formula as written, bit for bit */
+typedef struct { int8_t dens, range; uint8_t mask, notes; uint32_t seed; } fu_cx_t;
 typedef struct {
     const uint32_t *arr[FA_N];   /* per sample (only those in prog.uses need to be there) */
     uint32_t u[FU_N];            /* per block */
     int32_t *state;              /* FVM_MAXSTATE, the voice's, zero at its start */
+    const fu_cx_t *fx;           /* (funcplay) 0: none */
 } fvm_env_t;
 
 typedef struct { uint32_t s[FVM_DEPTH][FVM_BLK]; } fvm_scratch_t;   /* 1.5 KB: one a core (the second renders tracks too) */

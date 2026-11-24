@@ -205,6 +205,7 @@ static uint32_t math_hash[NTRK];
 #define MATH_PUBLISH_LOCK() ((void)0)
 #define MATH_PUBLISH_UNLOCK() ((void)0)
 #endif
+static void func_b_poll(gq_work_t *w);                  /* (funcplay.c: FUNC's layer B) */
 static void math_poll_ws(gq_work_t *w)
 {
     static uint8_t cursor;
@@ -215,7 +216,7 @@ static void math_poll_ws(gq_work_t *w)
         track_t*t=&trk[tr];const char*lt=lyr_txt[tr];
         uint32_t seed,band,h=0,k,var,request=math_request[tr],func=t->p[P_E1]==RW_FUNC;char text[256];
         if(func&&t->eng_req==ENGI_LOFI){              /* (BYTE 0.17) MATH WAVE FUNC (a store's, the editor's): FUNC's */
-            t->eng_req=ENGI_FUNC;t->preset=(uint8_t)(func_form(t)?func_form(t)-1u:0u);}
+            t->eng_req=ENGI_FUNC;t->preset=(uint8_t)(func_form(t)?func_form(t)-1u:0u);func_neutral(t);}
         func=t->eng_req==ENGI_FUNC;
         if(func)t->p[P_E1]=RW_FUNC;                    /* (its WAVE fixed: FUNC whatever wrote it) */
         else if(eng_idx(t->eng_req)!=ENGI_LOFI||t->p[P_E1]!=RW_USER)continue;
@@ -254,6 +255,7 @@ static void math_poll_ws(gq_work_t *w)
         if(request&0x80000000u){used=1;auto_ms[tr]=budget_ms=fm1_ms;}
     }
     cursor=(uint8_t)((cursor+1u)%NTRK); /* fair coalescing: <=31 rebuilds/s per track, <=62/s total */
+    func_b_poll(w);
 }
 
 static void math_poll(void);                            /* (JIANT BYTE: project.c, the main loop calls it: ui_input.c) */

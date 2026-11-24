@@ -372,7 +372,7 @@ static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
     for (k = 0; k < 16u; k++)                           /* the steps: the beats a little brighter */
         cv_rect(lx + (int32_t)k * cw, yy, cw - 1, 3, k % 4u ? T_SURF : T_MID);
     yy += 5;
-    for (i = 0; i < 6u && yy + row <= y + ht - 22; i++) {
+    for (i = 0; i < 6u && yy + row <= y + ht - 34; i++) {
         if (!(lanes >> i & 1u)) continue;
         cv_text_on(x, yy + 1 - AF_X_CAP_Y, &AF_X, form == 13u && i >= 3u ? LN[i - 3u] : LN[i], T_MID, T_BG);   /* (DRUMS: its
                                                          * three eu() its kick, snare and hats) */
@@ -384,6 +384,25 @@ static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
         int32_t cx = lx + (int32_t)(pos >> 14 & 15u) * cw;
         cv_rect(cx - 1, y + 12, cw + 1, 1, HUD_YE); cv_rect(cx - 1, yy, cw + 1, 1, HUD_YE);
         cv_rect(cx - 1, y + 12, 1, yy - y - 12, HUD_YE); cv_rect(cx + cw - 1, y + 12, 1, yy - y - 12, HUD_YE);
+    }
+    {   /* (funcplay) the part played live: its SECTION (the one asked after it), the FILL held, the mutations lit, the
+         * parts muted, layer B and its BLEND */
+        static const char *const SN[5] = {"GROOVE", "INTRO", "BUILD", "DROP", "BREAK"}, *const FN[5] = {"", "ROLL", "STUT", "REV", "DBL"};
+        const fp_t *fs = &fp_st[(uint32_t)(t - trk) % NTRK];
+        int32_t sx = x, ry = y + ht - 32;
+        uint32_t fb = (uint32_t)clamp(t->p[P_FFB], 0, 20);
+        char m[12];
+        sx += hud_tag(sx, ry, SN[fs->sec % 5u], 0x0000, fs->sec ? HUD_YE : T_MID) + 2;
+        if (fs->sreq) sx += hud_tag(sx, ry, SN[(fs->sreq - 1u) % 5u], HUD_YE, T_SURF) + 2;   /* (the next bar's) */
+        if (fs->fill) sx += hud_tag(sx, ry, FN[fs->fill % 5u], 0x0000, tc) + 2;
+        for (k = 0; k < 7u; k++)                        /* NOTES RHYTHM SWAP FREEZE, the mutes DRUMS NOTES B: a letter
+                                                         * each, a dot when off */
+            m[k] = (k < 4u ? fs->mut >> k : fs->mute >> (k - 4u)) & 1u ? "NRSFDNB"[k] : '\xb7';
+        m[7] = 0;
+        cv_text_on(sx, ry + 1 - AF_X_CAP_Y, &AF_X, m, fs->mut | fs->mute ? HUD_YE : T_DIM, T_BG);
+        if (fb) {
+            cv_text_r(x + wd, ry + 1 - AF_X_CAP_Y, &AF_X, N_FUNC_FB[fb], fs->mute & 4u ? T_DIM : T_TEXT, T_BG);   /* (B) */
+        }
     }
     yy = y + ht - 20;
     if (now.has & 8u) { str_cpy(b, "NOTE ", sizeof b); note_name(b + 5, clamp((int32_t)now.note, 0, 127)); }

@@ -241,6 +241,16 @@ enum {                          /* per-track parameters */
 #define P_CAOS P_WRDEP
 #define P_KEY P_WDUST
 #define LK_NALT 15u                            /* KEY: the ALTURA values (SPLIT 5 .. 19) */
+/* (funcplay) FUNC's GROOVE and LAYERS (eng_lofi.c FUNC_PX), in slots no FUNC part reads otherwise (MORPH IMAGE CAOS
+ * TIME, HUMAN's old TIME and GATE): DENSITY, RANGE (bipolar, 0 as written), SWING, FORM B (0 OFF), COMPLEX (stored 127 -
+ * the amount, F_PCTINV: the 127 those two slots hold everywhere is 0 %), BLEND. A FUNC part of a project without FUNC's
+ * 'F' 'P' block, a FUNC preset, MATH WAVE FUNC moved to FUNC: all six as written (func_neutral) */
+#define P_FDEN P_MORPH
+#define P_FRNG P_DXIMG
+#define P_FSWG P_CAOS
+#define P_FFB P_KEY
+#define P_FCPX P_FRA
+#define P_FBLD P_FRB
 #define P_ELOOP P_ED_FX                /* (JIANT 0.4) ENV LOOP: OFF / ON (voice.c env_tick) */
 /* (JIANT 0.8.5) VOICE's words (sing.c), EDIT > WORDS, in slots of other engines' (0 there in every project and preset
  * before, on a VOICE track: OFF, TEXT): LANG OFF ES EN JA in LOFI's RTRG slot, LYRIC (TEXT, W1..W16, S1..S8) in DRUM's
