@@ -161,6 +161,26 @@ int main(void)
         dw_t_ok(h1 / (t1 + 1e-12) < 0.5 * h0 / (t0 + 1e-12), "ATTACK 127 a slow rise (attack / tail %.3f -> %.3f)", h0 / (t0 + 1e-12), h1 / (t1 + 1e-12));
         dw_t_ok(e1 > 1.5 * e0, "GAIN 127 louder (energy x%.2f)", e1 / (e0 + 1e-12));
     }
+    {   /* (FM V10.8.32's check: DRUM-X's MATH jumped every block, up to 0.95 of the peak) DRUM-W draws its tables once
+         * and reads them with a phase run on: no pad steps at a block's edge more than it moves inside one (its place
+         * a block, the gains and the pitch a sample) */
+        uint32_t k, i, ok = 1;
+        double wj = 0;
+        for (k = 0; k < 8u; k++) {
+            double je = 0, ji = 0, pk;
+            hit_lane = k;
+            kit(); hit(ya, 0);
+            pk = peak(ya, NS / CTL * CTL);
+            for (i = 4u * CTL; i < NS / CTL * CTL; i++) {
+                double d = fabs(ya[i] - ya[i - 1]);
+                if (i % CTL == 0) { if (d > je) je = d; } else if (d > ji) ji = d;
+            }
+            ok &= je <= ji * 1.05 + 0.02 * pk;
+            if (je / pk > wj) wj = je / pk;
+        }
+        hit_lane = 0;
+        dw_t_ok(ok, "no pad steps at a block's edge (its largest jump there %.2f of the peak, none over one inside)", wj);
+    }
     printf("drumw: %s\n", dw_t_fails ? "FAIL" : "all ok");
     return dw_t_fails != 0;
 }
