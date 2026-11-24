@@ -31,7 +31,7 @@ Si vas a leer un solo capítulo, leé [Guardar y cargar](#14-guardar-y-cargar). 
 1. [El panel](#1-el-panel)
 2. [La pantalla](#2-la-pantalla)
 3. [Páginas y capas](#3-páginas-y-capas)
-4. [Motores](#4-motores): [MATH](#41-math), [WAVE](#42-wave), [DRUM-W](#43-drum-w), [las páginas comunes](#44-las-páginas-comunes)
+4. [Motores](#4-motores): [MATH](#41-math), [FUNC](#42-func-programas-que-componen), [WAVE](#43-wave), [DRUM-W](#44-drum-w), [las páginas comunes](#45-las-páginas-comunes)
 5. [LIFE](#5-life)
 6. [El generador](#6-el-generador)
 7. [El secuenciador](#7-el-secuenciador) (con [DRONE CLAY](#drone-clay-el-sonido-que-se-modela))
@@ -60,7 +60,7 @@ CLAY prendido las teclas son gestos y cada una muestra una tarjeta que dice qué
 **PUNCH SEQ** (GLO): cuatro filas de punch-in de 16 pasos que tocan solas con el transporte, sobre todas las pistas.
 Ver [PUNCH SEQ](#punch-seq-los-punch-in-en-la-grilla).
 
-**DRUM-W** reemplaza a DRUM-X: ocho pads hechos de wavetables. Ver [DRUM-W](#43-drum-w).
+**DRUM-W** reemplaza a DRUM-X: ocho pads hechos de wavetables. Ver [DRUM-W](#44-drum-w).
 
 **La pantalla nueva.** El arranque **ORBIT** (la esfera de HOME que se arma punto por punto, los satélites de las seis
 pistas entrando en órbita, JIANT BYTE escrito), HOME como órbita, y cada página dibujando lo que hace: **CHORD** nombra el
@@ -421,7 +421,8 @@ MATH**, y de vuelta a DRUM-W. **EDIT mantenido + PRESETS** salta al primer sonid
 | --- | --- |
 | **DRUM-W** | La batería: ocho pads, cada uno dos wavetables A y B unidas por una estructura, con su envolvente, su LFO, su cuerpo y su ruido. |
 | **WAVE** | Un wavetable donde cada tabla es una fórmula: dos osciladores A y B, POS los recorre, WARP dobla la fase, tres voces desafinadas y un sub. |
-| **MATH** | Fórmulas como voces: BYTE (48 bytebeats), FLOAT (48 floatbeats), USER (una fórmula propia o inventada por el generador) y FUNC (programas que componen). |
+| **MATH** | Fórmulas como voces: BYTE (48 bytebeats), FLOAT (48 floatbeats) y USER (una fórmula propia o inventada por el generador). |
+| **FUNC** | Programas que componen: veinte recetas (FORM) con sus perillas con nombre, o tu propio código. |
 
 Una fórmula lee el tiempo `t` y devuelve una muestra. **Bytebeat** trabaja con enteros, 8 bits a la vez: ritmo, melodía
 y suciedad salen de desplazamientos de bits y lógica (`t*(42&t>>10)`). **Floatbeat** trabaja con fracciones: senos,
@@ -433,11 +434,12 @@ fórmulas que se compila en el instrumento y trabaja en punto fijo, en los dos n
 carga como WAVE, con sus moduladores en DRONE CLAY.
 
 Las páginas que comparten MATH y WAVE (FILTER, TONE, FOCUS, PLAY, MORE) se explican al final del capítulo, en
-[Las páginas comunes](#44-las-páginas-comunes).
+[Las páginas comunes](#45-las-páginas-comunes).
 
 ### 4.1 MATH
 
-MATH toca fórmulas como voces. **WAVE** (KNOB 2 de FORMULA) elige el tipo: **BYTE**, **FLOAT**, **USER** o **FUNC**.
+MATH toca fórmulas como voces. **WAVE** (KNOB 2 de FORMULA) elige el tipo: **BYTE**, **FLOAT** o **USER** (FUNC es un
+motor aparte, abajo).
 Las páginas cambian según el tipo.
 
 **BYTE y FLOAT**
@@ -462,7 +464,7 @@ Las páginas cambian según el tipo.
   afinada.
 
 Los presets de MATH, en el orden de la lista: para tocar, **MATH KEYS, MATH BASS, MATH PAD, MATH LEAD, MATH BELL, FLOAT
-PAD**; experimentos, **BYTEBEAT, BYTE VAR, BYTE BENT, BYTE TONE, FLOAT ARP**; y **INIT FLOAT, FUNC SONG, FUNC BEAT**.
+PAD**; experimentos, **BYTEBEAT, BYTE VAR, BYTE BENT, BYTE TONE, FLOAT ARP**; y **INIT FLOAT**.
 
 **USER: una fórmula inventada**
 
@@ -487,21 +489,26 @@ arranca), **SYNC** (el reloj de la canción es dueño del ritmo, la tecla solo d
 de todo). Estos dos valores no tienen una página en el panel: los fijan los presets y el generador, y en vivo el
 punch-in **CAOS MAX** pone todas las fórmulas en CAOS 127 mientras lo mantenés.
 
-#### FUNC: programas que componen
+### 4.2 FUNC: programas que componen
+
+FUNC es un motor propio (en la lista de motores, después de MATH; por dentro usa la misma máquina que MATH). Un proyecto
+viejo con una pista MATH en WAVE FUNC abre como FUNC, y un proyecto con FUNC se guarda de modo que un firmware anterior lo
+abre como antes. Cada preset es una receta (FORM) con sus perillas puestas: **SONG, BEAT, GROWL, HALFTIME, ACID, REESE,
+HOUSE, STRUM, JUST, PLUCK, NIBBLE, BITS, DRUMS, SCREECH, DUB, AMEN, TRANCE, AMBIENT, MINIMAL, JUNGLE**.
 
 FUNC es un programa propio, con variables locales, estado por voz y funciones chicas, corrido por la misma máquina de
-fórmulas del instrumento. No es JavaScript. Para empezar, elegí el preset **FUNC SONG** o **FUNC BEAT** y apretá
+fórmulas del instrumento. No es JavaScript. Para empezar, elegí el preset **SONG** o **BEAT** y apretá
 **PLAY**: una función produce la pieza completa. Con **RUN** la función sigue al transporte (una voz por pista, la pieza
 entera) o arranca en cada nota (para instrumentos y texturas); cuatro perillas **A–D** son controles del programa y
 destinos de la matriz.
 
 | Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| EDIT 1 | RUN (NOTE / SONG) | WAVE | A | B |
-| EDIT 2 | C | D | ROOT (−24…+24) | FORM (CUSTOM, SONG, BEAT y las recetas) |
+| RECIPE | FORM (CUSTOM, SONG, BEAT y las recetas) | RUN (TRIG / PLAY / FREE) | ROOT (−24…+24) | CUT (el filtro) |
+| KNOBS | A | B | C | D |
 
-- **RUN SONG** sigue a PLAY / STOP con una voz por pista: el teclado no duplica la pieza (usá ROOT para transponerla).
-  **RUN NOTE** corre la función desde cada nota, para instrumentos y texturas.
+- **RUN PLAY** sigue a PLAY / STOP con una voz por pista: el teclado no duplica la pieza (usá ROOT para transponerla).
+  **RUN TRIG** corre la función desde cada nota, para instrumentos y texturas; **FREE** corre sola, con su reloj.
 - **FORM** explora las dos composiciones (SONG, BEAT) y vuelve a tu código (**CUSTOM**). Cambiar FORM o de preset no
   borra el texto CUSTOM.
 - **A–D** son controles del programa (0–100 %) y destinos de la matriz. Cada FORM les pone nombre (en las tarjetas, la
@@ -524,9 +531,15 @@ destinos de la matriz.
   | BITS | SLOW | KICK | DRIVE | SEED |
   | DRUMS | HATS | SNARE | KICK | SEED |
   | SCREECH | INDEX | RATIO | FOLD | CRUSH (y semilla) |
+  | DUB | CHORD (acordes a contratiempo) | ECHO (repite cada 1/16, 1/8 o 3/16) | BASS (sub) | SEED |
+  | AMEN | HATS | CHOP (mezcla los tiempos del break) | SNARE | SEED (qué cortes) |
+  | TRANCE | TONE | GATE (largo de la nota del arpegio) | BASS (bajo a contratiempo) | SEED |
+  | AMBIENT | FM (brillo) | DRIFT (velocidad del movimiento) | SHINE (parcial agudo) | SEED (fases) |
+  | MINIMAL | BLIP (FM del blip) | HATS (a contratiempo) | DRIVE | SEED |
+  | JUNGLE | WOBBLE (volumen) | GROWL (FM del sub) | DRIVE | SEED |
 
   **SEED** elige qué notas de la tabla y qué ritmo (eu()) toca la receta: cada valor, otra pieza.
-- La página del motor muestra, debajo del código, el compás que suena: los 16 pasos con el actual marcado, una fila por
+- La página del motor muestra, debajo del código, la receta y su RUN, el compás que suena: los 16 pasos con el actual marcado, una fila por
   cada tambor del programa (KICK, SNARE, HAT) y por cada ritmo eu() (ACT), la nota (NOTE, o TONE: el armónico que eligió
   la tabla) y las cuatro perillas con su nombre.
 - **OCT+** en la página del motor abre el editor del programa; **OCT+** aplica, **OCT−** cancela. Un programa con error
@@ -558,7 +571,7 @@ componentes de helpers a la vez (un `chord` cuenta cuatro). Sin bucles libres ni
 
 **Guardá el proyecto** para conservar el programa: los presets de usuario no guardan programas FUNC (te lo avisa).
 
-### 4.2 WAVE
+### 4.3 WAVE
 
 WAVE es un wavetable como los sintes de wavetable por software, pero cada tabla la dibuja una ecuación. **POS** recorre
 los "cuadros" que dibuja la fórmula. WAVE dibuja cada fórmula una vez en una tabla de 128 puntos (y la vuelve a dibujar de
@@ -600,7 +613,7 @@ BITS, STEP y NOISE, CAOS y una pista de una sola voz siguen calculando la fórmu
 
 Presets de WAVE: **INIT WAVE, FM KEYS, SAW PAD, SYNC LEAD, SUB BASS, BIT TABLE, FM BELL, FORMANT**.
 
-### 4.3 DRUM-W
+### 4.4 DRUM-W
 
 DRUM-W es la batería de BYTE: ocho pads, **BD SD CP CH OH TM RS CB** (bombo, caja, palmas, hat cerrado, hat abierto,
 tom, rim, cencerro). Cada pad son dos **wavetables** (las mismas dieciséis fórmulas de WAVE), **A** y **B**, unidas por una
@@ -644,7 +657,7 @@ cambian cómo se recorren los pasos y al soltar vuelven a tiempo.
 
 El kit se guarda con cada parte del proyecto, no con los presets de usuario.
 
-### 4.4 Las páginas comunes
+### 4.5 Las páginas comunes
 
 Valen para MATH y WAVE. Los grupos de EDIT son **SOUND** (las páginas del motor), **TONE** (FILTER, TONE), **FOCUS** y
 **PLAY** (PLAY, MORE).

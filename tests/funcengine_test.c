@@ -72,7 +72,7 @@ int main(int argc, char **argv)
     memset(&favorites, 0, sizeof favorites);
     puts("funcengine: engine 18, after MATH in the picker, a preset a FORM, MATH's WAVE without FUNC, its stars PASS");
 
-    /* its pages: PLAY (FORM RUN ROOT CUT) and KNOBS (A B C D by FORM), no other engine's EDIT; MATH not theirs */
+    /* its pages: RECIPE (FORM RUN ROOT CUT) and KNOBS (A B C D by FORM), no other engine's EDIT; MATH not theirs */
     ui_power_on(); song.sel = 0; select_engine(ENGI_FUNC); frame();
     assert(TSEL->eng_req == ENGI_FUNC && TSEL->p[P_E1] == RW_FUNC && TSEL->p[P_E7] == 1);
     {
@@ -81,10 +81,10 @@ int main(int argc, char **argv)
             if (PAGES[i].scope != SC_ENGINE || PAGES[i].fam != FAM_EDIT || !page_visible(i)) continue;
             if (PAGES[i].id[0] == P_E7) { assert(PAGES[i].id[1] == P_E0 && PAGES[i].id[2] == P_E6 && PAGES[i].id[3] == P_FCUT); seen |= 1; }
             else { assert(PAGES[i].id[0] == P_E2 && PAGES[i].id[3] == P_E5); seen |= 2; }
-            assert(!strcmp(ENG_FUNC.page_title[PG_TI(&PAGES[i])], PAGES[i].id[0] == P_E7 ? "PLAY" : "KNOBS"));
+            assert(!strcmp(ENG_FUNC.page_title[PG_TI(&PAGES[i])], PAGES[i].id[0] == P_E7 ? "RECIPE" : "KNOBS"));
         }
         assert(seen == 3u);
-        assert(nav_put(SEC_EDIT, "EDIT 1") && cur_page()->id[0] == P_E7 && !strcmp(nav_page_name(), "PLAY"));
+        assert(nav_put(SEC_EDIT, "EDIT 1") && cur_page()->id[0] == P_E7 && !strcmp(nav_page_name(), "RECIPE"));
         frame();
         assert(nav_put(SEC_EDIT, "EDIT 2") && cur_page()->id[0] == P_E2 && !strcmp(nav_page_name(), "KNOBS"));
         frame();
@@ -107,7 +107,7 @@ int main(int argc, char **argv)
         for (f = 15; f < FUNC_NFORM; f++)
             for (k = 0; k < 4u; k++) assert(!strcmp(FUNC_KNOBS[f][k].label, N[f - 15u][k]) && strlen(FUNC_TIPS[f][k]) > 4u);
     }
-    puts("funcengine: PLAY and KNOBS its own EDIT pages, by their names; MATH's its own; the new FORMs' knobs named PASS");
+    puts("funcengine: RECIPE and KNOBS its own EDIT pages, by their names; MATH's its own; the new FORMs' knobs named PASS");
 
     /* a project of before FUNC: a MATH part of WAVE FUNC loads as FUNC (its preset its FORM's), sounding */
     ui_power_on(); song.sel = 0; select_engine(ENGI_LOFI); frame();

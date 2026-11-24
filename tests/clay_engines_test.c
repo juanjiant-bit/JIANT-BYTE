@@ -11,11 +11,13 @@ static int ce_bad;
 static double ya[NS], yb[NS];
 typedef struct { const char *name; uint32_t eng; int mode; } ce_eng_t;
 static const ce_eng_t CE[] = {{"WAVE", ENGI_WAVE, -1}, {"MATH BYTE", ENGI_LOFI, RW_BYTE}, {"MATH FLOAT", ENGI_LOFI, RW_FLOAT},
-                              {"MATH USER", ENGI_LOFI, RW_USER}, {"MATH FUNC", ENGI_LOFI, RW_FUNC}, {"DRUM-W", ENGI_DRUM, -1}};
+                              {"MATH USER", ENGI_LOFI, RW_USER}, {"FUNC", ENGI_FUNC, RW_FUNC}, {"DRUM-W", ENGI_DRUM, -1}};   /* (BYTE 0.17:
+                                                         * FUNC its own engine; was MATH WAVE FUNC, its WAVE a knob) */
 static void ce_setup(const ce_eng_t *e, int pluck)
 {
     ui_power_on(); song.sel = 0; select_engine(e->eng); frame();
     if (e->mode >= 0) trk[0].p[P_E1] = (int16_t)e->mode;
+    if (e->eng == ENGI_FUNC) { apply_preset_to(&trk[0], 0); trk[0].p[P_E7] = 0; }   /* (FUNC: SONG, by CUSTOM's default) */
     for (unsigned k = 1; k < NTRK; k++) trk[k].p[P_MUTE] = 1;
     if (pluck) { trk[0].p[P_SUS] = 0; trk[0].p[P_DEC] = 30; }
     clay_defaults(clay[0]); song.master_q12 = 4096; song.g[G_BPM] = 120; frames(8);
@@ -96,7 +98,8 @@ int main(int argc, char **argv)
              * table's POS, WARP's AMT with WARP off, B with MIX 0) */
             unsigned kn = 0; double th = 0.08 + 1.5 * fl;
             for (unsigned d = 4; d < 12u; d++) kn += dd[d] > th;
-            ok &= (drum || func || dd[0] > th) && dd[1] > th && dd[3] > th && kn >= 3u;
+            ok &= (drum || func || dd[0] > th) && dd[1] > th && dd[3] > th && kn >= (func ? 2u : 3u);   /* (BYTE 0.17: FUNC's WAVE
+                                                         * no knob, its SONG's drums after 8 beats: A and D) */
             for (unsigned f = 0; f < 5u; f++) ok &= ff[f] > th;
         }
         ok &= kick > (drum ? 1.3 : 3.0);

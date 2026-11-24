@@ -964,8 +964,8 @@ static const page_t PAGES[] = {
                                                          * (rule 4: a page that picks, picks with KNOB 1), MEG VMOD SPREAD */
     {"FORMULA", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"FORM MOD", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},
-    /* (BYTE 0.17) FUNC's EDIT 1 and EDIT 2 (ui.c page_visible: its alone, the others' not), named PLAY and KNOBS (its
-     * page_title, ui_graph.c PG_TITLE): FORM (rule 4: the page that picks picks with KNOB 1) RUN ROOT and the filter's
+    /* (BYTE 0.17) FUNC's EDIT 1 and EDIT 2 (ui.c page_visible: its alone, the others' not), named RECIPE and KNOBS (its
+     * page_title, params.c PG_TI): FORM (rule 4: the page that picks picks with KNOB 1) RUN ROOT and the filter's
      * CUT; A B C D by FORM's names */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E7, P_E0, P_E6, P_FCUT}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E2, P_E3, P_E4, P_E5}},
@@ -975,7 +975,7 @@ static const page_t PAGES[] = {
 #define FIT_PAGE(pg) ((pg)->graph == GR_STEPS && (pg)->id[1] == 0xFFu)   /* RHYTHM (BAR: KNOB 2 LEN) */
 #define BAR_PAGE(pg) ((pg)->graph == GR_STEPS && (pg)->id[1] == P_SLEN)
 #define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
-/* an EDIT page's name in its engine's page_title: 0 its first (from P_E0; BYTE 0.17: FUNC's PLAY, from FORM), else 1 */
+/* an EDIT page's name in its engine's page_title: 0 its first (from P_E0; BYTE 0.17: FUNC's RECIPE, from FORM), else 1 */
 #define PG_TI(pg) ((pg)->id[0] != P_E0 && (pg)->id[0] != P_E7)
 static uint8_t mod_ui_slot;      /* the MOD page: the matrix slot (0..3) KNOB 2..4 edit */
 static uint8_t ms_ui_step;       /* (JIANT) the MSEQ page: the step (0..15) KNOB 2 edits */

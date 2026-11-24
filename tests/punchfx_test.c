@@ -34,8 +34,8 @@ static const pq_eng_t PQE[] = {
     {"MATH FLOAT MATH BASS", ENGI_LOFI, 4, -1, 0},
     {"MATH USER  seed 64", ENGI_LOFI, 0, RW_USER, 0},
     {"MATH USER  seed 120", ENGI_LOFI, 3, RW_USER, 0},
-    {"MATH FUNC  SONG", ENGI_LOFI, 12, -1, 0},
-    {"MATH FUNC  BEAT", ENGI_LOFI, 13, -1, 0},
+    {"FUNC SONG", ENGI_FUNC, 0, -1, 0},          /* (BYTE 0.17: FUNC its own engine; was MATH 12) */
+    {"FUNC BEAT", ENGI_FUNC, 1, -1, 0},
     {"WAVE       INIT WAVE", ENGI_WAVE, 0, -1, 0},
     {"WAVE       SUB BASS", ENGI_WAVE, 4, -1, 0},
     {"WAVE       FM KEYS", ENGI_WAVE, 1, -1, 0},
@@ -309,7 +309,7 @@ int main(int argc, char **argv)
         }
     }
     {   /* GLO > PUNCH SEQ: a row holds the same bits (pfx.c psq_block): BITS, WOBBLE, HALF, CAOS from a row heard as
-         * their keys are (WAVE INIT, MATH FUNC SONG, DRUM-W) */
+         * their keys are (WAVE INIT, FUNC SONG, DRUM-W) */
         static const struct { uint32_t e; int fx; } R[] = {{8, 7}, {8, 3}, {6, 2}, {6, 13}, {11, 9}, {11, 13}};
         uint32_t r, rb = 0;
         for (r = 0; r < sizeof R / sizeof R[0]; r++) {

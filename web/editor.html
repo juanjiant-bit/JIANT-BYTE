@@ -1445,7 +1445,7 @@ const BYTE_ENG_DEFS = (D, P) => ({
       P("FLOAT ARP", [2, 6, 8, 0, 0, 0, 0, 0], [0, 50, 80, 50], 11, 3, 0, [[113, 100], [10, 4], [9, -10], [14, 16], [49, 5], [50, 5], [51, 40]], 0, [1, 26, 41, 31]),
       P("FLOAT PAD", [2, 6, 112, 0, 0, 0, 0, 0], [80, 90, 69, 100], 7, 3, 14, [[113, 90]], 0, [31, 11, 51, 41]),
     ] },
-  18: { name: "FUNC", titles: ["PLAY", "KNOBS"], edit: [
+  18: { name: "FUNC", titles: ["RECIPE", "KNOBS"], edit: [
       D("RUN", 8, 4, 6, 5, ["TRIG", "PLAY", "FREE"]),
       D("WAVE", 8, 8, 8, 8, ["FUNC"]),
       D("A", 1, 0, 127, 64),
@@ -2913,7 +2913,7 @@ function buildGroups() {
         groups.groups.push(div);
         continue;
       }
-      /* (BYTE 0.17) FUNC's pages as the device has them: PLAY FORM RUN ROOT, KNOBS A B C D (its WAVE fixed, not shown) */
+      /* (BYTE 0.17) FUNC's pages as the device has them: RECIPE FORM RUN ROOT, KNOBS A B C D (its WAVE fixed, not shown) */
       const pages = g.engine && info.engines[dev.dump.engine] === "FUNC" ? [["EDIT 1", 0, [info.pe0 + 7, info.pe0, info.pe0 + 6]],
         ["EDIT 2", 0, [info.pe0 + 2, info.pe0 + 3, info.pe0 + 4, info.pe0 + 5]]] : g.pages;
       for (const [title, s, ids] of pages) {

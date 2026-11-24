@@ -680,16 +680,16 @@ static const char *const N_FUNC_FORM[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME
 static const char *const N_FUNC_RUN[]={"-","-","-","-","TRIG","PLAY","FREE"};
 _Static_assert(NELEM(N_FUNC_FORM)==FUNC_NFORM,"FUNC: a name for every FORM");
 static const engine_t ENG_FUNC;                         /* (BYTE 0.17) below: FUNC, an engine of its own */
-/* (BYTE 0.17) a part plays FUNC: the FUNC engine, or MATH with WAVE FUNC (a store's or the editor's, until math_poll moves
- * it to FUNC: engines.c math_poll_ws) */
-static int func_on(const track_t*t){return t->p[P_E1]==RW_FUNC&&(t->eng_req==ENGI_FUNC||t->eng_req==ENGI_LOFI);}
+/* (BYTE 0.17) a part plays FUNC: the FUNC engine (its WAVE always FUNC; a MATH WAVE FUNC, a store's or the editor's, is
+ * moved to it by the next math_poll: engines.c math_poll_ws). One compare: the RAM code's callers (seq.c, voice.c) */
+static inline __attribute__((always_inline)) int func_on(const track_t*t){return t->eng_req==ENGI_FUNC;}
 static uint32_t func_clock_begin,func_clock_end;
 static uint8_t func_song_mask;
 /* (BYTE 0.16, the owner: "that PLAY starts the formula: set it explicitly; by default a key sounds it") RUN: NOTE (the
  * key pressed sounds it, at its pitch; the default), PLAY (the transport's: its voice and clock, as SONG was), FREE (it
  * runs on its own: a voice always, its own clock, at the root) */
-static int func_song(const track_t*t){return func_on(t)&&t->p[P_E0]==5;}
-static int func_free(const track_t*t){return func_on(t)&&t->p[P_E0]==6;}
+static inline int func_song(const track_t*t){return func_on(t)&&t->p[P_E0]==5;}
+static inline int func_free(const track_t*t){return func_on(t)&&t->p[P_E0]==6;}
 /* (BYTE 0.16, the owner: "the whole formula is never heard") the formula's clock: the transport's in PLAY and NOTE
  * while the song plays (the key its pitch and gate, the formula where the song is: a 1/16 step a sixteenth of it, in
  * place); stopped, NOTE from the key, FREE its own */
@@ -973,7 +973,7 @@ static const preset_t FUNC_PRESETS[] = {
 _Static_assert(NELEM(FUNC_PRESETS) == FUNC_NFORM - 1u, "FUNC: a preset for every FORM");
 static const engine_t ENG_FUNC = {
     .name = "FUNC",
-    .page_title = {"PLAY", "KNOBS"},
+    .page_title = {"RECIPE", "KNOBS"},   /* (RECIPE: the SOUND group's; PLAY is the voices' tab) */
     .edit = {
         {"RUN", F_ENUM, 4, 6, 5, N_FUNC_RUN},
         {"WAVE", F_ENUM, RW_FUNC, RW_FUNC, RW_FUNC, N_RWAVE},   /* (fixed: MATH's FUNC paths read it) */
