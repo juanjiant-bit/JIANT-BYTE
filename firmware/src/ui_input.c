@@ -2739,6 +2739,8 @@ static void ui_input(void)
     scale_link();                                       /* (JIANT 0.4) one scale for every melodic track (after the
                                                          * frame's edits) */
 }
+static uint16_t ui_btn_edges;                           /* (1.4) the buttons' presses taken here, for the editor's UI push
+                                                         * (editor.c ed_ui_push: a tap between two of its looks) */
 static void ui_input_frame(void)
 {
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
@@ -2746,6 +2748,7 @@ static void ui_input_frame(void)
     uint32_t oct;
     uint32_t lay, combo = 0, lytap, lkeys, glo, kq = 0;
     int32_t s, sel = 0, ks[4] = {0, 0, 0, 0};
+    ui_btn_edges |= (uint16_t)pressed;
     fm6_poll();                                         /* FM6: PTCH turned -> its patch */
     math_poll();                                        /* (JIANT BYTE) MATH's USER parts: a new seed -> its formula */
     dw_poll();                                          /* (DRUM-W) a table the kit wants, drawn */

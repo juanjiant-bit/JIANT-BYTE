@@ -146,8 +146,9 @@ tag of the addition, as before).
   that reads it (a range may widen, a label change: read `DESC`); E1..E8 are always the last eight, P_E0..P_COUNT−1
   (read P_E0 and P_COUNT from `INFO`: new common parameters go just before P_E0, which then grows). Globals keep
   their ids; new ones are appended (G_COUNT grows). Enum values keep their numbers (new ones appended).
-- **Pushes**: `CHANGED` 23, `RELOAD` 24, `STEP_CHANGED` 26, `TRACK_CHANGED` 32 and the 1.0 pushes 40..42, each sent
-  only for the `WATCH` bit that asks for it: a client that sends `WATCH 3` gets exactly what it got before 1.0.
+- **Pushes**: `CHANGED` 23, `RELOAD` 24, `STEP_CHANGED` 26, `TRACK_CHANGED` 32, the 1.0 pushes 40..42 and the 1.4
+  push `UI` 43, each sent only for the `WATCH` bit that asks for it: a client that sends `WATCH 3` gets exactly what it
+  got before 1.0, `WATCH 31` what it got before 1.4.
 - **MENU ids** (`MENU_SET` takes the id: append-only), the backup protocol (65..67: object ids, u32 / pack7,
   rc codes; the *count* of objects is the `BACKUP_LIST`'s: 35 since V10.6p), the `PUNCH` bit numbers, the NRPN map
   (`docs/NRPN.md`: CC99 0 / 1, CC98 the id, the 14-bit scaling) and the fixed CCs (MANUAL, "MIDI and USB").
@@ -168,6 +169,7 @@ regenerated from `params.c` and compared.
 | 1.1 | V10.6z5 | `VEL` (81): the velocity diagnostic (below); `INFO` tag `43 02 01 01` |
 | 1.2 | V10.6z7 | `VEL` ops 4 and 5: the keys' velocity, calibration and pressure (below); MENU ids 27..30 (VELOCITY, VEL MIN, AFTERTOUCH, VEL LEARN); `INFO` tag `43 02 01 02` |
 | 1.3 | V10.7.22 | `INFO` tag `58 01 s`: the Bluetooth segment (below); `INFO` tag `43 02 01 03` |
+| 1.4 | JIANT BYTE v0.16 | `WATCH` bit 5 and the push `UI` (43): what the screen shows, for JIANT Studio's live guide (below; JIANT FM: the same number, bit and bytes); `INFO` tag `43 02 01 04` |
 
 ## 1.0: performance pushes (40-42)
 
@@ -187,6 +189,32 @@ sends the state as it is first (`TRANSPORT`, `PUNCH`; `MUTATE` counts from then 
   effects' tracks, always 0 (ALL) since V10.7.36 (1 SYN, 2 DRM before).
 - **MUTATE** (42): `track, count`: a EUCLID MUTATE of that track (EVERY's, or OCT+ on the MUTATE page); count is
   the track's MUTATEs since power-on, 7 bits, so a missed frame shows as a jump.
+
+## 1.4: the UI push (43)
+
+Asked for with `WATCH` bit 5 (`WATCH 63`: everything; 1.4 firmware answers 63, older 31 or less: no `UI` push there).
+Asking for it anew sends the screen as it is first (button 127). JIANT FM sends the same push, with the same number,
+bit and bytes (its section, page and layer names are its own).
+
+- **UI** (43): `section, page.. 0, layer, button, label1.. 0, label2.. 0, label3.. 0, label4.. 0`
+  - `section`: the section the page belongs to, as its button picks it (BYTE: 0 HOME, 1 EDIT, 2 SEQ, 3 FX, 4 GLO,
+    5 ENV, 6 LFO, 7 SCL, 8 ARP, 9 SAVE; the menu: HOME's, 0).
+  - `page`: the page's name as the screen shows it (its header / breadcrumb: `STEP`, `MACROS`, the engine's own page
+    name on EDIT; `MENU` while the menu is open), at most 16 characters, 0-terminated.
+  - `layer`: the layer whose button is held (BYTE: 0 none, 1 FX, 2 GLO, 3 SCL, 4 EDIT, 5 SEQ, 6 REC, 7 SAVE,
+    8 MACRO, the LFO button's).
+  - `button`: the last panel button pressed or let go, its id (BYTE: 0 FX, 1 SCL, 2 ENV, 3 LFO, 4 EDIT, 5 GLO, 6 HOME,
+    7 SAVE, 8 ARP, 9 SEQ, 10 PLAY, 11 REC, 12 OCT−, 13 OCT+) **+ 64 when it was let go** (bit 6: a SysEx data byte has
+    no bit 7); 127: none since `WATCH` asked for the push. The keyboard's keys are not buttons.
+  - `label1..label4`: KNOB 1..4's labels as their cards last drew them, at most 11 characters each, 0-terminated
+    (`""`: the card has none; a page without cards, the menu or a layer's map, leaves the last ones drawn).
+  - Every string byte is ASCII 32..126 (anything else, the screen's `·` among them, comes as a space). The longest
+    push is 5 + 1 + 17 + 2 + 4 × 12 + 1 = 74 bytes.
+- **When**: the page, the section, the held layer, a button (each press and each release, the same one again too) or a
+  card's label changed. Coalesced as `CHANGED` is: the device looks every ~5 ms (with the other pushes, only into a
+  half-empty SysEx ring), and a change waits for the UI's next frame, so the new page's cards are drawn and one push
+  says the state as it is then, at most one a UI frame. A page change and the button that made it come as one push
+  (its `button`: the last of them, e.g. SEQ let go). A knob turned (a value) pushes nothing here (`CHANGED` says it).
 
 ## 1.1: the velocity diagnostic (81)
 
@@ -370,7 +398,7 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 | 19 UP_STORE | slot, name | slot, rc. Stores the current sound: engine, parameters, the first 16 sequencer steps as the pattern (TIE steps → flag 4) |
 | 20 UP_LOAD | slot | slot, rc (0 ok, 1 empty/invalid). Applies its sound (not its pattern; the steps stay) |
 | 21 UP_ERASE | slot | slot, rc |
-| 22 WATCH | on (0/1; v4: 3 = also `TRACK_CHANGED`; 1.0: bit 2 `TRANSPORT`, bit 3 `PUNCH`, bit 4 `MUTATE`) | the bits it took: on (bit 0), bit 1 (v4 firmware), bits 2..4 (1.0 firmware; older answers 3 or 1). While on, the device pushes cmds 23, 24, 26 (and 32 with bit 1, 40 / 41 / 42 with bits 2 / 3 / 4) |
+| 22 WATCH | on (0/1; v4: 3 = also `TRACK_CHANGED`; 1.0: bit 2 `TRANSPORT`, bit 3 `PUNCH`, bit 4 `MUTATE`; 1.4: bit 5 `UI`) | the bits it took: on (bit 0), bit 1 (v4 firmware), bits 2..4 (1.0 firmware; older answers 3 or 1), bit 5 (1.4 firmware). While on, the device pushes cmds 23, 24, 26 (and 32 with bit 1, 40 / 41 / 42 with bits 2 / 3 / 4, 43 with bit 5) |
 | 23 CHANGED (push) | — | scope, id, v14 |
 | 24 RELOAD (push) | — | engine, preset, then (v3) the selected track |
 | 25 PING | — | 0 |
@@ -393,6 +421,7 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 | 40 TRANSPORT (push) | — | playing (0/1), beat of the bar (0..3), bar lo, bar hi (the bars since PLAY, 14 bits): on PLAY / STOP and each beat while playing (only while `WATCH` was sent with bit 2) |
 | 41 PUNCH (push) | — | the effects running, 4 × 7 bits LSB first (the bit numbers in "1.0: performance pushes"), then their tracks (0 ALL; V10.7.36 always 0): on every change (only with `WATCH` bit 3) |
 | 42 MUTATE (push) | — | track, its MUTATE count (7 bits, wrapping): a EUCLID MUTATE of that track (only with `WATCH` bit 4) |
+| 43 UI (push, 1.4) | — | section, page (ASCII, 0-terminated), layer, button (+ 64 let go, 127 none), KNOB 1..4's labels (ASCII, 0-terminated each): the page, the held layer or a button changed, at most one a UI frame (only with `WATCH` bit 5; "1.4: the UI push") |
 
 | cmd (v7) | Request args | Reply args |
 | --- | --- | --- |
@@ -1147,7 +1176,7 @@ flash write, also while playing): the track's lyric starts over at its next note
 
 ## 1.3: INFO 'X', the Bluetooth segment
 
-INFO carries `58 01 s` right before `43 02 major minor` (so the last ten bytes are `58 01 s 43 02 01 03 59 01 63`):
+INFO carries `58 01 s` right before `43 02 major minor` (so the last ten bytes are `58 01 s 43 02 01 03 59 01 63`; 1.4: `.. 01 04 ..`):
 whether the firmware's second part, the Bluetooth segment (flash 0xEA000: Bluetooth, GEN, the songs' saving, USB
 HOST, ...), is there. `s` 1: this build's (its header, length and CRC-32 as the image expects, checked once at
 power-on); 2: missing, torn or another build's: those features say BLUETOOTH PART MISSING and the device shows what to

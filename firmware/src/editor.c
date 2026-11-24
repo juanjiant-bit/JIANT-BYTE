@@ -20,11 +20,13 @@ enum { ED_INFO = 1, ED_GET, ED_SET, ED_DUMP, ED_DESC, ED_STEP_GET, ED_STEP_SET, 
        ED_UI_STATE, ED_UI_SET, ED_UI_PALETTES, ED_FAV_GET, ED_FAV_SET,
        ED_LYRIC,                                                                /* (JIANT 0.8.5) VOICE's lyric */
        ED_TRANSPORT, ED_PUNCH, ED_MUTATE,                                       /* (1.0) pushes: WATCH bits 2..4 */
+       ED_UI,                                                                   /* (1.4) push: WATCH bit 5 (as JIANT FM's) */
        ED_MOTION = 64, ED_BACKUP_LIST, ED_BACKUP_GET, ED_BACKUP_PUT };                              /* v6: song chain */
 /* (V10.6z3) the protocol's version, INFO's tag 43 02 major minor: 1.0 the stability contract (web/EDITOR_PROTOCOL.md
  * "Stability contract"): from it on only additive changes; a minor for each addition, a major never (a break) */
 #define ED_PROTO_MAJOR 1u
-#define ED_PROTO_MINOR 3u   /* (V10.6z5) 1.1: VEL (81); (V10.6z6) 1.2: VEL ops 4, 5 (the keys' velocity); 1.3: INFO's 'X' */
+#define ED_PROTO_MINOR 4u   /* (V10.6z5) 1.1: VEL (81); (V10.6z6) 1.2: VEL ops 4, 5 (the keys' velocity); 1.3: INFO's 'X';
+                             * 1.4: the UI push (43, WATCH bit 5) */
 enum { ED_VM_READ = 80 };   /* (V10.10) read-only: 256 B of the stock VM (0xE7000 + 256 x a[0], a[0] < 48: the radio's
                               * RF trims and BT address, web/btcheck.html); reply: a[0], then 256 x (hi nibble, lo nibble) */
 /* (V10.6z5, 1.1) the velocity diagnostic (vel_diag.c, web/vel.html): op 0 status, 1 on (drive 0..4), 2 off, 3 the next
@@ -116,10 +118,15 @@ static const uint8_t ED_TIDS[3] = {P_LEVEL, P_PAN, P_MUTE};
 static struct {
     uint8_t on, eng, preset, sel;
     uint8_t v4;                                          /* WATCH bit 1: TRACK_CHANGED pushes too */
-    uint8_t ext;                                         /* (1.0) WATCH bits 2..4: TRANSPORT, PUNCH, MUTATE pushes */
+    uint8_t ext;                                         /* (1.0) WATCH bits 2..4: TRANSPORT, PUNCH, MUTATE pushes;
+                                                          * (1.4) bit 5 (ext bit 3): UI */
     uint8_t tp_play, tp_beat, ptgt;                      /* .. what they last said */
     uint32_t punch;
     uint8_t mut[NTRK];
+    uint8_t ui_btn, ui_bn, ui_due, ui_fr;                /* (1.4) UI: the last button (| 64 let go, 127 none), the button
+                                                          * changes (mod 256), a change seen at ui.frame ui_fr */
+    uint16_t ui_bt;                                      /* .. fm1_in.buttons as last looked at */
+    uint32_t ui_sig;                                     /* .. what the last UI push said (its hash) */
     uint32_t pos, last_ms, run_ms, resets;
     int16_t v[ED_NV];                                    /* TSEL->p[], then song.g[] */
     uint16_t t[ED_NV];                                   /* ms (low 16 bits) of the last push */
@@ -186,6 +193,78 @@ static void ed_known(uint32_t k, uint32_t id)            /* the editor's own cha
             ed_w.tv[k * 3u + j] = trk[k].p[id];
 }
 
+/* (1.4) WATCH bit 5: UI (43), what the screen shows for JIANT Studio's live guide: the section (ui_lens.c SEC_*), the
+ * page's name (nav_page_name; MENU while the menu is open), the layer whose button is held (LAYER_*, 0 none), the last
+ * button pressed or let go (panel.c B_*, | 64 let go, 127 none) and KNOB 1..4's labels as their cards last drew them
+ * (ui.col's keys up to the '|'). Coalesced to one push a UI frame: a change waits for the next ui_draw (the cards of a
+ * new page drawn by then), the push says the state as it is then. Strings ASCII 32..126 (else ' '), 0-terminated */
+static void ed_uip_str(const char *s, uint32_t max, uint32_t *h)   /* (h: the hash, or the push's bytes when 0) */
+{
+    uint32_t i, c;
+    for (i = 0; s[i] && s[i] != '|' && i < max; i++) {
+        c = (uint8_t)s[i];
+        c = c >= 32u && c <= 126u ? c : ' ';
+        if (h)
+            *h = (*h ^ c) * 16777619u;
+        else
+            ed_b(c);
+    }
+    if (h)
+        *h = (*h ^ 0xFFu) * 16777619u;
+    else
+        ed_b(0);
+}
+static uint32_t ed_uip_state(uint32_t *h)                 /* the push's fields (h 0) or their hash */
+{
+    uint32_t c, sec = nav_sec(), ly = ui.ly % LAYER_N;
+    const char *pg = ui.menu ? "MENU" : nav_page_name();
+    if (h) {
+        *h = (((2166136261u ^ sec) * 16777619u ^ ly) * 16777619u ^ ed_w.ui_btn) * 16777619u ^ ed_w.ui_bn;
+    } else {
+        ed_b(sec);
+    }
+    ed_uip_str(pg, 16u, h);
+    if (!h) {
+        ed_b(ly);
+        ed_b(ed_w.ui_btn);
+    }
+    for (c = 0; c < 4u; c++)
+        ed_uip_str(ui.col[c], 11u, h);
+    return h ? *h : 0u;
+}
+static __attribute__((noinline)) int ed_ui_push(uint32_t *n)
+{
+    uint32_t b = fm1_in.buttons & 0x3FFFu, d = (b ^ ed_w.ui_bt) | (ui_btn_edges & ~ed_w.ui_bt & 0x3FFFu), id, h;
+    ui_btn_edges = 0;
+    if (d) {                                             /* a button pressed or let go (one a pass: the next, 5 ms on); a
+                                                          * press already let go (ui_input took it): pressed, then let go */
+        id = (uint32_t)__builtin_ctz(d);
+        ed_w.ui_bt = (uint16_t)((ed_w.ui_bt & ~(1u << id)) | (b & (1u << id)));
+        ed_w.ui_btn = (uint8_t)(panel_btn_of(id) | ((b >> id) & 1u ? 0u : 64u));
+        ed_w.ui_bn++;
+    }
+    if (ed_uip_state(&h) == ed_w.ui_sig) {
+        ed_w.ui_due = 0;                                 /* (back as it was said: nothing to say) */
+        return 1;
+    }
+    if (!ed_w.ui_due) {                                  /* seen: it goes out once the UI has drawn a frame since */
+        ed_w.ui_due = 1;
+        ed_w.ui_fr = (uint8_t)ui.frame;
+        return 1;
+    }
+    if ((uint8_t)ui.frame == ed_w.ui_fr)
+        return 1;
+    if (!ed_room())
+        return 0;
+    ed_w.ui_sig = h;
+    ed_w.ui_due = 0;
+    ed_begin(ED_UI);
+    (void)ed_uip_state(0);
+    ed_send();
+    (*n)++;
+    return 1;
+}
+
 /* (1.0) WATCH bits 2..4: the transport (on PLAY / STOP and each beat while playing), the punch-in effects running (held,
  * latched, a scene's) and each EUCLID MUTATE. 0: no room in the SysEx ring (the rest waits) */
 static __attribute__((noinline)) int ed_perf(uint32_t *n)
@@ -227,7 +306,7 @@ static __attribute__((noinline)) int ed_perf(uint32_t *n)
             ed_send();
             (*n)++;
         }
-    return 1;
+    return !(ed_w.ext & 8u) || ed_ui_push(n);
 }
 
 static void ed_sync(void)                                /* main loop */
@@ -749,8 +828,15 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         keep = ed_w.on && ed_w.resets == usb.resets && (a[0] & 1u);   /* already watching: the changes not yet */
         ed_w.on = a[0] & 1u;                                          /* pushed stay pending (INFO 53 01 bit 0) */
         ed_w.v4 = (uint8_t)(ed_w.on && (a[0] & 2u));     /* v4: also TRACK_CHANGED; the reply says it is known */
-        i = ed_w.on ? (a[0] >> 2) & 7u : 0u;             /* (1.0) bits 2..4: TRANSPORT, PUNCH, MUTATE */
-        if (i & ~(keep ? ed_w.ext : 0u)) {               /* newly asked for: the state as it is goes out first; MUTATEs
+        i = ed_w.on ? (a[0] >> 2) & 15u : 0u;            /* (1.0) bits 2..4: TRANSPORT, PUNCH, MUTATE; (1.4) 5: UI */
+        if ((i & 8u) && !(keep && (ed_w.ext & 8u))) {    /* UI newly asked for: the screen as it is goes out first */
+            ed_w.ui_sig = ~ed_w.ui_sig;
+            ed_w.ui_due = 0;
+            ed_w.ui_btn = 127;
+            ed_w.ui_bt = (uint16_t)(fm1_in.buttons & 0x3FFFu);
+            ui_btn_edges = 0;
+        }
+        if (i & 7u & ~(keep ? ed_w.ext : 0u)) {          /* newly asked for: the state as it is goes out first; MUTATEs
                                                           * from now on */
             ed_w.tp_play = ed_w.ptgt = 0xFF;
             ed_w.punch = ~0u;
