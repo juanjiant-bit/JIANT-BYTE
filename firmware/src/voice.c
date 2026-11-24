@@ -331,7 +331,7 @@ static __attribute__((noinline)) int32_t fn_voice(const track_t *t, int32_t p16,
         return 0;
     if ((p[P_FDRV] & p[P_FKEY]) < 127 && !tf_on[ti])
         tf_on[ti] = 2;
-    return 1 /* (BYTE: always) */ && e != &ENG_LOFI ? 0 : 
+    return 1 /* (BYTE: always) */ && !ENG_IS_MATH(e) ? 0 : 
            (p[P_FKEY] < 127 ? ((p16 - 60 * 16) * (fnb[ti].kq - (0 /* (BYTE: never) */ ? 1024 : 0))) >> 8 : 0);
 }
 /* (codex/filters2) FILTER's DRIVE on a part (every engine but ANALOG, whose DRIVE drives each voice): its sum into the
@@ -598,7 +598,7 @@ static __attribute__((noinline)) void track_post(track_t *t, const engine_t *e, 
     if (0 /* (BYTE: never) */)
         track_filter(t, out, n, 1, t->p[P_E4], t->p[P_E5]);
     else
-        track_filter(t, out, n, e == &ENG_LOFI, t->p[P_FCUT], t->p[P_FRES]);
+        track_filter(t, out, n, ENG_IS_MATH(e), t->p[P_FCUT], t->p[P_FRES]);
     if (tf_cmb[ti])                                     /* (filter2-mod) METAL on the pitch: COMB's line, not COMB's */
         fnb[ti].pmon = 0;
     else if (fnb[ti].pmd || fnb[ti].pmon)
@@ -738,7 +738,7 @@ static int vh_always(const track_t *t)               /* (a formula with state, U
                                                          * the full rate: at half it would run at half its speed) */
 {
     const engine_t *e = ENGINES[t->engine];
-    return e == &ENG_WAVE || (e == &ENG_LOFI && (t->p[P_E1] < RW_USER || !lofi_prg[(uint32_t)(t - trk) % NTRK].nstate));
+    return e == &ENG_WAVE || (ENG_IS_MATH(e) && (t->p[P_E1] < RW_USER || !lofi_prg[(uint32_t)(t - trk) % NTRK].nstate));
 }
 #define VH_ALWAYS(t) vh_always(t)
 #ifndef VPOL
@@ -1022,7 +1022,7 @@ static uint32_t load_cost_q8(const track_t *t)          /* a voice more of part 
         uint32_t half = mc_tk[ti] * (HALF_FRAMES / CTL) / nv;
         c = half * 25600u / (HALF_FRAMES * LOAD_FRAME_TICKS);
     } else
-        c = (e == &ENG_LOFI ? math_music_cost(t) : 3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
+        c = (ENG_IS_MATH(e) ? math_music_cost(t) : 3u) * LOAD_W_PCT * 256u;   /* (JIANT BYTE: FM6 retired) */
     return load_cores2 ? (c * LOAD_SHARE_Q8) >> 8 : c;
 }
 static void load_take(const track_t *t)                 /* a voice added: into the prediction */
@@ -1526,7 +1526,7 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
             v->s[6] = s6;
         if (keep & 0x80u)
             v->s[7] = s7;
-        if (e == &ENG_LOFI && t->p[P_LRTRG] && t->p[P_E1] >= RW_BYTE)   /* (0.6.12) RTRG: BYTE's / FLOAT's time from 0 */
+        if (ENG_IS_MATH(e) && t->p[P_LRTRG] && t->p[P_E1] >= RW_BYTE)   /* (0.6.12) RTRG: BYTE's / FLOAT's time from 0 */
             v->ph[0] = v->ph[1] = 0;
     }
 }

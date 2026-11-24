@@ -21,7 +21,8 @@ static __attribute__((noinline)) void fav_rows_new(void)
 }
 /* (BYTE 0.17) HIVE's stars in ANIMAL's retired row (its number plays as MATH; cleared once: ui.c prefs_update 6; no
  * byte more saved) */
-#define FAV_ROW(e) ((e) == ENGI_HIVE ? ENGI_ANIMAL : (e))
+#define FAV_ROW(e) ((e) == ENGI_HIVE ? ENGI_ANIMAL : (e) == ENGI_FUNC ? ENGI_FM6 : (e))   /* (BYTE 0.17: FUNC's in FM6's
+                                                         * retired row: ui.c prefs_update 7) */
 static int favorite_has(uint32_t engine, uint32_t preset)
 {
     if (engine == NENGINES)

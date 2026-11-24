@@ -570,14 +570,14 @@ static void vx_hive(const track_t *t, const int32_t *A, int32_t en_home)
 }
 
 typedef struct { const engine_t *e; void (*f)(const track_t *, const int32_t *, int32_t); } vxe_t;
-static const vxe_t VX_F[] = {{&ENG_LOFI, vx_lofi}, {&ENG_WAVE, vx_lofi}, {&ENG_HIVE, vx_hive}};   /* (JIANT BYTE:
+static const vxe_t VX_F[] = {{&ENG_LOFI, vx_lofi}, {&ENG_WAVE, vx_lofi}, {&ENG_HIVE, vx_hive}, {&ENG_FUNC, vx_lofi}};   /* (JIANT BYTE:
                                                          * WEST PHASE STRING retired; WAVE drawn as MATH's) */   /* (0.9.9-snd5; V10.7.13+: ADD's gone, room for
                                                          * FORM MY LOOP: it draws the being) */
 static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h, int32_t en_home)
 {
     const engine_t *e = trk_engp(t);
     int32_t A[4] = {x, y, w, h}, cx = x * 16 + w * 8, cy = y * 16 + h * 8, s;
-    if (e == &ENG_LOFI || e == &ENG_WAVE)               /* (JIANT BYTE) the formula and its being (ui_byte.c) */
+    if (ENG_IS_MATH(e) || e == &ENG_WAVE)               /* (JIANT BYTE) the formula and its being (ui_byte.c) */
         return ub_draw(t, A, en_home);
     if (trk_eng(t) == ENGI_DRUM) {                      /* (JIANT BYTE) the kit as eight beings (ui_byte.c) */
         (void)cx; (void)cy; (void)s;

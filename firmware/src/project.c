@@ -460,6 +460,23 @@ static void proj_sl_migrate(project_t *q)
     q->g[G_SLFX] = 0;
     proj_ap_clear(q);
 }
+/* (BYTE 0.17) FUNC, an engine of its own (eng_lofi.c ENG_FUNC), is stored as it was before it: MATH WAVE FUNC, its
+ * preset MATH's FUNC SONG (12), so a firmware without the engine plays it as before. Read: a MATH part of WAVE FUNC
+ * (stored so, or from before) the FUNC engine, its preset its FORM's */
+static __attribute__((noinline)) void proj_func_in(project_t *q)
+{
+    uint32_t k, hit = 0;
+    for (k = 0; k < NTRK; k++) {
+        proj_trk_t *d = &q->t[k];
+        if (d->engine != ENGI_LOFI || d->p[P_E1] != RW_FUNC)
+            continue;
+        d->engine = ENGI_FUNC;
+        d->preset = (uint8_t)(d->p[P_E7] >= 1 && d->p[P_E7] < (int)FUNC_NFORM ? d->p[P_E7] - 1 : 0);
+        hit = 1;
+    }
+    if (hit)
+        q->sum = proj_sum(q);
+}
 static int proj_import(project_t *q, const void *b, int n)
 {
     proj_sl_found = 0;
@@ -472,6 +489,7 @@ static int proj_import(project_t *q, const void *b, int n)
     proj_fm4(q);
     proj_phys_gone(q);
     proj_latch_drone(q);
+    proj_func_in(q);
     return 1;
 }
 static int proj_import_any(project_t *q, const void *b, int n)
@@ -1500,8 +1518,8 @@ static void project_capture(project_t *p)
         for (uint32_t j = 0; j < P_COUNT; j++) p->t[i].p[j] = motion_base_value(&trk[i], j);
         p->voice_limit[i] = (uint8_t)clamp(voice_limit[i] ? voice_limit[i] : NVOICE,1,NVOICE);
         p->fit[i] = fit_valid(trk[i].seq_fit);
-        p->t[i].engine = trk[i].eng_req;
-        p->t[i].preset = trk[i].preset;
+        p->t[i].engine = trk[i].eng_req == ENGI_FUNC ? ENGI_LOFI : trk[i].eng_req;   /* (BYTE 0.17: FUNC as MATH WAVE FUNC, */
+        p->t[i].preset = trk[i].eng_req == ENGI_FUNC ? 12u : trk[i].preset;   /* MATH's FUNC SONG: proj_func_in) */
         memcpy(p->t[i].step, trk[i].step, sizeof trk[i].step);
         clay_pack(clay[i], p->clay[i]);
         memcpy(p->clay_rec[i], clay_rec[i], CLAY_RN);

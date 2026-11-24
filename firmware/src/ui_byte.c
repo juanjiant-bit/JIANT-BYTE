@@ -28,7 +28,7 @@ static const char *ub_text(const track_t *t, uint32_t *fix)
         *fix = 1;
         return WAVE_BANK[(uint32_t)clamp(p[P_E0], 0, 127) % WAVE_NF];
     }
-    if (trk_engp(t) != &ENG_LOFI)
+    if (!ENG_IS_MATH(trk_engp(t)))
         return 0;
     if(p[P_E1]==RW_FUNC){*fix=1;return math_func_text(t,lyr_txt[tr]);}
     if (p[P_E1] >= RW_USER) {
@@ -364,9 +364,10 @@ static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
     }
     func_peek(&w->pg.p, u, pos, (uint32_t)((uint64_t)pos * bps >> 16), &now);
     b[0] = 0; str_cpy(b, "BAR ", sizeof b); fmt_int(b + 4, (int32_t)(pos >> 18) + 1);
-    str_cpy(b + str_len(b), "  STEP ", sizeof b - str_len(b)); fmt_int(b + str_len(b), (int32_t)(pos >> 14 & 15u) + 1);
-    hud_tag(x, y, "FUNC", 0x0000, tc);
-    cv_text_on(x + 34, y + 2 - AF_X_CAP_Y, &AF_X, b, live ? T_TEXT : T_DIM, T_BG);
+    str_cpy(b + str_len(b), " STEP ", sizeof b - str_len(b)); fmt_int(b + str_len(b), (int32_t)(pos >> 14 & 15u) + 1);
+    hud_tag(x, y, N_FUNC_FORM[form], 0x0000, tc);       /* (BYTE 0.17) the FORM by its name, its RUN at the right */
+    cv_text_on(x + text_w(&AF_X, N_FUNC_FORM[form]) + 8, y + 2 - AF_X_CAP_Y, &AF_X, b, live ? T_TEXT : T_DIM, T_BG);
+    cv_text_r(x + wd, y + 2 - AF_X_CAP_Y, &AF_X, N_FUNC_RUN[clamp(t->p[P_E0], 4, 6)], live ? HUD_YE : T_MID, T_BG);
     yy = y + 14;
     for (k = 0; k < 16u; k++)                           /* the steps: the beats a little brighter */
         cv_rect(lx + (int32_t)k * cw, yy, cw - 1, 3, k % 4u ? T_SURF : T_MID);
@@ -386,7 +387,7 @@ static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
     }
     yy = y + ht - 20;
     if (now.has & 8u) { str_cpy(b, "NOTE ", sizeof b); note_name(b + 5, clamp((int32_t)now.note, 0, 127)); }
-    else if ((now.has & 16u) && (0xE68u >> form & 1u)) {   /* (GROWL ACID REESE JUST PLUCK NIBBLE: w * x / 4, the table's
+    else if ((now.has & 16u) && (0x80E68u >> form & 1u)) {   /* (GROWL ACID REESE JUST PLUCK NIBBLE MINIMAL: w * x / 4, the table's
                                                          * pick a harmonic, as a ratio) */
         int32_t q = ((int32_t)now.tab - 48) * 25;
         str_cpy(b, "TONE X", sizeof b); fmt_int(b + 6, q / 100); str_cpy(b + str_len(b), ".", 2); fmt_int(b + str_len(b), q % 100 / 10);

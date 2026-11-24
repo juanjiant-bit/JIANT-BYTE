@@ -36,7 +36,7 @@ int main(void){
     * value of every knob, on the 1/32 grid of the song's beat: the program run as fvm_func_run runs it, a sample at a
     * time, kick() snare() hat()'s age read where they are called; a hit where the age falls back */
    const char*const all[]={MATH_FUNC_DEFAULT,MATH_FUNC_BEAT,MATH_FUNC_GROWL,MATH_FUNC_HALF};
-   unsigned checked=0;
+   unsigned checked=0,per[32]={0};
    for(unsigned f=0;f<NELEM(all)+NELEM(MATH_FUNC_R);f++){
      compile(f<NELEM(all)?all[f]:MATH_FUNC_R[f-NELEM(all)]);
      unsigned drums=0;for(unsigned i=0;i<code.p.n;i++)drums|=code.p.ins[i].op==FO_MUSIC&&code.p.ins[i].k>=2u;
@@ -65,20 +65,21 @@ int main(void){
            if(step&&(int32_t)age[d]<(int32_t)last[d]){   /* a hit between the sample before and this one: a 1/32 there */
              int ok=(Pq&~2047u)>prevP||!(Pq&2047u);
              if(!ok)printf("FORM %u knob %c=%u: drum %u off the grid at beat %.4f\n",f+1,'A'+kn,val,d,Pq/65536.);
-             assert(ok);checked++;}
+             assert(ok);checked++;per[f+1]++;}
            last[d]=age[d];}
          prevP=Pq;
        }
      }
    }
    assert(checked>1000u);
+   assert(per[15]&&per[16]&&per[19]&&per[20]);   /* (BYTE 0.17) DUB AMEN MINIMAL JUNGLE's drums: hits, each on the grid */
    /* every FORM its four names (the cards' six letters) and a line of help each; CUSTOM, and a LOOP past them, A B C D */
    static track_t ft;ft.p[P_E1]=RW_FUNC;
-   for(int f=0;f<=20;f++){ft.p[P_E7]=(int16_t)(f==20?127:f);
+   for(int f=0;f<=(int)FUNC_NFORM;f++){ft.p[P_E7]=(int16_t)(f==(int)FUNC_NFORM?127:f);
      for(unsigned k=0;k<4;k++){const param_desc_t*d=lofi_desc(&ft,2u+k);const char*tip=func_knob_tip(d);
        assert(d&&d->label[0]&&strlen(d->label)<=6u&&d->min==0&&d->max==127&&tip&&strlen(d->label)+2u+strlen(tip)<=26u);
        for(const char*c=d->label;*c;c++)assert((*c>='A'&&*c<='Z')||(*c>='0'&&*c<='9'));
-       if(f==0||f>14)assert(d->label[0]=='A'+(int)k&&!d->label[1]);else assert(strlen(d->label)>1u);}
+       if(f==0||f>=(int)FUNC_NFORM)assert(d->label[0]=='A'+(int)k&&!d->label[1]);else assert(strlen(d->label)>1u);}
      assert(!func_knob_tip(lofi_desc(&ft,0))&&!func_knob_tip(lofi_desc(&ft,7)));}
    ft.p[P_E7]=5;assert(!strcmp(lofi_desc(&ft,2)->label,"CUTOFF")&&!strcmp(lofi_desc(&ft,5)->label,"SEED")); }
  puts("funcbeat: FORM drums on the beat's grid at every knob value, every FORM's knobs named PASS");

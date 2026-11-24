@@ -188,7 +188,7 @@ static __attribute__((noinline)) void pfx_sound(void)
     pt_wob = (int16_t)w;
     for (k = 0; k < NTRK; k++) {
         uint32_t e = eng_idx(trk[k].engine);
-        int thrown = e == ENGI_WAVE || e == ENGI_DRUM || (e == ENGI_LOFI && trk[k].p[P_E1] == RW_FUNC);
+        int thrown = e == ENGI_WAVE || e == ENGI_DRUM || e == ENGI_FUNC;
         pt_vp[k] = (int16_t)(w + (thrown ? cj : 0));
     }
 }

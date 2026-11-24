@@ -172,9 +172,9 @@ async function editorMock() {
   inp.onmidimessage = (e) => link.receive(e.data);
   const rq = async (r, o) => link.request(r, o);
   const info = E.parse[E.CMD.INFO](await rq(E.req.info()));
-  /* (JIANT BYTE) 18 numbers: DRUM 10, WAVE 13, MATH 3, HIVE 17 (BYTE 0.17); the retired ones (FORM's 16 too) named as the
+  /* (JIANT BYTE) 19 numbers: DRUM 10, WAVE 13, MATH 3, HIVE 17, FUNC 18 (BYTE 0.17); the retired ones (FORM's 16 too) named as the
      engine they play as (engines.c ENGINES[], ENG_LIVE), the reserved ones "-" */
-  ok(info.nengines === 18 && info.engines.join() === "WAVE,-,WAVE,MATH,-,WAVE,-,MATH,WAVE,-,DRUM-W,WAVE,MATH,WAVE,MATH,MATH,WAVE,HIVE"
+  ok(info.nengines === 19 && info.engines.join() === "WAVE,-,WAVE,MATH,-,WAVE,-,MATH,WAVE,-,DRUM-W,WAVE,MATH,WAVE,MATH,MATH,WAVE,HIVE,FUNC"
  && info.pcount === 123 && info.pe0 === 115, "editor: INFO");
   let descs = 0;
   for (let i = 0; i < info.pcount; i++) if (E.parse[E.CMD.DESC](await rq(E.req.desc(0, i))).label) descs++;
@@ -281,18 +281,18 @@ async function editorMock() {
   await rq(E.req.upErase(31));
   prefs = await E.readDevicePreferences(rq, info, names, prefs);
   ok(!prefs.favorites[info.nengines][31] && !E.devicePresetRows(info, names, prefs).some((r) => r.user), "editor: erased slot disappears and loses star");
-  {   /* the lists in the device's order (engines.c ENGINE_ORDER, JIANT BYTE): DRUM WAVE MATH HIVE, each once (at its own
+  {   /* the lists in the device's order (engines.c ENGINE_ORDER, JIANT BYTE): DRUM WAVE MATH FUNC HIVE, each once (at its own
          number, not a retired one that plays as it), "-" never; the numbers stay */
     const shown = E.engineOrder(info.engines).map((i) => info.engines[i]);
-    ok(shown.join() === "DRUM-W,WAVE,MATH,HIVE" && E.engineOrder(info.engines).join() === "10,13,3,17",
-       "editor: engines listed DRUM WAVE MATH HIVE (JIANT BYTE; indices kept)");
+    ok(shown.join() === "DRUM-W,WAVE,MATH,FUNC,HIVE" && E.engineOrder(info.engines).join() === "10,13,3,18,17",
+       "editor: engines listed DRUM WAVE MATH FUNC HIVE (JIANT BYTE; indices kept)");
     ok(E.engineOrder(["ANALOG", "X", "-", "DRUM", "FM6"]).join() === "3,0,4,1", "editor: an unknown engine follows the known ones");
     ok(E.engineOrder(["ANALOG", "DIGITAL", "FM6", "DRUM"]).join() === "3,0,2,1", "editor: DIGITAL (FELUCCA_FM4 builds) after the others");
     m.state.favorites[10][0] = m.state.favorites[3][0] = true;
     await rq(E.req.uiSet(3, 0));
     prefs = await E.readDevicePreferences(rq, info, names, prefs);
     const rows = E.devicePresetRows(info, names, prefs).filter((r) => !r.user), eng = [...new Set(rows.map((r) => r.engine))];
-    ok(eng.join() === "10,13,3,17", "editor: device presets in the device's engine order (DRUM WAVE MATH HIVE)");
+    ok(eng.join() === "10,13,3,18,17", "editor: device presets in the device's engine order (DRUM WAVE MATH FUNC HIVE)");
   }
   const none = await E.readDevicePreferences(() => { throw new Error("unexpected request"); }, { uiCaps: 0 }, []);
   ok(none === null, "editor: old firmware receives no unsupported preference requests");
@@ -661,7 +661,7 @@ async function editorLibrarian() {
   const pts = [cap, { ...bass, engineName: info.engines[bass.engine], tags: ["bass", "device"] }];
   const file = JSON.parse(JSON.stringify(E.libraryFile("library", pts, ctx)));
   ok(file.format === "felucca-library" && file.version === 1 && file.pCount === 123 && file.paramLabels.length === 123 && file.paramLabels[81] === "ROTATE" && file.paramLabels[82].startsWith("PITCH#") &&
-    file.paramLabels[83] === "KICK" && file.paramLabels[90] === "BELL" && file.engines.length === 18,
+    file.paramLabels[83] === "KICK" && file.paramLabels[90] === "BELL" && file.engines.length === 19,
     "library file: versioned, with P_COUNT, labels and engines");
   const back = E.readLibraryFile(file, ctx);
   ok(back.patches.length === 2 && !back.skipped && eq(back.patches[0].p, cap.p) && eq(back.patches[1].p, bass.p)

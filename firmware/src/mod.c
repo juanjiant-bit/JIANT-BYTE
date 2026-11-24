@@ -716,15 +716,15 @@ BTAPP_FN static const char *mod_dst_name_bt(const track_t *t, int32_t v)
     if (v >= MD_X1) return track_desc(t, FORM_XDST[v - MD_X1])->label;
     if (v == MD_CUT) {
         static const uint8_t CUT_ID[NENGINES] = {P_E4, P_FCUT, P_E2, P_FCUT, P_FCUT, P_E0, P_FCUT, P_FCUT,
-                                                P_FCUT, P_FCUT, P_FCUT, P_E2, P_E2, P_FCUT, P_FCUT, P_FCUT, P_FCUT, P_E5};   /* (HIVE: BRIGHT) */
+                                                P_FCUT, P_FCUT, P_FCUT, P_E2, P_E2, P_FCUT, P_FCUT, P_FCUT, P_FCUT, P_E5, P_FCUT};   /* (HIVE: BRIGHT; FUNC: the filter's) */
         if (e == ENGI_DRUM) return N_MDST[MD_FCUT];
         return track_desc(t, CUT_ID[e])->label;
     }
     if (v == MD_SHP) {
         static const uint8_t SHP_ID[NENGINES] = {P_MORPH, P_MORPH, P_E2, P_MORPH, P_MORPH, P_E4, P_MORPH, P_E6,
-                                                P_E2, P_MORPH, P_MORPH, P_E1, P_MORPH, P_E1, P_MORPH, P_MORPH, P_E3, P_E1};   /* (BYTE:
+                                                P_E2, P_MORPH, P_MORPH, P_E1, P_MORPH, P_E1, P_MORPH, P_MORPH, P_E3, P_E1, P_E3};   /* (BYTE:
                                                          * WAVE's 13 POS, eng_wave.c wave_part: SHAPE moves POS; was MIX; HIVE's 17 CROSS) */
-        k = e == ENGI_LOFI && t->p[P_E1] >= RW_BYTE ? P_E3 : SHP_ID[e];
+        k = e == ENGI_LOFI && t->p[P_E1] >= RW_BYTE ? P_E3 : SHP_ID[e];   /* (FUNC 18: B, as MATH's) */
         return track_desc(t, k)->label;
     }
     return N_MDST[v];

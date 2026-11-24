@@ -805,7 +805,7 @@ static void page_title(char *ti)
     const engine_t *e = trk_engp(t);
     uint32_t i, n = 0, k = 0;
     char nb[24];
-    const char *pt = pg->scope == SC_ENGINE ? e->page_title[pg->id[0] != P_E0] : 0;   /* EDIT: the engine's */
+    const char *pt = pg->scope == SC_ENGINE ? e->page_title[PG_TI(pg)] : 0;   /* EDIT: the engine's */
     str_cpy(nb, pg->title, sizeof nb);
     if (!page_over && !ui.home) {                       /* (0.9.2) the page within its group ("ENV DEST 2/2", FX: the
                                                          * effect's name, "DELAY 2/3") */
@@ -952,7 +952,7 @@ static void page_flash_draw(void)
     uint32_t e = fm1_ms - pf_ms, ph, dim;
     char nm[20], sub[20] = {'T', 0, 0};
     const page_t *pg = cur_page();
-    const char *pt = pg->scope == SC_ENGINE ? trk_engp(TSEL)->page_title[pg->id[0] != P_E0] : 0;
+    const char *pt = pg->scope == SC_ENGINE ? trk_engp(TSEL)->page_title[PG_TI(pg)] : 0;
     const char *en = trk_engp(TSEL)->name;
     if (e >= PF_MS) {
         pf_on = 0;

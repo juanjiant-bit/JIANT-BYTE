@@ -4,6 +4,7 @@
  * script on stdin, the screen saved as PPM (tools/gen_byte_readme_images.py builds it, writes the script, makes the
  * PNGs). Commands: ms N (run N ms), shot PATH, sel T, play, stop, keys MASK (bit k: key k, F3..G5), btn MASK (panel.c
  * B_*), enc ROLE N, oct O, nav SECTION PAGE (ui_lens.c nav_put), clay T (DRONE CLAY on, its first sound), chord T V,
+ * eng T E P (track T engine E, its preset P),
  * voice T V, gen GENRE SEED ENERGY FORM (web_gen), info, genres */
 #include "felucca_web.c"
 static void run_ms(uint32_t ms){ while(ms--){ web_ms(); ring_r = ring_w; } }
@@ -38,6 +39,7 @@ int main(void){
         else if(!strcmp(cmd,"p")) { int t,id,v; sscanf(a,"%d %d %d",&t,&id,&v); trk[t].p[id]=(int16_t)v; }
         else if(!strcmp(cmd,"gen")) { unsigned g,s,e,f; sscanf(a,"%u %u %u %u",&g,&s,&e,&f); web_gen(g,s,e,f); }
         else if(!strcmp(cmd,"info")) { for(int t=0;t<NTRK;t++) fprintf(stderr,"T%d %s voice=%d\n",t+1,ENGINES[trk[t].engine]->name,trk[t].p[P_VOICE]); fprintf(stderr,"page=%s\n", nav_page_name()); }
+        else if(!strcmp(cmd,"eng")) { int t,e,pr; sscanf(a,"%d %d %d",&t,&e,&pr); set_engine_of(&trk[t],(uint32_t)e); apply_preset_to(&trk[t],(uint32_t)pr); math_poll(); ui.force=1; }
         else if(!strcmp(cmd,"chord")) { int t,v; sscanf(a,"%d %d",&t,&v); trk[t].p[P_CHRD]=(int16_t)v; }
         else if(!strcmp(cmd,"voice")) { int t,v; sscanf(a,"%d %d",&t,&v); trk[t].p[P_VOICE]=(int16_t)v; }
         else if(!strcmp(cmd,"genres")) { for(unsigned g=0;g<NGENRE;g++) fprintf(stderr,"%u %s\n",g+1,GENRE[g].name); }

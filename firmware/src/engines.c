@@ -67,11 +67,13 @@ static const engine_t *const ENGINES[NENGINES] = {
     &ENG_LOFI,                   /* 15: (JIANT BYTE) INPUT (EXT, SWARM) retired: plays as MATH */
     &ENG_WAVE,                   /* 16: (BYTE) FORM retired (its composer is DRONE CLAY, a sequencer): plays as WAVE */
     &ENG_HIVE,                   /* 17: (BYTE 0.17) HIVE (eng_hive.c, at voice.c's end: its strings in the part's COMB line) */
+    &ENG_FUNC,                   /* 18: (BYTE 0.17) FUNC (eng_lofi.c): MATH's renderer and program slot, WAVE always FUNC;
+                                  * stored as MATH WAVE FUNC (project.c proj_func_in / out: old firmware loads it) */
 };
 
 /* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
  * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
-static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 13, 17};   /* (13: WAVE) */
+static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 13, 17, 18};   /* (13: WAVE) */
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
 static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 0u]; }
 
@@ -84,7 +86,8 @@ static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 
 static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     ENGI_DRUM,                   /* DRUM (DRUM-X, its formula lanes) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE */
-    ENGI_LOFI,                   /* MATH (BYTE FLOAT) */
+    ENGI_LOFI,                   /* MATH (BYTE FLOAT USER) */
+    ENGI_FUNC,                   /* (BYTE 0.17) FUNC: MATH's FUNC recipes, their own pages */
     ENGI_HIVE,                   /* (BYTE 0.17) HIVE */
     /* (JIANT BYTE) retired, their numbers MATH's or WAVE's (ENG_LIVE): WHEEL ADD FM6 PHASE STRING WEST ANIMAL */
 };
@@ -95,6 +98,7 @@ static const uint8_t ENGINE_PC_ORDER[NENG_SHOWN] = {
     ENGI_LOFI, ENGI_DRUM,        /* (JIANT BYTE: every engine of JIANT FM's out but DRUM-X; MATH's place kept first) */
     ENGI_WAVE,                   /* (JIANT BYTE) WAVE: after the rest */
     ENGI_HIVE,                   /* (BYTE 0.17) HIVE: appended */
+    ENGI_FUNC,                   /* (BYTE 0.17) FUNC: appended */
 };
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them
@@ -210,7 +214,11 @@ static void math_poll_ws(gq_work_t *w)
         uint32_t tr=(cursor+offset)%NTRK;
         track_t*t=&trk[tr];const char*lt=lyr_txt[tr];
         uint32_t seed,band,h=0,k,var,request=math_request[tr],func=t->p[P_E1]==RW_FUNC;char text[256];
-        if(eng_idx(t->eng_req)!=ENGI_LOFI||(t->p[P_E1]!=RW_USER&&!func))continue;
+        if(func&&t->eng_req==ENGI_LOFI){              /* (BYTE 0.17) MATH WAVE FUNC (a store's, the editor's): FUNC's */
+            t->eng_req=ENGI_FUNC;t->preset=(uint8_t)(func_form(t)?func_form(t)-1u:0u);}
+        func=t->eng_req==ENGI_FUNC;
+        if(func)t->p[P_E1]=RW_FUNC;                    /* (its WAVE fixed: FUNC whatever wrote it) */
+        else if(eng_idx(t->eng_req)!=ENGI_LOFI||t->p[P_E1]!=RW_USER)continue;
         if(func){if(t->p[P_E0]<4){t->p[P_E0]=5;t->p[P_SUS]=127;}lt=math_func_text(t,lt);}
         if(!func&&math_is_func(lt))lt=""; /* keep FUNC text, generate a normal USER program */
         seed=(uint32_t)clamp(t->p[P_E2],0,191);var=(uint32_t)clamp(t->p[P_E3],0,127);

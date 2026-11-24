@@ -259,7 +259,7 @@ static const uint8_t MIDI_CC_ENG[NENGINES] = {
     0x32, 0x30, 0x30, 0x17, 0x30,                     /* (snd5) STRING BRIGHT DECAY, PHYS BRIT, DRUM TONE, WEST FOLD RES (V10.7.36;
                                                        * NOISE's FREQ PEAK), FM6 MLVL */
     0x26,                                             /* (snd5) ADD BRIGHT FORMNT */
-    0x23, 0x00, 0x00, 0x61, /* FORM: common filter; HIVE: CC74 BRIGHT, CC71 FEEDBK */  /* (V10.54: then INPUT, none) */  /* ANIMAL PRESS (TOUCH CLICK BUZZ MOUTH), CHAOS (COUPLE Q DRIFT ROUGH) */
+    0x23, 0x00, 0x00, 0x61, 0x00, /* FORM: common filter; HIVE: CC74 BRIGHT, CC71 FEEDBK; FUNC: MATH's (the FILTER page's) */  /* (V10.54: then INPUT, none) */  /* ANIMAL PRESS (TOUCH CLICK BUZZ MOUTH), CHAOS (COUPLE Q DRIFT ROUGH) */
 };
 /* a CC's value 0..top (127, or an NRPN's 16383) over parameter id's range of track t (d), as a knob sets it;
  * AUTOMATION records it */
@@ -308,7 +308,7 @@ static void __attribute__((noinline)) midi_cc_map(track_t *t, uint32_t cc, uint3
         if (id == 0xFFFFu)
             return;
         e = MIDI_CC_ENG[eng_idx(t->eng_req)] >> (id == MCC_CUT ? 4 : 0) & 15u;
-        if (!e && eng_idx(t->eng_req) != ENGI_LOFI)
+        if (!e && eng_idx(t->eng_req) != ENGI_LOFI && eng_idx(t->eng_req) != ENGI_FUNC)
             return;
         id = e ? P_E0 + e - 1u : id == MCC_CUT ? P_FCUT : P_FRES;   /* (V10.6h) MATH: the FILTER page's CUT RES */
     }

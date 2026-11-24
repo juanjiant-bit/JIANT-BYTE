@@ -207,6 +207,13 @@ static void prefs_update(void)
         prefs_rev = 6u;
         settings_save();
     }
+    if (prefs_rev < 7u) {                              /* (BYTE 0.17) FM6's old stars: FUNC's row now (favorites.c); MATH's
+                                                        * FUNC SONG and BEAT (12, 13) FUNC's own presets */
+        memset(favorites.factory[ENGI_FM6], 0, sizeof favorites.factory[ENGI_FM6]);
+        favorites.factory[ENGI_LOFI][1] &= (uint8_t)~0x30u;
+        prefs_rev = 7u;
+        settings_save();
+    }
 }
 /* MENU > AUDIO CLICK, CLICK LEVEL, COUNT-IN (1.1, Discussion #131; click.c, seq.c): two bits each in another byte no
  * engine uses, saved with the settings: bits 0-1 CLICK (OFF REC ON), 2-3 CLICK LEVEL (stored 0 MID, 1 LOW, 2 HIGH),
@@ -661,7 +668,7 @@ static int page_visible(uint32_t i)
         return te == ENGI_DRUM || te == ENGI_INPUT;
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == ID_VMAX)   /* (JIANT FM V10.7.60) MORE: a synth's (BYTE 0.16: VOICES
                                                          * alone), MATH BYTE / FLOAT its own (RESTART) */
-        return te != ENGI_DRUM && te != ENGI_INPUT && !(trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE);
+        return te != ENGI_DRUM && te != ENGI_INPUT && !(ENG_IS_MATH(trk_engp(TSEL)) && TSEL->p[P_E1] >= RW_BYTE);
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)   /* (0.6.10) OPERATOR, OP ENV, OPERATOR 2: FM6's
                                                          * (JIANT BYTE: retired) */
         return 0;
@@ -670,13 +677,16 @@ static int page_visible(uint32_t i)
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_KEY)   /* (JIANT BYTE) GAIN: DRUM-X's */
         return trk_eng(TSEL) == ENGI_DRUM;
     if (PAGES[i].id[0] == P_CAOS)                       /* (JIANT BYTE) CAOS: MATH's and WAVE's */
-        return trk_engp(TSEL) == &ENG_LOFI || trk_engp(TSEL) == &ENG_WAVE;
+        return trk_engp(TSEL) == &ENG_LOFI || trk_engp(TSEL) == &ENG_WAVE;   /* (FUNC: its time its own, no CAOS) */
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_LRTRG)   /* (0.6.12) RETRIG: LOFI BYTE / FLOAT's (now its MORE) */
-        return trk_engp(TSEL) == &ENG_LOFI && TSEL->p[P_E1] >= RW_BYTE;
+        return ENG_IS_MATH(trk_engp(TSEL)) && TSEL->p[P_E1] >= RW_BYTE;
     if (PAGES[i].scope == SC_ENGINE && PAGES[i].fam == FAM_EDIT)   /* (V10.7.21) ANALOG: its own EDIT 1 (INT in NOISE's
                                                          * place), no EDIT 2; every other engine EDIT 1 and EDIT 2 */
     {
         uint32_t a2 = PAGES[i].id[0] == P_E0 && PAGES[i].id[3] == P_E7, a3 = PAGES[i].id[0] == P_E0 && PAGES[i].id[1] == P_E7;
+        uint32_t fp = PAGES[i].id[3] == P_FCUT || PAGES[i].id[0] == P_E2;   /* (BYTE 0.17) FUNC's PLAY and KNOBS */
+        if (te == ENGI_FUNC || fp)                      /* (FUNC: its own two, no other's) */
+            return te == ENGI_FUNC && fp;
         if (PAGES[i].id[0] == P_E7)                     /* (FM6's EDIT 2, SLOT first: retired) */
             return 0;
         return !a2 && !a3;
@@ -1582,7 +1592,7 @@ static void apply_preset_to(track_t *t, uint32_t pi)
     t->p[P_VOICE] = PR_MONO(&e->presets[pi]) ? V_LEGATO : V_POLY;   /* mono presets keep the legato feel */
     if (PR_TAG(&e->presets[pi]) == PT_BASS)           /* (VEL, the owner: a bass is better even) a bass's VEL 0 %: */
         t->p[P_TVEL] = 0;                             /* every note at 100, its ACCENTs still 127 */
-    if (e == &ENG_LOFI || e == &ENG_DRUM)             /* (V10.6d) MATH: RTRG on, each note the formula from its start */
+    if (ENG_IS_MATH(e) || e == &ENG_DRUM)             /* (V10.6d) MATH: RTRG on, each note the formula from its start */
         t->p[P_LRTRG] = e == &ENG_DRUM ? km : 1;
     if (0 /* (BYTE: never) */) {                          /* (0.8.5) VOICE's words: LANG, LYRIC (0: its vowels) */
         t->p[P_VLANG] = (int16_t)(e->presets[pi].xp & 3u);
@@ -2109,7 +2119,7 @@ static uint32_t dx_pagen(const page_t *pg)            /* SOUND 1..3; (0.5.1) X-M
         return 4u;
     return pg->title[5] == ' ' ? (pg->title[6] == '4' ? 8u : (uint32_t)(pg->title[6] - '0')) : 1u;
 }
-static int func_formula_page(void) { return !ui.home && cur_page()->scope==SC_ENGINE && trk_engp(TSEL)==&ENG_LOFI && TSEL->p[P_E1]==RW_FUNC; }
+static int func_formula_page(void) { return !ui.home && cur_page()->scope==SC_ENGINE && func_on(TSEL); }
 #define dx_formula_page() 0                             /* (DRUM-W: DRUM-X's FORMULA page gone) */
 static void dx_knob(const page_t *pg, uint32_t k, int32_t s);
 static void dx_cards(const page_t *pg);

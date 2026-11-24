@@ -659,20 +659,43 @@ static const char MATH_FUNC_R_BITS[] = "func{let k=int(P*4);let m=int(t/(4+int(A
  * 3..15 levels (D), its action eu() */
 static const char MATH_FUNC_R_BEATS[] = "func{let k=int(P*4);let g=P*4%1;let q=(1-g)*(1-g);let z=rnd(T);return sat(tri(sin(g*(2+q*9))*(1+C*7))*q*eu(k,d)*1.5+z*q*(sin(g*(20+B*80))*eu(k+2,d+5)*.5+sqr(w*7)*q*eu(k*3,d+9)*A*.4));}";
 static const char MATH_FUNC_R_SCREECH[] = "func{let k=int(P*4);let g=P*4%1;let i=(1-g)*(2+A*14);let y=tri(sin(w*(1+int(B*6))+sin(w*3.01)*i)*(1+C*8));let m=3+D*12;return floor(y*m)/m*(.3+eu(k,d)*.7);}";
-static const char *const MATH_FUNC_R[] = {MATH_FUNC_R_ACID,MATH_FUNC_R_REESE,MATH_FUNC_R_HOUSE,MATH_FUNC_R_STRUM,MATH_FUNC_R_JUST,MATH_FUNC_R_PLUCK,MATH_FUNC_R_NIBBLE,MATH_FUNC_R_BITS,MATH_FUNC_R_BEATS,MATH_FUNC_R_SCREECH};
+/* (BYTE 0.17, FUNC its own engine) six more, the gaps between the others: DUB, offbeat chord stabs repeated as an echo
+ * (B its time: 1/16 1/8 3/16), the sub (C), a one-drop kick and rim on 3; AMEN, a two-bar break (kick and snare as
+ * masks of its 32 steps, the beats shuffled by B, the seed's pick), 8th hats (A); TRANCE, a 16th arpeggio up and down a
+ * minor chord over i VI III VII, its length (B), the offbeat bass (C); AMBIENT, a drone of sines on the note, its fifth,
+ * octave and sub, slowly phase-modulated (A), drifting (B), a high partial (C); MINIMAL, a 4/4 kick, offbeat hats (B),
+ * a blip of FM (A) on eu()'s steps; JUNGLE, a sub on a fused table every two beats, growled (B), wobbling (A), its
+ * break (kick on 1 and the "and" of 3, snare on 2 and 4). No state, drums on the 1/32 grid (tests/funcbeat_test.c) */
+static const char MATH_FUNC_R_DUB[] = "func{let g=(P+.5)%1;let k=int(P);let r=n+\"0573\"[(k>>2)+rnd(k>>4^d)&3]-48;let q=g%((\"246\"[int(B*2.99)]-48)*.125);return sat(chord(r,q,A)*max(1-q*5,0)*(1-g*.7)+note(r-24,P%1,0)*C*.8+kick((P+2)%4)*.8);}";
+static const char MATH_FUNC_R_AMEN[] = "func{let j=int(P*4);let m=rnd(j>>2^d);let i=((m&255)<b?m>>8&7:j>>2&7)*4+(j&3);let g=P*4%1*.25;return sat(kick(g+(4227527674>>i&1)*2)*.9+snare(g+(3178196335>>i&1)*2)*(.4+C*.5)+hat(P*2%1*.5)*A*.6);}";
+static const char MATH_FUNC_R_TRANCE[] = "func{let j=int(P*4);let r=n+\"083:\"[(j>>4)+rnd(j>>6^d)&3]-48;let g=P*4%1;let h=(P+.5)%1;return sat(note(r+\"037<C<73\"[(j+d)&7]-48,g*.25,A)*max(1-g*(4.2-B*3.5),0)*(.4+eu(j,d)*.6)*1.3+note(r-24,h,0)*C*max(1-h*2.5,0));}";
+static const char MATH_FUNC_R_AMBIENT[] = "func{let j=P*(.02+B*.12);return sat((sin(w+sin(w*2+j)*A*.7)*.5+sin(w*1.5+sin(j*3)*.2)*(.3+sin(j+d*.01)*.2)+sin(w*.5)*.35+sin(w*3.01)*C*.12*(1+sin(j*2.3)))*.8);}";
+static const char MATH_FUNC_R_MINIMAL[] = "func{let k=int(P*4);let g=P*4%1;let e=(1-g)*(1-g)*(1-g);return sat(kick(P%1)*.9+hat((P+.5)%1)*B*.6+sin(w*(\"4568\"[k+rnd(k>>4^d)&3]-48)*.25+sin(w*2)*e*A*2)*e*eu(k,d)*(.5+C*2)*.5);}";
+static const char MATH_FUNC_R_JUNGLE[] = "func{let j=int(P*4);let g=P*4%1*.25;let y=w*(\"4436\"[(j>>3)+rnd(j>>5^d)&3]-48)*.125;return sat(sin(y+sin(y*2)*B*.6)*(.7+C*1.5)*(1-sin(P*.5)*A*.45)+kick(g+(4227791870>>j&1)*2)*.8+snare(g+(4025479151>>j&1)*2)*.5);}";
+static const char *const MATH_FUNC_R[] = {MATH_FUNC_R_ACID,MATH_FUNC_R_REESE,MATH_FUNC_R_HOUSE,MATH_FUNC_R_STRUM,MATH_FUNC_R_JUST,MATH_FUNC_R_PLUCK,MATH_FUNC_R_NIBBLE,MATH_FUNC_R_BITS,MATH_FUNC_R_BEATS,MATH_FUNC_R_SCREECH,
+    MATH_FUNC_R_DUB,MATH_FUNC_R_AMEN,MATH_FUNC_R_TRANCE,MATH_FUNC_R_AMBIENT,MATH_FUNC_R_MINIMAL,MATH_FUNC_R_JUNGLE};
+#define FUNC_NFORM (5u+NELEM(MATH_FUNC_R))       /* CUSTOM, SONG, BEAT, GROWL, HALFTIME and the rest */
+static const char *const N_FUNC_FORM[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK",
+    "NIBBLE","BITS","DRUMS","SCREECH","DUB","AMEN","TRANCE","AMBIENT","MINIMAL","JUNGLE"};
+static const char *const N_FUNC_RUN[]={"-","-","-","-","TRIG","PLAY","FREE"};
+_Static_assert(NELEM(N_FUNC_FORM)==FUNC_NFORM,"FUNC: a name for every FORM");
+static const engine_t ENG_FUNC;                         /* (BYTE 0.17) below: FUNC, an engine of its own */
+/* (BYTE 0.17) a part plays FUNC: the FUNC engine, or MATH with WAVE FUNC (a store's or the editor's, until math_poll moves
+ * it to FUNC: engines.c math_poll_ws) */
+static int func_on(const track_t*t){return t->p[P_E1]==RW_FUNC&&(t->eng_req==ENGI_FUNC||t->eng_req==ENGI_LOFI);}
 static uint32_t func_clock_begin,func_clock_end;
 static uint8_t func_song_mask;
 /* (BYTE 0.16, the owner: "that PLAY starts the formula: set it explicitly; by default a key sounds it") RUN: NOTE (the
  * key pressed sounds it, at its pitch; the default), PLAY (the transport's: its voice and clock, as SONG was), FREE (it
  * runs on its own: a voice always, its own clock, at the root) */
-static int func_song(const track_t*t){return t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==5;}
-static int func_free(const track_t*t){return t->eng_req==ENGI_LOFI&&t->p[P_E1]==RW_FUNC&&t->p[P_E0]==6;}
+static int func_song(const track_t*t){return func_on(t)&&t->p[P_E0]==5;}
+static int func_free(const track_t*t){return func_on(t)&&t->p[P_E0]==6;}
 /* (BYTE 0.16, the owner: "the whole formula is never heard") the formula's clock: the transport's in PLAY and NOTE
  * while the song plays (the key its pitch and gate, the formula where the song is: a 1/16 step a sixteenth of it, in
  * place); stopped, NOTE from the key, FREE its own */
 #define func_bar(t) (song.playing&&!func_free(t))
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
-static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:t->p[P_E7]==3?MATH_FUNC_GROWL:t->p[P_E7]==4?MATH_FUNC_HALF:t->p[P_E7]>=5&&t->p[P_E7]<5+(int)NELEM(MATH_FUNC_R)?MATH_FUNC_R[t->p[P_E7]-5]:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
+static const char *math_func_text(const track_t*t,const char*custom){return t->p[P_E7]==1?MATH_FUNC_DEFAULT:t->p[P_E7]==2?MATH_FUNC_BEAT:t->p[P_E7]==3?MATH_FUNC_GROWL:t->p[P_E7]==4?MATH_FUNC_HALF:t->p[P_E7]>=5&&t->p[P_E7]<(int)FUNC_NFORM?MATH_FUNC_R[t->p[P_E7]-5]:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
 static uint32_t math_music_cost(const track_t*t){
     if(t->p[P_E1]!=RW_FUNC)return 2u;
     const fvm_prog_t*p=lofi_slot((uint32_t)(t-trk)%NTRK);uint32_t cost=2;
@@ -727,15 +750,17 @@ static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32
  * line each in the header while one turns (ui_input.c knob_hint, MENU > DISPLAY > HELP). CUSTOM (and a LOOP past the
  * recipes', as math_func_text) the program's own A B C D. Flash only; the stored values the same (0 .. 127) */
 #define FK(a,b,c,d) {{a,F_PCT,0,127,64,0},{b,F_PCT,0,127,32,0},{c,F_PCT,0,127,16,0},{d,F_PCT,0,127,0,0}}
-static const param_desc_t FUNC_KNOBS[15][4]={FK("A","B","C","D"),FK("COLOR","SNARE","HATS","STEPS"),
+static const param_desc_t FUNC_KNOBS[FUNC_NFORM][4]={FK("A","B","C","D"),FK("COLOR","SNARE","HATS","STEPS"),
     FK("COLOR","SNARE","HATS","KICK"),FK("VOWEL","WOBBLE","DRIVE","SEED"),FK("DEPTH","RING","DRIVE","SEED"),
     FK("CUTOFF","RESO","DRIVE","SEED"),FK("DETUNE","TONE","DRIVE","SEED"),FK("CHORD","BASS","KICK","SEED"),
     FK("COLOR","CHORD","DRIVE","SEED"),FK("BRIGHT","FM","DRIVE","SEED"),FK("SHAPE","TONE","DRIVE","SEED"),
     FK("PWM","SUB","DRIVE","SEED"),FK("SLOW","KICK","DRIVE","SEED"),FK("HATS","SNARE","KICK","SEED"),
-    FK("INDEX","RATIO","FOLD","CRUSH")};
+    FK("INDEX","RATIO","FOLD","CRUSH"),
+    FK("CHORD","ECHO","BASS","SEED"),FK("HATS","CHOP","SNARE","SEED"),FK("TONE","GATE","BASS","SEED"),
+    FK("FM","DRIFT","SHINE","SEED"),FK("BLIP","HATS","DRIVE","SEED"),FK("WOBBLE","GROWL","DRIVE","SEED")};
 #undef FK
 #define FUNC_SEED "PICKS NOTES + RHYTHM"
-static const char *const FUNC_TIPS[15][4]={
+static const char *const FUNC_TIPS[FUNC_NFORM][4]={
     {"CONTROL A, 0 TO 1","CONTROL B, 0 TO 1","CONTROL C, 0 TO 1","CONTROL D, 0 TO 1"},
     {"CHORD + MELODY TONE","EVERY 2 BEATS OR 1","2, 4 OR 8 A BEAT","1, 2 OR 4 A BEAT"},
     {"BASS HARMONICS","EVERY 2 BEATS OR 1","2, 4 OR 8 A BEAT","3-3-2, 4 OR 2 A BAR"},
@@ -750,22 +775,27 @@ static const char *const FUNC_TIPS[15][4]={
     {"PULSE WIDTH SWEEP","SUB LEVEL","SATURATION",FUNC_SEED},
     {"BYTEBEAT SLOWER","KICK LEVEL","SATURATION",FUNC_SEED},
     {"HATS LEVEL","SNARE PITCH","PUNCH, FOLDED",FUNC_SEED},
-    {"FM SCREAM","MODULATOR 1 TO 7","WAVEFOLD GRIT","3 TO 15 LEVELS"}};
+    {"FM SCREAM","MODULATOR 1 TO 7","WAVEFOLD GRIT","3 TO 15 LEVELS"},
+    {"MINOR, MAJOR, 7TH","REPEAT 1/16 1/8 3/16","SUB BASS LEVEL",FUNC_SEED},
+    {"8TH HATS LEVEL","BEATS SHUFFLED","SNARE LEVEL","PICKS THE CHOPS"},
+    {"NOTE HARMONICS","NOTE LENGTH","OFFBEAT BASS",FUNC_SEED},
+    {"FM SHIMMER","SLOW TO FASTER","HIGH PARTIAL","PHASES OF PARTIALS"},
+    {"BLIP FM DEPTH","OFFBEAT HAT LEVEL","BLIP LEVEL",FUNC_SEED},
+    {"VOLUME WOBBLE","SUB FM GROWL","BASS LEVEL",FUNC_SEED}};
 #undef FUNC_SEED
-static uint32_t func_form(const track_t*t){return t->p[P_E7]>=1&&t->p[P_E7]<5+(int)NELEM(MATH_FUNC_R)?(uint32_t)t->p[P_E7]:0u;}
-_Static_assert(NELEM(FUNC_KNOBS)==5+NELEM(MATH_FUNC_R)&&NELEM(FUNC_TIPS)==NELEM(FUNC_KNOBS),"FUNC: a name for every FORM's knobs");
+static uint32_t func_form(const track_t*t){return t->p[P_E7]>=1&&t->p[P_E7]<(int)FUNC_NFORM?(uint32_t)t->p[P_E7]:0u;}
+
 /* its line of help: one of FUNC_KNOBS's, else 0 (knob_hint's own table) */
 static const char *func_knob_tip(const param_desc_t*d){
     uintptr_t o=(uintptr_t)d-(uintptr_t)&FUNC_KNOBS[0][0];
     return o<sizeof FUNC_KNOBS?FUNC_TIPS[o/sizeof FUNC_KNOBS[0]][o%sizeof FUNC_KNOBS[0]/sizeof(param_desc_t)]:0;
 }
+/* (BYTE 0.17) FUNC's EDIT k: RUN ROOT FORM its own, A B C D by FORM (WAVE 0: edit[], FUNC alone) */
+static const param_desc_t *func_desc(const track_t*t,uint32_t k){return k-2u<4u?&FUNC_KNOBS[func_form(t)][k-2u]:k-1u?&ENG_FUNC.edit[k&7u]:0;}
 static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
-    if(t->p[P_E1]==RW_FUNC){
-        static const char*const runs[]={"-","-","-","-","TRIG","PLAY","FREE"},*const forms[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK","NIBBLE","BITS","DRUMS","SCREECH"};
-        static const param_desc_t run={"RUN",F_ENUM,4,6,5,runs},form={"FORM",F_ENUM,0,14,1,forms},root={"ROOT",F_INT,-24,24,0,0};
-        return k==0u?&run:k>=2u&&k<=5u?&FUNC_KNOBS[func_form(t)][k-2u]:k==6u?&root:k==7u?&form:0;
-    }
+    if(t->p[P_E1]==RW_FUNC)                             /* (a MATH part's, until it is FUNC's: as FUNC's) */
+        return func_desc(t,k);
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */
         return &LOFI_MOTN;
     if (t->p[P_E1] == RW_USER)                          /* (JIANT BYTE) the part's own formula: ALGO its seed */
@@ -878,13 +908,11 @@ static const preset_t LOFI_PRESETS[] = {
      MODS(P_FCUT, 100, P_LWAVE, LW_SH, P_LRATE, -10, P_LD_FLT, 16, MMOD(1, PS_RAND, PD_PAN, 40))},
     {"FLOAT PAD", {2, 6, 112, 0, 0, 0, 0, 0}, {80, 90, 69, 100}, 0, 1 | TAG(PAD), FX(30, 10, 50, 40), PAT(3), BREATHE(14, 0, 0),
      MODS(P_FCUT, 90)},
-    {"FUNC SONG", {5,8,80,0,64,64,0,1}, {0,0,127,24}, 0, TAG(KEYS), FX(0,0,0,0)},
-    {"FUNC BEAT", {5,8,64,0,64,64,0,2}, {0,0,127,24}, 0, TAG(BASS), FX(0,0,0,0)},
 };
 /* (V10.6i) browsed: the voices to play, the experiments, INIT (ui.c: in LOFI_ORDER's place; LOFI_PC stays) */
 static const uint8_t MATH_ORDER[] = {3, 4, 5, 6, 7, 11,   /* to play */
                                      0, 1, 2, 8, 10,      /* experiments */
-                                     9,12,13};                  /* INIT / FUNC */
+                                     9};                  /* INIT (BYTE 0.17: FUNC SONG and BEAT, 12 13, FUNC's own) */
 _Static_assert(sizeof MATH_ORDER == NELEM(LOFI_PRESETS), "MATH's browsing order: every preset once");
 
 static const engine_t ENG_LOFI = {
@@ -892,7 +920,8 @@ static const engine_t ENG_LOFI = {
     .page_title = {"FORMULA", "MOTION"},
     .edit = {
         {"CHIP", F_ENUM, 0, 3, 2, N_CHIP},           /* (FLOAT: 8BIT reads FULL, lofi_desc) */
-        {"WAVE", F_ENUM, RW_BYTE, RW_FUNC, RW_BYTE, N_RWAVE},   /* (JIANT BYTE: USER, the part's own) */
+        {"WAVE", F_ENUM, RW_BYTE, RW_USER, RW_BYTE, N_RWAVE},   /* (JIANT BYTE: USER, the part's own; BYTE 0.17: FUNC an
+                                                         * engine of its own, ENG_FUNC) */
         {"ALGO", F_INT, 0, 127, 64, 0},              /* (the knob 0..191 and the names: lofi_desc) */
         {"VAR", F_PCT, 0, 127, 0, 0},
         {"MOTION", F_INT, 0, 127, 0, 0},             /* (V10.6d: 0 the default; the knob to 255 SYNC: lofi_desc) */
@@ -910,3 +939,55 @@ static const engine_t ENG_LOFI = {
     .keep = 0x31,                /* the held sample and the filter */
     .desc = lofi_desc,
 };
+
+/* (BYTE 0.17, the owner: "FUNC ended up very hidden; it would be good if it had its own space") FUNC: MATH's FUNC as an
+ * engine. Underneath it is MATH's: the same renderer (lofi_render, lofi_func_render), program slot (lofi_slot, published
+ * by math_poll), voice state and values, WAVE always FUNC (P_E1: what every FUNC path tests); only its pages, names and
+ * presets are its own. Its pages (params.c PAGES, ui.c page_visible): PLAY FORM RUN ROOT CUT, KNOBS A B C D by FORM.
+ * Stored as MATH WAVE FUNC (project.c), so a project of it loads on a firmware without it, and one of before as FUNC.
+ * Its presets: a FORM each (preset k is FORM k + 1), RUN PLAY (the transport's clock; stopped, a key sounds it) */
+#define FU(f, a, b, c, d) {5, RW_FUNC, a, b, c, d, 0, f}
+static const preset_t FUNC_PRESETS[] = {
+    {"SONG", FU(1, 80, 0, 64, 64), {0, 0, 127, 24}, 0, TAG(KEYS), FX(0, 0, 0, 0)},
+    {"BEAT", FU(2, 64, 0, 64, 64), {0, 0, 127, 24}, 0, TAG(BASS), FX(0, 0, 0, 0)},
+    {"GROWL", FU(3, 72, 40, 30, 0), {0, 0, 127, 24}, 1, TAG(BASS), FX(0, 0, 0, 0)},
+    {"HALFTIME", FU(4, 80, 40, 24, 0), {0, 0, 127, 24}, 1, TAG(BASS), FX(0, 0, 0, 0)},
+    {"ACID", FU(5, 90, 70, 30, 0), {0, 0, 127, 24}, 1, TAG(BASS), FX(0, 0, 20, 0)},
+    {"REESE", FU(6, 50, 60, 20, 0), {0, 0, 127, 24}, 1, TAG(BASS), FX(0, 0, 0, 0)},
+    {"HOUSE", FU(7, 40, 30, 90, 0), {0, 0, 127, 24}, 0, TAG(KEYS), FX(0, 0, 20, 20)},
+    {"STRUM", FU(8, 60, 0, 20, 0), {0, 0, 127, 24}, 0, TAG(PLUCK), FX(0, 0, 25, 30)},
+    {"JUST", FU(9, 50, 40, 20, 0), {0, 0, 127, 24}, 0, TAG(BELL), FX(0, 0, 25, 30)},
+    {"PLUCK", FU(10, 64, 40, 20, 0), {0, 0, 127, 24}, 0, TAG(PLUCK), FX(0, 0, 25, 25)},
+    {"NIBBLE", FU(11, 64, 50, 20, 0), {0, 0, 127, 24}, 1, TAG(LEAD), FX(0, 0, 20, 0)},
+    {"BITS", FU(12, 30, 80, 20, 0), {0, 0, 127, 24}, 0, TAG(FX), FX(0, 0, 0, 0)},
+    {"DRUMS", FU(13, 64, 40, 30, 0), {0, 0, 127, 24}, 0, TAG(DRUM), FX(0, 0, 0, 10)},
+    {"SCREECH", FU(14, 60, 40, 30, 80), {0, 0, 127, 24}, 0, TAG(FX), FX(0, 0, 20, 0)},
+    {"DUB", FU(15, 30, 127, 80, 0), {0, 0, 127, 24}, 0, TAG(KEYS), FX(0, 0, 40, 40)},
+    {"AMEN", FU(16, 70, 30, 60, 0), {0, 0, 127, 24}, 0, TAG(DRUM), FX(0, 0, 0, 15)},
+    {"TRANCE", FU(17, 60, 64, 70, 0), {0, 0, 127, 24}, 0, TAG(PLUCK), FX(0, 30, 45, 40)},
+    {"AMBIENT", FU(18, 60, 40, 60, 0), {0, 0, 127, 60}, 0, TAG(PAD), FX(0, 50, 30, 70)},
+    {"MINIMAL", FU(19, 70, 80, 40, 0), {0, 0, 127, 24}, 0, TAG(DRUM), FX(0, 0, 30, 10)},
+    {"JUNGLE", FU(20, 40, 60, 40, 0), {0, 0, 127, 24}, 1, TAG(BASS), FX(0, 0, 0, 10)},
+};
+#undef FU
+_Static_assert(NELEM(FUNC_PRESETS) == FUNC_NFORM - 1u, "FUNC: a preset for every FORM");
+static const engine_t ENG_FUNC = {
+    .name = "FUNC",
+    .page_title = {"PLAY", "KNOBS"},
+    .edit = {
+        {"RUN", F_ENUM, 4, 6, 5, N_FUNC_RUN},
+        {"WAVE", F_ENUM, RW_FUNC, RW_FUNC, RW_FUNC, N_RWAVE},   /* (fixed: MATH's FUNC paths read it) */
+        {"A", F_PCT, 0, 127, 64, 0}, {"B", F_PCT, 0, 127, 32, 0}, {"C", F_PCT, 0, 127, 16, 0}, {"D", F_PCT, 0, 127, 0, 0},
+        {"ROOT", F_INT, -24, 24, 0, 0},
+        {"FORM", F_ENUM, 0, FUNC_NFORM - 1u, 1, N_FUNC_FORM},
+    },
+    .presets = FUNC_PRESETS,
+    .npresets = NELEM(FUNC_PRESETS),
+    .note_on = lofi_note_on,
+    .render = lofi_render,
+    .half = 1,
+    .knob = {P_E2, P_E3, P_E4, P_E5},
+    .keep = 0x31,
+    .desc = func_desc,
+};
+#define ENG_IS_MATH(e) ((e) == &ENG_LOFI || (e) == &ENG_FUNC)   /* (BYTE 0.17) MATH's renderer: MATH or FUNC */

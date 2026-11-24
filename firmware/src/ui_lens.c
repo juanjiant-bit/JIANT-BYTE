@@ -451,7 +451,7 @@ static __attribute__((noinline)) const char *nav_page_name(void)
     }
     str_cpy(b, v->nm ? v->nm : v->t, 24);
     if (sec == SEC_EDIT && v->g == 0u && !v->nm && PAGES[ui.page].scope == SC_ENGINE) {   /* (EDIT 1 . OSC) */
-        const char *pt = trk_engp(TSEL)->page_title[PAGES[ui.page].id[0] != P_E0];
+        const char *pt = trk_engp(TSEL)->page_title[PG_TI(&PAGES[ui.page])];
         if (pt && pt[0] && pt[0] != '-')                /* (JIANT FM V10.7.60, normalized: the engine's page by its own
                                                          * name, FORMULA VOWELS FORM .., not EDIT 1 / EDIT 2) */
             str_cpy(b, pt, 24);
