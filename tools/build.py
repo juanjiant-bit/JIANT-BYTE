@@ -238,7 +238,8 @@ def share_strings(ir, keep=()):
 # audio's hottest functions each i32 udiv / urem / sdiv / srem by a constant becomes the multiply (one 32x32->64
 # instruction) by floor((2^32-1)/d) and one correction: exact for every input (the estimate is at most one low)
 DIV_FNS = ("form_render",
-           "fvm_music_env", "fl_post", "fl_fm", "fl_run", "fvm_exec",
+           "fvm_music_env", "fvm_music", "fvm_music_tone", "fl_post", "fl_fm", "fl_run", "fvm_exec",   # (engopt: FUNC's
+                                                         # voices, a sample each: their / 2 / 3 / 4 / 5)
            "lofi_float_render", "lofi_byte_render", "voice_block")   # (DRUM-W's pads and bus, voice_half,
                                                          # track_render: their few out, the flash for FORM 4's recipes)   # (not the RAM code's, mix_part_m0 ..: its room)
 

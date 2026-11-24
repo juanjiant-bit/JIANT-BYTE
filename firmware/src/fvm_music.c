@@ -12,6 +12,8 @@ static int32_t fvm_music_env(int32_t age,uint32_t duration)
     if(!(duration&(duration-1u)))               /* (byte-cpu-light) a power of two (FORM's 1, 4 beats; the kick): a shift,
                                                  * the same value (no division a sample on the FM-1) */
         down=(((duration-a)>>shift)*32767u)>>(31u-(uint32_t)__builtin_clz(duration>>shift));
+    else if(duration==24576u&&!shift)           /* (engopt) the snare's 3 x 8192: a shift and / 3 as a product, exact */
+        down=(uint32_t)(((uint64_t)((((duration-a)*32767u)>>13))*0xAAAAAAABu)>>33);
     else
         down=(((duration-a)>>shift)*32767u)/(duration>>shift);
     return (int32_t)(up*down/32768u);
@@ -38,7 +40,13 @@ static uint32_t fvm_music(uint32_t kind,uint32_t x,uint32_t y,uint32_t z,const f
         env=fvm_music_env(age,duration);if(!env)return 0;
         uint32_t samples=(uint32_t)(((uint64_t)(uint32_t)age*(e->u[FU_BPS]?e->u[FU_BPS]:FS/2u))>>16);
         int32_t noise=(int32_t)(fvm_hash(tick+kind*977u)>>16)-32768;
-        if(kind==2u){uint32_t phase=samples*pitch_inc(33u*16u);phase+=(uint32_t)(((uint64_t)samples*0x300000000ull)/(samples+900u));signal=sine_i(phase);}
+        if(kind==2u){uint32_t phase=samples*pitch_inc(33u*16u),d=samples+900u;
+            /* (engopt) the sweep, 3 x 2^32 x s / (s + 900) mod 2^32 = -ceil(2700 x 2^32 / d): two 32-bit divisions in
+             * 16-bit steps for d < 2^16 (a half beat down to ~41 BPM), not the 64-bit one a sample (a library call on
+             * the FM-1); exact for every s */
+            if(d<65536u){uint32_t q1=(2700u<<16)/d,r1=(2700u<<16)-q1*d,t=r1<<16,q2=t/d;phase-=(q1<<16)+q2+(t!=q2*d);}
+            else phase+=(uint32_t)(((uint64_t)samples*0x300000000ull)/d);
+            signal=sine_i(phase);}
         else if(kind==3u)signal=noise*3/5+sine_i(samples*pitch_inc(54u*16u))/3;
         else signal=noise/2;
     }
