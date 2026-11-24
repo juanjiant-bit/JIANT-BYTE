@@ -1687,6 +1687,7 @@ static inline int32_t rv_knee(int32_t x)
 }
 static struct { uint32_t pos, inc, wk; uint16_t len, age; int16_t pl, pr; } cl_g[CL_N];   /* (V10.7.58: wk, the window's
                                                          * slope, 512 / len Q16: drawn at its birth, no divide a sample) */
+static uint16_t cl_act;                                  /* (engopt) bit k: grain k sounding (its len not 0) */
 static uint32_t cl_rand(void) { fx.cl_rng = fx.cl_rng * 1664525u + 1013904223u; return fx.cl_rng >> 8; }
 /* CLOUD (G_RTYPE 4, JIANT 0.5, made wet in 0.5.1): a granular wash. The input and the cloud's own tail fed back
  * (SIZE: the tail ~0.09, the grains ~0.43: the wash builds on itself) are written at half rate into a 0.74 s line;
@@ -1720,19 +1721,20 @@ static void cl_spawn(int32_t gap, int32_t wd, uint32_t ar)
                                                          * a few cents off: a chorused shimmer, not one pitch) */
         cl_g[k].age = 0;
         cl_g[k].wk = (512u << 16) / cl_g[k].len;
+        cl_act = (uint16_t)(cl_act | 1u << k);
         cl_g[k].pl = (int16_t)(128 - pan);               /* (0 .. 256: 128 the centre) */
         cl_g[k].pr = (int16_t)(128 + pan);
     }
 }
 static void cl_age(void)                                 /* the grains two samples on (after their reads) */
 {
-    uint32_t k;
-    for (k = 0; k < CL_N; k++)
-        if (cl_g[k].len) {
-            cl_g[k].pos += cl_g[k].inc << 1;
-            cl_g[k].age = (uint16_t)(cl_g[k].age + 2u);
-            if (cl_g[k].age >= cl_g[k].len) cl_g[k].len = 0;
-        }
+    uint32_t m, k;
+    for (m = cl_act; m; m &= m - 1u) {
+        k = 31u - (uint32_t)__builtin_clz(m & (0u - m));
+        cl_g[k].pos += cl_g[k].inc << 1;
+        cl_g[k].age = (uint16_t)(cl_g[k].age + 2u);
+        if (cl_g[k].age >= cl_g[k].len) { cl_g[k].len = 0; cl_act = (uint16_t)(cl_act & ~(1u << k)); }
+    }
 }
 /* CLOUD at rest (room_used clear, no input): its line's clock, the scheduler (and its random numbers), the grains'
  * ages, the network's clocks: everything that moves with no sound, nothing read or summed (all of it exactly 0) */
@@ -1788,9 +1790,11 @@ static __attribute__((noinline)) void rev_cloud(const int32_t *rev_in, int32_t *
                                                          * written (half rate): half the work; in between, the two
                                                          * averaged (a linear step, half a sample late) */
             int32_t gl = 0, gr = 0, ws = 0;
-            for (k = 0; k < CL_N; k++) {                 /* (engopt) each grain read and aged in one pass (cl_age's) */
-                uint32_t L = cl_g[k].len;
-                if (!L) continue;
+            uint32_t gm;
+            for (gm = cl_act; gm; gm &= gm - 1u) {       /* (engopt) each grain sounding read and aged in one pass */
+                uint32_t L;
+                k = 31u - (uint32_t)__builtin_clz(gm & (0u - gm));
+                L = cl_g[k].len;
                 {
                     uint32_t q = cl_g[k].pos, p = q >> 16, f = (q >> 8) & 255u, a = cl_g[k].age;
                     int32_t x0 = cloud_buf[p & (CL_LEN - 1u)], x1 = cloud_buf[(p + 1u) & (CL_LEN - 1u)];
@@ -1802,7 +1806,7 @@ static __attribute__((noinline)) void rev_cloud(const int32_t *rev_in, int32_t *
                     cl_g[k].pos = q + (cl_g[k].inc << 1);
                     a += 2u;
                     cl_g[k].age = (uint16_t)a;
-                    if ((uint16_t)a >= L) cl_g[k].len = 0;
+                    if ((uint16_t)a >= L) { cl_g[k].len = 0; cl_act = (uint16_t)(cl_act & ~(1u << k)); }
                 }
             }
             if (ws > CL_WMAX) {                          /* (p1, main 0.9.14 / 0.9.16) the overlap at most CL_WMAX / 256 */
@@ -1921,6 +1925,7 @@ static void rev_state_clear(void)
     sh_tlp = 0;
     for (i = 0; i < CL_N; i++)
         cl_g[i].len = 0;
+    cl_act = 0;
     fx.cl_gl = fx.cl_gr = 0;
     fx.cl_dc = 0;
     fx.cl_fill = 0;
