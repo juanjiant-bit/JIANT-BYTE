@@ -220,27 +220,16 @@ static __attribute__((noinline)) void dist_amp(track_t *t, int32_t *b, uint32_t 
  * at 1: the low cut and the clip at once), the blend eased a block at a time and ramped across it; at 0 out of the
  * chain once the blend is down */
 static int32_t dist_w[NTRK];                            /* the blend the last block ended at, Q12 */
-/* (V10.7.30, the owner: "NOISE AMOUNT on the distortions: white noise that follows the signal through a threshold") DIST
- * page KNOB 3, NOISE (params.c dnz_v, 0..100, a track each; 0: not run): after the drive, white noise times the part of
- * the wave above a threshold (~-12 dBFS at 1 .. ~-18 at 100 of the drive's out): only the loud part of each cycle gets
- * it, as loud as it is over the threshold: a grit that rides the note (its pitch, its envelope), silent under it. The
- * noise through a one-pole at the TONE's corner (dist_nlp), its level the drive's blend */
+/* (V10.7.30) DIST page KNOB 3, NOISE (params.c dnz_v, 0..100, a track each; 0: not run). (FM V10.8.36, the owner: "the
+ * distortion's NOISE only a hiss; it should modulate tone and gain") was white noise added after the drive over a
+ * threshold (a hiss riding the note's loud part, nothing under it); now low-passed white noise (~1.4 kHz, dist_nlp)
+ * moves the drive's gain before the shaper and the TONE's corner: sidebands round every partial at any level, nothing
+ * added (silence stays silent, the level as it was). The drive's own loop with it, in the flash (dist_noise:
+ * track_dist hands it the block); the formula TYPEs in dist_eq. na: the depth, 0 .. 126; the state in dist_nlp,
+ * dist_rnd */
 static int32_t dist_nlp[NTRK] __attribute__((section(".pool")));   /* (V10.7.33: the pool, as BALANCE's) */
-static __attribute__((noinline)) void dist_noise(track_t *t, int32_t *b, uint32_t n)
-{
-    uint32_t ti = (uint32_t)(t - trk) % NTRK, r = dist_rnd | 1u, i;
-    int32_t lp = dist_nlp[ti], amt = dnz_v[ti], thr = 8000 - amt * 40, gn = (amt * 3 * dist_w[ti]) >> 12;
-    int32_t k = clamp(32000 - t->p[P_DIST] * 95 + t->p[P_DTONE] * 300, 2500, 32767);
-    for (i = 0; i < n; i++) {
-        int32_t a = b[i] < 0 ? -b[i] : b[i];
-        r ^= r << 13; r ^= r >> 17; r ^= r << 5;
-        lp += mulq15(((int32_t)r >> 16) - lp, k);
-        a = clamp(a - thr, 0, 40000);
-        b[i] += (lp * ((a * gn) >> 8)) >> 15;
-    }
-    dist_nlp[ti] = lp;
-    dist_rnd = r;
-}
+#define DNZ_STEP(r, nz) do { (r) ^= (r) << 13; (r) ^= (r) >> 17; (r) ^= (r) << 5; \
+                             (nz) += mulq15(((int32_t)(r) >> 16) - (nz), 6000); } while (0)
 /* (JIANT BYTE, phase 7) DIST's TYPE 6 .. the effect a formula: y = f(I) per sample, I the part's signal (FIX, full scale
  * 1), A DIST (0 .. 1: the amount, its blend in DIST's own), B TONE (0 .. 1), p the song's beats, T seconds; its states
  * (lp hp ph) the part's own. Each part's program compiled when its TYPE changes */
@@ -286,8 +275,21 @@ static __attribute__((noinline)) void dist_eq(track_t *t, int32_t *b, uint32_t n
     en.u[FU_AF] = (uint32_t)clamp(t->p[P_DIST], 0, 127) * 516u;
     en.u[FU_BF] = (uint32_t)(clamp(t->p[P_DTONE], -64, 63) + 64) * 512u;
     en.u[FU_BEAT] = deq_beat;
-    for (i = 0; i < n; i++)
-        I[i] = (uint32_t)(b[i] < -65536 ? -131072 : b[i] > 65536 ? 131072 : b[i] * 2);
+    int16_t nzs[CTL];                                /* (FM V10.8.36) NOISE: the gain into the formula and its tone's
+                                                      * corner moved (dist_noise's) */
+    int32_t na = FELUCCA_XFX ? (dnz_v[ti] * 325) >> 8 : 0;
+    for (i = 0; i < n; i++) {
+        int32_t x = b[i] < -65536 ? -131072 : b[i] > 65536 ? 131072 : b[i] * 2;
+        if (na) {
+            uint32_t r = dist_rnd | 1u;
+            int32_t nz = dist_nlp[ti];
+            DNZ_STEP(r, nz);
+            dist_rnd = r; dist_nlp[ti] = nz;
+            nzs[i] = (int16_t)nz;
+            x = clamp(x + (((x >> 4) * ((nz * na) >> 7)) >> 9), -262144, 262144);
+        }
+        I[i] = (uint32_t)x;
+    }
     for (o = 0; o < n; o += FVM_BLK) {
         en.arr[FA_IN] = I + o;
         fvm_run(&deq_prg[ti], &en, &wk->s, n - o < FVM_BLK ? n - o : FVM_BLK, y + o);
@@ -296,14 +298,16 @@ static __attribute__((noinline)) void dist_eq(track_t *t, int32_t *b, uint32_t n
         int32_t v = (int32_t)y[i] >> 1;
         v = v > 98304 ? 98304 : v < -98304 ? -98304 : v;
         /* Every formula distortion shares the same audible TONE stage. */
-        int32_t tone=clamp(32000-t->p[P_DIST]*95+t->p[P_DTONE]*300,2500,32767);
+        int32_t tone=clamp(32000-t->p[P_DIST]*95+t->p[P_DTONE]*300+(na?(nzs[i]*na)>>8:0),2500,32767);
         t->dist_lp1 += mulq15(v-t->dist_lp1,tone);
         t->dist_lp2 += mulq15(t->dist_lp1-t->dist_lp2,tone);
         v=t->dist_lp2;
         b[i] = b[i] + ((((v - b[i]) >> 2) * (w0 + dw * (int32_t)(i + 1))) >> 10);   /* (DIST's blend: its amount in) */
     }
 }
-static void track_dist(track_t *t, int32_t *b, uint32_t n)
+/* the drive, a block: nz 0 (track_dist's, in the RAM code) as ever; nz 1 (dist_noise's, in the flash) NOISE's in its
+ * loop (AMP's cabinet in that loop too: dist_amp has none) */
+static inline __attribute__((always_inline)) void track_dist_b(track_t *t, int32_t *b, uint32_t n, const int nz1)
 {
     int32_t d = t->p[P_DIST], i, g, k, mk, b0 = softclip(2400), w0, w1, dw, full;
     uint32_t type = (uint32_t)t->p[P_DTYPE], ti = (uint32_t)(t - trk) % NTRK;
@@ -321,9 +325,9 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
     g = 4096 + d * d * 2;                                /* Q12: 1x .. ~9x, gentle at first */
     k = clamp(32000 - d * 95 + t->p[P_DTONE] * 300, 2500, 32767);   /* tone: transparent at low drive .. ~3 kHz, Q15 */
     mk = type == DT_HARD || type == DT_FOLD ? 30000 - d * 60 : 30000 - d * 120;   /* make-up */
-    if (type >= DT_EQ0 && type < DT_EQ0 + DIST_NEQ) {   /* (JIANT BYTE) a formula */
+    if (type >= DT_EQ0 && type < DT_EQ0 + DIST_NEQ) {   /* (JIANT BYTE) a formula (its NOISE in it) */
         dist_eq(t, b, n, type, w0, dw);
-        goto noise;
+        return;
     }
     if (type > DT_AMP)
         type = DT_SOFT;
@@ -333,30 +337,59 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
         if (!w0)
             t->dist_dc = t->dist_cab_l = t->dist_cab_b = 0;
     }
-    if (type == DT_AMP) {                               /* (0.7.9) AMP: its own loop, the cabinet in it */
+    if (type == DT_AMP && !nz1) {                       /* (0.7.9) AMP: its own loop, the cabinet in it */
         dist_amp(t, b, n, g, d, k, mk, full, w0, dw);
     } else {                                            /* (0.7.9) the state in registers through the block */
-        int32_t hp = t->dist_hp, l1 = t->dist_lp1, l2 = t->dist_lp2;
+        int32_t hp = t->dist_hp, l1 = t->dist_lp1, l2 = t->dist_lp2, g0 = g, k0 = k, nz = 0, na = 0;
+        int32_t cl = 0, cb = 0;
+        uint32_t r = 0;
+        if (nz1) {
+            nz = dist_nlp[ti]; na = (dnz_v[ti] * 325) >> 8; r = dist_rnd | 1u;
+            cl = t->dist_cab_l; cb = t->dist_cab_b;
+        }
         for (i = 0; i < (int32_t)n; i++) {
             int32_t x = b[i], y;
             hp += (x - hp + 64) >> 7;                   /* ~55 Hz low cut: keep the bass out of the clipper */
             x = clamp(x - hp, -230000, 230000);         /* (x >> 2) * g fits 32 bits; the clip is flat out there */
-            y = type == DT_SOFT ? softclip((((x >> 2) * g) >> 10) + 2400) - b0 : dist_shape(t, type, x, g, d);
+            if (nz1) {                                  /* (FM V10.8.36) NOISE: the gain and the tone's corner moved */
+                DNZ_STEP(r, nz);
+                g = g0 + ((((g0 * na) >> 7) * nz) >> 13);
+                k = clamp(k0 + ((nz * na) >> 8), 2500, 32767);
+            }
+            y = type == DT_SOFT && !nz1 ? softclip((((x >> 2) * g) >> 10) + 2400) - b0   /* (dist_noise: SOFT as */
+                                        : dist_shape(t, type, x, g, d);   /* dist_shape's default has it, the same) */
             l1 += mulq15(y - l1, k);                    /* two poles: tames the fizz */
             l2 += mulq15(l1 - l2, k);
-            y = mulq15(l2, mk);
+            if (nz1 && type == DT_AMP) {                /* (dist_amp's cabinet) */
+                int32_t h = l2 - cl - ((cb * AMP_Q) >> 14);
+                cb = clamp(cb + mulq15(h, AMP_FC), -90000, 90000);
+                cl = clamp(cl + mulq15(cb, AMP_FC), -90000, 90000);
+                y = mulq15(l2 - mulq15(cb, AMP_SC), mk);
+            } else
+                y = mulq15(l2, mk);
             b[i] = full ? y : b[i] + ((((y - b[i]) >> 2) * (w0 + dw * (i + 1))) >> 10);   /* (>> 2: fits 32 bits) */
         }
         t->dist_hp = hp;
         t->dist_lp1 = l1;
         t->dist_lp2 = l2;
+        if (nz1) {
+            t->dist_cab_l = cl; t->dist_cab_b = cb;
+            dist_nlp[ti] = nz;
+            dist_rnd = r;
+        }
     }
-noise:
-    if (FELUCCA_XFX && dnz_v[ti]) {                     /* (V10.7.30) NOISE, in the flash */
+}
+static __attribute__((noinline)) void dist_noise(track_t *t, int32_t *b, uint32_t n) { track_dist_b(t, b, n, 1); }
+static void track_dist(track_t *t, int32_t *b, uint32_t n)
+{
+    if (FELUCCA_XFX && dnz_v[(uint32_t)(t - trk) % NTRK]) {   /* (V10.7.30) NOISE: (FM V10.8.36) the drive with it, in
+                                                         * the flash */
         void (*f)(track_t *, int32_t *, uint32_t) = dist_noise;
         FM1_OPAQUE(f);
         f(t, b, n);
+        return;
     }
+    track_dist_b(t, b, n, 0);
 }
 
 /* (BYTE punchfx, the owner: "some punch-ins are not noticeable with the engines") BITS, the white punch-in, on every
@@ -2868,12 +2901,28 @@ static __attribute__((noinline)) void mix_spread(uint32_t ti, const int32_t *b, 
 
 /* one synth part into the dry mix and the sends; a part with no voice sounding costs
  * the LFO tick and a cleared buffer only (after the DIST tail has run out) */
-/* a part's pan gains at the block's start (p0) and their steps to its end (p1), into g: left, its step, right, its
- * step. (FM V10.8.36) CHORUS MIX: the part's dry down by what it sends to the chorus (MIX 100 and the send whole: the
- * chorus alone). In the flash (mix_part: the RAM code's room) */
-static __attribute__((noinline)) void mp_gains(const track_t *t, int32_t p0, int32_t p1, int32_t *g)
+/* a part's LEVEL and PAN glided a block (to lvl, pan: the part's first block at once), into g: the pan's gains at the
+ * block's start and their steps to its end (left, its step, right, its step), the level at its start and its step.
+ * (FM V10.8.36) CHORUS MIX: the part's dry down by what it sends to the chorus (MIX 100 and the send whole: the chorus
+ * alone). In the flash (mix_part: the RAM code's room) */
+static __attribute__((noinline)) void mp_gains(const track_t *t, uint32_t ti, int32_t lvl, int32_t pan, int32_t *g)
 {
-    int32_t gl = 4096 - (p0 > 0 ? p0 >> 2 : 0), gr = 4096 + (p0 < 0 ? p0 >> 2 : 0);   /* (pan << 8: x64 is >> 2) */
+    int32_t l0, p0, p1, gl, gr;
+    if (!mp_seen[ti]) {
+        mp_lvl[ti] = lvl;
+        mp_pan[ti] = pan;
+        mp_seen[ti] = 1;
+    }
+    l0 = mp_lvl[ti];
+    p0 = mp_pan[ti];
+    mp_lvl[ti] += (lvl - l0) >> (7 - CTL_LOG2);       /* (a quarter a block of 32: ~3 ms) */
+    mp_pan[ti] += (pan - p0) >> (7 - CTL_LOG2);
+    if (mp_lvl[ti] - lvl < 256 && lvl - mp_lvl[ti] < 256) mp_lvl[ti] = lvl;   /* (there: exactly) */
+    if (mp_pan[ti] - pan < 64 && pan - mp_pan[ti] < 64) mp_pan[ti] = pan;
+    g[4] = l0;
+    g[5] = (mp_lvl[ti] - l0) >> CTL_LOG2;
+    p1 = mp_pan[ti];
+    gl = 4096 - (p0 > 0 ? p0 >> 2 : 0); gr = 4096 + (p0 < 0 ? p0 >> 2 : 0);   /* (pan << 8: x64 is >> 2) */
     g[0] = gl;
     g[1] = ((4096 - (p1 > 0 ? p1 >> 2 : 0)) - gl) >> CTL_LOG2;
     g[2] = gr;
@@ -2923,28 +2972,15 @@ static inline __attribute__((always_inline)) void mix_part(track_t *t, uint32_t 
     }
     {
         uint32_t ti = (uint32_t)(t - trk) % NTRK;
-        int32_t lvl = LEVEL_Q12[t->p[P_LEVEL] & 127] << 8, pan = t->p[P_PAN] << 8, l0, p0, lq, dl, gl, gr, dgl, dgr;
+        int32_t lvl = LEVEL_Q12[t->p[P_LEVEL] & 127] << 8, pan = t->p[P_PAN] << 8, l0, lq, dl, gl, gr, dgl, dgr;
         if (t->p[P_APDEP] > 0)                          /* (0.6.9) AUTO PAN */
             pan = clamp(pan + autopan(t, ti, n), -(64 << 8), 63 << 8);
-        if (!mp_seen[ti]) {
-            mp_lvl[ti] = lvl;
-            mp_pan[ti] = pan;
-            mp_seen[ti] = 1;
-        }
-        l0 = mp_lvl[ti];
-        p0 = mp_pan[ti];
-        mp_lvl[ti] += (lvl - l0) >> (7 - CTL_LOG2);       /* (a quarter a block of 32: ~3 ms) */
-        mp_pan[ti] += (pan - p0) >> (7 - CTL_LOG2);
-        if (mp_lvl[ti] - lvl < 256 && lvl - mp_lvl[ti] < 256) mp_lvl[ti] = lvl;   /* (there: exactly) */
-        if (mp_pan[ti] - pan < 64 && pan - mp_pan[ti] < 64) mp_pan[ti] = pan;
-        lq = l0;
-        dl = (mp_lvl[ti] - l0) >> CTL_LOG2;
-        {                                               /* (the pan's gains and their steps: mp_gains, in the flash) */
-            int32_t gg[4];
-            void (*f)(const track_t *, int32_t, int32_t, int32_t *) = mp_gains;
+        {                                               /* (LEVEL and PAN glided, the pan's gains: mp_gains, in the flash) */
+            int32_t gg[6];
+            void (*f)(const track_t *, uint32_t, int32_t, int32_t, int32_t *) = mp_gains;
             FM1_OPAQUE(f);
-            f(t, p0, mp_pan[ti], gg);
-            gl = gg[0]; dgl = gg[1]; gr = gg[2]; dgr = gg[3];
+            f(t, ti, lvl, pan, gg);
+            gl = gg[0]; dgl = gg[1]; gr = gg[2]; dgr = gg[3]; l0 = lq = gg[4]; dl = gg[5];
         }
         int32_t c = t->p[P_CHOR] * 258, d = t->p[P_DLY] * 258, r = t->p[P_REV] * 258, pk = t->peak;
         int32_t xmax = c > d ? c : d, *ol = c1 ? c1_mix.l : mix_l, *or_ = c1 ? c1_mix.r : mix_r;
