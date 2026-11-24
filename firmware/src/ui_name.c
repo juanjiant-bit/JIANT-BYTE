@@ -26,7 +26,11 @@
  * (V10.7.33) .. and D# past 123 the language's phonemes (LANG on): PH 1 .. PH 3, the white keys the language's list
  * (sing.c PH_LIST: vowels first), a tap types one phoneme's code (a lyric of phonemes starts with "/": put first by the
  * first tap; "." from 123 starts a syllable where the device would not, sing.c sy_phauto). */
-enum { NK_NONE, NK_USER_SAVE, NK_USER_RENAME, NK_PROJ_SAVE, NK_PROJ_RENAME, NK_LYRIC, NK_SONG_SAVE, NK_DX_FORM, NK_FUNC };
+enum { NK_NONE, NK_USER_SAVE, NK_USER_RENAME, NK_PROJ_SAVE, NK_PROJ_RENAME, NK_LYRIC_, NK_SONG_SAVE, NK_DX_FORM, NK_FUNC };
+/* (BYTE, flash) VOICE retired: its LYRIC screen never opens (ui_input.c act_do), so NK_LYRIC is a value nm.kind (a byte)
+ * never holds: every test of it false, the lyric's dice (sing.c lyr_dice: the phrase generator, felucca_lyrics.h's
+ * ES / EN / JA banks) and the phonemes' pages out of the image (as GR_PATS, params.c) */
+#define NK_LYRIC 0x100u
 #define NM_LEN 12u
 #define NM_MAX (LYR_LEN - 1u)                          /* the buffer: a lyric's length */
 #define NM_TAP_MS 800u                                 /* multi-tap: the next letter within this */
@@ -84,7 +88,7 @@ static const char *nm_group(uint32_t p)                /* white key place p's ch
     if (nm_formula()) return nm.num ? NM_FORM_OP[p & 15u] : NM_FORM_ABC[p & 15u];
     if (!nm.num)
         return NM_ABC[p & 15u];
-    if (nm.num >= 2u)                                  /* (V10.7.33) a phoneme's code */
+    if (nm_modes() > 2u && nm.num >= 2u)               /* (V10.7.33) a phoneme's code (LYRIC only) */
         (void)ph_pick(NM_LANG, (nm.num - 2u) * 16u + (p & 15u), one);
     else
         one[0] = NM_NUM[p & 15u], one[1] = 0;
@@ -113,7 +117,7 @@ static void name_open(uint32_t kind, uint32_t slot)
         const char *text=math_func_text(&trk[slot%NTRK],lyr_get(slot));
         str_cpy(nm.s,text,sizeof nm.s);nm.len=(uint8_t)str_len(nm.s);nm.cur=0;return;
     }
-    if (kind == NK_LYRIC) {                            /* (0.8.5) the track's lyric */
+    if (nm.kind == NK_LYRIC) {                         /* (0.8.5) the track's lyric */
         str_cpy(nm.ph, "TYPE A LYRIC", sizeof nm.ph);
         str_cpy(nm.s, lyr_get(slot), sizeof nm.s);
         nm.len = nm.cur = (uint8_t)str_len(nm.s);
@@ -249,7 +253,7 @@ static void nm_knob(uint32_t k, int32_t s)             /* KNOB 1 the cursor, KNO
     const char *set = nm_formula() ? NM_FORM_SET : NM_SET;
     int32_t i, n = (int32_t)str_len(set);
     nm_commit();
-    if (k == 2u) {                                     /* (LYRIC) KNOB 3: the dice */
+    if (nm.kind == NK_LYRIC && k == 2u) {              /* (LYRIC) KNOB 3: the dice */
         nm.dice = (uint8_t)(nm.dice + (s > 0 ? 1 : -1));
         lyr_dice(&trk[nm.slot % NTRK], (uint32_t)clamp(trk[nm.slot % NTRK].p[P_VLANG], 0, LG_N - 1), nm.dice, nm.s,
                  sizeof nm.s);
