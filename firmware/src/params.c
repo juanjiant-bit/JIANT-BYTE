@@ -780,7 +780,7 @@ static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CR
  * LIFE 0: every voice and track as before, bit for bit), then each track's LIFE (EDIT > VOICES 3 KNOB 2, ID_LIF; 0..100,
  * times the global one). Not song or track parameters (as BALANCE: no slot left): kept with the project ('X' 'L',
  * project.c proj_xm; a project without it, every one before V10.7.34: these defaults, LIFE off) */
-#define ID_VMAX 0xF4u
+#define ID_VMAX 0xE7u                                   /* (eumel: was 0xF4, MODES' KNOB 1 = ID_EU0 + 4: page_desc took it as VOICES) */
 static int16_t voice_limit[NTRK] __attribute__((section(".pool")));
 static const param_desc_t VMAX_DESC = PD("VOICES", F_INT, 1, NVOICE, NVOICE);
 static void voice_limits_default(void) { uint32_t k; for (k=0;k<NTRK;k++) voice_limit[k]=NVOICE; }
