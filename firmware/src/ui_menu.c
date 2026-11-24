@@ -239,7 +239,7 @@ BTAPP_FN static int32_t about_load(int32_t y, int draw)
         str_cpy(d+str_len(d), " TRIM ", 7); fmt_int(d + str_len(d), voice_trims);
         y = menu_text(d, y, T_TEXT, draw);
         str_cpy(d, "FX ", sizeof d); fmt_int(d + str_len(d), mc_fx_tk/24u);
-        str_cpy(d+str_len(d), " us/block", 10);
+        str_cpy(d+str_len(d), " us PEAK ", 10); fmt_int(d + str_len(d), mc_pk[NTRK]/24u);
         y = menu_text(d, y, T_TEXT, draw);
         for (k=0; k<trk_live && k<NTRK; k++) {
             uint32_t v, live=0;
@@ -248,7 +248,7 @@ BTAPP_FN static int32_t about_load(int32_t y, int draw)
             str_cpy(d+str_len(d), " ", 2); str_cpy(d+str_len(d), ENGINES[trk[k].engine]->name, 20);
             str_cpy(d+str_len(d), " V", 3); fmt_int(d + str_len(d), live);
             str_cpy(d+str_len(d), " ", 2); fmt_int(d + str_len(d), mc_tk[k]/24u);
-            str_cpy(d+str_len(d), " us", 4);
+            str_cpy(d+str_len(d), " PK ", 5); fmt_int(d + str_len(d), mc_pk[k]/24u);
             y = menu_text(d, y, T_TEXT, draw);
         }
         {   /* (BYTE, CPU) the engines' insides, us a block of 64 samples, over the last second (formula_perf.c prof_tk) */

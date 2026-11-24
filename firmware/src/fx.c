@@ -3063,12 +3063,16 @@ static uint32_t mc_cost(const track_t *t)               /* a part's share of the
 #define MC_VW 1u
 #endif
 static uint32_t mc_tk[NTRK], mc_fx_tk;                  /* (and the buses': fx_run) */
+static uint32_t mc_pk[NTRK + 1u];                       /* (BYTE, CPU) the peaks: a part's (and [NTRK] the buses') dearest
+                                                         * block, falling ~1/1000 a block (ABOUT: what makes PEAK) */
+#define MC_PEAK(k, d) (mc_pk[k] = (d) > mc_pk[k] ? (d) : mc_pk[k] - (mc_pk[k] >> 10))
 static inline __attribute__((always_inline)) void mix_part_t(track_t *t, uint32_t n)   /* mix_part, timed */
 {
     uint32_t t0 = MC_TICKS(), i = (uint32_t)(t - trk) % NTRK, d;
     mix_part(t, n);
     d = MC_TICKS() - t0;
     mc_tk[i] = d > mc_tk[i] ? mc_tk[i] + ((d - mc_tk[i]) >> 1) : mc_tk[i] - ((mc_tk[i] - d) >> 3);   /* (up fast) */
+    MC_PEAK(i, d);
 }
 static void mix_part_m(track_t *t, uint32_t n) { mix_part_t(t, n); }   /* (core 1: from the flash) */
 #if FELUCCA_HOTRAM                                       /* (0.6.78) core 0's copy, in RAM (app.ld .hot_text) */
@@ -3183,6 +3187,7 @@ static inline __attribute__((always_inline)) void fx_run_t(uint32_t n)
         fx_bad = 1;                                     /* (mix_block: fx_trip) */
     d = MC_TICKS() - t0;
     mc_fx_tk = d > mc_fx_tk ? mc_fx_tk + ((d - mc_fx_tk) >> 1) : mc_fx_tk - ((mc_fx_tk - d) >> 3);
+    MC_PEAK(NTRK, d);
 }
 #if FELUCCA_HOTRAM                                       /* (0.6.78) the copy in RAM: core 0's; 0.9.9-beta4: core 1's too */
 static __attribute__((noinline)) void fx_run0(uint32_t n) { fx_run_t(n); }
