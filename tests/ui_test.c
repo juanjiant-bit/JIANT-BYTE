@@ -800,7 +800,7 @@ static int test_euclid_src(void)
     eu_put(EK_HITS, 6); frame();
     ok = m->p[P_SLEN] == 16;
     for (v = 0; v <= 50u; v++) {
-        eu_put(EK_K4, (int32_t)v); frame();
+        eu_put(EK_M0 + 3u, (int32_t)v); frame();
         ok &= m->p[P_SLEN] == 16;
         for (i = n = 0; i < 16u; i++) n += m->step[i].time == ST_NOTE && m->step[i].n;
         ok &= n == 6u;
@@ -808,7 +808,7 @@ static int test_euclid_src(void)
         if (v) same += sg[v] == sg[v - 1u];
     }
     ok &= same <= 3u && sg[50] != sg[0];
-    eu_put(EK_K4, 51); frame();
+    eu_put(EK_M0 + 3u, 51); frame();
     ok &= m->p[P_SLEN] == 64;
     bad += check("V10.28 VARY up to 50: one cycle (16 steps, the HITS exact), a new one at nearly each value; above 50 the four turns", ok);
     /* a recorded melody: C Eb G Bb at 0 4 8 12, the G held two steps */
@@ -816,12 +816,12 @@ static int test_euclid_src(void)
     for (i = 0; i < 4u; i++) { step_t *s = &m->step[i * 4u]; s->time = ST_NOTE; s->n = 1; s->vel = 100; s->note[0] = NT[i]; }
     m->step[9].time = ST_TIE;
     m->p[P_SLEN] = 16;
-    eu_put(EK_K4, 0); frame();
+    eu_put(EK_M0 + 3u, 0); frame();
     ok = eu[1].own && eu[1].rl == 16u && eu[1].l[0].h == 4u && m->p[P_SLEN] == 16;
     for (i = 0; i < 4u; i++) ok &= m->step[i * 4u].time == ST_NOTE && m->step[i * 4u].note[0] == NT[i];
     ok &= m->step[9].time == ST_TIE;
     bad += check("V10.28 a recorded melody: EUCLID takes it (VARY 0 gives it back as it was, its hold too)", ok);
-    eu_put(EK_K4, 40); frame();
+    eu_put(EK_M0 + 3u, 40); frame();
     for (i = n = c = 0; i < 16u; i++)
         if (m->step[i].time == ST_NOTE && m->step[i].n) { n++; c += memchr(NT, m->step[i].note[0], 4) != 0; }
     ok = n == 4u && c == 4u && m->p[P_SLEN] == 16;
@@ -829,7 +829,7 @@ static int test_euclid_src(void)
     for (i = n = c = 0; i < 16u; i++)
         if (m->step[i].time == ST_NOTE && m->step[i].n) { n++; c += memchr(NT, m->step[i].note[0], 4) != 0; }
     ok &= n == 7u && c == 7u && !(eu[1].rs & 1u) && eu[1].own;
-    eu_put(EK_K4, 80); frame();
+    eu_put(EK_M0 + 3u, 80); frame();
     for (i = n = c = 0; i < 64u; i++)
         if (m->step[i].time == ST_NOTE && m->step[i].n) { n++; c += memchr(NT, m->step[i].note[0], 4) != 0; }
     ok &= m->p[P_SLEN] == 64 && n == 28u && c == n;
@@ -854,9 +854,9 @@ static int test_euclid_src(void)
         ST_MICRO_SET(&m->step[4], 9);
         m->p[P_SLEN] = 16;
         memcpy(was, m->step, sizeof was);
-        eu_put(EK_K4, 30); frame();
+        eu_put(EK_M0 + 3u, 30); frame();
         ok = memcmp(was, m->step, sizeof was) != 0;
-        eu_put(EK_K4, 0); frame();
+        eu_put(EK_M0 + 3u, 0); frame();
         ok &= !memcmp(was, m->step, sizeof was) && m->p[P_SLEN] == 16 && msg_is("YOUR SEQUENCE BACK");
         eu_put(EK_HITS, 7); frame(); eu_put(EK_M0 + 1u, 60); frame();
         ok &= memcmp(was, m->step, sizeof was) != 0;
@@ -875,7 +875,7 @@ static int test_euclid_src(void)
         ok &= !memcmp(was, d->step, sizeof was);
         bad += check("V10.31 EUCLID reversible on a kit: DENSITY 0 puts the recorded kit back", ok);
         song.sel = 1; frame(); go_title("EUCLID"); frame();
-        m->step[0].note[0] = 62; eu_put(EK_K4, 10); frame();   /* (the melody taken again: the kit's whole copy gone) */
+        m->step[0].note[0] = 62; eu_put(EK_M0 + 3u, 10); frame();   /* (the melody taken again: the kit's whole copy gone) */
         ok = eu_bk_k == 1u;
         song.sel = 0; frame(); go_title("EUCLID"); frame();
         eu_put(EK_HITS, 5); frame();
@@ -914,7 +914,7 @@ static int test_eumutate(void)
     song.sel = 1; frame();
     m->p[P_SCALE] = 2; m->p[P_ROOT] = 0;
     go_title("EUCLID"); frame();
-    eu_put(EK_K4, 80); frame();                          /* the melody's VARY */
+    eu_put(EK_M0 + 3u, 80); frame();                          /* the melody's VARY */
     ok = m->p[P_SLEN] == 64;
     s0 = eu_cyc_sig(m, 0, 16, NLANE);
     for (c = 1, diff = 0; c < 4u; c++) diff += eu_cyc_sig(m, c, 16, NLANE) != s0;
@@ -923,53 +923,50 @@ static int test_eumutate(void)
         if (m->step[i].time == ST_NOTE && m->step[i].n) { n++; c += (SCALE_MASK[2] >> (m->step[i].note[0] % 12u)) & 1u; }
     ok &= n == 4u * eu[1].l[0].h && c == n;
     bad += check("V10.16 VARY on a melody: four turns, the motif answered (notes in the key, HITS in each turn)", ok);
-    go_title("MUTATE"); frame();
-    ok = str_eq(cur_page()->title, "MUTATE") && cur_page()->graph == GR_EUCLID;
-    {
-        int16_t *v; const param_desc_t *pd = page_desc(cur_page(), 0, &v);
-        ok &= pd && str_eq(pd->label, "EVERY") && *v == 0;
-        pd = page_desc(cur_page(), 2, &v);
-        ok &= pd && str_eq(pd->label, "MODE") && pd->fmt == F_ENUM && str_eq(pd->names[*v], "ORBIT");
-    }
-    {   /* EVERY 1 BAR, playing: the bar's last beat mutates (no UNDO point); stopped nothing */
-        uint8_t anc[EU_ZN];
-        uint32_t sig = mel_sig(m);
-        turn(EN_K1, 1); frame();
-        ok &= eu[1].mu[0] == 1u;
-        memcpy(anc, eu_z[1], EU_ZN);
-        eu_put(EK_U0 + 1u, 100); eu_put(EK_U0 + 3u, 3);   /* AMOUNT 100, WHAT ALL */
-        song.playing = 0; eu_tick();
-        ok &= mel_sig(m) == sig;
+    {   /* (V10.8.35, the owner) MUTATE back, compact; (V10.8.37, the owner) without a page: on EUCLID OCT+ let go a
+         * mutation now (from the anchor, as far as VARY), OCT- the anchor again; OCT+ held and KNOB 4 its EVERY (a tag,
+         * no mutation when let go); on the bar while it plays, every EVERY bars */
+        uint32_t i2, vis = 0, a0, a1, a2, ub = 1u << panel.btn[B_OCTUP];
+        step_t was[NSTEP];
+        for (i2 = 0; i2 < NPAGES; i2++) if (str_eq(PAGES[i2].title, "MUTATE")) vis |= (uint32_t)page_visible(i2);
+        ok = !vis;
+        eu_put(EK_M0 + 3u, 40); frame();
+        eu_put(EK_HITS, 6); frame();
+        memcpy(was, m->step, sizeof was);
+        a0 = eu_cyc_sig(m, 0, 16, NLANE);
+        for (a1 = a2 = 0; a2 < 8u; a2++) {               /* (each from the anchor: most differ from it) */
+            eu_oct(1, 1); frame();
+            a1 += eu_cyc_sig(m, 0, 16, NLANE) != a0;
+        }
+        ok &= msg_is("MUTATED") && a1 >= 5u;
+        eu_oct(0, 1); frame();
+        ok &= msg_is("ANCHOR") && eu_cyc_sig(m, 0, 16, NLANE) == a0;   /* (the notes; a rest's stale bytes aside) */
+        go_title("EUCLID"); frame();
+        ok &= str_eq(cur_page()->title, "EUCLID");
+        ui.msg_t = 0;
+        fm1_in.buttons |= ub; host_pressed |= ub; frame();   /* OCT+ down: nothing yet */
+        ok &= !msg_is("MUTATED") && eu_cyc_sig(m, 0, 16, NLANE) == a0;
+        fm1_in.buttons &= ~ub; frame();                  /* let go: a mutation */
+        ok &= msg_is("MUTATED");
+        press(B_OCTDN);
+        ok &= msg_is("ANCHOR") && eu_cyc_sig(m, 0, 16, NLANE) == a0;
+        fm1_in.buttons |= ub; host_pressed |= ub; frame();   /* OCT+ held, KNOB 4: EVERY 1 BAR (ROLE as it was) */
+        i2 = eu[1].role;
+        turn(EN_K4, 1);
+        ok &= eu[1].mu[0] == 1u && eu[1].role == i2;
+        ui.msg_t = 0;
+        fm1_in.buttons &= ~ub; frame();                  /* let go: no mutation */
+        ok &= !msg_is("MUTATED") && eu_cyc_sig(m, 0, 16, NLANE) == a0;
+        turn(EN_K4, 1);                                  /* (not held: ROLE again) */
+        ok &= eu[1].mu[0] == 1u && eu[1].role != i2;
+        turn(EN_K4, -1);
         song.playing = 1; bar_n = 0; beat_n = 3; beat_pos = beat_samples() - 1u;
-        undo_ok = 0; fm1_ms += 5000u;
         eu_tick();
-        ok &= mel_sig(m) != sig && !undo_ok;
-        sig = mel_sig(m);
+        ok &= eu_cyc_sig(m, 0, 16, NLANE) != a0 || memcmp(was, m->step, sizeof was);
         eu_tick();                                       /* (once a bar) */
-        ok &= mel_sig(m) == sig;
-        bar_n = 1; eu_tick();
-        ok &= mel_sig(m) != sig && !memcmp(anc, eu_z[1], EU_ZN);   /* (ORBIT: the anchor stays) */
-        song.playing = 0; beat_n = 0;
-        press(B_OCTDN); frame();                         /* OCT-: back to the anchor */
-        ok &= !memcmp((uint8_t *)&eu[1] + EU_Z0, anc, EU_ZN) && msg_is("ANCHOR");
-        sig = mel_sig(m);
-        press(B_OCTUP); frame();                         /* OCT+: a mutation now, stopped too */
-        ok &= mel_sig(m) != sig && msg_is("MUTATED");
-        bad += check("V10.16 MUTATE: EVERY on the bar's last beat while playing (none stopped, once a bar, no UNDO point); OCT- the anchor, OCT+ now", ok);
-        eu_put(EK_U0 + 2u, 2);                           /* PULSE: the anchor every second time */
-        press(B_OCTDN); frame();
-        sig = mel_sig(m);
-        eu[1].flip = 0;
-        press(B_OCTUP); frame(); ok = mel_sig(m) != sig;
-        press(B_OCTUP); frame(); ok &= mel_sig(m) == sig;
-        eu_put(EK_U0 + 2u, 1);                           /* DRIFT: from where it is (AMOUNT 100: HITS or ROTATE move) */
-        press(B_OCTUP); frame(); press(B_OCTUP); frame(); press(B_OCTUP); frame();
-        ok &= memcmp((uint8_t *)&eu[1] + EU_Z0, anc, EU_ZN) != 0 && !memcmp(anc, eu_z[1], EU_ZN);
-        bad += check("V10.16 MUTATE's MODE: PULSE the anchor by turns, DRIFT walks on (the anchor kept)", ok);
-        chain.running = 1; song.playing = 1; bar_n = 3; beat_n = 3;
-        sig = mel_sig(m); eu_tick(); ok = mel_sig(m) == sig;
-        chain.running = 0; song.playing = 0; beat_n = 0;
-        bad += check("V10.16 MUTATE: not while a song's chain plays", ok);
+        song.playing = 0; eu_tick();
+        eu[1].mu[0] = 0;
+        bad += check("V10.8.37 MUTATE without a page: OCT+ let go mutates, OCT- the anchor, OCT+ held + KNOB 4 EVERY; on the bar", ok);
     }
     memset(eu, 0, sizeof eu);
     return bad;
@@ -1074,13 +1071,16 @@ static int test_mutate(void)
     {
         uint8_t was[16], now[16];
         for (i = 0; i < 16u; i++) was[i] = m->step[i].time == ST_NOTE ? m->step[i].note[0] : 0u;
+        go_title("MODES"); frame();                      /* (V10.8.35: MODES / MELODY's; EUCLID's OCT+ / OCT- MUTATE's) */
+        ok = str_eq(nav_page_name(), "MELODY");
         press(B_OCTUP); frame();
         for (i = c = 0; i < 16u; i++) { now[i] = m->step[i].time == ST_NOTE ? m->step[i].note[0] : 0u; c += now[i] != was[i]; }
-        ok = c > 0u && msg_is("NEW VARIATION");
+        ok &= c > 0u && msg_is("NEW VARIATION");
         press(B_OCTDN); frame();
         for (i = c = 0; i < 16u; i++) c += (m->step[i].time == ST_NOTE ? m->step[i].note[0] : 0u) != was[i];
         ok &= c == 0u;
-        bad += check("V10.6 OCT+ a new variation, OCT- the one before (the same notes again)", ok);
+        go_title("EUCLID"); frame();
+        bad += check("V10.6 OCT+ a new variation, OCT- the one before (the same notes again): on MODES, a melody's MELODY (V10.8.35)", ok);
     }
     {   /* (V10.7) SEQ + SELECT on a kit: hits, whatever the genre (one without drums: its empty map, every try) */
         uint32_t g, empty = 0;

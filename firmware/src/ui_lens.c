@@ -453,6 +453,8 @@ static __attribute__((noinline)) const char *nav_page_name(void)
         return b;
     }
     str_cpy(b, v->nm ? v->nm : v->t, 24);
+    if (sec == SEC_SEQ && b[0] == 'M' && b[1] == 'O' && !drum_track(TSEL))   /* (JIANT FM V10.8.35) MODES a melodic track's MELODY */
+        return "MELODY";
     if (sec == SEC_EDIT && v->g == 0u && !v->nm && PAGES[ui.page].scope == SC_ENGINE) {   /* (EDIT 1 . OSC) */
         const char *pt = trk_engp(TSEL)->page_title[PG_TI(&PAGES[ui.page])];
         if (pt && pt[0] && pt[0] != '-')                /* (JIANT FM V10.7.60, normalized: the engine's page by its own

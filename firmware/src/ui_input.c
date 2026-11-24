@@ -1547,6 +1547,10 @@ static void edit_param(uint32_t slot, int32_t steps)
     const page_t *pg = cur_page();
     const param_desc_t *d;
     int32_t v;
+    if (eu_hold && slot == 3u && pg->id[0] == ID_EU0) {    /* (JIANT FM V10.8.37) EUCLID, OCT+ held: KNOB 4 EVERY */
+        eu_every(steps);
+        return;
+    }
     if (BAR_PAGE(pg) && slot == 0u) {                    /* (0.9.2) SEQ > BAR: KNOB 1 the bar (no wrap), the cursor at its
                                                          * place in it */
         uint32_t len = (uint32_t)clamp(TSEL->p[P_SLEN], 1, NSTEP), nb = (len + 15u) / 16u;
@@ -3233,8 +3237,10 @@ static void ui_input_frame(void)
                 break;
             }
             if (!ui.home && !ui.menu && !ui.confirm && cur_page()->graph == GR_EUCLID) {   /* (V10.6) EUCLID / MODES: */
-                eu_oct(b == B_OCTUP, 0);   /* OCT+ a new variation, OCT- the one before;
-                                                         * (V10.16) MUTATE: a mutation now, back to the anchor */
+                if (b == B_OCTUP && cur_page()->id[0] == ID_EU0) eu_hold = 1;   /* (JIANT FM V10.8.37) EUCLID's OCT+
+                                                         * when let go (held with KNOB 4: EVERY, no mutation) */
+                else eu_hold = 0, eu_oct(b == B_OCTUP, cur_page()->id[0] == ID_EU0);   /* EUCLID's OCT- the anchor; MODES
+                                                         * / MELODY: a new variation, the one before */
                 break;
             }
             oct_key(b, both);                           /* (V10.6z4: a note held, the expression keys) */
@@ -3254,6 +3260,13 @@ static void ui_input_frame(void)
                 ui.pg_down |= (uint16_t)(1u << id);
             break;
         }
+    }
+    if (eu_hold && !((fm1_in.buttons >> panel.btn[B_OCTUP]) & 1u)) {   /* (JIANT FM V10.8.37) EUCLID's OCT+ let go: a
+                                                         * mutation now, unless KNOB 4 turned under it (EVERY) or the page left */
+        if (eu_hold == 1u && !ui.home && !ui.menu && !ui.confirm && cur_page()->id[0] == ID_EU0)
+            eu_oct(1, 1);
+        eu_hold = 0;
+        ui.force = 1;
     }
     b = ui.pg_down & ~fm1_in.buttons;
     ui.pg_down &= (uint16_t)~b;
