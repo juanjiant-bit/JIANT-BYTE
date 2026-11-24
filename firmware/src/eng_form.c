@@ -203,7 +203,9 @@ enum { CL_ON, CL_OCT, CL_RATE, CL_RUN, CL_PIT, CL_SEED, CL_M0, CLAY_NF = CL_M0 +
 typedef int8_t clay_t;                               /* (a setting: -24 .. 127; RAMTEXT's room is full) */
 static clay_t clay[NTRK][CLAY_NF] __attribute__((section(".eu_keep")));   /* (RAMTEXT's room, as EUCLID's keep: the RAM is full; not zeroed
                                                          * there: main.c clay_boot) */
-static int16_t clay_ui[CLAY_NF + 1] __attribute__((section(".eu_keep")));     /* (the pages' knobs: the selected track's, as int16, clay.c clay_desc) */
+static int16_t clay_ui[CLAY_NF + 1];     /* (the pages' knobs: the selected track's, as int16, clay.c clay_desc; main loop only:
+                                                         * in .bss, RAMTEXT's room left to the RAM code, whose size moves a few bytes
+                                                         * with any change of the globals the compiler merges) */
 /* what modulator k of track tr adds now (Q15): mod.c's per-block source, the panel's */
 static int32_t clay_vk(uint32_t tr, uint32_t k) { return clamp(form_st[tr % NTRK].mv[k & 3u] * 256, -32767, 32767); }
 static uint8_t clay_dn[NTRK] __attribute__((section(".eu_keep"))), clay_nn[NTRK] __attribute__((section(".eu_keep")));          /* the drone's note sounding, a NOTE gesture's (0: none) */
