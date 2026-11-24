@@ -85,10 +85,10 @@ static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
 
 /* (waveframes) a voice's phases into W, bent by WARP (BEND MIRROR: their slopes once a block, no division a sample);
  * the phase after them */
-typedef struct { uint32_t warp, amt, mb, r0, r1; } wph_t;
+typedef struct { uint32_t warp, amt, mb, r0, r1, sm; } wph_t;
 static void wph_init(wph_t *q, uint32_t warp, uint32_t amt)
 {
-    q->warp = warp, q->amt = amt, q->mb = 0;
+    q->warp = warp, q->amt = amt, q->mb = 0, q->sm = warp == WW_SYNC ? 16u + amt * 112u / 127u : 0u;   /* (SYNC: x1 .. x8) */
     if (warp == WW_BEND || warp == WW_MIRROR) {
         uint32_t top = warp == WW_BEND ? 32768u : 65535u;
         q->mb = warp == WW_BEND ? 32768u - amt * 29491u / 127u : 65535u - amt * 32767u / 127u;
@@ -103,8 +103,10 @@ static __attribute__((noinline)) uint32_t wave_phw(const wph_t *q, uint32_t *W, 
         if (mb)
             w = w < mb ? (uint32_t)(((uint64_t)w * q->r0) >> 16) : q->warp == WW_BEND ? 32768u + (uint32_t)(((uint64_t)(w - mb) * q->r1) >> 16)
                 : (uint32_t)(((uint64_t)(65535u - w) * q->r1) >> 16);
-        else if (q->warp == WW_SYNC || q->warp == WW_QUANT)
-            w = wave_warp(w, q->warp, q->amt);
+        else if (q->sm)
+            w = w * q->sm >> 4;
+        else if (q->warp == WW_QUANT)
+            w = wave_warp(w, WW_QUANT, q->amt);
         W[i] = w & 0xFFFFu;
     }
     return ph;
