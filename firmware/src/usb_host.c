@@ -22,7 +22,7 @@ enum { UH_MSG_NONE, UH_MSG_ON, UH_MSG_OFF, UH_MSG_MIDI, UH_MSG_NOMIDI, UH_MSG_LO
 #define UH_FIRST_ADDR 1u
 /* (JIANT: the app slot is full) everything of the main loop here lives in the Bluetooth segment (app.ld .btapp.text,
  * as bt.c's BTAPP_FN): run only once bt_hw_seg() said the segment is this build's (main.c); uh_poll (TIMER5) stays */
-#define UH_SEG __attribute__((section(".btapp.text"), used, noinline))
+#define UH_SEG __attribute__((section(".btapp.text"), noinline))
 #define UH_MAX_ERRORS 16u
 
 static uint8_t uh_rx[64 + 4] __attribute__((aligned(4)));

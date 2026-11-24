@@ -960,8 +960,8 @@ struct { uint32_t magic, failed, pending; } bootguard __attribute__((section(".n
 /* (V10.60) the Bluetooth segment's section macros and its check, here, ahead of the sound: cold code of
  * its files (fm4_convert.c) goes there too (bt.c has the story) */
 #if FELUCCA_BT
-#define BTAPP_RO __attribute__((section(".btapp.rodata"), used))
-#define BTAPP_FN __attribute__((section(".btapp.text"), used, noinline))
+#define BTAPP_RO __attribute__((section(".btapp.rodata")))
+#define BTAPP_FN __attribute__((section(".btapp.text"), noinline))
 static int bt_hw_seg(void);                             /* bt_hw.c */
 #else
 #define BTAPP_RO

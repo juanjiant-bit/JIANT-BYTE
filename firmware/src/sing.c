@@ -44,7 +44,7 @@
  * segment is this build's and the plain XIP window is set (main.c fm1_main: bt_hw_seg). Without it (NO SEG) their words
  * are read by sy_es_tok's letter rules. (V10.7.33: the English dictionary that was there is gone, the editor's now) */
 #if FELUCCA_BT
-#define LY_DICT_SEC __attribute__((section(".btapp.rodata"), used))
+#define LY_DICT_SEC __attribute__((section(".btapp.rodata")))
 static volatile uint8_t ly_en_ok;                      /* (main.c: the segment checked) */
 #else
 #define LY_DICT_SEC
