@@ -303,14 +303,11 @@ static const param_desc_t MATH_CAOS[2] = {          /* (JIANT BYTE) MATH's CAOS 
     {"CAOS", F_PCT, 0, 127, 0, 0},
     {"TIME", F_ENUM, 0, 2, 0, N_KEY},
 };
-static const param_desc_t VLANG_DESC = {"LANG", F_ENUM, 0, LG_N - 1, 0, N_LANG};   /* (0.8.5) VOICE's words: */
 static const char *const N_DKEYMODE[] = {"CLASSIC", "EXTENDED"};
 static const param_desc_t DKEYMODE_DESC = {"KEY MAP",F_ENUM,0,1,1,N_DKEYMODE};   /* (2..9: EXTENDED, eng_drum.c drum_chrom) */
 static const param_desc_t SIMG_DESC = {"IMAGE", F_PCTINV, 0, 127, 127, 0};   /* (V10.49) P_SIMG: 127 = 0 % */
 static const param_desc_t NONE_DESC = {"-", F_PCTINV, 0, 127, 127, 0};      /* (codex/coherence) EXT's P_SIMG: no card on PLAY 2,
                                                          * the range IMAGE's (an NRPN or a lock keeps its meaning) */
-static const param_desc_t VLYR_DESC = {"LYRIC", F_ENUM, 0, LYR_N - 1, 0, N_LYRIC};  /* P_VLANG, P_VLYR (sing.c) */
-static const param_desc_t VCONS_DESC = {"CONS", F_INT, 0, 127, 127, 0};   /* (V10.6y) P_VCONS: 127 = 100 % (core.h) */
 /* (codex/filters2) FILTER 2 and FILTER's DRIVE (core.h P_FKEY ..): 127 = 0 %, SOFT; ANALOG's KEY 127 = 21 % (fkey_rank) */
 static const char *const N_FNMD[] = {"DUST", "BREAK", "METAL", "STEP", "SOFT", 0};   /* (by the value: shown right to left) */
 /* (codex/filter2-mod) RATE as METAL takes it (its sine's ratio to the note) and BREAK (its step), voice.c fn_tick */
@@ -333,8 +330,6 @@ static const param_desc_t *track_desc(const track_t *t, uint32_t id)
         return 0 /* (BYTE: never) */ ? &NONE_DESC : &SIMG_DESC;
     if (id == P_DKEYMODE && en == &ENG_DRUM) return &DKEYMODE_DESC;
     if (id == P_KEY && en == &ENG_DRUM) return &DRUM_GAIN_DESC;   /* (JIANT BYTE) the kit's GAIN, in TIME's place */
-    if ((id == P_VLANG || id == P_VLYR || id == P_VCONS) && 0 /* (BYTE: never) */)
-        return id == P_VLANG ? &VLANG_DESC : id == P_VLYR ? &VLYR_DESC : &VCONS_DESC;
     if (id == P_FDST && en != &ENG_DRUM && 1 /* (BYTE: always) */)   /* (filter2-mod) a synth's DEST (VOICE's CONS above) */
         return &FN_DESC[8];
     if (id >= P_FKEY && id <= P_FDRV && en != &ENG_DRUM && 1 /* (BYTE: always) */)   /* (filters2) a synth's FILTER 2, DRIVE */
@@ -473,7 +468,6 @@ static int32_t enum_rank(const param_desc_t *d, int32_t v)   /* v's place in the
     const uint8_t *o = enum_order(d);
     int32_t r;
     if (d->fmt == F_PCTINV || FN_NAMED(d)) return d->max + d->min - v;   /* (the gauge full at 0) */
-    if (d == &VCONS_DESC) return (int32_t)vcons_rank(v);   /* (V10.6y: its place, core.h) */
     if (d == &FKEYA_DESC) return (int32_t)fkey_rank(v);   /* (filters2) */
     for (r = 0; o && r < d->max - d->min; r++)
         if (o[r] == v - d->min)
@@ -501,8 +495,6 @@ static int32_t param_turn(const param_desc_t *d, int32_t v, int32_t steps)
     const uint8_t *o = enum_order(d);
     uint32_t k, i, w = (uint32_t)(d->max - d->min + 1);
     if (d->fmt == F_PCTINV || FN_NAMED(d)) steps = -steps;   /* (right: more chance, less skipped; filters2: MODE) */
-    if (d == &VCONS_DESC)                           /* (V10.6y) CONS: over its places, 127 (100 %) at 32 */
-        return (clamp((int32_t)vcons_rank(v) + steps, 0, 127) + 95) & 127;
     if (d == &FKEYA_DESC)                           /* (filters2) ANALOG's KEY: 127 (21 %) at 27 */
         return (clamp((int32_t)fkey_rank(v) + steps, 0, 127) + 100) & 127;
     if (o)
@@ -540,11 +532,6 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
 {
     *unit = "";
     fmt_named = d->fmt == F_ENUM;
-    if (d == &FMT_WDESC[0] && v <= 0) {                 /* (0.8.5) VOICE's words: POS 0, each note the next */
-        str_cpy(val, "AUTO", 6);
-        fmt_named = 1;
-        return;
-    }
     if (d == &GP[G_CLOCK] && v == 1) {                  /* (V10.37) CLOCK USB+BT on a card: USB, +BT as its unit */
         str_cpy(val, "USB", 6);
         *unit = "+BT";
@@ -563,11 +550,6 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
     }
     if (d == &FKEYA_DESC)                               /* (filters2) ANALOG's KEY: its place */
         v = (int32_t)fkey_rank(v);
-    if (d == &VCONS_DESC) {                             /* (V10.6y) VOICE's CONS: 50 .. 400 % */
-        fmt_int(val, (int32_t)vcons_q6(v) * 100 / 64);
-        *unit = "%";
-        return;
-    }
     switch (d->fmt) {
     case F_PCT:                                     /* a 0..100 range (SWG) is its value, others a share of 127 */
         fmt_int(val, d->max == 100 || d->max == 120 ? v : (v * 100 + 63) / 127);   /* (0.6.86: DLY FEEDBK 0..120 %, 100 the

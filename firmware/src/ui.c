@@ -1236,33 +1236,6 @@ static void cursor_fix(void)                           /* LEN got shorter: onto 
     if (ui.cursor >= (uint32_t)TSEL->p[P_SLEN])
         cursor_set(TSEL->p[P_SLEN] - 1);
 }
-/* Main-loop lyric selection. All phones/counters are temporary, the result is
- * an ordinary POS lock in the existing motion store, leaving both components. */
-static uint8_t lyric_word, lyric_syl=1;
-static __attribute__((noinline)) uint32_t lyric_pick(char *label)
-{
-    const char *txt=lyr_get(song.sel);
-    uint32_t p=0,a,b,mel,w=0,base=0,ns=0;
-    char word[20],nw[24];uint8_t ph[SW_MAX];
-    label[0]=0;
-    while(sy_tok(txt,p,&a,&b,&mel)) {
-        uint32_t i,m=txt[0]=='/';                    /* (V10.7.33: a phoneme lyric's word, "/" first) */
-        word[0]='/';
-        for(i=a;i<b&&m<19u;i++) word[m++]=txt[i];word[m]=0;
-        if(mel) ns=1;
-        else sy_word((uint32_t)clamp(TSEL->p[P_VLANG],1,LG_N-1),nw,
-                     sy_norm_lang((uint32_t)TSEL->p[P_VLANG],word,m,nw,sizeof nw),ph,&ns);
-        uint32_t na,nb,nmel;
-        if(w++>=lyric_word || !sy_tok(txt,b,&na,&nb,&nmel)) {
-            lyric_word=(uint8_t)(w-1u);
-            if(lyric_syl>ns) lyric_syl=(uint8_t)ns;
-            str_cpy(label,word,20);
-            return !lyric_syl?0u:(uint32_t)clamp((int32_t)(base+lyric_syl),1,127);
-        }
-        base+=ns;p=b;
-    }
-    return 0;
-}
 
 static void note_name(char *b, uint32_t n)
 {
@@ -1504,7 +1477,6 @@ static const uint8_t *preset_order(const engine_t *e, uint32_t *n)
 {
     if (e == &ENG_LOFI) { *n = sizeof MATH_ORDER; return MATH_ORDER; }   /* (eng_lofi.c) */
     if (e == &ENG_WAVE) { *n = sizeof WAVE_ORDER; return WAVE_ORDER; }   /* (JIANT BYTE, eng_wave.c) */
-    if (0 /* (BYTE: never) */) { *n = sizeof VOICE_ORDER; return VOICE_ORDER; }
     *n = 0;
     return 0;
 }

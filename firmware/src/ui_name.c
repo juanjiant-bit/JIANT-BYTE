@@ -20,17 +20,9 @@
  *   KNOB 1       the cursor; KNOB 2 the character at the cursor (SPACE A..Z 0..9 - . _ / # +; at the end: a new one).
  *   LEDs         every key that types or edits is lit; the key whose letters are being cycled blinks.
  * Spaces at either end are dropped when it is written; an empty name: USER the automatic one, PROJECT none.
- * (JIANT 0.8.5) LYRIC: EDIT > WORDS, OCT+ (a VOICE track): the track's lyric (sing.c lyr_txt), the same keys, at most
- * 63 characters, the field a window of 12 that follows the cursor; KNOB 3 the dice (a phrase of the language's words
- * in place of the text, another each turn); OCT+ sets it (playing too: it is no flash write), OCT- cancels.
- * (V10.7.33) .. and D# past 123 the language's phonemes (LANG on): PH 1 .. PH 3, the white keys the language's list
- * (sing.c PH_LIST: vowels first), a tap types one phoneme's code (a lyric of phonemes starts with "/": put first by the
- * first tap; "." from 123 starts a syllable where the device would not, sing.c sy_phauto). */
+ * (BYTE) VOICE's LYRIC (JIANT 0.8.5) and its phonemes' pages are removed with VOICE. */
 enum { NK_NONE, NK_USER_SAVE, NK_USER_RENAME, NK_PROJ_SAVE, NK_PROJ_RENAME, NK_LYRIC_, NK_SONG_SAVE, NK_DX_FORM, NK_FUNC };
-/* (BYTE, flash) VOICE retired: its LYRIC screen never opens (ui_input.c act_do), so NK_LYRIC is a value nm.kind (a byte)
- * never holds: every test of it false, the lyric's dice (sing.c lyr_dice: the phrase generator, felucca_lyrics.h's
- * ES / EN / JA banks) and the phonemes' pages out of the image (as GR_PATS, params.c) */
-#define NK_LYRIC 0x100u
+/* (BYTE) NK_LYRIC_ (5): VOICE's lyric, removed with VOICE (its dice, its phonemes' pages); the number stays unused */
 #define NM_LEN 12u
 #define NM_MAX (LYR_LEN - 1u)                          /* the buffer: a lyric's length */
 #define NM_TAP_MS 800u                                 /* multi-tap: the next letter within this */
@@ -48,21 +40,20 @@ static struct {
     uint8_t kind;                                      /* NK_*: NK_NONE = closed */
     uint8_t slot;
     uint8_t len, cur;                                  /* the name's length; the cursor 0..len */
-    uint8_t num;                                       /* the white keys: 0 ABC, 1 123, (V10.7.33) 2.. PH 1.. (LYRIC) */
+    uint8_t num;                                       /* the white keys: 0 ABC, 1 123 */
     uint8_t key;                                       /* the white key (place + 1) of the letter being cycled, 0 none */
     uint8_t tap;                                       /* .. that letter's index in its group */
     uint8_t rep;                                       /* the key (+ 1) of a held arrow / DELETE, 0 none */
     uint32_t t, rep_t;                                 /* fm1_ms of the last tap; of the next repeat */
     uint32_t sig;                                      /* drawn-state cache */
     uint8_t ferr, fpos;                             /* formula validation error, persistent until next apply */
-    uint8_t dice;                                      /* (LYRIC) the dice's next phrase */
     char s[NM_MAX + 1u];
     char ph[NM_LEN + 1u];                              /* what an empty name saves as / shows ("PROJECT A") */
 } nm __attribute__((section(".pool")));                /* (zero-initialised; main loop only: off the audio code's .bss) */
 
 static int name_on(void) { return nm.kind != NK_NONE; }
 static int nm_formula(void){return nm.kind==NK_DX_FORM||nm.kind==NK_FUNC;}
-static uint32_t nm_len_max(void) { return nm.kind==NK_FUNC||nm.kind==NK_LYRIC ? NM_MAX : nm.kind==NK_DX_FORM ? DX_TEXT-1u : NM_LEN; }
+static uint32_t nm_len_max(void) { return nm.kind==NK_FUNC ? NM_MAX : nm.kind==NK_DX_FORM ? DX_TEXT-1u : NM_LEN; }
 static void name_close(void)
 {
     if (nm.kind)
@@ -72,15 +63,11 @@ static void name_close(void)
 /* the keys: 2 = NAME's (silent), 1 = the DRUM grid, 0 = notes (seq.c keyboard_block reads song.grid) */
 static uint32_t keys_mode(void) { return name_on() || ckeys_on() || skeys_on() || psq_on() ? 2u : (uint32_t)grid_on(); }   /* (seq2g: COMP, silent) */
 
-#define NM_LANG ((uint32_t)trk[nm.slot % NTRK].p[P_VLANG] % LG_N)
-#define nm_modes() (nm.kind == NK_LYRIC && NM_LANG ? 5u : 2u)   /* (V10.7.33) ABC 123, then the phonemes' three pages
-                                                         * (LYRIC, LANG on) */
-static const char *nm_mode_name(uint32_t m)            /* ABC 123 PH 1 .. PH 3 */
+#define nm_modes() 2u                                  /* ABC 123 */
+static const char *nm_mode_name(uint32_t m)            /* ABC 123 */
 {
-    static char ph[5] = "PH 1";
     if (nm_formula()) return m ? "OPS" : "abc";
-    ph[3] = (char)('1' + m - 2u);
-    return m >= 2u ? ph : m ? "123" : "ABC";
+    return m ? "123" : "ABC";
 }
 static const char *nm_group(uint32_t p)                /* white key place p's characters */
 {
@@ -88,10 +75,7 @@ static const char *nm_group(uint32_t p)                /* white key place p's ch
     if (nm_formula()) return nm.num ? NM_FORM_OP[p & 15u] : NM_FORM_ABC[p & 15u];
     if (!nm.num)
         return NM_ABC[p & 15u];
-    if (nm_modes() > 2u && nm.num >= 2u)               /* (V10.7.33) a phoneme's code (LYRIC only) */
-        (void)ph_pick(NM_LANG, (nm.num - 2u) * 16u + (p & 15u), one);
-    else
-        one[0] = NM_NUM[p & 15u], one[1] = 0;
+    one[0] = NM_NUM[p & 15u], one[1] = 0;
     return one;
 }
 static uint32_t nm_black(uint32_t k)                   /* black key k's function: by its name (F# .. D#) */
@@ -116,13 +100,6 @@ static void name_open(uint32_t kind, uint32_t slot)
     if(kind==NK_FUNC){
         const char *text=math_func_text(&trk[slot%NTRK],lyr_get(slot));
         str_cpy(nm.s,text,sizeof nm.s);nm.len=(uint8_t)str_len(nm.s);nm.cur=0;return;
-    }
-    if (nm.kind == NK_LYRIC) {                         /* (0.8.5) the track's lyric */
-        str_cpy(nm.ph, "TYPE A LYRIC", sizeof nm.ph);
-        str_cpy(nm.s, lyr_get(slot), sizeof nm.s);
-        nm.len = nm.cur = (uint8_t)str_len(nm.s);
-        ui.force = 1;
-        return;
     }
     if (kind == NK_SONG_SAVE) {
         str_cpy(nm.ph, song_save_loop ? "LOOP" : "SONG", sizeof nm.ph);
@@ -173,7 +150,7 @@ static int nm_insert(char c)                           /* at the cursor (it stay
 {
     uint32_t i;
     if (nm.len >= nm_len_max()) {
-        ui_message(nm.kind == NK_LYRIC ? "LYRIC FULL" : "NAME FULL");
+        ui_message("NAME FULL");
         return 0;
     }
     for (i = nm.len; i > nm.cur; i--)
@@ -186,20 +163,6 @@ static void nm_white(uint32_t p)
 {
     const char *g = nm_group(p);
     uint32_t n = str_len(g);
-    if (nm.num >= 2u) {                                /* (V10.7.33) a phoneme: its code, "/" first in the lyric */
-        uint32_t c = nm.cur;
-        nm_commit();
-        if (!n)
-            return;
-        if (nm.s[0] != '/') {
-            nm.cur = 0;
-            if (!nm_insert('/')) { nm.cur = (uint8_t)c; return; }
-            nm.cur = (uint8_t)(c + 1u);
-        }
-        while (*g && nm_insert(*g++))
-            nm.cur++;
-        return;
-    }
     if (nm.key == p + 1u && fm1_ms - nm.t < NM_TAP_MS) {   /* the same key again: its next character */
         nm.tap = (uint8_t)((nm.tap + 1u) % n);
         nm.s[nm.cur] = g[nm.tap];
@@ -253,13 +216,6 @@ static void nm_knob(uint32_t k, int32_t s)             /* KNOB 1 the cursor, KNO
     const char *set = nm_formula() ? NM_FORM_SET : NM_SET;
     int32_t i, n = (int32_t)str_len(set);
     nm_commit();
-    if (nm.kind == NK_LYRIC && k == 2u) {              /* (LYRIC) KNOB 3: the dice */
-        nm.dice = (uint8_t)(nm.dice + (s > 0 ? 1 : -1));
-        lyr_dice(&trk[nm.slot % NTRK], (uint32_t)clamp(trk[nm.slot % NTRK].p[P_VLANG], 0, LG_N - 1), nm.dice, nm.s,
-                 sizeof nm.s);
-        nm.len = nm.cur = (uint8_t)str_len(nm.s);
-        return;
-    }
     if (k == 0u) {
         nm.cur = (uint8_t)clamp((int32_t)nm.cur + s, 0, nm.len);
         return;
@@ -289,12 +245,6 @@ static void name_ok(void)
         if(!rc&&(!w->pg.p.func||w->pg.p.nstate>2u)){rc=FE_STATE;err.pos=0;}
         if(rc){nm.ferr=(uint8_t)rc;nm.fpos=(uint8_t)err.pos;nm.cur=err.pos<nm.len?(uint8_t)err.pos:nm.len;ui.force=1;return;}
         trk[nm.slot].p[P_E7]=0;lyr_set(nm.slot,b);math_hash[nm.slot]=0;math_poll();name_close();ui_message("FUNC APPLIED");return;
-    }
-    if (nm.kind == NK_LYRIC) {                         /* (0.8.5) RAM only: playing too */
-        lyr_set(nm.slot, b);
-        ui_message(b[0] ? "LYRIC SET" : "LYRIC CLEARED");
-        name_close();
-        return;
     }
     if (transport_busy()) {
         ui_message("STOP TO SAVE");
@@ -347,7 +297,7 @@ static void name_input(uint32_t notes, uint32_t oct)
         nm_do(nm_black(nm.rep - 1u));
         nm.rep_t = fm1_ms + NM_RATE_MS;
     }
-    for (k = 0; k < (nm.kind == NK_LYRIC ? 3u : 2u); k++)
+    for (k = 0; k < 2u; k++)
         if ((s = panel_enc(EN_K1 + k)) != 0)
             nm_knob(k, s);
     if (nm.kind == NK_SONG_SAVE && (s = panel_enc(EN_K3)) != 0) {   /* (V10.7.20) KNOB 3: the whole SONG, or the LOOP alone */
@@ -390,11 +340,7 @@ static void nm_title(char *b)
         return;
     }
     str_cpy(b, nm.kind == NK_USER_SAVE || nm.kind == NK_PROJ_SAVE ? "SAVE " : "NAME ", 8);
-    if (nm.kind == NK_LYRIC) {                         /* "LYRIC T1" */
-        str_cpy(b, "LYRIC T", 8);
-        b[7] = (char)('1' + nm.slot % NTRK);
-        b[8] = 0;
-    } else if (nm.kind <= NK_USER_RENAME)
+    if (nm.kind <= NK_USER_RENAME)
         up_slot_label(b + 5, nm.slot);
     else
         str_cpy(b + 5, nm.ph, 12);                     /* "PROJECT A" */
@@ -418,11 +364,11 @@ static void nm_draw_field(void)
     c[0] = nm.cur < nm.len ? nm.s[nm.cur] : ' ';
     nm_card(1, "CHAR", c[0] == ' ' ? "_" : c, T_TEXT);
     fmt_int(b, nm.len);
-    if (nm.kind == NK_LYRIC || nm_formula())
+    if (nm_formula())
         str_cpy(b + str_len(b), nm.kind==NK_DX_FORM?"/63":"/255", 5);
     if (nm.kind == NK_SONG_SAVE) nm_card(2, "SCOPE", song_save_loop ? "LOOP" : "SONG", T_THEME);
     else nm_card(2, "LEN", b, nm.len >= nm_len_max() ? T_ACCENT : T_TEXT);
-    nm_card(3, "OCT +", nm_formula() ? "APPLY" : nm.kind == NK_LYRIC ? "SET" : nm.kind == NK_USER_SAVE || nm.kind == NK_PROJ_SAVE || nm.kind == NK_SONG_SAVE ? "SAVE" : "WRITE",
+    nm_card(3, "OCT +", nm_formula() ? "APPLY" : nm.kind == NK_USER_SAVE || nm.kind == NK_PROJ_SAVE || nm.kind == NK_SONG_SAVE ? "SAVE" : "WRITE",
             T_ACCENT);                                 /* (WRITE: the new name; SET: the lyric) */
 }
 static __attribute__((noinline)) void nm_draw_panel(void)
@@ -517,7 +463,7 @@ static __attribute__((noinline)) void nm_draw_panel(void)
 static void nm_draw_foot(void)
 {
     cv_begin(240, LZ_FOOT_H, T_BG);
-    cv_text(6, CRUMB_Y, &AF_X, nm_formula() ? "FORMULA \xB7 OCT+ APPLY \xB7 OCT- CANCEL" : nm.kind == NK_LYRIC ? "LENTE \xB7 LYRIC \xB7 K3 DICE \xB7 OCT- CANCEL" :   /* (0.8.5: playing too) */
+    cv_text(6, CRUMB_Y, &AF_X, nm_formula() ? "FORMULA \xB7 OCT+ APPLY \xB7 OCT- CANCEL" :    /* (0.8.5: playing too) */
             transport_busy() ? "LENTE \xB7 NAME \xB7 STOP TO SAVE" :
             nm.kind == NK_SONG_SAVE ? "NAME \xB7 K3 SONG/LOOP \xB7 OCT- CANCEL" : "LENTE \xB7 NAME \xB7 OCT- CANCEL", T_TEXT);
     cv_blit(0, LZ_FOOT_Y);

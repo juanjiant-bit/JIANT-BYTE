@@ -12,7 +12,7 @@
 #include "eng_lofi.c"
 #include "eng_form.c"
 #include "eng_wave.c"            /* (JIANT BYTE) WAVE: a parametric wavetable of formulas (engine 13, ADD's) */
-#include "eng_formant.c"
+#include "math_text.c"           /* (BYTE) a part's program text (VOICE removed: its lyric's place) */
 #include "eng_drum.c"           /* DRUM: the 8-lane DRUM-X kit (drumx_voice.c) */
 #include "eng_fm6.c"            /* FM6: 6-operator FM, msfa ported (fm6_core.c, Apache-2.0) */
 #include "eng_input.c"          /* (V10.54) INPUT: the audio input on a track (engine 15) */

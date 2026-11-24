@@ -1435,17 +1435,10 @@ static voice_t *voice_alloc(track_t *t, uint32_t note)
     return voice_reuse(t, &t->v[best == np ? 0 : best]);
 }
 
-/* (VOICE) a glide sets out from where the voice sounds: the S-curve (eng_formant.c glide_sung) folded into pitch_cur (a
- * new note mid-glide: no jump) */
-static void glide_from(voice_t *v)
+static __attribute__((noinline)) void glide_from_trk(const track_t *t, voice_t *v)   /* (a legato note, a chord glide;
+                                                         * BYTE: VOICE's S-curve removed, nothing) */
 {
-    v->pitch_cur = (glide_sung(v) + 128) >> 8;
-    v->gfrom = (int16_t)v->pitch_cur;
-}
-static __attribute__((noinline)) void glide_from_trk(const track_t *t, voice_t *v)   /* (a legato note, a chord glide) */
-{
-    if (0 /* (BYTE: never) */)
-        glide_from(v);
+    (void)t; (void)v;
 }
 
 /* glide: RATE = a fixed speed, TIME = the same time for any interval. (0.9.8) glide 2: VOICE singing words, a legato
@@ -1494,8 +1487,6 @@ static void voice_start(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
         if (VH_ALWAYS(t) && (!sounding || !VH_ST(*vc)))
             *vc = VH_IN;                                /* (a new note: from its first sample; a legato one keeps on) */
     }
-    if (0 /* (BYTE: never) */)
-        glide_from(v);
     v->fin_d = 0;
     v->gacc = 0;
     v->pitch16 = ((int32_t)note + trk_trans(t)) * 16 + t->pfx_rpit;   /* (pfx.c RANDOM: 0 but while it is held) */
@@ -1540,7 +1531,7 @@ static void voice_begin(track_t *t, voice_t *v, uint32_t note, uint32_t vel, int
 {
     const engine_t *e = ENGINES[t->engine];
     uint32_t k = ev_off > CTL ? CTL : ev_off, age = ++vage, old = v->active && v->stage != 0 && v->stage != 4u;
-    vs_rnd = 0 /* (BYTE: never) */ ? noise32(&formant_nz) : 0u;   /* (its RAND vowel: drawn here, on core 0) */
+    vs_rnd = 0u;                                        /* (BYTE: VOICE removed, no RAND vowel) */
     if (e->whole)
         k = k >= CTL / 2u ? CTL : 0u;                   /* the nearer block edge (CTL: the next block's) */
     if (!k || !old) {                                   /* now, or a free slot: the voice as started (what reads it
@@ -1940,7 +1931,7 @@ static void engine_block(track_t *t)
             d = d ? d : &e->edit[i];
             /* (p1, main 0.9.17) a value with names: only a new name dips; VOICE's THEME and LOOP never (the words, not
              * the sound: a THEME swept dipped at every one of its values, a held note crackling) */
-            if (d->fmt == F_ENUM || (d->names && !(d >= FMT_WDESC && d < FMT_WDESC + 8) &&
+            if (d->fmt == F_ENUM || (d->names &&
                                      name_of(d, t->p[P_E0 + i], &k) != name_of(d, t->pe_old[i], &k)))
                 break;
             t->pe_old[i] = t->p[P_E0 + i];

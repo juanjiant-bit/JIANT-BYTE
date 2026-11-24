@@ -2502,12 +2502,11 @@ static int8_t gx_engine(uint32_t r)
     if (((gx.odd & GXO_TIMBRE) == 0u || r != gx.orole) && !gch(r == RL_BASS ? 20 : 40)) return -1;
     return (int8_t)(gch(50) ? ENGI_WAVE : ENGI_LOFI);
 }
-/* the sound past its recipe: a VOICE singing words (any language, a dice's phrase or scat), a distortion's type, a
- * wide glide, a vibrato, detune */
+/* the sound past its recipe: a distortion's type, a wide glide, a vibrato, detune */
 static __attribute__((noinline)) void gx_sound(track_t *t, uint32_t r)
 {
-    if (t->eng_req == EG_VO && r == RL_LEAD && gch(70)) { t->p[P_VLANG] = (int16_t)grr(1, LG_N - 1); t->p[P_VLYR] = (int16_t)grr(1, LYR_N - 1); }   /* (V10.6n:
-                                                         * words a lead's only) */
+    if (t->eng_req == EG_VO && r == RL_LEAD && gch(70)) { (void)grr(1, 9); (void)grr(1, 25); }   /* (BYTE: VOICE removed;
+                                                         * its words' two draws kept: GEN's sequence as before) */
     if (t->p[P_DIST] && gch(50)) t->p[P_DTYPE] = (int16_t)grr(0, 4);   /* (V10.7.33: five, CRUSH its own) */
     if ((r == RL_LEAD || r == RL_BASS) && gch(15)) t->p[P_GLIDE] = (int16_t)grr(15, 40);   /* (V10.8: was 30 %, 20..70) */
     if (r != RL_BASS && gch(12)) {                     /* (V10.8: was 25 %) (0.9.9-gen2) a vibrato on a line (shallow, ~5.5 Hz, faded in),

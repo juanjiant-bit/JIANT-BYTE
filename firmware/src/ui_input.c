@@ -1616,12 +1616,6 @@ static void edit_param(uint32_t slot, int32_t steps)
         dx_kit3_knob(slot, steps);
         return;
     }
-    if(0 /* (VOICE retired) */) {
-        if(!slot) cursor_set((int32_t)ui.cursor+steps);
-        if(slot==1u) {lyric_word=(uint8_t)clamp((int32_t)lyric_word+steps,0,31);lyric_syl=1;}
-        if(slot==2u) lyric_syl=(uint8_t)clamp((int32_t)lyric_syl+steps,0,19);
-        return;
-    }
     if(pg->graph==GR_TRACKGEN) {trackgen_knob(slot,steps);return;}
     if (pg->graph == GR_EVENTS) {                         /* AUTO LIST (ui_events.c) */
         ev_knob(slot, steps);
@@ -1880,21 +1874,6 @@ static __attribute__((noinline)) void act_do(void)
         return;
     if (func_formula_page()) { name_open(NK_FUNC, song.sel); return; }
     if(cur_page()->graph==GR_TRACKGEN) {trackgen_make();return;}
-    if (0 /* (VOICE retired) */) {                /* (0.8.5) WORDS: the lyric, typed (the NAME screen) */
-        name_open(NK_LYRIC, song.sel);
-        return;
-    }
-    if(0 /* (VOICE retired) */) {
-        char label[20];uint32_t pos=lyric_pick(label);
-        if(chain_busy()) {ui_message("SONG PLAYS: STOP IT TO EDIT");return;}
-        if(!label[0]) {ui_message("TYPE A LYRIC FIRST");return;}
-        undo_mark();
-        uint32_t err=motion_set_lock(TSEL,ui.cursor,P_E0,(int16_t)pos);
-        if(err) {ui_message(err==2u?"AUTOMATION FULL":"CANNOT PLACE LYRIC");return;}
-        TSEL->p[P_VLYR]=LYR_FIXED;
-        ui_message(pos?"SYLLABLE PLACED":"AUTO ADVANCE PLACED");
-        return;
-    }
     if (cur_page()->graph == GR_EVENTS) {
         ev_oct();
         return;
