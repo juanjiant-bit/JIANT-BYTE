@@ -73,7 +73,6 @@ static const nv_t CE_SYN[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("
                               NV("WSEQ", 0, 0, 1),   /* (waveframes) WAVE's */
                               NV("TOUCH", 0, 0, 0),   /* (hive2: HIVE's third) */
                               NV("GROOVE", 0, 0, 0), NV("LAYERS", 0, 0, 0), NV("MOTION", 0, 0, 0),   /* (funcplay, funcmotion) FUNC's */
-                              NV("WORDS", 0, 0, 1), NV("SWARM", 0, 0, 1), NV("SWARM 2", 0, 0, 1),
                               NV("FILTER", 0, 1, 1), NV("TONE", 0, 1, 1), NV("AUTO KNOBS", "FOCUS", 2, 2),
                               NV("VOICES", "PLAY", 3, 1), NV("MORE", 0, 3, 1), NV("VOICES 3", "MORE", 3, 1)};   /* (JIANT FM V10.7.60,
                                                          * normalized: SOUND TONE FOCUS PLAY, the engine's extras and the voices'
@@ -95,7 +94,7 @@ static const nv_t CE_SEQ[] = {NV("STEP", 0, 0, LV_BAR), NV("PATTERN", "LENGTH", 
                               NV("EUCLID", 0, 2, LV_PAT), NV("MODES", 0, 2, LV_PAT),
                               NV("PLAYHEADS", 0, 3, LV_PAT), NV("STRETCH", 0, 4, LV_PAT),
                               NV("STEP COND", 0, 5, LV_STEP), NV("COND 2", 0, 5, LV_STEP), NV("AUTO LIST", "LOCKS", 6, LV_BAR),
-                              NV("LYRICS",0,6,LV_BAR),NV("TRACK GEN",0,7,LV_BAR),
+                              NV("TRACK GEN",0,7,LV_BAR),
                               NV("DRONE CLAY", 0, 8, LV_PAT), NV("CLAY MOD", 0, 8, LV_PAT), NV("CLAY RHYTHM", 0, 8, LV_PAT),
                               NV("CLAY TIME", 0, 8, LV_PAT)};   /* (BYTE) DRONE CLAY: FORM's composer, a sequencer */   /* (V10.7.32, the owner) LOCKS:
                                                          * AUTOMATION and AUTO LIST one page (AUTO LIST's PAGES entry; ui_events.c) */
@@ -157,8 +156,9 @@ static const nv_t CE_LFO[] = {NV("LFO", 0, 0, 1), NV("LFO 2", 0, 0, 1), NV("LFO 
                                                          * PHASE; V10.7.33, the owner: MOD now MATRIX, last; MSEQ STEP MOD) */
 static const ng_t CG_LFO[] = {{"LFO", 0}, {"STEP MOD", "STEP"}, {"MATRIX", 0}};
 static const nv_t CE_SCL[] = {NV("SCL", "SCALE", 0, 0),   /* (codex/coherence: KEY, its group's name; V10.7.33 SCALE) */
-                               NV("CHORD", 0, 1, 1), NV("SCENE", 0, 2, 2)};   /* (V10.25 SCENE) */
-static const ng_t CG_SCL[] = {{"SCALE", 0}, {"CHORD", 0}, {"SCENE", 0}};
+                               NV("CHORD", 0, 1, 1), NV("HARMONY", 0, 2, 1), NV("SCENE", 0, 3, 2)};   /* (V10.25 SCENE;
+                                                         * BYTE, FM V10.7.66: HARMONY, its own tab PROG) */
+static const ng_t CG_SCL[] = {{"SCALE", 0}, {"CHORD", 0}, {"HARMONY", "PROG"}, {"SCENE", 0}};
 static const nv_t CE_ARP[] = {NV("ARP", 0, 0, 2), NV("ARP 2", 0, 0, 2)};
 static const ng_t CG_ARP[] = {{"ARP", 0}};
 /* (V10.7.22, the owner: "CLEAR PROJECT in SAVE, on the first page, at the start") TOOLS SAVE's first page, its own tab,

@@ -631,21 +631,13 @@ static uint32_t dx_pagen(const page_t *pg);
 static int page_visible(uint32_t i)
 {
     uint32_t te = trk_eng(TSEL);                        /* (filters2: once) */
-    if (PAGES[i].graph == GR_MOTION)                    /* (V10.7.32) AUTOMATION: LOCKS' top row (AUTO LIST, ui_events.c);
-                                                         * kept in the table */
+    if (!PAGES[i].title[0])                             /* (BYTE, as FM's deadcode) a page gone from every chain: its row
+                                                         * kept, no title (params.c PAGES; V10.7.32: KEY SPLIT, KEY SPLIT 2,
+                                                         * ENV > STAGE out, core.h) */
         return 0;
-    if (PAGES[i].graph == GR_SONG && (PAGES[i].fam == FAM_SEQ || PAGES[i].title[0] == 'C'))   /* (V10.7.32: CLIPS, PARTS' grid) */
-        return 0;                                       /* (0.6.24) the song in one place: SAVE > ARRANGE (SEQ > SONG
-                                                         * was the same page twice; kept in the table: its index) */
-    if (PAGES[i].graph == GR_LIVE || (PAGES[i].fam == FAM_FX && PAGES[i].id[0] == ID_BAL)   /* (BYTE, the owner: BALANCE out) */)
-        return 0;                                       /* (V10.7.30) KEYS RAILS, BALANCE out (core.h): kept in the table */
-    if ((!FELUCCA_SPLIT && (uint32_t)(PAGES[i].graph - GR_SPLIT) < 2u) || (!FELUCCA_ENVX && PAGES[i].graph == GR_STAGE))
-        return 0;                                       /* (V10.7.32) KEY SPLIT, KEY SPLIT 2, ENV > STAGE out (core.h) */
     if (sys_load == LOAD_ECO && ((PAGES[i].graph == GR_SLCR || PAGES[i].graph == GR_SLPIT) ||
                                  (PAGES[i].fam == FAM_FX && PAGES[i].id[0] == G_CRATE)))
         return 0;                                       /* (0.6.30) LOAD ECO: no SLICER, no chorus: their pages gone */
-    if (PAGES[i].graph == GR_MORPH)                     /* (0.6.45) MORPH: ANALOG's (JIANT BYTE: retired) */
-        return 0;
     if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[1] == P_FSWG || PAGES[i].id[1] == ID_FP0 || PAGES[i].id[0] == ID_FM0))   /* (funcplay) GROOVE, LAYERS; MOTION */
         return te == ENGI_FUNC;
     if(PAGES[i].graph==GR_TRACKGEN) return trackgen_ok(TSEL);
@@ -653,9 +645,6 @@ static int page_visible(uint32_t i)
         return te == ENGI_INPUT && TSEL->p[P_E0] == AIN_SW;
     if (PAGES[i].graph == GR_LYRIC || PAGES[i].graph == GR_LYRSTEP)
         return 0 /* (BYTE: never) */;
-    if (PAGES[i].graph == GR_PATS_ || PAGES[i].graph == GR_CHANCE_)   /* (0.6.37) PHRASES, a step's CHANCE: out of the */
-        return FELUCCA_PHRASES && !ui.home && ui.page == i;   /* SEQ pages' cycle (only where code put the screen;
-                                                         * V10.7.33: out, core.h) */
     if (PAGES[i].graph == GR_DXSND)                     /* (DRUM-W) its own pages and KIT LFO; DRUM-X's SOUND 2..4, FORMULA gone */
         return te == ENGI_DRUM && (PAGES[i].title[0] == 'K' || dx_pagen(&PAGES[i]) >= 20u);
     if (PAGES[i].graph == GR_DXIMG)                     /* (0.6.48: IMAGE; V10.49: STEREO a synth's too) */
@@ -676,8 +665,6 @@ static int page_visible(uint32_t i)
         return 0;
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_HVTCH && PAGES[i].id[1] == P_HVPAIR)   /* (hive2) TOUCH: HIVE's */
         return te == ENGI_HIVE;
-    if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_WRDEP)   /* (0.7.8) ROTOR: WHEEL's (JIANT BYTE: retired) */
-        return 0;
     if (PAGES[i].fam == FAM_EDIT && (PAGES[i].graph == GR_MSEQ || PAGES[i].id[0] == P_MORPH || PAGES[i].id[1] == P_MSDIV))
         return trk_engp(TSEL) == &ENG_WAVE;          /* (waveframes) UNISON FRAMES WSEQ: WAVE's */
     if (PAGES[i].fam == FAM_EDIT && PAGES[i].id[0] == P_KEY)   /* (JIANT BYTE) GAIN: DRUM-X's */

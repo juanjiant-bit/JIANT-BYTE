@@ -49,6 +49,15 @@ static const char *const N_SCALE[] = {"CHR", "MAJ", "MIN", "DOR", "MIX", "PEN", 
 static const char *const N_ONOFF[] = {"OFF", "ON"};
 static const char *const N_DLYTYPE[] = {"ANALOG", "DIGITAL", "REVERS", 0};   /* (0.6.90) DLY 3 > TYPE; (V10.6g) REVERSE */
 static const char *const N_PFXRES[] = {"1/8", "1/16", "1/32"};     /* (0.6.99) FX > PUNCH: the lane's step */
+/* (BYTE, JIANT FM V10.7.66's) SCL > HARMONY: the progressions, gen_tables.c PROG's order (1 + PR_*): GEN's own, the
+ * harmony families' two each (V10.8.34's) last; five letters, as every value's card */
+static const char *const N_HPROG[] = {"OFF", "PEDAL", "I-VII", "I-VI", "I-IV", "I-V", "I-II", "I-III", "IV-I", "AXIS", "TRANC", "MIN 4",
+                                      "ANDAL", "EPIC", "50S", "CADEN", "DEEP", "DEEP6", "2-5-1", "SUS", "POP", "PHRYG", "ELECT", "DREAM",
+                                      "DRM 2", "TURN", "STAB", "NSOUL", "NSO 2", "JAZZ2", "JAZZ3", "IDM 1", "IDM 2", "LYD", "PROG",
+                                      "LOOP", "MODAL", "4THS", "MIN 7", "4CHRD", "POP 6", "MIXO", "LIFT", "CINE", "CINE2", "JAZZ4",
+                                      "JAZZ5"};
+static const char *const N_HLEN[] = {"1/4", "1/2", "1 BAR", "2 BAR", "4 BAR"};
+static const char *const N_HSKIP[] = {"NONE", "T1", "T2", "T3", "T4", "T5", "T6"};
 /* seq.c kb_map; 1 = SNAP (stored projects: the former ON); 3 = SEQ: SNAP, and the sequencer's notes snap too as
  * they play (seq.c seq_step; the steps keep what was written). Append-only: older projects hold 0..2 */
 static const char *const N_QUANT[] = {"OFF", "SNAP", "WHITE", "SEQ"};
@@ -239,6 +248,10 @@ static const param_desc_t GP[G_COUNT] = {
     [G_PFXLEN] = PD("LEN", F_INT, 1, 64, 64),    /* (0.6.99) the punch-in lane: its steps and their size */
     [G_PFXRES] = {"RES", F_ENUM, 0, 2, 1, N_PFXRES},
     [G_DRTIM] = PE("R TIME", N_DRTIM, 0),           /* (V10.49) the right echo's time, a ratio of TIME (fx.c dly_rate) */
+    [G_HPROG] = PE("PROG", N_HPROG, 0),            /* (BYTE, FM V10.7.66) SCL > HARMONY */
+    [G_HLEN] = PE("LENGTH", N_HLEN, 2),
+    [G_HEVO] = PD("EVOLVE", F_PCT, 0, 127, 0),
+    [G_HSKIP] = PE("SKIP", N_HSKIP, 0),
     [G_DDRV] = PD("DRIVE", F_PCT, 0, 100, 0),    /* (snd2) the delay's loop driven: 0 clean as before, 100 x4 into the clip */
     [G_DMOD] = PD("MOD", F_PCT, 0, 127, 0),      /* (0.6.89: 0, the repeats exact copies, by default) */     /* (0.6.86) the delay's drift: WOW + FLUTTER (fx.c dly_wow_adv) */
     [G_RMOD] = PD("MOD", F_PCT, 0, 127, 0),      /* the reverb's modulation depth (ROOM: the combs, SPRING: its wobble) */
@@ -685,10 +698,10 @@ enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE,
        FAM_COUNT };
 enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK };   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
-       GR_SLCR, GR_MOD, GR_PATS_, GR_SONG, GR_TOOLS, GR_CHANCE_, GR_MOTION, GR_EVENTS, GR_DXSND, GR_MSEQ, GR_SLPIT,
+       GR_SLCR, GR_MOD, GR_PATS_, GR_SONG, GR_TOOLS, GR_CHANCE_, GR_MOTION_, GR_EVENTS, GR_DXSND, GR_MSEQ, GR_SLPIT,
        GR_FMOP_, GR_FMOP2_, GR_FMENV_,
-       GR_COMP, GR_EUCLID, GR_MORPH, GR_DXIMG, GR_FUGUE, GR_SHAPE, GR_PUNCH, GR_BUSES, GR_FOCUS, GR_STAGE,
-       GR_LYRIC_, GR_GCOMP_, GR_LIVE, GR_SCENE, GR_SONGSAVE, GR_SPLIT, GR_SPLIT2, GR_LYRSTEP_, GR_TRACKGEN, GR_SWARM_, GR_CLAY };   /* append only */   /* (0.8.5:
+       GR_COMP, GR_EUCLID, GR_MORPH_, GR_DXIMG, GR_FUGUE, GR_SHAPE, GR_PUNCH, GR_BUSES, GR_FOCUS, GR_STAGE,
+       GR_LYRIC_, GR_GCOMP_, GR_LIVE_, GR_SCENE, GR_SONGSAVE, GR_SPLIT, GR_SPLIT2, GR_LYRSTEP_, GR_TRACKGEN, GR_SWARM_, GR_CLAY, GR_HARM };   /* append only */   /* (0.8.5:
                                                          * LENTE's EDIT > FOCUS, ENV > STAGE) */   /* (0.6.99) FX > PUNCH: the punch-in lane */   /* (JIANT 0.6.39) SEQ > COMP: the step components (ui_input.c comp_*, ui_graph.c graph_comp) */   /* (JIANT 0.6.10, from Felucca 1.5: FM6's operator pages, ui_fm6op.c) */
 
 /* (V10.7.33) PHRASES and CHANCE out (core.h FELUCCA_PHRASES): a value no page's byte holds, every test of them false */
@@ -704,6 +717,11 @@ enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_
 #define GR_GCOMP 0x106u
 #define GR_LYRSTEP 0x107u
 #define GR_SWARM 0x108u
+/* (BYTE, as FM's deadcode) the rows without a title (page_visible): their graphs too, values no page's byte holds:
+ * AUTOMATION's, MORPH's (WORDS LYRICS SWARM OPERATOR ..), LIVE's KEYS and RAILS */
+#define GR_MOTION 0x109u
+#define GR_MORPH 0x10Au
+#define GR_LIVE 0x10Bu
 typedef struct {
     const char *title;
     uint8_t fam, scope, graph;
@@ -802,6 +820,10 @@ static void life_defaults(void)
 }
 static uint8_t lfo_ph_mem[NTRK];
 static int lfo_mode_of(const track_t *t) { return t->p[P_LPHASE] < 0; }   /* 1 FREE */
+/* (BYTE, as JIANT FM's deadcode) a page no chain shows keeps its row (the index, its ids for the section's masks), its
+ * title empty: ui.c page_visible hides every page without one (AUTOMATION, SEQ's SONG, CLIPS, BALANCE, MORPH, ROTOR,
+ * FM6's OPERATOR OP ENV OPERATOR 2 OP1..OP4 ENV OP LEVEL, PHRASES, CHANCE, LIVE's KEYS RAILS, VOICE's WORDS LYRICS,
+ * SWARM SWARM 2) */
 static const page_t PAGES[] = {
     {"ENV", FAM_ENV, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},
     {"ENV DEST", FAM_ENV, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ELOOP}},   /* JIANT 0.4: LOOP */
@@ -816,7 +838,7 @@ static const page_t PAGES[] = {
                                                          * (0.7.6) FX's second page, at hand (was after SL PITCH) */
     {"TAPE", FAM_FX, SC_GLOBAL, GR_NONE, {ID_TAPE, ID_TWOW, 0xFF, 0xFF}},
     {"EQ", FAM_FX, SC_GLOBAL, GR_NONE, {ID_EQ0, ID_EQ0 + 1u, ID_EQ0 + 2u, ID_EQ0 + 3u}},   /* (p9) the master's EQ, last */   /* (0.9.9-snd8) the master's tape, after MASTER */
-    {"BALANCE", FAM_FX, SC_GLOBAL, GR_NONE, {ID_BAL, 0xFF, 0xFF, 0xFF}},   /* (V10.7.30) the master's BALANCE, after its EQ */
+    {"" /* BALANCE */, FAM_FX, SC_GLOBAL, GR_NONE, {ID_BAL, 0xFF, 0xFF, 0xFF}},   /* (V10.7.30) the master's BALANCE, after its EQ */
     {"DIST", FAM_FX, SC_TRACK, GR_NONE, {P_DTYPE, P_DTONE, FELUCCA_XFX ? ID_DNZ : 0xFF, P_DIST}},   /* JIANT: the drive's type and tone; V10.7.30 NOISE */
     {"VOICES 3", FAM_EDIT, SC_TRACK, GR_NONE, {ID_CRU, ID_LIF, P_GLMODE, 0xFF}},   /* (V10.7.33) CRUSH, the track's bit reducer (was DIST's
                                                          * TYPE; PLAY and PLAY 2 have no knob free) */
@@ -837,6 +859,8 @@ static const page_t PAGES[] = {
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, ID_ALLTR}},   /* (JIANT: ROOT, SCALE every melodic track's;
                                                          * 0.7.6: ALL TR, the global, where TRANS was: SCL 2 gone) */
     {"CHORD", FAM_SCL, SC_TRACK, GR_NONE, {P_CHRD, P_CVOI, P_CSTR, 0xFF}},   /* (0.6.81) a key plays a chord (seq.c) */
+    {"HARMONY", FAM_SCL, SC_GLOBAL, GR_HARM, {G_HPROG, G_HLEN, G_HEVO, G_HSKIP}},   /* (BYTE, FM V10.7.66) a progression
+                                                         * every melodic source follows (seq.c hm_shift; ui_lzpage.c graph_harm) */
     {"SCENE", FAM_SCL, SC_TRACK, GR_SCENE, {ID_SC0, ID_SC0 + 1u, ID_SC0 + 2u, ID_SC0 + 3u}},   /* (V10.25) the multitimbral
                                                          * mode: SCENE, TRACK, ROLE, CHORD (ui_scene.c) */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
@@ -848,7 +872,7 @@ static const page_t PAGES[] = {
     {"CLAY MOD", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_SEL, ID_CL0 + CL_M0, ID_CL0 + CL_M0 + 1u, ID_CL0 + CL_M0 + 3u}},
     {"CLAY RHYTHM", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_SEL, ID_CL0 + CL_M0 + 5u, ID_CL0 + CL_M0 + 2u, ID_CL0 + CL_M0 + 4u}},
     {"CLAY TIME", FAM_SEQ, SC_TRACK, GR_CLAY, {ID_CL0 + CL_RUN, ID_CL0 + CL_SEED, ID_CL0 + CL_KEYS, 0xFF}},
-    {"WORDS", FAM_EDIT, SC_TRACK, GR_MORPH, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
+    {"" /* WORDS */, FAM_EDIT, SC_TRACK, GR_MORPH_, {P_VLANG, P_VLYR, P_VCONS, 0xFF}},   /* (0.8.5) VOICE: LANG LYRIC, (V10.6y) CONS
                                                          * where POS was (POS: EDIT 1's KNOB 1, LANG on), OCT+ TYPE
                                                          * (the lyric on the NAME screen, ui_name.c) */
     {"MORE", FAM_EDIT, SC_TRACK, GR_NONE, {P_LRTRG, P_GLMODE, P_DETUNE, P_GAIN}},   /* (gainall) KNOB 4 GAIN, as every
@@ -856,9 +880,9 @@ static const page_t PAGES[] = {
                                                          * FLOAT's MORE: RESTART first (was RETRIG) */
     {"CAOS", FAM_EDIT, SC_TRACK, GR_NONE, {P_CAOS, P_KEY, 0xFF, 0xFF}},   /* (JIANT BYTE) MATH: from tonal to wild, the keys */
     {"GAIN", FAM_EDIT, SC_TRACK, GR_NONE, {P_KEY, P_E7, 0xFF, 0xFF}},   /* (JIANT BYTE) DRUM-X: GAIN and DRIVE, the kit's power */
-    {"MORPH", FAM_EDIT, SC_TRACK, GR_MORPH, {P_MORPH, P_DRIFT, 0xFF, 0xFF}},   /* (0.6.45) ANALOG PHASE LOFI: the wave morphs;
+    {"" /* MORPH */, FAM_EDIT, SC_TRACK, GR_MORPH_, {P_MORPH, P_DRIFT, 0xFF, 0xFF}},   /* (0.6.45) ANALOG PHASE LOFI: the wave morphs;
                                                          * (0.7.8) DRIFT: the voices wander */
-    {"ROTOR", FAM_EDIT, SC_TRACK, GR_NONE, {P_WRDEP, P_WDUST, 0xFF, 0xFF}},   /* (0.7.8) WHEEL: the rotor's depth, DUST */
+    {"" /* ROTOR */, FAM_EDIT, SC_TRACK, GR_NONE, {P_WRDEP, P_WDUST, 0xFF, 0xFF}},   /* (0.7.8) WHEEL: the rotor's depth, DUST */
     /* (JIANT 0.6.54) DRUM: the whole kit first (KIT = EDIT 1, KIT 2 = EDIT 2, KIT 3, X-MOD, FILTER), then a sound
      * (SOUND 1..4, KNOB 1 the sound on each), (0.6.58) then the volumes (LEVELS, LEVELS 2); (0.7.8) STEREO after X-MOD */
     {"KIT 3", FAM_EDIT, SC_TRACK, GR_DXIMG, {0xFF, 0xFF, 0xFF, 0xFF}},     /* TONE's BP and FEEDBK (the kit's) */
@@ -866,9 +890,9 @@ static const page_t PAGES[] = {
     {"KIT LFO", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},     /* (JIANT 0.5.1) the kit's LFO on MORPH, RAND */
     {"STEREO", FAM_EDIT, SC_TRACK, GR_DXIMG, {P_DXIMG, 0xFF, 0xFF, 0xFF}}, /* (0.6.58) IMAGE: the kit's stereo placings; (0.7.8)
                                                          * with the kit's pages, before the sounds (the volumes last) */
-    {"OPERATOR", FAM_EDIT, SC_TRACK, GR_MORPH, {0xFF, 0xFF, 0xFF, 0xFF}},    /* FM6 only: KNOB 1 the operator, then its */
-    {"OP ENV", FAM_EDIT, SC_TRACK, GR_MORPH, {0xFF, 0xFF, 0xFF, 0xFF}},     /* bytes of the track's patch (ui_fm6op.c): */
-    {"OPERATOR 2", FAM_EDIT, SC_TRACK, GR_MORPH, {0xFF, 0xFF, 0xFF, 0xFF}}, /* CRS FINE LEVEL / STG RATE LEVEL / MODE DTUN VEL */
+    {"" /* OPERATOR */, FAM_EDIT, SC_TRACK, GR_MORPH_, {0xFF, 0xFF, 0xFF, 0xFF}},    /* FM6 only: KNOB 1 the operator, then its */
+    {"" /* OP ENV */, FAM_EDIT, SC_TRACK, GR_MORPH_, {0xFF, 0xFF, 0xFF, 0xFF}},     /* bytes of the track's patch (ui_fm6op.c): */
+    {"" /* OPERATOR 2 */, FAM_EDIT, SC_TRACK, GR_MORPH_, {0xFF, 0xFF, 0xFF, 0xFF}}, /* CRS FINE LEVEL / STG RATE LEVEL / MODE DTUN VEL */
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E6}},   /* (JIANT 0.5) ANALOG: TYPE CUT RES DRV */
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_FCUT, P_FRES, P_SIMG}},   /* (BYTE 0.16: IMAGE; DIST on SENDS) */   /* .. a kit's, EXT's (on the part;
                                                          * DRV: the part's DIST, after it) */
@@ -895,11 +919,11 @@ static const page_t PAGES[] = {
     {"SOUND 4", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (JIANT 0.6.54) LAYER, FEEDBK, SEND */
     {"LEVELS", FAM_EDIT, SC_TRACK, GR_NONE, {P_LN0, P_LN1, P_LN2, P_LN3}},   /* DRUM only: the sounds' levels (was LANES) */
     {"LEVELS 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_LN4, P_LN5, P_LN6, P_LN7}},
-    {"OP1 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM1_ATK, P_FM1_DEC, P_FM1_SUS, P_FM1_REL}},
-    {"OP2 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM2_ATK, P_FM2_DEC, P_FM2_SUS, P_FM2_REL}},
-    {"OP3 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM3_ATK, P_FM3_DEC, P_FM3_SUS, P_FM3_REL}},
-    {"OP4 ENV", FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM4_ATK, P_FM4_DEC, P_FM4_SUS, P_FM4_REL}},
-    {"OP LEVEL", FAM_EDIT, SC_TRACK, GR_NONE, {P_FM1_LEVEL, P_FM2_LEVEL, P_FM3_LEVEL, P_FM4_LEVEL}},
+    {"" /* OP1 ENV */, FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM1_ATK, P_FM1_DEC, P_FM1_SUS, P_FM1_REL}},
+    {"" /* OP2 ENV */, FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM2_ATK, P_FM2_DEC, P_FM2_SUS, P_FM2_REL}},
+    {"" /* OP3 ENV */, FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM3_ATK, P_FM3_DEC, P_FM3_SUS, P_FM3_REL}},
+    {"" /* OP4 ENV */, FAM_EDIT, SC_TRACK, GR_ADSR, {P_FM4_ATK, P_FM4_DEC, P_FM4_SUS, P_FM4_REL}},
+    {"" /* OP LEVEL */, FAM_EDIT, SC_TRACK, GR_NONE, {P_FM1_LEVEL, P_FM2_LEVEL, P_FM3_LEVEL, P_FM4_LEVEL}},
     {"VOICES", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, P_GLIDE, P_DETUNE, P_TVEL}},   /* (BYTE 0.16, as JIANT FM V10.7.63) PLAY:
                                                          * POLY GLIDE UNISON VEL (IMAGE on FILTER, VOICES off the panel) */   /* (JIANT FM V10.7.60: IMAGE at hand, PRIO to VOICES 2) */   /* (codex/coherence: was VOICE) POLY GLIDE
                                                          * GL MODE PRIO */
@@ -908,9 +932,9 @@ static const page_t PAGES[] = {
                                                          * LOAD ECO / LITE / FULL (the USB card: the header's icon) */
     {"PORTS", FAM_GLO, SC_GLOBAL, GR_NONE, {G_MIDI, G_MIDI, G_MIDI, 0xFF}},   /* (V10.37) KNOB 3 Bluetooth's state */   /* (0.9.9-snd8) MIDI IN at a glance (ui_draw.c):
                                                          * KNOB 1 USB's state OFF WAIT BUS ENUM MIDI, KNOB 2 the TRS messages come in */
-    {"KEY SPLIT", FAM_GLO, SC_GLOBAL, GR_SPLIT, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"KEY SPLIT 2", FAM_GLO, SC_GLOBAL, GR_SPLIT2, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"LYRICS", FAM_SEQ, SC_TRACK, GR_MORPH, {0xFF,0xFF,0xFF,0xFF}},
+    {FELUCCA_SPLIT ? "KEY SPLIT" : "", FAM_GLO, SC_GLOBAL, GR_SPLIT, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {FELUCCA_SPLIT ? "KEY SPLIT 2" : "", FAM_GLO, SC_GLOBAL, GR_SPLIT2, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"" /* LYRICS */, FAM_SEQ, SC_TRACK, GR_MORPH_, {0xFF,0xFF,0xFF,0xFF}},
     {"TRACK GEN", FAM_SEQ, SC_TRACK, GR_TRACKGEN, {0xFF,0xFF,0xFF,0xFF}},   /* (codex/coherence: was GENERATE, beside HOME's GENE) */
     {"PUNCH SEQ", FAM_GLO, SC_GLOBAL, GR_PUNCH, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (BYTE) four rows of punch-ins on the
                                                          * transport: ROW EFFECT LEN RES (ui.c psq_knob, pfx.c psq) */
@@ -940,11 +964,11 @@ static const page_t PAGES[] = {
      * as it was: PATTERN (PATTERN STRETCH PLAYHEADS TRACK MUTATE), BAR (STEP NOTE AUTOMATION AUTO LIST), STEP (NOTE
      * COMP COMP 2); SELECT zooms, a SEQ tap the level's next set */
     {"TRACK", FAM_SEQ, SC_TRACK, GR_STEPS, {P_POFS, P_TCHAN, P_HVEL, P_HRQ}},   /* (0.6.92) PITCH CHANCE HUMAN REC Q */
-    {"PHRASES", FAM_SEQ, SC_GLOBAL, GR_PATS_, {0xFF, 0xFF, 0xFF, 0xFF}},    /* pattern loader (ui.c pat_load); 0.6.37: hidden */
+    {"" /* PHRASES */, FAM_SEQ, SC_GLOBAL, GR_PATS_, {0xFF, 0xFF, 0xFF, 0xFF}},    /* pattern loader (ui.c pat_load); 0.6.37: hidden */
     {"MIXER", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},   /* GLO button; LEVEL PAN REV, (0.9.1) the DJ FILTER (was MUTE) */
-    {"SONG", FAM_SEQ, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}},
-    {"CHANCE", FAM_SEQ, SC_STEP, GR_CHANCE_, {0xFF, 0xFF, 0xFF, 0xFF}},   /* a step's CHANCE RATCH; 0.6.37: hidden */
-    {"AUTOMATION", FAM_SEQ, SC_TRACK, GR_MOTION, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"" /* SONG */, FAM_SEQ, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"" /* CHANCE */, FAM_SEQ, SC_STEP, GR_CHANCE_, {0xFF, 0xFF, 0xFF, 0xFF}},   /* a step's CHANCE RATCH; 0.6.37: hidden */
+    {"" /* AUTOMATION */, FAM_SEQ, SC_TRACK, GR_MOTION_, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"AUTO LIST", FAM_SEQ, SC_TRACK, GR_EVENTS, {0xFF, 0xFF, 0xFF, 0xFF}},   /* 1.1.5: the locks and events, edited */
     {"EUCLID", FAM_SEQ, SC_TRACK, GR_EUCLID, {ID_EU0, ID_EU0 + 1u, ID_EU0 + 2u, ID_EU0 + 3u}},   /* (V10.6, MUTATE's place)
                                                          * HITS STEPS ROTATE, LANE / VARY (ui_euclid.c) */
@@ -958,7 +982,7 @@ static const page_t PAGES[] = {
                                                          * page gone; was VOICE 2) */
     {"AUTO KNOBS", FAM_EDIT, SC_TRACK, GR_FOCUS, {0xFF, 0xFF, 0xFF, 0xFF}},   /* EDIT's detail on a synth: PARAM (E1..E8), its
                                                          * VALUE, the MOD slot aimed at it: SRC AMT (ui_input.c focus_knob) */
-    {"STAGE", FAM_ENV, SC_TRACK, GR_STAGE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* ENV's detail: STAGE (ATK DEC SUS REL), its
+    {FELUCCA_ENVX ? "STAGE" : "", FAM_ENV, SC_TRACK, GR_STAGE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* ENV's detail: STAGE (ATK DEC SUS REL), its
                                                          * value (ui_input.c stage_knob; codex/coherence: LOOP, ENV DEST's) */
     {"BUS SENDS", FAM_TRK, SC_TRACK, GR_TRK, {P_CHOR, P_DLY, P_REV, 0xFF}},   /* GLO > MIX: the track's sends (as FX > SENDS),
                                                          * the six tracks' as bars (ui_graph.c track_col6) */
@@ -968,9 +992,9 @@ static const page_t PAGES[] = {
     {"MODES", FAM_SEQ, SC_TRACK, GR_EUCLID, {ID_EU0 + 4u, ID_EU0 + 5u, ID_EU0 + 6u, ID_EU0 + 7u}},   /* (V10.6) the four
                                                          * modes' amounts */
     {"LFO 2", FAM_LFO, SC_TRACK, GR_LFO, {ID_LPHS, 0xFF, 0xFF, 0xFF}},   /* (0.9.18) PHASE: where TRIG starts (FREE: dimmed) */
-    {"KEYS", FAM_GLO, SC_GLOBAL, GR_LIVE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (p2, main 0.9.11) GLO > LIVE: the keys a board of
+    {"" /* KEYS */, FAM_GLO, SC_GLOBAL, GR_LIVE_, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (p2, main 0.9.11) GLO > LIVE: the keys a board of
                                                          * live modifiers (ui_live.c, seq_live.c) */
-    {"RAILS", FAM_GLO, SC_GLOBAL, GR_LIVE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. the six sequences as rails, four knobs
+    {"" /* RAILS */, FAM_GLO, SC_GLOBAL, GR_LIVE_, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. the six sequences as rails, four knobs
                                                          * (codex/coherence: KEYS RAILS, were MANO RIELES) */
     {"TIMELINE", FAM_SAVE, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (add15) the song as lanes (was ARRANGE 2): a row's tracks, the section each
                                                          * plays from (song_chain.c row_src; ui_input.c song_trk_knob) */
@@ -981,12 +1005,12 @@ static const page_t PAGES[] = {
                                                          * LEN and DIV on LENGTH only, the page before */
     {"PARTS", FAM_SAVE, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (V10.6o) the song's four sections as cards: KNOB 1 one,
                                                          * OCT+ it loops, OCT- the song from its row (ui_lzsave.c graph_parts) */
-    {"CLIPS", FAM_SAVE, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (V10.6s) tracks x parts: KNOB 1 the track, 2 the part,
+    {"" /* CLIPS */, FAM_SAVE, SC_GLOBAL, GR_SONG, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (V10.6s) tracks x parts: KNOB 1 the track, 2 the part,
                                                          * OCT+ the cell, OCT- the track stops, F3-B3 a part, REC the song
                                                          * (ui_lzsave.c graph_clips, song_main.c clip_launch) */
-    {"SWARM", FAM_EDIT, SC_TRACK, GR_MORPH, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (V10.6z6) a SWARM track's FAR / NEAR: SIDE RATE MOVE
+    {"" /* SWARM */, FAM_EDIT, SC_TRACK, GR_MORPH_, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (V10.6z6) a SWARM track's FAR / NEAR: SIDE RATE MOVE
                                                          * TONE, (SWARM 2) SIDE NOISE MOD NOW (ui_dx.c sw_ui_*) */
-    {"SWARM 2", FAM_EDIT, SC_TRACK, GR_MORPH, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"" /* SWARM 2 */, FAM_EDIT, SC_TRACK, GR_MORPH_, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E7}},   /* (V10.7.21) ANALOG's EDIT 1 (OSC): WAVE DETUNE MIX
                                                          * INT; its EDIT 2 gone (FILTER has TYPE CUT RES DRIVE), NOISE on
                                                          * FOCUS (ui.c page_visible) */

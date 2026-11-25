@@ -760,6 +760,37 @@ static __attribute__((noinline)) int glatin(void)
     uint32_t d = gs.g->drum;
     return d == DM_CUMBIA || d - DM_REGG < 2u || d - DM_CUMB2 < 5u || !gs.gi;
 }
+/* (BYTE, JIANT FM V10.8.34, the owner: "more progressions") gen_pick's: the harmony family's own two (PROG's PR_FAM ..,
+ * SCL > HARMONY's too), a throw in four where the mode takes them (not the latin genres', not MY LOOP's); 0 none. In the
+ * image, as gprog_ok: the segment full */
+static __attribute__((noinline)) const gprog_t *gfam_prog(const gprog_t *p, uint32_t fam)
+{
+    const gprog_t *f;
+    if (glatin() || gls.on || p->n < 2u || !gch(25)) return 0;
+    f = &PROG[PR_FAM + (2u * fam + (gr() & 1u)) % 12u];
+    return gprog_ok(f) ? f : 0;
+}
+/* (BYTE, FM V10.7.66) SCL > HARMONY's progression for the audio side (seq.c hm_dg hm_n); every UI frame (ui_input) */
+static void hm_load(void)
+{
+    uint32_t v = (uint32_t)song.g[G_HPROG];
+    const gprog_t *pr = &PROG[(v ? v - 1u : 0u) % PR_N];
+    memcpy(hm_dg, pr->deg, 4);
+    hm_n = v ? pr->n : 0u;
+}
+_Static_assert(sizeof N_HPROG / sizeof N_HPROG[0] == PR_N + 1u, "SCL > HARMONY: a name a progression");
+BTAPP_FN static void gx_prog(uint32_t fam);
+/* (BYTE, FM V10.8.34, the owner: "different parts within a song") gen_parts' contrast section (PARTS' B, the others' D):
+ * its own progression, the family's grammar's (as many chords as A's pn, A's qualities pq), not A's degrees pdeg; else
+ * A's. Not MY LOOP's, not the latin genres' */
+static __attribute__((noinline)) void gsec_prog(uint32_t fam, const uint8_t *pdeg, const uint8_t *pq, uint32_t pn)
+{
+    uint32_t i;
+    if (pn < 2u || gls.on || glatin() || !gch(80)) return;
+    for (i = 0; i < 6u && (gx_prog(fam), gs.pn != pn || !memcmp(gs.pdeg, pdeg, pn)); i++) {}
+    if (i < 6u) for (i = 0; i < pn; i++) gs.pq[i] = QQ(pq[i]);
+    else { memcpy(gs.pdeg, pdeg, 4); memcpy(gs.pq, pq, 4); gs.pn = (uint8_t)pn; }
+}
 BTAPP_FN static void gen_bass(track_t *t, uint32_t len)   /* (V10.7.36: the segment's, as gen_role: its only caller) */
 {
     const ggenre_t *g = gs.g;
@@ -2245,7 +2276,10 @@ BTAPP_FN static void gen_parts(void)   /* (BYTE 0.17: the segment's, as gen_make
         if (gls.on && gls.v.n && (k == 1u || (k == 3u && gch(50)))) { gs.pn = gls.v.n; memcpy(gs.pdeg, gls.v.deg, 8); }   /* (MY
                                                          * LOOP: the verse the genre's progression, the break it or the
                                                          * drop's) */
-        if (fam != HF_LOOP && ((form == FM_PARTS && k == 1u) || (form != FM_PARTS && k == 3u))) rot = gsec_rot();
+        if (fam != HF_LOOP && ((form == FM_PARTS && k == 1u) || (form != FM_PARTS && k == 3u))) {
+            gsec_prog(fam, pdeg, pq, pn);               /* (FM V10.8.34) the contrast section its own progression */
+            rot = gsec_rot();
+        }
         if (form == FM_PARTS && k == 2u && (gs.hx & HX_LIFT)) {
             static const int8_t XL[7] = {1, 3, 5, 6, -1, -3, -5};   /* (0.8.6) EXPLORE: anywhere, not a whole step */
             lift = gx.on ? XL[gr() % 7u] : 2;
@@ -2795,7 +2829,9 @@ BTAPP_FN static void gen_pick(void)
             p = &PROG[gminor() ? (gs.sc[1] == 1u ? PR_PHRY : gs.sc[6] == 11u ? PR_I_IV : PR_I_VII) : gs.sc[3] == 6u ? PR_I_II : PR_I_IV];
             if (!gprog_ok(p)) p = &PROG[PR_ONE];
         }
-        if (!glatin() && !gch(p->n == 1u ? 50u : 35u)) {   /* (V10.7.2: the latin genres' progressions their own) */
+        const gprog_t *pf = gfam_prog(p, HXF(g->hx));   /* (FM V10.8.34) the family's own two, a throw in four */
+        if (pf) p = pf;
+        else if (!glatin() && !gch(p->n == 1u ? 50u : 35u)) {   /* (V10.7.2: the latin genres' progressions their own) */
             gx_prog(HXF(g->hx));
             pg.n = gs.pn; memcpy(pg.deg, gs.pdeg, 4); memcpy(pg.q, gs.pq, 4);
             if (pg.n != 3u && gprog_ok(&pg)) p = &pg;      /* (a chord the mode would not take left out: never three,
@@ -3156,6 +3192,8 @@ static void gen_go(void)
         return;
     }
     gls.u = gp.form == 3u;
+    song.g[G_HPROG] = 0;                                /* (BYTE) GEN writes its own progression into the notes: SCL >
+                                                         * HARMONY off, not moving them a second time */
     gen_make();
     if (gls.u && (dice_secs != 15u || !live.mode || chain_config.count < 4u)) {
         if (dice_secs & 1u) section_load(0);

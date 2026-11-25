@@ -5,7 +5,8 @@
  * as evenly as the steps allow (the euclidean rhythm); KNOB 4 a DRUM track's LANE (each of its eight sounds its own
  * HITS / STEPS / ROTATE, the pattern their least common length up to 64; ALL: KNOB 1 the kit's DENSITY), a melodic
  * track's ROLE (MELODY CHORDS BASS ARP): on the harmony the other melodic tracks play, bar by bar (four bars when it
- * changes; the beats on its chord), else the key's (SCL > HARMONY moves it). MODES (a melodic track's named MELODY):
+ * changes; the beats on its chord), else the key's (SCL > HARMONY moves it; on, the key's own chord a bar, its
+ * progression's at playback). MODES (a melodic track's named MELODY):
  *   DRUM    ACCENT (a second euclid of accents), GHOST (soft hits between), RATCHET (x2 / x4 hits), VARY
  *   melodic CONTOUR (WALK UP DOWN ARCH WAVE LEAP RANDOM), RANGE (2..15 notes), MOTIF (OFF 2 3 4 8: repeated as a
  *           sequence), VARY
@@ -301,6 +302,12 @@ static int32_t eu_up(const eu_t *e, int32_t nt, uint32_t k)
 static __attribute__((noinline)) uint32_t eu_harm(uint32_t k, const eu_t *e, const uint8_t *pc, uint32_t np, int8_t *cd)
 {
     uint32_t b, j, i, c, d, nb = 0;
+    if (hm_n && k + 1u != (uint32_t)song.g[G_HSKIP]) {  /* (BYTE) SCL > HARMONY on: its progression, not the neighbours'
+                                                         * (theirs moved by it too): the key's own chord, every bar, moved
+                                                         * onto the progression's at playback (seq.c hm_shift) */
+        for (b = 0; b < 4u; b++) cd[b] = 0;
+        return np >= 3u ? 4u : 0u;
+    }
     for (b = 0; b < 4u; b++) {
         uint32_t h[12] = {0}, tot = 0, top = 0;
         cd[b] = 0;

@@ -639,6 +639,7 @@ static uint32_t proj_packed_size(const project_t *q)
     for (t = 0; t < NTRK; t++)                          /* (funcplay) FUNC's */
         if (q->fpx[t] & 128u) n += 5u;
     if (proj_fm_any(q)) n += 2u + sizeof q->fmo;        /* (funcmotion) */
+    if (q->g[G_HPROG]) n += 6u;                         /* (BYTE) SCL > HARMONY */
     if (q->dx_hands >> 4)                               /* (snd1) the kit's GLUE, when on */
         n += 3u;
     if (q->g[G_DDRV])                                   /* (snd2) the delay's DRIVE, when on */
@@ -929,6 +930,11 @@ static int proj_pack(project_store_t *out, const project_t *q)
         b[pos++] = 'F'; b[pos++] = 'M';
         memcpy(b + pos, q->fmo, sizeof q->fmo);
         pos += sizeof q->fmo;
+    }
+    if (q->g[G_HPROG]) {                                /* (BYTE, FM V10.7.66) SCL > HARMONY, on: after MOTION (an older
+                                                         * firmware stops before it; without it, OFF) */
+        b[pos++] = 'H'; b[pos++] = 'M';
+        for (i = 0; i < 4u; i++) b[pos++] = (uint8_t)clamp(q->g[G_HPROG + i], 0, 127);
     }
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
@@ -1346,6 +1352,10 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         if (pos + 2u + sizeof q->fmo <= room && b[pos] == 'F' && b[pos + 1u] == 'M') {   /* (funcmotion) */
             memcpy(q->fmo, b + pos + 2u, sizeof q->fmo);
             pos += 2u + sizeof q->fmo;
+        }
+        if (pos + 6u <= room && b[pos] == 'H' && b[pos + 1u] == 'M') {   /* (BYTE) SCL > HARMONY (else OFF: the defaults) */
+            for (i = 0; i < 4u; i++) q->g[G_HPROG + i] = (int16_t)clamp(b[pos + 2u + i], GP[G_HPROG + i].min, GP[G_HPROG + i].max);
+            pos += 6u;
         }
     }
     for (i = 0; i < 8u; i++) if (q->dx_form[i] == DX_USER && !q->dx_text[i][0]) q->dx_form[i] = 0;

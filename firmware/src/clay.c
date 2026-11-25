@@ -170,7 +170,8 @@ static __attribute__((noinline)) void clay_tick(uint32_t n)
         }
         clay_eval(st, c, &o, t->at);
         root = (uint32_t)clamp(t->p[P_ROOT], 0, 11);
-        dn = (uint32_t)clamp(12 * (clamp(c[CL_OCT], 0, 3) + 1) + (int32_t)root + clay_kr[tr] + clamp(c[CL_PIT], -24, 36), 1, 127);
+        dn = (uint32_t)clamp(12 * (clamp(c[CL_OCT], 0, 3) + 1) + (int32_t)root + (hm_n && !hm_rootkey(tr) ? hm_semi(t) : clay_kr[tr]) +
+                             clamp(c[CL_PIT], -24, 36), 1, 127);   /* (BYTE: SCL > HARMONY's root, unless a root key is held) */
                                                          /* the drone: C0 .. C3 on the ROOT (+ a root key's degree), PITCH */
         if (drum)                                       /* (a DRUM track: its pads, no drone) */
             st->hb.on = 0;

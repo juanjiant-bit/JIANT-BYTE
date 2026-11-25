@@ -170,7 +170,7 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
             } else if (f->mut & FM_NOTES) e.u[FU_D] ^= 0x5Au;
             for (k = 0; k < FA_N; k++) e.arr[k] = e.arr[k] ? e.arr[k] + a : 0;
             e.fx = cx;
-            e.u[FU_NOTE] = (uint32_t)clamp((int32_t)e.u[FU_NOTE] + f->semi, 0, 127);
+            e.u[FU_NOTE] = (uint32_t)clamp((int32_t)e.u[FU_NOTE] + (hm_n && func_song(t) && !hm_rootkey(tr) ? hm_semi(t) : f->semi), 0, 127);
             lofi_run(L ? pb : pa, &e, &lofi_work[MC_CPU() & 1u], b - a, o + a);
         }
         if (pb || g[0] != 32768u)

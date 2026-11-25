@@ -92,6 +92,7 @@ static void fg_play(track_t *t, fg_head_t *h, const fg_set_t *f, uint32_t i, uin
             x = scale_steps(t, x, f->ivl);
         if (song.g[G_STRN])
             x = scale_steps(t, x, song.g[G_STRN]);
+        x = hm_move(t, x, hm_shift(t));                  /* (BYTE) SCL > HARMONY's chord */
         h->note[h->n++] = (uint8_t)clamp(x, 0, 127);
     }
     for (k = 0; k < NLANE && h->n < 4u; k++)             /* (a kit: its lanes, as the step has them) */

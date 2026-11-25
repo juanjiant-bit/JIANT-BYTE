@@ -736,6 +736,49 @@ static volatile uint8_t fx_lock_on;              /* (0.6.44) ui_layer.c: the FX 
                                                  * the keys are its effects without FX held */
 static volatile uint32_t beat_pos, beat_n;      /* samples into the beat, the beat of the bar (0..3) */
 static volatile uint32_t bar_n;                 /* (0.6.43) the bars since PLAY (MUTATE: project.c mutate_poll) */
+/* (BYTE, JIANT FM V10.7.66, the owner) SCL > HARMONY: the progression's degrees (gen.c hm_load, the main loop: PROG's),
+ * how many (0: OFF). hm_shift: track t's notes this many degrees up
+ * (the chord now: the bar and beat, LENGTH; EVOLVE now and then its relative, a fourth), 0 off, for SKIP's track or
+ * stopped; hm_move: note x up d degrees of its scale (a scale of other than seven: the major scale's interval, the
+ * whole line moved) */
+static int8_t hm_dg[4];
+static uint8_t hm_n;
+static uint32_t hm_pos(void) { return (bar_n * 4u + beat_n) >> (uint32_t)song.g[G_HLEN]; }   /* (LENGTH: 1, 2, 4, 8, 16 beats) */
+static uint32_t hm_now(void) { return hm_n ? hm_pos() % hm_n : 0u; }   /* (the chord playing: SCL > HARMONY's picture) */
+static int32_t hm_shift(const track_t *t)
+{
+    uint32_t pos, i, cyc, h;
+    int32_t d;
+    if (!hm_n || !song.playing || (uint32_t)(t - trk) + 1u == (uint32_t)song.g[G_HSKIP])
+        return 0;
+    pos = hm_pos();
+    i = pos % hm_n;
+    cyc = pos / hm_n;
+    d = hm_dg[i];
+    h = ((cyc + 1u) * 2654435761u ^ (i + 1u) * 40503u) >> 16;
+    if (cyc && h % 128u < (uint32_t)song.g[G_HEVO])
+        d += cyc & 1u ? 3 : 2;                          /* (a fourth up, the relative) */
+    return d;
+}
+static int32_t hm_move(const track_t *t, int32_t x, int32_t d)
+{
+    uint32_t m = scale_mask(t) & 0xFFFu, c = 0;
+    if (d <= 0) return x;
+    for (; m; m &= m - 1u) c++;
+    if (c == 7u) return clamp(scale_steps(t, x, d), 0, 127);
+    return clamp(x + (int32_t)((0xB975420u >> (4u * ((uint32_t)d % 7u))) & 15u) + 12 * (d / 7), 0, 127);
+}
+static int32_t hm_semi(const track_t *t)               /* (the chord's root over the key's, in semitones: DRONE CLAY, FUNC) */
+{
+    int32_t r = 48 + clamp(t->p[P_ROOT], 0, 11);
+    return hm_move(t, r, hm_shift(t)) - r;
+}
+/* (BYTE) FUNC's and DRONE CLAY's root with SCL > HARMONY on: the chord's (hm_semi), not a root key's, unless one of the
+ * last seven keys (their degrees) is held on the selected part tr */
+static int hm_rootkey(uint32_t tr)
+{
+    return tr == song.sel % NTRK && (kb_on[20] | kb_on[21] | kb_on[22] | kb_on[23] | kb_on[24] | kb_on[25] | kb_on[26]);
+}
 static uint8_t mut_n[NTRK];                     /* (V10.6z3) each track's EUCLID MUTATEs, counted (ui_euclid.c eu_mutate; the
                                                  * editor's MUTATE push, editor.c) */
 
@@ -820,6 +863,9 @@ static void arp_step_do(track_t *t, uint32_t n)
         for (i = 0; i < cnt && len < 64u; i++)
             list[len++] = clamp((int32_t)list[i] + 12 * (int32_t)o, 0, 127);
     if (t->p[P_AMODE] == AM_REPEAT) { list[0] = t->held[t->nheld - 1u]; len = 1; } /* REPEAT: last played note, no octave traversal */
+    if (hm_n && (o = (uint32_t)hm_shift(t)) != 0u && !drum_track(t) && !rec_on(t))   /* (BYTE) SCL > HARMONY: the arp's
+                                                         * notes on its chord (recording: what the keys hold) */
+        for (i = 0; i < len; i++) list[i] = (uint32_t)hm_move(t, (int32_t)list[i], (int32_t)o);
     t->arp_idx++;
     j = t->p[P_AMODE] == AM_CHORD ? 0u : arp_pick(t, list, len);
     if (t->arp_note)
@@ -2737,6 +2783,8 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
         }
         if (song.g[G_STRN] && !kit)                 /* (JIANT 0.4) STRN: up / down the scale, every sequence */
             x = (uint32_t)clamp(scale_steps(t, (int32_t)x, song.g[G_STRN]), 0, 127);
+        if (hm_n && !kit)                           /* (BYTE, FM V10.7.66) SCL > HARMONY's chord */
+            x = (uint32_t)hm_move(t, (int32_t)x, hm_shift(t));
         if (qseq) {                                 /* QNT SEQ: onto the scale now; two notes snapping */
             x = (uint32_t)clamp(scale_snap(t, (int32_t)x), 0, 127);   /* together play once */
             for (j = 0; j < m && nn[j] != x; j++)

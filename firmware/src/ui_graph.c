@@ -1122,6 +1122,8 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
         for (i = 0; i < NVOICE; i++) h = (h ^ (uint32_t)(t->v[i].active && t->v[i].gate) << i) * 16777619u;
         if (pg->graph == GR_SCALE && !ANIM_OFF()) h ^= anim_fr / 2u * 2246822519u;
     }
+    if (pg->graph == GR_HARM)                        /* (BYTE) SCL > HARMONY: the chord playing */
+        h ^= (song.playing ? hm_now() + 1u + (uint32_t)hm_shift(t) * 16u : 0u) * 40503u + hm_n * 131u;
     if (pg->scope == SC_GLOBAL && pg->id[0] == G_BPM && (song.playing || bg_energy() > 2))   /* (the owner: GLOBAL's
                                                       * scope, live while it sounds) */
         h ^= anim_fr / 2u * 2246822519u;
