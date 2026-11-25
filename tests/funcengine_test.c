@@ -81,17 +81,19 @@ static void fp_setup(uint32_t form)
         tf_ic1[0] = tf_ic2[0] = 0; memset(fns, 0, sizeof fns); memset(fnb, 0, sizeof fnb); drift_clk[0] = 0; pl_g[0] = 0; dist_w[0] = 0; memset(l24_s, 0, sizeof l24_s); memset(ms_s, 0, sizeof ms_s); memset(dist_nlp, 0, sizeof dist_nlp);
     }
 }
-/* the transport playing ms from its start, the left channel into o, a call before each block */
+static int fp_stem;                                    /* (momentary MUTATE) the part's own (its stem: no master's leveler) */
+/* the transport playing ms from its start, the left channel into o (fp_stem: the part's stem), a call before each block */
 static void fp_play(uint32_t ms, int16_t *o, fp_cb_t cb)
 {
     int32_t x[CTL * 2];
     uint32_t n = FS / 1000u * ms / CTL, j, i;
+    if (fp_stem) fx_stems = 1;
     transport_req = 1;
     for (j = 0; j < n && (j + 1u) * CTL <= FPN; j++) {
         if (cb) cb(j);
         mix_block(x, CTL);
         fpb[j] = func_clock_begin;
-        for (i = 0; i < CTL; i++) o[j * CTL + i] = (int16_t)clamp(x[2u * i], -32768, 32767);
+        for (i = 0; i < CTL; i++) o[j * CTL + i] = (int16_t)clamp(fp_stem ? stem_buf[0][i] : x[2u * i], -32768, 32767);
     }
     fpb[j] = func_clock_end;
     transport_req = 2;
@@ -129,6 +131,13 @@ static void fp_cb_key(uint32_t j)                      /* a key down at fp_at_bl
 {
     if (j == fp_at_blk) fm1_in.notes = 1u << fp_key;
     if (j == fp_up_blk) fm1_in.notes = 0;
+}
+static void fp_cb_two(uint32_t j)                      /* FREEZE (black 4) fp_at_blk .. fp_up_blk, ROLL (white 6) 12.6 .. 13.1 */
+{
+    uint32_t n = 0;
+    if (j >= fp_at_blk && j < fp_up_blk) n |= 1u << 8;
+    if (j >= fp_beat_blk(12.6) && j < fp_beat_blk(13.1)) n |= 1u << 9;
+    fm1_in.notes = n;
 }
 static void funcplay_checks(int argc, char **argv)
 {
@@ -210,6 +219,58 @@ static void funcplay_checks(int argc, char **argv)
         }
     }
     puts("funcplay: a fill held on the keys: from the next 1/16, released at the 1/16 after, as written again PASS");
+    /* 3b (momentary MUTATE) a mutation held on the keys (blacks 1..4: NOTES RHYTHM SWAP FREEZE): from the next 1/16,
+     * at the 1/16 after the key is up as written again, nothing kept (the formula's state, its sound); a tap one 1/16;
+     * held with a fill: both */
+    {
+        static const uint8_t MK[4] = {1, 3, 5, 8};      /* (CLAY_KMAP: 16 .. 19) */
+        uint32_t s0, e0, m, i;
+        int32_t mx;
+        fp_stem = 1;
+        for (f = 2; f <= 16u; f += 14u) {
+            fp_setup(f); fp_run(12000, fa, 0);
+            for (m = 0; m < 4u; m++) {
+                fp_key = MK[m]; fp_at_blk = fp_beat_blk(6.1); fp_up_blk = fp_beat_blk(17.6);
+                fp_run(12000, fbuf, fp_cb_key);
+                s0 = fp_first_diff(fa, fbuf, FS * 12u) / CTL;
+                for (e0 = FS * 12u - 1u; e0 > 0 && fa[e0] == fbuf[e0]; e0--) {}
+                for (mx = 0, i = (fp_beat_blk(18.75) + 1u) * CTL; i < FS * 12u; i++) { int32_t q = fa[i] - fbuf[i]; if (q < 0) q = -q; if (q > mx) mx = q; }
+                printf("FORM %2u %s held 6.1 .. 17.6: on %.4f off %.4f; changed blocks %u .. %u (6.25: %u, 17.75: %u), after %d\n",
+                       f, "NOTES\0 RHYTHM\0SWAP\0  FREEZE" + 7u * m, fp_sh->st.ms / 65536.0, fp_sh->st.mr / 65536.0, s0,
+                       e0 / CTL, fp_beat_blk(6.25), fp_beat_blk(17.75), mx);
+                assert(fp_sh->st.ms == 0x64000u && fp_sh->st.mr == 0x11C000u);
+                assert(!fp_sh->st.mut && !fp_sh->st.mkey && !fp_sh->st.mreq && !fp_sh->st.mpf);
+                assert(s0 < FS * 12u / CTL && s0 >= fp_beat_blk(6.25) && s0 <= fp_beat_blk(17.75));
+                assert(e0 / CTL <= fp_beat_blk(18.75) && !mx);   /* (the part's own: as written, bit for bit) */
+            }
+        }
+        /* a tap: one 1/16 (on 6.25, off 6.5) */
+        fp_setup(16); fp_run(8000, fa, 0);
+        fp_key = 3; fp_at_blk = fp_beat_blk(6.1); fp_up_blk = fp_at_blk + 2u;
+        fp_run(8000, fbuf, fp_cb_key);
+        assert(fp_sh->st.ms == 0x64000u && fp_sh->st.mr == 0x68000u && !fp_sh->st.mut);
+        assert(fp_first_diff(fa, fbuf, FS * 8u) / CTL >= fp_beat_blk(6.25));
+    }
+    {   /* FREEZE held 6.1 .. 17.6 with ROLL held 12.6 .. 13.1: both, then as written */
+        int16_t *fz = mmap(0, FPN * 4u, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0), *rl = fz + FPN;   /* (the
+                                                         * children's: shared) */
+        uint32_t i, both = 0, d1, d2;
+        assert(fz != MAP_FAILED);
+        fp_setup(16); fp_run(12000, fa, 0);
+        fp_key = 8; fp_at_blk = fp_beat_blk(6.1); fp_up_blk = fp_beat_blk(17.6); fp_run(12000, fz, fp_cb_key);
+        fp_key = 9; fp_at_blk = fp_beat_blk(12.6); fp_up_blk = fp_beat_blk(13.1); fp_run(12000, rl, fp_cb_key);
+        fp_at_blk = fp_beat_blk(6.1); fp_up_blk = fp_beat_blk(17.6); fp_run(12000, fbuf, fp_cb_two);
+        for (i = fp_beat_blk(12.75) * CTL; i < fp_beat_blk(13.25) * CTL; i++) both += fbuf[i] != fz[i] && fbuf[i] != rl[i];
+        d1 = fp_first_diff(fz, fbuf, FS * 12u) / CTL; d2 = fp_first_diff(rl, fbuf, FS * 12u) / CTL;
+        printf("FREEZE + ROLL: %u samples of 12.75 .. 13.25 neither's alone; off FREEZE's from block %u (12.75: %u), ROLL's from %u\n",
+               both, d1, fp_beat_blk(12.75), d2);
+        assert(both > 1000u && d1 >= fp_beat_blk(12.75) && d2 >= fp_beat_blk(6.25) && d2 < fp_beat_blk(12.75));
+        assert(!fp_sh->st.mut && !fp_sh->st.fill && !fp_sh->st.mkey && !fp_sh->st.fkey);
+        for (i = (fp_beat_blk(18.75) + 1u) * CTL; i < FS * 12u; i++) assert(fa[i] == fbuf[i]);   /* (as written again) */
+        munmap(fz, FPN * 4u);
+        fp_stem = 0;
+    }
+    puts("funcplay: a mutation held on the keys: from the next 1/16, as written at the 1/16 after, with a fill both PASS");
     /* 4 the groove: SWING's odd 1/16 later, COMPLEX broken by its share, DENSITY thins / fills, RANGE octaves */
     {
         fp_t ff; fp_q_t q; uint32_t r, late = 0, moved, sw[3];

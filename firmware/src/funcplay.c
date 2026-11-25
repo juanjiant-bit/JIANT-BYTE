@@ -12,8 +12,10 @@
  *            its riser the CUT opening over four bars), DROP (denser), BREAK (no drums, CUT down)
  *   FILL     held, from the next 1/16 to the 1/16 after the key is up: ROLL (each 1/16 its first 1/32, then 1/64),
  *            STUTTER (the 1/8 from its start again), REVERSE (back from its start), DOUBLE (twice as fast from its start)
- *   MUTATE   NOTES (a new seed d, the notes moved 0 7 5 12), RHYTHM (the bar's offbeat 1/16s reordered), SWAP (layer A's
- *            and B's parts; one layer: the bar's halves), FREEZE (the bar playing, again), RESET
+ *   MUTATE   held, as the fills (from the next 1/16, a tap one 1/16 at least; at the 1/16 after the key is up the formula
+ *            as written again, nothing kept): NOTES (a new seed d, the notes moved 0 7 5 12), RHYTHM (the bar's offbeat
+ *            1/16s reordered), SWAP (layer A's and B's parts; one layer: the bar's halves), FREEZE (the bar playing when
+ *            pressed, again); with a fill held, both. RESET: GROOVE, the mutes and the root back
  *   LAYERS   a second recipe B (its preset's knobs) on the same P, BLEND between them (A .. both at 3/4 .. B), B
  *            muted by its key; two parts at once (fp_b). (PARTS, a part from each layer: out for the flash's room)
  *   ROOT     the last seven keys: the scale's degree, at the next bar
@@ -29,6 +31,7 @@ static int func_live(const track_t *t)                 /* anything to do: else t
     const int16_t *p = t->p;
     uint32_t k, any = (uint32_t)(p[P_FDEN] | p[P_FRNG] | p[P_FSWG] | p[P_FFB] | (p[P_FCPX] ^ 127));
     for (k = 0; k < 10u; k++) any |= f[k];
+    any |= fp_st[(uint32_t)(t - trk) % NTRK].mreq;     /* (a mutation pressed: on at the next 1/16) */
     return any != 0;
 }
 /* the block's: COMPLEX's and RANGE's step (its pick), SWING's two slopes */
@@ -66,7 +69,7 @@ static const int8_t FS_DEN[5] = {0, -10, 0, 20, -16}, FS_CUT[5] = {0, -24, -24, 
 static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm_prog_t *pa, fvm_env_t *en, uint32_t n,
                                                uint32_t *Y, uint32_t *W, uint32_t *P)
 {
-    uint32_t tr = (uint32_t)(t - trk) % NTRK, s = n, a, b, i, k, L, Yb[LOFI_N], fb = (uint32_t)clamp(t->p[P_FFB], 0, 20), fk,
+    uint32_t tr = (uint32_t)(t - trk) % NTRK, s = n, sm = n, a, b, i, k, L, Yb[LOFI_N], fb = (uint32_t)clamp(t->p[P_FFB], 0, 20), fk,
              x = (uint32_t)fp_kp[tr][0] & 127u;
     fp_t *f = &fp_st[tr];
     const fvm_prog_t *pb = 0;
@@ -76,6 +79,7 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
     if (P[0] + (1u << 18) < f->lastP) {                 /* (the time went back: PLAY again) the lines from here */
         f->qbar = f->fs = f->fe = f->fill = 0;
         f->sbar = f->frz = P[0] >> 18;
+        f->mpf = 0; f->me = 0;                          /* (the mutations' lines from here too) */
     }
     f->lastP = P[n - 1u];
     if (f->sreq | f->dreq) {                            /* a section, a root asked: at the next bar line */
@@ -90,16 +94,37 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
     } else if (!fk && f->fill && !f->fe)                /* let go: to the 1/16 after (one at least) */
         f->fe = (((P[0] > f->fs ? P[0] : f->fs) >> 14) + 1u) << 14;
     if (f->fill && f->fe && P[0] >= f->fe) f->fill = 0;
+    {   /* (momentary MUTATE) the mutations pressed: on from the next 1/16; let go: off at the 1/16 after (one at least) */
+        uint32_t nx = (P[0] + 0x3FFFu) & ~0x3FFFu, te = ~0u;
+        f->mreq &= (uint8_t)~f->mut;                    /* (pressed again while still on: on it stays) */
+        if ((f->mreq & ~f->mut) && !(f->mpf & 1u)) { f->ms = nx; f->mpf |= 1u; }
+        if (f->mut & ~(f->mkey | f->mreq)) {
+            if (!(f->mpf & 2u)) { f->mr = nx > f->me ? nx : f->me; f->mpf |= 2u; }
+        } else f->mpf &= (uint8_t)~2u;
+        if (f->mpf & 1u) te = f->ms;
+        if ((f->mpf & 2u) && f->mr < te) te = f->mr;
+        for (sm = 0; te != ~0u && sm < n && P[sm] < te; sm++) {}
+    }
     for (k = 0; k < 2u && fb; k++)                      /* layer B: its slot (func_b_poll) */
         if (fp_b[k].tr == tr + 1u && fp_b[k].form == fb && fp_b[k].p.n && !(f->mute & 4u)) pb = &fp_b[k].p;
     for (a = 0; a < n; a = b) {
-        uint32_t sec, bars, g[2], m, ra = P[a], xx = (f->mut & FM_SWAP) && pb ? 127u - x : x;
+        uint32_t sec, bars, g[2], m, ra = P[a], xx;
         if (a == s) {                                   /* the bar line: the section, the root */
             if (f->sreq) { f->sec = (uint8_t)(f->sreq - 1u); f->sbar = f->qbar; f->sreq = 0; }
             if (f->dreq) { f->deg = (uint8_t)(f->dreq - 1u); f->semi = f->dsemi; f->dreq = 0; }
             f->qbar = 0;
         }
-        b = a < s ? s : n;
+        if (a == sm) {                                  /* (momentary MUTATE) a 1/16's line: the mutations on, off */
+            if ((f->mpf & 1u) && ra >= f->ms) {
+                if (f->mreq & FM_FREEZE) f->frz = (f->ms - (f->ms != 0u)) >> 18;   /* (FREEZE: the bar it was pressed in) */
+                f->mut |= f->mreq; f->mreq = 0; f->me = f->ms + 0x4000u; f->mpf &= (uint8_t)~1u;
+            }
+            if ((f->mpf & 2u) && ra >= f->mr) { f->mut &= f->mkey | f->mreq; f->mpf &= (uint8_t)~2u; }
+        }
+        b = n;
+        if (s > a && s < b) b = s;
+        if (sm > a && sm < b) b = sm;
+        xx = (f->mut & FM_SWAP) && pb ? 127u - x : x;
         sec = f->sec % 5u;
         bars = (ra >> 18) - f->sbar;
         bars = sec == FS_BUILD ? (bars < 3u ? bars : 3u) : 0u;
@@ -156,17 +181,23 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
 /* ---- the keys' (audio, core 0) */
 static int32_t clay_degree(const track_t *t, uint32_t d);
 /* event ev (1 .. 20) on part tr: 1..5 a section (+1: GROOVE INTRO BUILD DROP BREAK), 6..12 the root's degree, 13..16 a
- * mutation (NOTES RHYTHM SWAP FREEZE), 17 RESET, 18..20 a part muted (DRUMS NOTES B) */
+ * mutation (NOTES RHYTHM SWAP FREEZE) pressed (op 1) or let go (0): held, momentary; 17 RESET, 18..20 a part muted
+ * (DRUMS NOTES B), toggled */
+static void func_mkey(uint32_t tr, uint32_t ev, int op)
+{
+    fp_t *f = &fp_st[tr];
+    uint8_t m = (uint8_t)(1u << (ev - 13u));
+    if (!op) { f->mkey &= (uint8_t)~m; return; }
+    f->mkey |= m; f->mreq |= m;
+}
 static void func_apply(uint32_t tr, uint32_t ev)
 {
     fp_t *f = &fp_st[tr];
     if (ev <= 5u) f->sreq = (uint8_t)ev;
     else if (ev <= 12u) { f->dreq = (uint8_t)(ev - 5u); f->dsemi = (int8_t)clay_degree(&trk[tr], ev - 6u); }
-    else if (ev == 17u) { f->mut = f->mute = 0; f->sreq = f->dreq = 1; f->dsemi = 0; }
-    else if (ev <= 16u) {
-        f->mut ^= (uint8_t)(1u << (ev - 13u));
-        if (ev == 16u) f->frz = f->lastP >> 18;         /* (FREEZE: the bar playing) */
-    } else f->mute ^= (uint8_t)(1u << (ev - 18u));
+    else if (ev == 17u) { f->mut = f->mute = f->mreq = f->mpf = 0; f->sreq = f->dreq = 1; f->dsemi = 0; }
+    else if (ev <= 16u) func_mkey(tr, ev, 1);
+    else f->mute ^= (uint8_t)(1u << (ev - 18u));
 }
 static const uint8_t FUNC_SKEY[5] = {2, 1, 3, 4, 5};    /* whites 1..5: INTRO GROOVE BUILD DROP BREAK */
 static uint8_t fk_last;                                 /* (the UI's, ui_layer.c fk_map; not fp_t, not .eu_keep) the last */
@@ -189,7 +220,8 @@ static int func_kb(uint32_t k, track_t *t, int op)
         return 1;
     }
     ev = c < 5u ? FUNC_SKEY[c] : c >= 32u ? c - 26u : c - 16u < 8u ? c - 3u : 0u;
-    if (op && ev) func_apply(tr, ev);
+    if (ev - 13u < 4u) func_mkey(tr, ev, op);           /* blacks 1..4: a mutation, held */
+    else if (op && ev) func_apply(tr, ev);
     return 1;
 }
 /* (funcplay) GEN's hook (none yet): part tr's FUNC to section s (0 GROOVE 1 INTRO 2 BUILD 3 DROP 4 BREAK) at its next

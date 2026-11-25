@@ -234,7 +234,7 @@ static void setup(const scen_t *s)
         eo_part(0, ENGI_FUNC, s->a);
         if (s->b) {
             trk[0].p[P_FDEN] = 30; trk[0].p[P_FSWG] = 60; trk[0].p[P_FCPX] = 60; trk[0].p[P_FRNG] = 30;
-            fp_st[0].sec = FS_BUILD; fp_st[0].fkey = FF_ROLL; fp_st[0].mut = FM_RHYTHM;
+            fp_st[0].sec = FS_BUILD; fp_st[0].fkey = FF_ROLL; fp_st[0].mut = fp_st[0].mkey = FM_RHYTHM;   /* (momentary MUTATE: held) */
         }
         trk[0].p[P_FFB] = (int16_t)s->c;
         math_poll(); frame();

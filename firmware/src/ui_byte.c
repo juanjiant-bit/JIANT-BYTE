@@ -339,10 +339,10 @@ static void func_peek(const fvm_prog_t *p, const uint32_t *u, uint32_t P, uint32
     }
 }
 /* (funcplay, the owner's mock-up B, "the map on a touch") FUNC's keys (funcplay.c func_kb, by clay.c CLAY_KMAP): each
- * one's name and what it does, in order (the whites 0..11, the blacks 16..23, the root's 32..38; 9..11 none) */
+ * one's name and what it does (the fills and the mutations while held), in order (the whites 0..11, the blacks 16..23, the root's 32..38; 9..11 none) */
 static const char FK_T[] = "INTRO\0NO DRUMS\0GROOVE\0AS WRITTEN\0BUILD\0RISING\0DROP\0DENSER\0BREAK\0NO DRUMS\0"
     "ROLL\0RATCHETS\0STUT\0REPEAT 1/8\0REV\0BACKWARDS\0DBL\0DOUBLE TIME\0\0\0\0\0\0\0"
-    "NOTES\0NEW NOTES\0RHYTHM\0NEW RHYTHM\0SWAP\0A FOR B\0FREEZE\0BAR AGAIN\0RESET\0ALL BACK\0"
+    "NOTES\0NEW WHILE HELD\0RHYTHM\0NEW WHILE HELD\0SWAP\0A FOR B WHILE HELD\0FREEZE\0BAR AGAIN, HELD\0RESET\0ALL BACK\0"
     "DRUMS\0MUTE\0NOTES\0MUTE\0B\0MUTE\0I\0\0II\0\0III\0\0IV\0\0V\0\0VI\0\0VII";   /* (the root's: "ROOT", fk_map) */
 /* the groups' colours: sections, fills, (none), mutations, mutes, the root */
 static const uint16_t FK_COL[6] = {HUD_YE, 0xF9D6u, 0, 0x3E9Fu, 0x7FF3u, 0xA47Fu};

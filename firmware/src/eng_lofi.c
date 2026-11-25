@@ -708,9 +708,11 @@ enum { FM_NOTES = 1, FM_RHYTHM = 2, FM_SWAP = 4, FM_FREEZE = 8 };
 typedef struct {
     uint8_t sec, sreq, dreq, fill, fkey, mut, mute;   /* (sreq dreq: + 1, 0 none; these and semi gden: live) */
     int8_t semi, gden, dsemi, cut;      /* the root's semitones, GEN's density, the semitones asked, the block's CUT move */
-    uint8_t deg, rsv[3];
+    uint8_t deg, mkey, mreq, mpf;       /* (momentary MUTATE) the mutations' keys held, pressed (not yet on), pending
+                                         * (1 on at ms, 2 off at mr); mut: those playing */
     uint32_t qbar, sbar, fs, fe, frz, lastP;   /* bars, Q16 beats: the asked's line, the section's first, the fill's
                                          * start and end (0 open), the bar frozen; the last P */
+    uint32_t ms, me, mr;                /* (momentary MUTATE) on at, held at least until, off at (Q16 beats) */
 } fp_t;
 static fp_t fp_st[NTRK] __attribute__((section(".pool")));
 /* (funcmotion, the owner: "FUNC to move its stereo and its timbre by the formula") the matrix's FN HIT FN NOTE FN BAR
