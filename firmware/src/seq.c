@@ -737,36 +737,122 @@ static volatile uint8_t fx_lock_on;              /* (0.6.44) ui_layer.c: the FX 
 static volatile uint32_t beat_pos, beat_n;      /* samples into the beat, the beat of the bar (0..3) */
 static volatile uint32_t bar_n;                 /* (0.6.43) the bars since PLAY (MUTATE: project.c mutate_poll) */
 /* (BYTE, JIANT FM V10.7.66, the owner) SCL > HARMONY: the progression's degrees (gen.c hm_load, the main loop: PROG's),
- * how many (0: OFF). hm_shift: track t's notes this many degrees up
- * (the chord now: the bar and beat, LENGTH; EVOLVE now and then its relative, a fourth), 0 off, for SKIP's track or
- * stopped; hm_move: note x up d degrees of its scale (a scale of other than seven: the major scale's interval, the
- * whole line moved) */
+ * how many (0: OFF), (EXTENS) each chord's own reading (gen_tables.c HMX: a chromatic root, a quality, the extensions it
+ * carries, a colour; 0 the degree's chord in the scale, as before). hm_shift: track t's notes this many degrees up (the
+ * chord now: the bar and beat, LENGTH; 32 + n: n semitones, a chromatic root; 64: the chord's tones set to its quality),
+ * 0 off, for SKIP's track or stopped; hm_move: note x up d degrees of its scale (a scale of other than seven: the
+ * major scale's interval, the whole line moved), then onto the chord's quality and colour (hm_snap) */
 static int8_t hm_dg[4];
 static uint8_t hm_n;
+static uint8_t hm_x[4];
+#define HM_SEMI(x) ((0xA810u >> 4u * ((x) & 3u)) & 15u)   /* (gen_tables.c HX: 0, bII bVI bVII) */
+#define HM_Q(x) (((x) >> 2) & 3u)
+#define HM_COL(x) ((uint32_t)(x) >> 6)
+#define HM_FIX 0xCCu                                    /* (a quality or a colour of its own) */
 static uint32_t hm_pos(void) { return (bar_n * 4u + beat_n) >> (uint32_t)song.g[G_HLEN]; }   /* (LENGTH: 1, 2, 4, 8, 16 beats) */
 static uint32_t hm_now(void) { return hm_n ? hm_pos() % hm_n : 0u; }   /* (the chord playing: SCL > HARMONY's picture) */
+static int hm_on(const track_t *t) { return hm_n && song.playing && t + 1 != trk + song.g[G_HSKIP]; }
 static __attribute__((noinline)) int32_t hm_shift(const track_t *t)
 {
-    uint32_t pos, i, cyc, h;
-    int32_t d;
-    if (!hm_n || !song.playing || (uint32_t)(t - trk) + 1u == (uint32_t)song.g[G_HSKIP])
-        return 0;
-    pos = hm_pos();
-    i = pos % hm_n;
-    cyc = pos / hm_n;
-    d = hm_dg[i];
-    h = ((cyc + 1u) * 2654435761u ^ (i + 1u) * 40503u) >> 16;
-    if (cyc && h % 128u < (uint32_t)song.g[G_HEVO])
-        d += cyc & 1u ? 3 : 2;                          /* (a fourth up, the relative) */
-    return d;
+    uint32_t i, x;
+    if (!hm_on(t)) return 0;
+    i = hm_now(); x = hm_x[i];
+    return (x & 3u ? 32 + (int32_t)HM_SEMI(x) : hm_dg[i]) | (x & HM_FIX ? 64 : 0);
 }
-static __attribute__((noinline)) int32_t hm_move(const track_t *t, int32_t x, int32_t d)
+static int32_t hm_dia(const track_t *t, int32_t x, int32_t d)   /* (d degrees up, d >= 0) */
 {
     uint32_t m = scale_mask(t) & 0xFFFu, c = 0;
-    if (d <= 0) return x;
     for (; m; m &= m - 1u) c++;
-    if (c == 7u) return clamp(scale_steps(t, x, d), 0, 127);
-    return clamp(x + (int32_t)((0xB975420u >> (4u * ((uint32_t)d % 7u))) & 15u) + 12 * (d / 7), 0, 127);
+    if (c == 7u) return scale_steps(t, x, d);
+    return x + (int32_t)((0xB975420u >> (4u * ((uint32_t)d % 7u))) & 15u) + 12 * (d / 7);
+}
+/* (EXTENS) an interval (semitones over the chord's root, 0 .. 11) onto chord i's quality (its third and seventh; its
+ * 9th 11th 13th natural) and colour (sus4: the third a fourth; altered: the 9th and the 13th flat; #11); a chord of
+ * the scale's (quality 0) as it is */
+static __attribute__((noinline)) uint32_t hm_cls(uint32_t i, uint32_t iv)
+{
+    static const uint8_t CN[12] = {0, 2, 2, 4, 4, 5, 6, 7, 9, 9, 10, 10};
+    uint32_t hx = hm_x[i], q = HM_Q(hx), c = HM_COL(hx);
+    if (!q) return iv;
+    iv = CN[iv];
+    if (iv == 4u) iv = c == 1u ? 5u : q == 3u ? 3u : 4u;
+    else if (iv == 10u) iv += q == 2u;
+    else if (c == 2u && (iv == 2u || iv == 9u)) iv--;
+    else if (c == 3u && iv == 5u) iv = 6u;
+    return iv;
+}
+static int32_t hm_snap(const track_t *t, int32_t x);
+static __attribute__((noinline)) int32_t hm_move(const track_t *t, int32_t x, int32_t d)
+{
+    if (d <= 0) return x;
+    x = d & 32 ? x + (d & 15) : hm_dia(t, x, d & 31);
+    if (d & 64) x = hm_snap(t, x);
+    return clamp(x, 0, 127);
+}
+/* (BYTE, the owner) SCL > HARMONY's EXTENS: how far chord i is extended (0 none, 1 its 7th, 2 its 9th or an add9 or a
+ * suspension, 3 its 11th or 13th): its own (HMX) and EXTENS's, dithered by the chord (never flickering: the same
+ * chord, the same extension); bits 8 .. 10 its variant (1 add9, 2 sus2, 3 sus4: three in eight) */
+static uint32_t hm_tier(uint32_t i)
+{
+    uint32_t h = ((i + 1u) * 2654435761u ^ (uint32_t)song.g[G_HPROG] * 40503u) >> 8;
+    uint32_t n = ((hm_x[i] >> 4) & 3u) + (((uint32_t)song.g[G_HEXT] * 3u + (h & 127u)) >> 7);
+    return (n > 3u ? 3u : n) | (h & 0x700u);
+}
+/* the chord's intervals over its root: its 3rd 7th 9th 11th 13th, the scale's over its degree onto its quality and
+ * colour (hm_cls); returns its root */
+static __attribute__((noinline)) int32_t hm_ivs(const track_t *t, uint32_t i, int32_t *iv)
+{
+    static const int8_t K[5] = {2, 6, 8, 10, 12};
+    uint32_t k;
+    int32_t t0 = 48 + clamp(t->p[P_ROOT], 0, 11), d0 = hm_dia(t, t0, hm_dg[i]);
+    for (k = 0; k < 5u; k++) {
+        int32_t v = hm_dia(t, t0, hm_dg[i] + K[k]) - d0, c = v >= 12 ? v - 12 : v;   /* (a 13th at most) */
+        iv[k] = v - c + (int32_t)hm_cls(i, (uint32_t)c);
+    }
+    return hm_x[i] & 3u ? t0 + (int32_t)HM_SEMI(hm_x[i]) : d0;   /* (a chromatic root: the key's and its semitones) */
+}
+static __attribute__((noinline)) int32_t hm_snap(const track_t *t, int32_t x)   /* (x onto the chord now's quality, colour) */
+{
+    int32_t iv[5];
+    uint32_t i = hm_now(), c = (uint32_t)(x - hm_ivs(t, i, iv) + 120) % 12u;
+    return x + (int32_t)hm_cls(i, c) - (int32_t)c;
+}
+/* (EXTENS) chord i's extensions as hm_tier says: a[] the intervals added over its root (the 7th; the 9th, natural only:
+ * a minor chord's 11th in place of a b9; the 11th on a minor chord, else the 13th, #11 a colour's), *th its third's
+ * (an add9's, a suspension's: the scale's chords only), iv its intervals (hm_ivs); returns how many, r its root */
+static __attribute__((noinline)) uint32_t hm_pick(const track_t *t, uint32_t i, int32_t *a, int32_t *th, int32_t *iv, int32_t *r)
+{
+    uint32_t w = hm_tier(i), tr = w & 3u, v = (w >> 8) & 7u, hx = hm_x[i], c = HM_COL(hx), na = 0;
+    *r = hm_ivs(t, i, iv);
+    *th = iv[0];
+    if (v > 3u) v = 0;
+    if (iv[2] != 14 && c != 2u) { iv[2] = iv[0] == 3 ? iv[3] : iv[1]; if (v == 2u) v = 3u; }
+    if (!tr) return 0;
+    a[na++] = iv[1];
+    if (tr == 2u) {
+        if (v && !(hx & HM_FIX)) { if (v == 1u) a[0] = iv[2]; else *th = iv[v == 2u ? 2 : 3] - 12; }
+        else a[na++] = iv[2];
+    } else if (tr == 3u) a[na++] = c == 3u || (iv[0] == 3 && HM_Q(hx) != 1u) ? iv[3] : iv[4];
+    return na;
+}
+/* (EXTENS) a chord of n notes (two at least) of a track following HARMONY its extensions (hm_pick): the 7th inside
+ * the hand, the 9th, 11th, 13th over it (none its notes have already), the third suspended; at most six notes.
+ * Returns the count */
+static __attribute__((noinline)) uint32_t hm_ext(const track_t *t, uint8_t *nn, uint32_t n)
+{
+    int32_t iv[5], a[2], r, th, lo = 127;
+    uint32_t na, j, k, pcs = 0;
+    if (n < 2u || !(na = hm_pick(t, hm_now(), a, &th, iv, &r))) return n;
+    for (j = 0; j < n; j++) {
+        if ((uint32_t)(nn[j] - r + 120) % 12u == (uint32_t)iv[0]) nn[j] = (uint8_t)clamp(nn[j] + th - iv[0], 0, 127);
+        if (nn[j] < lo) lo = nn[j];
+        pcs |= 1u << nn[j] % 12u;
+    }
+    for (k = 0; k < na && n < 6u; k++) {
+        int32_t pc = (r + a[k]) % 12, b = lo + (a[k] < 12 ? 7 : 13), p = b + (pc - b + 120) % 12;
+        if (!((pcs >> pc) & 1u) && p <= 127) { nn[n++] = (uint8_t)p; pcs |= 1u << pc; }
+    }
+    return n;
 }
 static __attribute__((noinline)) int32_t hm_semi(const track_t *t)               /* (the chord's root over the key's, in semitones: DRONE CLAY, FUNC) */
 {
@@ -824,6 +910,8 @@ static void arp_step(track_t *t, uint32_t n, uint32_t gate_n)
 static void arp_step_do(track_t *t, uint32_t n)
 {
     uint32_t period, cnt, list[64], len = 0, i, j, o;
+    int32_t hf;
+    uint8_t hb[16];
     int32_t sw;
     if (!t->p[P_AMODE] || !t->nheld || t->p[P_AMODE] == AM_TRNS) {   /* (TRNS: no arpeggio) */
         if ((!t->nheld || t->p[P_AMODE] == AM_TRNS) && t->arp_note)
@@ -848,10 +936,15 @@ static void arp_step_do(track_t *t, uint32_t n)
             ev_at(n - t->arp_pos);
         }
     }
-    /* build the note list: held notes (sorted or as played) over OCT octaves */
+    /* build the note list: held notes (sorted or as played) over OCT octaves; (BYTE) SCL > HARMONY: on its chord, with
+     * its extensions (recording: what the keys hold) */
+    o = (uint32_t)(hm_on(t) && !drum_track(t) && !rec_on(t));
+    hf = o ? hm_shift(t) : 0;
     for (i = 0; i < t->nheld; i++)
-        list[i] = t->held[i];
-    cnt = t->nheld;
+        hb[i] = (uint8_t)hm_move(t, t->held[i], hf);
+    cnt = o ? hm_ext(t, hb, t->nheld) : t->nheld;
+    for (i = 0; i < cnt; i++)
+        list[i] = hb[i];
     if (!t->p[P_AORDER])
         for (i = 1; i < cnt; i++)
             for (j = i; j > 0 && list[j - 1] > list[j]; j--) {
@@ -862,10 +955,7 @@ static void arp_step_do(track_t *t, uint32_t n)
     for (o = 0; o < (uint32_t)t->p[P_AOCT]; o++)
         for (i = 0; i < cnt && len < 64u; i++)
             list[len++] = clamp((int32_t)list[i] + 12 * (int32_t)o, 0, 127);
-    if (t->p[P_AMODE] == AM_REPEAT) { list[0] = t->held[t->nheld - 1u]; len = 1; } /* REPEAT: last played note, no octave traversal */
-    if (hm_n && (o = (uint32_t)hm_shift(t)) != 0u && !drum_track(t) && !rec_on(t))   /* (BYTE) SCL > HARMONY: the arp's
-                                                         * notes on its chord (recording: what the keys hold) */
-        for (i = 0; i < len; i++) list[i] = (uint32_t)hm_move(t, (int32_t)list[i], (int32_t)o);
+    if (t->p[P_AMODE] == AM_REPEAT) { list[0] = hb[t->nheld - 1u]; len = 1; } /* REPEAT: last played note, no octave traversal */
     t->arp_idx++;
     j = t->p[P_AMODE] == AM_CHORD ? 0u : arp_pick(t, list, len);
     if (t->arp_note)
@@ -2797,6 +2887,10 @@ static __attribute__((noinline)) void seq_step(track_t *t, const step_t *s, uint
         sk |= ((skip >> i) & 1u) << m;
         once |= (uint32_t)(arp ? 0 : lm_once(s, kit ? drum_note_lane(t, s->note[i]) : i, kit)) << m;
         m++;
+    }
+    if (!kit && !arp && m > 1u && hm_on(t)) {          /* (BYTE) SCL > HARMONY's EXTENS: the chord's extensions */
+        uint32_t m2 = hm_ext(t, nn, m);
+        for (; m < m2; m++) vv[m] = vv[0];
     }
     for (i = 0; i < NLANE && !arp; i++)
         if ((s->hit >> i) & 1u) {

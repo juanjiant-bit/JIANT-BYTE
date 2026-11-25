@@ -38,7 +38,9 @@ static uint32_t mid_hash(uint32_t md)                   /* 8 seeds of EXPLORE, R
         for (k = 0; k < NTRK; k++) {
             h = (h ^ trk[k].eng_req ^ (uint32_t)trk[k].preset << 8) * 16777619u;
             for (i = 0; i < sizeof trk[k].p + sizeof trk[k].step; i++)
-                h = (h ^ (i < sizeof trk[k].p ? ((const uint8_t *)trk[k].p)[i] : ((const uint8_t *)trk[k].step)[i - sizeof trk[k].p])) * 16777619u;
+                if (k != gs.trk_of[RL_BASS] || i / sizeof trk[k].p[0] != P_LEVEL)   /* (the bass's LEVEL the owner's "WAVE
+                                                         * basses far too loud" moved: every other value as it was) */
+                    h = (h ^ (i < sizeof trk[k].p ? ((const uint8_t *)trk[k].p)[i] : ((const uint8_t *)trk[k].step)[i - sizeof trk[k].p])) * 16777619u;
         }
         for (i = 0; i < sizeof song.g; i++) h = (h ^ ((const uint8_t *)song.g)[i]) * 16777619u;
         for (i = 0; i < sizeof dx_kit; i++) h = (h ^ ((const uint8_t *)dx_kit)[i]) * 16777619u;
@@ -53,7 +55,8 @@ int main(void)
     ui_power_on();
     {   /* MOOD MID: the pieces of the generator before MOOD (c68c3aac), byte for byte; a change to the generator records
          * them again (GEN_MID=1) */
-        static const uint32_t MID[3] = {0xccd924e8u, 0xee1c91fdu, 0xeac05664u};
+        static const uint32_t MID[3] = {0xd2e4174au, 0x728d2d5fu, 0x272358d4u};   /* (calmgen: RANDOM's and HOUSE's
+                                                         * 41fbf469's, its bass's LEVEL aside; EXPLORE's its own now) */
         for (md = 0; md < 3u; md++) {
             uint32_t h = mid_hash(md);
             if (getenv("GEN_MID")) printf("  MID[%u] 0x%08xu\n", md, h);
@@ -233,7 +236,123 @@ int main(void)
             bad += check("MOOD DANCE: drums in a piece of every genre", (int)all);
         }
     }
-    bad += check("MOOD MID: EXPLORE's, RANDOM's and HOUSE's pieces the generator's before MOOD, byte for byte", mid_ok);
+    {   /* (the owner: "CALM's pieces too long") CALM -50's PARTS and SONG pieces at most half as long (seconds) as
+         * 41fbf469's (24 seeds, EXPLORE RANDOM HOUSE: 136 131 106 s, 272 250 202 s); a CALM radio's loop 8 bars (16
+         * over 110 BPM) */
+        static const uint16_t WAS[2][3] = {{136, 131, 106}, {272, 250, 202}};
+        uint32_t f, hs = 0, r, okc = 1;
+        for (r = 1; r <= NGENRE; r++) if (str_eq(GENRE[r - 1u].name, "HOUSE")) hs = r;
+        for (f = 1; f <= 2u; f++)
+            for (md = 0; md < 3u; md++) {
+                double sec = 0;
+                for (r = 0; r < 24u; r++) {
+                    uint32_t j, b = 0;
+                    gp.genre = (uint8_t)(md == 0u ? GEN_EXPLORE : md == 1u ? 0u : hs);
+                    gp.form = (uint8_t)f; gp.seed = (uint16_t)(100u + r * 37u); grd.on = 0; grd.mood = -50;
+                    gen_make();
+                    for (j = 0; j < chain_config.count; j++) b += chain_config.row[j].bars;
+                    sec += b * 240.0 / song.g[G_BPM];
+                }
+                printf("  CALM %s: %.0f s (was %u)\n", f == 1u ? "PARTS" : "SONG", sec / 24.0, WAS[f - 1u][md]);
+                okc &= sec / 24.0 <= WAS[f - 1u][md] / 2.0;
+            }
+        grd.mood = 0; gp.form = 0; gp.genre = 0;
+        bad += check("MOOD CALM -50: PARTS and SONG pieces half as long as before at most (EXPLORE, RANDOM, HOUSE)", okc);
+    }
+    {   /* a CALM radio: its loop's 8 bars (16 over 110 BPM) */
+        uint32_t n, r0, n0, nb;
+        gp.genre = 1; gp.form = 0; gp.sig = 0; grd.mood = -50; grd.on = 0;
+        gen_press(); frames(64);
+        nb = song.g[G_BPM] > 110 ? 16u : 8u;
+        grd.on = 1; transport_req = 1; blk();
+        to_bar(nb, 0u);
+        r0 = grd.rn;
+        for (n = 0; n < 40u && grd.rn == r0; n++) bars(1);
+        n0 = n; r0 = grd.rn;
+        for (n = 0; n < 40u && grd.rn == r0; n++) bars(1);
+        ok = n0 <= nb + 1u && n + 1u >= nb && n <= nb + 1u;
+        if (!ok) printf("  calm radio: %u then %u bars (%u)\n", n0, n, nb);
+        transport_req = 2; blk();
+        grd.on = 0; grd.mood = 0; grd.rn = 0; gp.genre = 0;
+        bad += check("MOOD CALM: the radio's loop half as long (8 bars, 16 over 110 BPM)", ok);
+    }
+    {   /* (the owner: "CALM's sounds short in, short out") CALM -50: the melodic parts' attacks and releases longer than
+         * MID's, their reverb wetter, the chords never stabbed; (EXPLORE "weird") EXPLORE: the chords in every piece,
+         * the arp and the lead in most, the chords and the texture swelling in most, the lines' delay, the pads' room,
+         * the delay ping-pong in most */
+        uint32_t hs = 0, r, k, mi, i;
+        double atk[2] = {0, 0}, rel[2] = {0, 0}, rev[2] = {0, 0};
+        uint32_t nm[2] = {0, 0}, stab = 0, ch = 0, ar = 0, ld = 0, sw = 0, nsw = 0, dl = 1, rv = 1, png = 0;
+        for (r = 1; r <= NGENRE; r++) if (str_eq(GENRE[r - 1u].name, "HOUSE")) hs = r;
+        for (mi = 0; mi < 2u; mi++)
+            for (md = 0; md < 3u; md++)
+                for (r = 0; r < 24u; r++) {
+                    gp.genre = (uint8_t)(md == 0u ? GEN_EXPLORE : md == 1u ? 0u : hs);
+                    gp.form = 0; gp.seed = (uint16_t)(100u + r * 37u); grd.on = 0; grd.mood = (int8_t)(mi ? -50 : 0);
+                    gen_make();
+                    if (mi) stab += GSTAB(gs.g->pads) && gs.act[RL_PAD];
+                    for (k = 0; k < NTRK; k++) {
+                        uint32_t ro = gs.role[k];
+                        if (ro < RL_PAD || ro > RL_TEX ||   /* (RL_N: ui_layer.c's macro here) */
+                             !gs.act[ro] || (ro == RL_TEX && k != gs.trk_of[RL_TEX])) continue;
+                        atk[mi] += trk[k].p[P_ATK]; rel[mi] += trk[k].p[P_REL]; rev[mi] += trk[k].p[P_REV]; nm[mi]++;
+                    }
+                    if (mi || md) continue;
+                    ch += gs.act[RL_PAD]; ar += gs.act[RL_ARP]; ld += gs.act[RL_LEAD]; png += song.g[G_DPING] != 0;
+                    for (i = RL_PAD; i <= RL_TEX; i++) {
+                        track_t *t = gtr(i);
+                        if (!t) continue;
+                        if (i == RL_PAD || i == RL_TEX) { nsw++; sw += t->p[P_ATK] >= 50 && t->p[P_REL] >= 84; rv &= t->p[P_REV] >= 55; }
+                        else if (i != RL_TEX) dl &= t->p[P_DLY] >= 40;
+                    }
+                }
+        grd.mood = 0; gp.genre = 0;
+        for (mi = 0; mi < 2u; mi++) { atk[mi] /= nm[mi] ? nm[mi] : 1u; rel[mi] /= nm[mi] ? nm[mi] : 1u; rev[mi] /= nm[mi] ? nm[mi] : 1u; }
+        printf("  MOOD: melodic ATK MID %.0f CALM %.0f, REL %.0f %.0f, REV %.0f %.0f; CALM stabs %u\n", atk[0], atk[1], rel[0], rel[1], rev[0], rev[1], stab);
+        bad += check("MOOD CALM -50: the melodic parts slower in, longer out, wetter; the chords never stabbed", atk[1] >= atk[0] + 20.0 && rel[1] >= rel[0] + 20.0 && rev[1] >= rev[0] + 10.0 && !stab);
+        printf("  EXPLORE: chords %u arp %u lead %u of 24, swells %u of %u, ping-pong %u\n", ch, ar, ld, sw, nsw, png);
+        bad += check("EXPLORE: chords always, arp and lead in most, swelling pads, the lines' delay and the pads' room, ping-pong", ch == 24u && ar >= 14u && ld >= 14u && sw * 2u >= nsw && dl && rv && png >= 14u);
+    }
+    {   /* (the owner: "WAVE basses far too loud") every genre's bass under its drums (their stems over 2 bars, 4 seeds:
+         * the bass's RMS 3 dB under at least, its peak not over the drums') */
+        uint32_t g, r, okb = 1;
+        for (g = 0; g <= NGENRE; g++) {
+            double sdb = 0, spk = 0;
+            uint32_t n = 0;
+            for (r = 0; r < 4u; r++) {
+                uint32_t b, nb, i, p, bs, dr;
+                double eb = 0, ed = 0, pb = 0, pd = 0;
+                gp.genre = (uint8_t)(g == NGENRE ? GEN_EXPLORE : g + 1u);
+                gp.form = 0; gp.seed = (uint16_t)(300u + r * 71u); grd.on = 0; grd.mood = 0;
+                gen_make();
+                bs = gs.trk_of[RL_BASS]; dr = gs.trk_of[RL_DRUM];
+                if (!gs.act[RL_BASS] || !gs.act[RL_DRUM] || bs >= NTRK || dr >= NTRK) continue;
+                nb = (uint32_t)(2u * 4u * 60u * FS / (uint32_t)song.g[G_BPM] / CTL);
+                song.master_q12 = 4096; transport_req = 1;
+                for (b = 0; b < nb; b++) {
+                    int32_t o[2 * CTL];
+                    if (b % 32u == 0u) { ui_input(); song_poll(); host_ticks += 20000u; fm1_ms += 20u; }
+                    fx_stems = 1; mix_block(o, CTL);
+                    for (i = 0; i < CTL; i++) {
+                        double vb = stem_buf[bs][i], vd = stem_buf[dr][i];
+                        eb += vb * vb; ed += vd * vd;
+                        if (fabs(vb) > pb) pb = fabs(vb);
+                        if (fabs(vd) > pd) pd = fabs(vd);
+                    }
+                }
+                fx_stems = 0; transport_req = 2;
+                { int32_t o[2 * CTL]; ui_input(); mix_block(o, CTL); }
+                sdb += 10.0 * log10((eb + 1.0) / (ed + 1.0)); spk += 20.0 * log10((pb + 1.0) / (pd + 1.0)); n++;
+                (void)p;
+            }
+            if (n && (sdb / n > -3.0 || spk / n > 0.0)) {
+                okb = 0;
+                printf("  bass over the drums: %s rms %+.1f dB peak %+.1f dB\n", g == NGENRE ? "EXPLORE" : GENRE[g].name, sdb / n, spk / n);
+            }
+        }
+        bad += check("GEN: every genre's bass under its drums (RMS 3 dB under, the peak not over)", okb);
+    }
+    bad += check("MOOD MID: EXPLORE's, RANDOM's and HOUSE's pieces 41fbf469's but the bass's level, byte for byte", mid_ok);
 #endif
     printf(bad ? "gen-radio: %d FAILED\n" : "gen-radio: all ok\n", bad);
     return bad != 0;

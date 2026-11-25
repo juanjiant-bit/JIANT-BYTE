@@ -783,6 +783,8 @@ static void hm_load(void)
     uint32_t v = (uint32_t)song.g[G_HPROG];
     const gprog_t *pr = &PROG[(v ? v - 1u : 0u) % PR_N];
     memcpy(hm_dg, pr->deg, 4);
+    if (v - 1u - PR_JZ < 9u) memcpy(hm_x, HMX[v - 1u - PR_JZ], sizeof hm_x);   /* (EXTENS: the jazz ones' own) */
+    else memset(hm_x, 0, sizeof hm_x);
     hm_n = v ? pr->n : 0u;
 }
 _Static_assert(sizeof N_HPROG / sizeof N_HPROG[0] == PR_N + 1u, "SCL > HARMONY: a name a progression");
@@ -1696,7 +1698,9 @@ static __attribute__((noinline)) void gen_sound(track_t *t, uint32_t role, uint3
     if (ri == SR_GTR || ri == SR_DRONE) {               /* (a tremolo: AUTO PAN on the beat) */
         t->p[P_APDEP] = (int16_t)grr(30, 60); t->p[P_APSYNC] = 1; t->p[P_APRATE] = (int16_t)grr(4, 6); t->p[P_APWAVE] = (int16_t)(ri == SR_GTR ? 3 : 0);
     }
-    t->p[P_LEVEL] = 112;                                /* native presets: no inherited FM loudness trims */
+    t->p[P_LEVEL] = (int16_t)(role == RL_BASS && e == ENGI_WAVE ? 94 : 112);   /* native presets: no inherited FM loudness trims;
+                                                         * (the owner: "WAVE basses far too loud") a WAVE bass 9 dB down,
+                                                         * ~10 dB over a MATH one's at one LEVEL (its SUB, its frames) */
     gen_formula_sound(t,role);
 }
 /* (0.9.9-gen2) the owner: the drums "eat the rest of the sounds": every lane's DECAY shorter, twice a nibble a lane
@@ -1841,6 +1845,9 @@ static __attribute__((noinline)) void gen_drums_m(track_t *t, uint32_t len)   /*
 static __attribute__((always_inline)) inline uint32_t gmood_energy(void) { return (uint32_t)clamp((int32_t)gp.energy + grd.mood * 6 / 5, 0, 100); }
 static __attribute__((noinline)) uint32_t gmood_drums(uint32_t d)
 {
+    if (GSTAB(gmut.pads) && (grd.mood <= -25 || gx.on))   /* (CALM: the chords held or swelling, never stabbed; BYTE, the
+                                                         * owner: EXPLORE "weird": its chords too) */
+        gmut.pads = (uint8_t)(CS_HOLD + (gp.seed & 1u));
     if (grd.mood >= 25 && !d) {
         if (gmut.drum == DM_NONE) gmut.drum = 0;        /* (g is gmut, every throw's) */
         d = 1;
@@ -1862,6 +1869,32 @@ static __attribute__((noinline)) uint32_t gmood_pick(void)
         if ((uint32_t)d < bd) { bd = (uint32_t)d; best = c; }
     }
     return best;
+}
+/* (BYTE) gen_mix's last word on a melodic part. EXPLORE (the owner: "weird": more pads and swells, the lines echoed):
+ * the chords and the texture swelling (a slow attack, a long release), most pieces; the lines' delay, the
+ * chords' and the texture's reverb up. MOOD CALM (the owner: "CALM's sounds short in, short out: jarring"): the
+ * attacks and the releases longer (a pad's, a texture's most, an arp's least, a bass a little), the filter's envelope
+ * softer (the transients), the same sends wetter */
+static __attribute__((noinline)) void gmix_more(track_t *t, uint32_t r)
+{
+    static const uint8_t CA[RL_TEX + 1][2] = {{0, 0}, {18, 51}, {92, 143}, {51, 113}, {28, 90}, {82, 141}};   /* (at -50, x
+                                                         * 50 / 64: 14 40, 72 112, 40 88, 22 70, 64 110; RL_N here
+                                                         * ui_layer.c's macro) */
+    int32_t m = grd.mood < 0 ? -grd.mood : 0;
+    int16_t *x = &t->p[r == RL_PAD || r == RL_TEX ? P_REV : P_DLY];
+    if (r == RL_DRUM) return;
+    if (gx.on && (r == RL_PAD || r == RL_TEX) && gch(70)) {
+        t->p[P_ATK] = (int16_t)grr(50, 96); t->p[P_REL] = (int16_t)grr(84, 124);
+        if (t->p[P_SUS] < 90) t->p[P_SUS] = 90;
+    }
+    if (r >= RL_PAD) {
+        if (gx.on && *x < 56) *x = 56;
+        *x = (int16_t)clamp(*x + m * 4 / 5, 0, 127);
+    }
+    if (!m) return;
+    if (t->p[P_ATK] < (CA[r][0] * m >> 6)) t->p[P_ATK] = (int16_t)(CA[r][0] * m >> 6);
+    if (t->p[P_REL] < (CA[r][1] * m >> 6)) t->p[P_REL] = (int16_t)(CA[r][1] * m >> 6);
+    t->p[P_ED_FLT] = (int16_t)(t->p[P_ED_FLT] * (64 - m) >> 6);
 }
 /* the mix and the humanity of a role */
 static __attribute__((noinline)) void gen_mix(track_t *t, uint32_t r)
@@ -1924,6 +1957,7 @@ static __attribute__((noinline)) void gen_mix(track_t *t, uint32_t r)
         if (!t->p[P_FTYPE] && *c >= 72) { t->p[P_FTYPE] = 2; *c = (int16_t)(*c - 12); t->p[t->eng_req == EG_A ? P_E5 : P_FRES] = 0; t->p[P_ED_FLT] = 0; }
         if (t->p[P_CHOR] < 24) t->p[P_CHOR] = 24;
     }
+    gmix_more(t, r);
 }
 
 /* ---------------------------------------------------------------------------------------- the form: parts --- */
@@ -2243,7 +2277,8 @@ static __attribute__((noinline)) uint32_t gsong(uint8_t *pb, uint32_t plan, uint
     }
     if (g->drum == DM_EBM5) pb[0] = (uint8_t)((pb[0] & 0xF0u) | GT_INTROK);   /* (EBM's reference: its intro kickless) */
     for (k = 0; k < 12u; k++) {                         /* two to five minutes: the longest halved, the shortest doubled */
-        uint32_t tot = 0, best = n, u, lo = bpm / 2u, hi = bpm * 5u / 4u;
+        uint32_t tot = 0, best = n, u, lo = bpm / 2u, hi = bpm * (uint32_t)(125 + (grd.mood < 0 ? grd.mood / 2 : 0)) / 100u;   /* (CALM: to
+                                                         * four minutes at most, before gen_parts' cut) */
         for (j = 0; j < n; j++) tot += (pb[j] >> 4) * 4u;
         if (tot >= lo && tot <= hi) break;
         for (j = 0; j < n; j++) {
@@ -2272,6 +2307,15 @@ static __attribute__((noinline)) uint32_t gsong(uint8_t *pb, uint32_t plan, uint
             }
         }
     return n;
+}
+/* (the owner: "CALM's pieces too long, each part drags": its tempo low, its sections in bars) MOOD CALM a row's bars
+ * down to 41 % at -50 (71 % at -25), two at least, even (a build's four kept over -25: its roll; under it the kit is a
+ * hat); MID and DANCE as they were */
+static __attribute__((noinline)) uint32_t gmood_bars(uint32_t b, uint32_t t)
+{
+    if (grd.mood >= 0 || (t == GT_BUILD && grd.mood > -25)) return b;
+    b = ((b * (uint32_t)(128 + grd.mood + grd.mood / 2) >> 7) + 1u) & ~1u;
+    return b < 2u ? 2u : b;
 }
 BTAPP_FN static void gen_parts(void)   /* (BYTE 0.17: the segment's, as gen_make: its only caller) */
 {
@@ -2419,7 +2463,9 @@ BTAPP_FN static void gen_parts(void)   /* (BYTE 0.17: the segment's, as gen_make
             if (bs < NTRK && (ld < NTRK || ar < NTRK || pd < NTRK)) trk[bs].p[P_MUTE] = 1;
         }
         grich(k);                                       /* (V10.7.30) the section's automation, locks, components */
-        for (i=0;i<NTRK;i++) if(gs.role[i]<RL_N && gs.act[gs.role[i]] && trk[i].eng_req!=ENGI_DRUM) {
+        for (i=0;i<NTRK;i++) if(gs.role[i]-1u<(gx.on?5u:0u) && gs.act[gs.role[i]] && trk[i].eng_req!=ENGI_DRUM) {   /* (RL_N
+                                                         * ui_layer.c's macro here, 1: none ever; BYTE, the owner's EXPLORE
+                                                         * "evolving": its melodic parts, the genres' as they were) */
             track_t *q=&trk[i];
             uint32_t id=q->eng_req==ENGI_WAVE?P_E1:P_E6;
             int32_t depth=q->eng_req==ENGI_WAVE?18+(int32_t)gs.complex/3:4+(int32_t)gs.complex/8;
@@ -2470,6 +2516,7 @@ BTAPP_FN static void gen_parts(void)   /* (BYTE 0.17: the segment's, as gen_make
             if (t == GT_DROP && !sg && gch(50)) bars *= 2u;    /* (a drop of 16 or 32) */
             if (gls.on && t == GT_DROP) m &= gls.add;             /* (FROM LOOP: the drop the loop as it is, its own parts all in) */
         }
+        bars = gmood_bars(bars, t);                     /* (MOOD CALM: shorter) */
         m |= gls.mute;
         fill = ((fok >> j) & 1u) && dr < NTRK && gs.act[RL_DRUM] && nt != t && !gm && !((m >> dr) & 1u) && (((base | dense) >> s) & 1u);
         if (t == GT_DROP && plan && !gls.on && dr < NTRK && gs.act[RL_DRUM] && bars > lb) { rows = grow(rows, 1, lb, m, gm, 0, 0); bars -= lb; }   /* (the
@@ -2515,9 +2562,11 @@ static const gxf_t GX_FIELD[] = {   /* (p3, the owner: "90 % of EXPLORE's pieces
     GXF(bass[2], 0, BA_N - 1, 0), GXF(bass_lo, 29, 40, 0), GXF(kick_mode, 0, KM_INTERLOCK, 0), GXF(bass_gate, 40, 115, 0),
     GXF(cbars, 1, 2, 0), GXF(pads, 0, CS_TRANCE, 0), GXF(voicing, VM_PAD, VM_SUS, 0), GXF(arp[0], 0, AP_N - 1, 0),
     GXF(arp[1], 0, AP_N - 1, 0), GXF(lead, 0, LD_NONE - 1, 0),   /* (never NONE: LEAD OFF is the knob's) */
-    GXF(amt[GP_DRUMS], 35, 70, 12), GXF(amt[GP_BASS], 35, 75, 0), GXF(amt[GP_CHORDS], 25, 70, 25),
-    GXF(amt[GP_ARP], 15, 60, 45), GXF(amt[GP_LEAD], 20, 55, 40), GXF(rtype, 0, 4, 0), GXF(dtime, 0, 7, 0),
-    GXF(wet, 10, 95, 0), GXF(dtype, 0, 3, 0), GXF(human, 0, 45, 0),   /* (the form the arc's: gx_genre) */
+    GXF(amt[GP_DRUMS], 35, 70, 12), GXF(amt[GP_BASS], 35, 75, 0), GXF(amt[GP_CHORDS], 35, 70, 0),
+    GXF(amt[GP_ARP], 20, 55, 20), GXF(amt[GP_LEAD], 20, 50, 20), GXF(rtype, 0, 4, 0), GXF(dtime, 0, 7, 0),
+    GXF(wet, 35, 95, 0), GXF(dtype, 2, 3, 0), GXF(human, 0, 45, 0),   /* (the form the arc's: gx_genre; BYTE, the owner:
+                                                         * EXPLORE "weird", not music enough: the chords always, the arp
+                                                         * and the lead four pieces in five, wetter, the delay ping-pong) */
 };
 /* (V10.6n) the drums by the tempo (the study's 6.2): slow (half time, broken), the middle (four on the floor, breaks,
  * electro), fast (drum & bass, the Amen, hard) */
@@ -2531,7 +2580,7 @@ static void gx_genre(ggenre_t *m)
      * exotic mode, an odd timbre on one role, an extreme tempo, the drums edited, a floating harmony, one track's
      * components or playhead), everything else coherent: the tempo's drums, a common mode, the recipes' engines */
     uint32_t odd = 1u << (gr() % 6u), lo, k;
-    if (gch(45)) odd |= 1u << (gr() % 6u);
+    if (gch(20)) odd |= 1u << (gr() % 6u);             /* (BYTE: a second one a piece in five, was 45 %) */
     gx.odd = (uint8_t)odd;
     lo = (uint32_t)(odd & GXO_TEMPO ? (gch(50) ? grr(60, 76) : grr(168, 180)) : grr(76, 154));   /* (76 .. 160 BPM; was
                                                          * 92 .. 134: every piece the same pulse) */
@@ -2561,7 +2610,7 @@ static void gx_genre(ggenre_t *m)
     m->tex = GX_TEX[gr() % NELEM(GX_TEX)];
     if (m->snd[GP_LEAD] == SR_VOXLEAD && m->tex == SR_CHOIR) m->tex = SR_DRONE;   /* (one VOICE at most) */
     m->hx = (uint8_t)((gr() % (HF_JAZZ + 1u)) | (gch(50) ? HX_RAISE : 0u) | (gch(30) ? HX_SEC : 0u) | (gch(30) ? HX_BOR : 0u) |
-                      (gch(35) ? HX_LIFT : 0u) | (gch(50) ? HX_APPR : 0u));
+                      (gch(35) ? HX_LIFT : 0u) | (gch(25) ? HX_APPR : 0u));
 }
 /* the progression: (V10.6n) one to three chords, each sharing a tone with the one before (a third or a fourth away;
  * a step now and then: the bass moving by step), each a major or minor triad of the mode, now and then coloured (the
@@ -2573,7 +2622,8 @@ static void gx_genre(ggenre_t *m)
 #define HF_N 6u
 BTAPP_FN static void gx_prog(uint32_t fam)    /* (V10.6y: gen_pick's, in the segment with it) */
 {
-    static const uint8_t QW[Q_N] = {20, 14, 8, 8, 8, 8, 6, 6, 6, 4, 6, 0}, FL[5] = {0, F_MAJ, F_DOM, F_PAR, F_FLAT}, FW[5] = {76, 6, 6, 6, 6};
+    static const uint8_t QW[Q_N] = {16, 18, 12, 10, 6, 6, 6, 2, 0, 4, 6, 0}, FL[5] = {0, F_MAJ, F_DOM, F_PAR, F_FLAT}, FW[5] = {84, 4, 4, 4, 4};   /* (BYTE:
+                                                         * EXPLORE's sevenths and ninths first, no power chord) */
     static const uint8_t MV[6] = {2, 5, 3, 4, 1, 6}, MW[HF_N + 1u][6] = {{10, 25, 10, 5, 25, 25}, {30, 30, 15, 15, 5, 5},
         {10, 20, 35, 25, 5, 5}, {30, 30, 15, 10, 10, 5}, {25, 25, 25, 20, 0, 5}, {0, 30, 60, 0, 0, 10}, {30, 30, 15, 15, 5, 5}};
     uint32_t n = (uint32_t)(fam < HF_N ? 2u << (gr() & 1u) : grr(1, 3)), k, tries, d;   /* (a genre's two or four:
@@ -2607,7 +2657,7 @@ BTAPP_FN static void gx_prog(uint32_t fam)    /* (V10.6y: gen_pick's, in the seg
  * texture (gen_sound: ANIMAL and VOICE once a piece) */
 BTAPP_FN static int8_t gx_engine(uint32_t r)   /* (BYTE 0.17: gen_make's, in the segment with it) */
 {
-    if (((gx.odd & GXO_TIMBRE) == 0u || r != gx.orole) && !gch(r == RL_BASS ? 20 : 40)) return -1;
+    if (((gx.odd & GXO_TIMBRE) == 0u || r != gx.orole) && !gch(r == RL_BASS ? 10 : 20)) return -1;   /* (BYTE: 20 %, was 40) */
     return (int8_t)(gch(50) ? ENGI_WAVE : ENGI_LOFI);
 }
 /* the sound past its recipe: a distortion's type, a wide glide, a vibrato, detune */
@@ -3150,7 +3200,7 @@ BTAPP_FN static void gen_make(void)
                                                          * at 1/16 or (where its period still divides the cycle) 1/8 */
                     if (r > RL_BASS && gs.pn == 1u && !gch(GX_KEEP[r])) len >>= 1u + (len > 32u && gch(40));
                     t->p[P_SDIV] = (int16_t)(r > RL_BASS && len * 2u <= gs.len && gch(20) ? 1 : 2);
-                    if (r >= RL_LEAD && gch(50)) { len = GX_LEN[gr() % NELEM(GX_LEN)]; t->p[P_SDIV] = 2; }   /* (the
+                    if (r >= RL_LEAD && gch(30)) { len = GX_LEN[gr() % NELEM(GX_LEN)]; t->p[P_SDIV] = 2; }   /* (the
                                                          * lead, the arp, the texture off the bar half the time: a
                                                          * polymeter over the drums' and the bass's cycle) */
                 } else {
@@ -3234,7 +3284,7 @@ BTAPP_FN static void gen_make(void)
                                                          * heaviest buses at once, doubled FX's time) a CLOUD piece: no pitch */
             song.g[G_DPIT] = 0;
         song.g[G_DSPRY] = (int16_t)(gch(15) ? grr(10, 40) : 0);
-        song.g[G_DPING] = (int16_t)(gr() % 2u);
+        song.g[G_DPING] = (int16_t)(gr() % 4u != 0u);    /* (BYTE: three pieces in four) */
         song.g[G_DFDBK] = (int16_t)clamp(song.g[G_DFDBK], 0, 85);
     }
     song.g[G_CSTER] = (int16_t)grr(20, 50);             /* (the GENE mix pass) the chorus wide, the delay's right echo */
@@ -3327,7 +3377,7 @@ static void gen_press(void)
  * alone, goes on) */
 static __attribute__((noinline)) void gen_tick(void)
 {
-    uint32_t n = song.g[G_BPM] > 110 ? 31u : 15u, a = grd.arm;
+    uint32_t n = (song.g[G_BPM] > 110 ? 31u : 15u) >> (grd.mood < -10), a = grd.arm;   /* (CALM: half as long) */
     grd.arm = 0;
     if (!grd.on || !song_draft || !gp.last[0] || gp.form > 2u)
         return;
