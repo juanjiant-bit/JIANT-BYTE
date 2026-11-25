@@ -527,6 +527,7 @@ async function midiOn() {
 /* (studio) JIANT Studio's editor talks to this emulator as to an FM-1 (web/emu/editor-api.h): a frame in (sysex), the
  * replies and the live pushes out to each listener; on() says whether the emulator runs */
 const sysexListeners = new Set(), tapListeners = new Set();
+const genWait = new Map(); let genId = 0;
 window.jiantEmu = {
   on: () => !!node,
   midiInputs: () => midiAccess ? [...midiAccess.inputs.values()].filter((p) => p.state !== "disconnected").map((p) => ({ id: p.id, name: p.name || p.id })) : [],
@@ -543,7 +544,16 @@ window.jiantEmu = {
     tapListeners.add(f);
     if (tapListeners.size === 1) node.port.postMessage({ type: "tap", on: true });
     return () => { tapListeners.delete(f); if (!tapListeners.size && node) node.port.postMessage({ type: "tap", on: false }); };
-  },
+  },  /* (studio) the RADIO page: gen(cmd, arg, genres) -> a promise of { info: { radio, genre (-1 EXPLORE, -2 RANDOM),
+     seed, mood, energy, form (0 LOOP 1 PARTS 2 SONG 3 MY LOOP), n (the piece's number), playing }, genres: [names] when
+     asked }. cmd (felucca_web.c web_gen_cmd): 0 RADIO arg, 1 the next piece, 2 GENRE arg, 3 MOOD arg, 4 PLAY 1 / STOP 0;
+     null: the state alone */
+  gen: (cmd, arg, genres) => new Promise((res, rej) => {
+    if (!node) { rej(new Error("emulator off")); return; }
+    const id = ++genId;
+    genWait.set(id, { res, rej });
+    node.port.postMessage({ type: "gen", id, cmd: typeof cmd === "number" ? cmd : null, arg: arg | 0, genres: !!genres });
+  }),
 };
 
 // ------------------------------------------------------------------ switching on
@@ -581,6 +591,10 @@ async function switchOn() {
         }
         else if (m.type === "sysex") sysexListeners.forEach((f) => m.msgs.forEach(f));
         else if (m.type === "tap-chunk") tapListeners.forEach((f) => f(m));
+        else if (m.type === "gen") {
+          const w = genWait.get(m.id);
+          if (w) { genWait.delete(m.id); if (m.error) w.rej(new Error(m.error)); else w.res({ info: m.info, genres: m.genres }); }
+        }
         else if (m.type === "frame") {
           if (m.sysex) sysexListeners.forEach((f) => m.sysex.forEach(f));
           if (m.fb) drawScreen(m.fb);

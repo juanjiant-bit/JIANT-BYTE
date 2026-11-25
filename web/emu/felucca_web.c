@@ -524,6 +524,45 @@ EXPORT const char *web_gen_last(void) { return gp.last; }
 EXPORT uint32_t web_gen_count(void) { return NGENRE; }
 EXPORT const char *web_gen_name(uint32_t i) { return GENRE[i % NGENRE].name; }
 
+/* (studio) JIANT Studio's RADIO page: the generator's state as eight numbers, a static the page reads: radio 0/1, the
+ * genre (-1 EXPLORE, -2 RANDOM, else web_gen_genre's index), the seed, MOOD -50..50, ENERGY 0..100, FORM (0 LOOP,
+ * 1 PARTS, 2 SONG, 3 MY LOOP), the piece's number (gen.c web_gen_n: every piece made, OCT+'s, RADIO's, the page's),
+ * playing */
+EXPORT int32_t *web_gen_info(void)
+{
+    static int32_t o[8];
+    o[0] = grd.on != 0;
+    o[1] = gp.genre == GEN_EXPLORE ? -1 : gp.genre ? (int32_t)((gp.genre - 1u) % NGENRE) : -2;
+    o[2] = gp.seed;
+    o[3] = grd.mood;
+    o[4] = gp.energy;
+    o[5] = gp.form;
+    o[6] = (int32_t)web_gen_n;
+    o[7] = song.playing || chain_busy() || seq_counting();
+    return o;
+}
+EXPORT const char *web_gen_genre(uint32_t i) { return i < NGENRE ? GENRE[i].name : 0; }
+/* 0 RADIO OFF / ON (arg); 1 the next piece now (RADIO on: its advance, a new seed and on playing; else OCT+ on GEN);
+ * 2 GENRE = arg (-1 EXPLORE, -2 RANDOM, else the genre's index); 3 MOOD = arg (-50..50); 4 PLAY (arg 1) / STOP (0) */
+EXPORT void web_gen_cmd(uint32_t cmd, int32_t arg)
+{
+    if (cmd == 0u) grd.on = arg != 0;
+    else if (cmd == 1u) {
+        if (grd.on) { gen_new_seed(); grd.go = (uint8_t)transport_busy(); }
+        gen_press();
+    } else if (cmd == 2u) {
+        if (arg == -1) gp.genre = (uint8_t)GEN_EXPLORE;
+        else if (arg == -2) gp.genre = 0;
+        else if (arg >= 0 && (uint32_t)arg < NGENRE) gp.genre = (uint8_t)(arg + 1);
+    } else if (cmd == 3u) grd.mood = (int8_t)clamp(arg, -50, 50);
+    else if (cmd == 4u) {
+        int busy = transport_busy();
+        if (!arg && busy) transport_req = 2;
+        else if (arg && !busy) { if (live.mode) chain_play_ui(); else transport_req = 1; }
+    }
+    ui.force = 1;
+}
+
 /* for the test and the bench (web/emu/emu_test.mjs), a heavy song straight into the tracks (as hostsim's
  * renders set them): T1 WAVE SAW PAD, T2 MATH FLOAT PAD, T3 MATH BYTEBEAT, 4-note chords on all 16
  * steps, held; T4 DRUM, kick snare and hats. PLAY is the page's (or the test's) to press */

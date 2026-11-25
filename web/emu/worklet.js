@@ -108,6 +108,22 @@ class Felucca extends AudioWorkletProcessor {
         if (out.length) this.port.postMessage({ type: "sysex", msgs: out });
       }
       else if (m.type === "visible") this.period = m.on ? 1 / 30 : 1 / 4;
+      else if (m.type === "gen") {                 // (studio) the RADIO page: a command (cmd a number), then the state
+        if (!ex.web_gen_info) { this.port.postMessage({ type: "gen", id: m.id, error: "This engine has no GEN for the page." }); return; }
+        if (typeof m.cmd === "number") ex.web_gen_cmd(m.cmd >>> 0, m.arg | 0);
+        const o = new Int32Array(ex.memory.buffer, ex.web_gen_info(), 8);
+        const info = { radio: o[0], genre: o[1], seed: o[2], mood: o[3], energy: o[4], form: o[5], n: o[6], playing: o[7] };
+        let genres;
+        if (m.genres) {
+          genres = [];
+          for (let i = 0, p; (p = ex.web_gen_genre(i)); i++) {
+            const b = new Uint8Array(ex.memory.buffer, p, 32); let t = "";
+            for (let j = 0; j < 32 && b[j]; j++) t += String.fromCharCode(b[j]);
+            genres.push(t);
+          }
+        }
+        this.port.postMessage({ type: "gen", id: m.id, info, genres });
+      }
     }
 
     publish() {

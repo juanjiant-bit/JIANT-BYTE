@@ -50,6 +50,9 @@ static struct {
  * OFF, MID */
 static struct { uint8_t on, rn, go, arm; int8_t mood; int16_t bpm0; } grd __attribute__((section(".bss.dice")));
 #define GMOOD ((int32_t)grd.mood + 50)
+#ifdef FELUCCA_WEB_EDITOR
+static uint32_t web_gen_n;                              /* (web only: JIANT Studio's RADIO page) every piece made */
+#endif
 
 /* the generator's own random numbers: a stream a part, from the seed */
 static uint32_t gq = 1;
@@ -3430,6 +3433,9 @@ static void gen_go(void)
     b[0] = ' '; b[1] = (char)('0' + gp.seed / 1000u % 10u); b[2] = (char)('0' + gp.seed / 100u % 10u);
     b[3] = (char)('0' + gp.seed / 10u % 10u); b[4] = (char)('0' + gp.seed % 10u); b[5] = 0;
     str_cpy(gp.last + k, b, sizeof gp.last - k);
+#ifdef FELUCCA_WEB_EDITOR
+    web_gen_n++;
+#endif
     ui_say("GEN: ", gp.last);
     str_cpy(ui.msg2, gls.u && !gls.room ? "NO EMPTY TRACK: ARRANGED" : gls.u ? "A: YOUR LOOP / PLAY: SONG" : live.mode ? "PLAY: SONG / SAVE: ALL PARTS" : "UNDO: GLO + G4", sizeof ui.msg2);
     if (play) { if (live.mode) chain_play_ui(); else transport_req = 1; }
