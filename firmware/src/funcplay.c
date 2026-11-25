@@ -66,16 +66,17 @@ static __attribute__((noinline)) uint32_t func_tp(const fp_t *f, fp_q_t *q, uint
 }
 static const int8_t FS_DEN[5] = {0, -10, 0, 20, -16}, FS_CUT[5] = {0, -24, -24, 0, -14};
 /* the block of FUNC part t: its time through the section, the fill, the groove; A (and B) run on it */
-static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm_prog_t *pa, fvm_env_t *en, uint32_t n,
+static __attribute__((noinline)) uint32_t func_run(track_t *t, voice_t *v, const fvm_prog_t *pa, fvm_env_t *en, uint32_t n,
                                                uint32_t *Y, uint32_t *W, uint32_t *P)
 {
     uint32_t tr = (uint32_t)(t - trk) % NTRK, s = n, sm = n, a, b, i, k, L, Yb[LOFI_N], fb = (uint32_t)clamp(t->p[P_FFB], 0, 20), fk,
-             x = (uint32_t)fp_kp[tr][0] & 127u;
+             x = (uint32_t)fp_kp[tr][0] & 127u, gp, PB[LOFI_N], WB[LOFI_N];
     fp_t *f = &fp_st[tr];
+    uint32_t r0 = (f->act & 7u) ^ 3u, r1 = (f->act >> 3 & 7u) ^ 3u;   /* (func-rate) the RATEs, B OCT as playing */
+    int32_t ob = (int32_t)((f->act >> 6 & 7u) ^ 2u) - 2, tb = fp_kp[tr][FK_BTONE];
     const fvm_prog_t *pb = 0;
     fp_q_t q;
     fu_cx_t cx[1];
-    (void)v;
     if (P[0] + (1u << 18) < f->lastP) {                 /* (the time went back: PLAY again) the lines from here */
         f->qbar = f->fs = f->fe = f->fill = 0;
         f->sbar = f->frz = P[0] >> 18;
@@ -107,6 +108,8 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
     }
     for (k = 0; k < 2u && fb; k++)                      /* layer B: its slot (func_b_poll) */
         if (fp_b[k].tr == tr + 1u && fp_b[k].form == fb && fp_b[k].p.n && !(f->mute & 4u)) pb = &fp_b[k].p;
+    uint32_t la = func_lv(func_form(t)), lb = pb ? func_lv(fb) : 0u, lm = la;   /* (func-level) each its FORM's level,
+                                                         * under the louder's while B sounds (after: lofi_func_render) */
     for (a = 0; a < n; a = b) {
         uint32_t sec, bars, g[2], m, ra = P[a], xx;
         if (a == s) {                                   /* the bar line: the section, the root */
@@ -155,8 +158,17 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
                 W[i] = q.ro > 0 ? W[i] << 1 : q.ro < 0 ? W[i] >> 1 : W[i];
             }
         }
-        g[0] = xx < 43u || !pb ? 32768u : (127u - xx) * 387u;   /* BLEND: A full to a third, both 3/4 in the middle */
-        g[1] = !pb ? 0u : xx > 84u ? 32768u : xx * 387u;
+        if (pb && r1 != r0) fn_rate(P + a, PB + a, b - a, r1);   /* (func-rate) B on its own RATE, */
+        if (pb && ob) for (i = a; i < b; i++) WB[i] = ob > 0 ? W[i] << ob : W[i] >> -ob;   /* its octaves */
+        if (r0 != 3u) fn_rate(P + a, P + a, b - a, r0);   /* A on its own */
+        gp = v->ph[1] ? v->ph[1] - 1u : xx << 8;        /* (func-smooth) BLEND (Q8) gliding, an eighth a block */
+        {   int32_t dx = (int32_t)(xx << 8) - (int32_t)gp; gp = dx >> 3 ? gp + (uint32_t)(dx >> 3) : xx << 8; v->ph[1] = gp + 1u; }
+        g[0] = gp < 43u * 256u || !pb ? 32768u : ((127u << 8) - gp) * 387u >> 8;   /* BLEND: A full to a third, both 3/4
+                                                         * in the middle */
+        lm = gp && lb > la ? lb : la;
+        g[0] = g[0] * la / lm;
+        g[1] = !pb ? 0u : func_brel(t, fb, gp > 84u * 256u ? 32768u : gp * 387u >> 8, lm);   /* (func-level) at its level, */
+        g[1] -= (g[1] >> 2) * (g[0] >> 1) >> 14;        /* under A as much as A plays (-2.5 dB, the owner: "B too strong") */
         for (L = 0; L < 2u; L++) {                      /* A, then B (its preset's knobs) on the same time */
             fvm_env_t e = *en;
             uint32_t *o = L ? Yb : Y;
@@ -169,14 +181,23 @@ static __attribute__((noinline)) void func_run(track_t *t, voice_t *v, const fvm
                 xm_env(&e, pb);
             } else if (f->mut & FM_NOTES) e.u[FU_D] ^= 0x5Au;
             for (k = 0; k < FA_N; k++) e.arr[k] = e.arr[k] ? e.arr[k] + a : 0;
+            if (L && r1 != r0) e.arr[FA_BEAT] = PB + a;
+            if (L && ob) e.arr[FA_W] = WB + a;
             e.fx = cx;
             e.u[FU_NOTE] = (uint32_t)clamp((int32_t)e.u[FU_NOTE] + (hm_n && func_song(t) && !hm_rootkey(tr) ? hm_semi(t) : f->semi), 0, 127);
             lofi_run(L ? pb : pa, &e, &lofi_work[MC_CPU() & 1u], b - a, o + a);
+            if (L && tb)                                /* (func-rate) B TONE: a tilt about ~800 Hz, 0 as it is */
+                for (i = a; i < b; i++) {
+                    int32_t y = (int32_t)Yb[i] >> 1;
+                    f->bty += (y - f->bty) * 6700 >> 15;
+                    Yb[i] = (uint32_t)((f->bty + ((y - f->bty) * (64 + tb) >> 6)) * 2);
+                }
         }
         if (pb || g[0] != 32768u)
             for (i = a; i < b; i++)
-                Y[i] = (uint32_t)((((int32_t)Y[i] >> 1) * (int32_t)g[0] >> 14) + (g[1] ? ((int32_t)Yb[i] >> 1) * (int32_t)g[1] >> 14 : 0));
+                Y[i] = (uint32_t)((((int32_t)Y[i] >> 1) * (int32_t)g[0] >> 14) + (g[1] ? ((int32_t)Yb[i] >> 1) * (int32_t)(g[1] >> 1) >> 13 : 0));
     }
+    return lm;
 }
 /* ---- the keys' (audio, core 0) */
 static int32_t clay_degree(const track_t *t, uint32_t d);

@@ -428,7 +428,7 @@ static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
     } else { str_cpy(b, "KEY ", sizeof b); note_name(b + 4, u[FU_NOTE]); }
     cv_text_on(x, yy - AF_X_CAP_Y, &AF_X, b, live ? HUD_YE : T_MID, T_BG);
     for (k = 0; k < 4u; k++) {                          /* the knobs by their names, as on their cards */
-        str_cpy(b, FUNC_KN[form][k], sizeof b); str_cpy(b + str_len(b), " ", 2);
+        str_cpy(b, func_kn(form, k), sizeof b); str_cpy(b + str_len(b), " ", 2);
         fmt_int(b + str_len(b), clamp(t->p[P_E2 + k], 0, 127) * 100 / 127);
         cv_text_on(x + (int32_t)(1u + k % 2u) * (wd / 3), yy + (int32_t)(k / 2u) * 10 - AF_X_CAP_Y, &AF_X, b, T_TEXT, T_BG);
     }

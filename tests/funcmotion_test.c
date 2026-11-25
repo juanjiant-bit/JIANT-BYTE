@@ -156,9 +156,9 @@ int main(void)
         d2 = diff_rms(L0 + FS, L1 + FS, FS * 5u);
         printf("PLUCK RMS %.0f: TIMBRE 110 moves it by %.0f, COLOR 110 by %.0f\n", r0, d1, d2);
         assert(d1 > r0 * 0.3 && d2 > r0 * 0.3 && rms(L1 + FS, FS * 5u) < 32000.0);
-        /* (the fold: up to ~9 times, over 1 folded back; past 64 the low bits gone) */
-        assert(fn_color(-32767, 0) == -32767 && fn_color(16000, 16) == 32000 && fn_color(20000, 16) == 25536 &&
-               (fn_color(12345, 127) & 0x3FFF) == 0);
+        /* (the fold: up to ~9 times, over 1 folded back; past 64 the low bits gone; func-smooth: COLOR Q8) */
+        assert(fn_color(-32767, 0) == -32767 && fn_color(16000, 16 << 8) == 32000 && fn_color(20000, 16 << 8) == 25536 &&
+               (fn_color(12345, 127 << 8) & 0x3FFF) == 0);
     }
     puts("funcmotion: TIMBRE and COLOR take the recipe far from its sound PASS");
     /* 5 the presets' MOTION on; a FUNC from MATH WAVE FUNC, a project of before: still */

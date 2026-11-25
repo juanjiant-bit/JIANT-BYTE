@@ -788,7 +788,8 @@ static int16_t dnz_v[NTRK] __attribute__((section(".bss.tape")));
  * alone, in the middle: MIX 100 and the send whole, a vibrato. Kept with the project ('C' 'M', project.c; absent: 0) */
 #define ID_CMIX (ID_EQ0 + 4u)
 #define ID_FP0 0xE5u                                    /* (funcplay) FUNC's LAYERS: BLEND, KEYS (eng_lofi.c func_view) */
-#define ID_FM0 0xB0u                                    /* (funcmotion) FUNC's MOTION: STEREO MOVE TIMBRE COLOR (fp_kp[2..5]) */
+#define ID_FM0 0xB0u                                    /* (funcmotion) FUNC's MOTION: STEREO MOVE TIMBRE COLOR (fp_kp[2..5]);
+                                                         * (func-rate) + 4 .. 8: RATE, B LEVEL TONE OCT RATE (fp_kp[6..10]) */
 static const param_desc_t CMIX_DESC __attribute__((section(".rodata.tape"))) = PD("MIX", F_PCT, 0, 100, 0);
 static int16_t cho_mix __attribute__((section(".bss.tape")));
 static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CRUSH (0..127: DIST's DRIVE, shown 0..100 %) */
@@ -1023,7 +1024,7 @@ static const page_t PAGES[] = {
     /* (BYTE 0.17) FUNC's EDIT 1 and EDIT 2 (ui.c page_visible: its alone, the others' not), named RECIPE and KNOBS (its
      * page_title, params.c PG_TI): FORM (rule 4: the page that picks picks with KNOB 1) RUN ROOT and the filter's
      * CUT; A B C D by FORM's names */
-    {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E7, P_E0, P_E6, P_FCUT}},
+    {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E7, P_E0, P_E6, ID_FM0 + 4u}},   /* (func-rate: RATE, was the FILTER's CUT) */
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E2, P_E3, P_E4, P_E5}},
     /* (waveframes) WAVE's: UNISON (VOICES WIDTH BLEND, DETUNE again), FRAMES (SMOOTH STEP, WSEQ; WSEQ's RATE; CAOS), WSEQ
      * (the STEP MOD lane as frames: the step, its FRAME, LEN, GLIDE) */
@@ -1037,6 +1038,8 @@ static const page_t PAGES[] = {
     {"GROOVE", FAM_EDIT, SC_TRACK, GR_NONE, {P_FDEN, P_FSWG, P_FCPX, P_FRNG}},
     {"LAYERS", FAM_EDIT, SC_TRACK, GR_NONE, {P_FFB, ID_FP0, ID_FP0 + 1u, 0xFF}},
     {"MOTION", FAM_EDIT, SC_TRACK, GR_NONE, {ID_FM0, ID_FM0 + 1u, ID_FM0 + 2u, ID_FM0 + 3u}},   /* (funcmotion) its alone */
+    {"LAYER B", FAM_EDIT, SC_TRACK, GR_NONE, {ID_FM0 + 5u, ID_FM0 + 6u, ID_FM0 + 7u, ID_FM0 + 8u}},   /* (func-rate) B's LEVEL
+                                                         * TONE OCT RATE, its alone */
 };
 #define SPLIT_PAGE(pg) (FELUCCA_SPLIT && (uint32_t)((pg)->graph - GR_SPLIT) < 2u)   /* (V10.7.32: out, core.h) */
 #define STAGE_PAGE(pg) (FELUCCA_ENVX && (pg)->graph == GR_STAGE)   /* (V10.7.32: ENV > STAGE out, core.h) */
@@ -1132,7 +1135,8 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return eu_desc(id - ID_EU0, valp);
     if (id >= ID_SC0 && id < ID_SC0 + 4u)            /* (V10.25) SCENE's */
         return sc_desc(id - ID_SC0, valp);
-    if (id - ID_FP0 < 2u || id - ID_FM0 < 4u)            /* (funcplay) LAYERS' BLEND and KEYS (mod.c fp_kp); MOTION's */
+    if (id - ID_FP0 < 2u || id - ID_FM0 < 9u)            /* (funcplay) LAYERS' BLEND and KEYS (mod.c fp_kp); MOTION's;
+                                                         * (func-rate) RATE, LAYER B's */
         return func_view(id - (id < ID_FP0 ? ID_FM0 - 2u : ID_FP0), valp);
     if (id >= ID_CL0 && id <= ID_CL0 + CL_KEYS)          /* (BYTE) DRONE CLAY's (clay.c clay_page_desc) */
         return clay_page_desc(TSEL, id - ID_CL0, valp);

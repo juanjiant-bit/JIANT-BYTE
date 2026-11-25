@@ -468,7 +468,7 @@ int main(int argc, char **argv)
         uint32_t seen = 0, i;
         for (i = 0; i < NPAGES; i++) {
             if (PAGES[i].scope != SC_ENGINE || PAGES[i].fam != FAM_EDIT || !page_visible(i)) continue;
-            if (PAGES[i].id[0] == P_E7) { assert(PAGES[i].id[1] == P_E0 && PAGES[i].id[2] == P_E6 && PAGES[i].id[3] == P_FCUT); seen |= 1; }
+            if (PAGES[i].id[0] == P_E7) { assert(PAGES[i].id[1] == P_E0 && PAGES[i].id[2] == P_E6 && PAGES[i].id[3] == ID_FM0 + 4u); seen |= 1; }
             else { assert(PAGES[i].id[0] == P_E2 && PAGES[i].id[3] == P_E5); seen |= 2; }
             assert(!strcmp(ENG_FUNC.page_title[PG_TI(&PAGES[i])], PAGES[i].id[0] == P_E7 ? "RECIPE" : "KNOBS"));
         }
@@ -479,8 +479,8 @@ int main(int argc, char **argv)
         frame();
         for (f = 1; f < FUNC_NFORM; f++) {               /* the knobs by FORM's names, the cards' and the matrix's */
             TSEL->p[P_E7] = (int16_t)f;
-            for (k = 0; k < 4u; k++) assert(!strcmp(track_desc(TSEL, P_E2 + k)->label, FUNC_KN[f][k]) && track_desc(TSEL, P_E2 + k)->max == 127 &&
-                                            func_knob_tip(track_desc(TSEL, P_E2 + k)) == FUNC_TIPS[f][k]);
+            for (k = 0; k < 4u; k++) assert(!strcmp(track_desc(TSEL, P_E2 + k)->label, func_kn(f, k)) && track_desc(TSEL, P_E2 + k)->max == 127 &&
+                                            !strcmp(func_knob_tip(track_desc(TSEL, P_E2 + k)), func_tip(f, k)));
             assert(!strcmp(track_desc(TSEL, P_E7)->label, "FORM") && !strcmp(track_desc(TSEL, P_E0)->label, "RUN"));
         }
         TSEL->p[P_E7] = 15; frame();
@@ -495,7 +495,7 @@ int main(int argc, char **argv)
             {"TONE", "GATE", "BASS", "SEED"}, {"FM", "DRIFT", "SHINE", "SEED"}, {"BLIP", "HATS", "DRIVE", "SEED"},
             {"WOBBLE", "GROWL", "DRIVE", "SEED"}};
         for (f = 15; f < FUNC_NFORM; f++)
-            for (k = 0; k < 4u; k++) assert(!strcmp(FUNC_KN[f][k], N[f - 15u][k]) && strlen(FUNC_TIPS[f][k]) > 4u);
+            for (k = 0; k < 4u; k++) assert(!strcmp(func_kn(f, k), N[f - 15u][k]) && strlen(func_tip(f, k)) > 4u);
     }
     puts("funcengine: RECIPE and KNOBS its own EDIT pages, by their names; MATH's its own; the new FORMs' knobs named PASS");
 

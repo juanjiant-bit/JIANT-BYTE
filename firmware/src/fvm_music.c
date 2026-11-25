@@ -18,6 +18,15 @@ static int32_t fvm_music_env(int32_t age,uint32_t duration)
         down=(((duration-a)>>shift)*32767u)/(duration>>shift);
     return (int32_t)(up*down/32768u);
 }
+/* (func-scale, the owner: "SONG plays major whatever the SCALE") note x onto the part's SCALE: u[FU_SCL] 0 as written
+ * (MAJ, CHR, CUSTOM), else 1 << 16 | its mask | ROOT << 12; a pitch class off it moved to the degree the major scale's
+ * would be (the recipes write major's; a passing tone the degree under it), u[FU_SCT] the seven a nibble each */
+static int32_t fu_scale(int32_t x,const fvm_env_t*e)
+{
+    static const uint8_t DEG[12]={0,0,1,1,2,3,3,4,4,5,5,6};
+    uint32_t s=e->u[FU_SCL],o=(uint32_t)(x+132-(int32_t)(s>>12&15u))%12u;
+    return !s||s>>o&1u?x:x-(int32_t)o+(int32_t)(e->u[FU_SCT]>>4u*DEG[o]&15u);
+}
 static int32_t fvm_music_tone(int32_t note,uint32_t tick,int32_t color)
 {
     uint32_t inc=pitch_inc((uint32_t)clamp(note,0,127)*16u),phase=inc*tick;
@@ -41,12 +50,15 @@ static uint32_t fvm_music(uint32_t kind,uint32_t x,uint32_t y,uint32_t z,const f
 {
     uint32_t tick=e->arr[FA_T]?e->arr[FA_T][i]:0;
     int32_t age=(int32_t)(kind<2u?y:x),env,signal=0;
-    if(kind==0u){env=fvm_music_env(age,65536u);signal=fvm_music_tone((int32_t)x,tick,(int32_t)z);}
+    if(kind==0u){env=fvm_music_env(age,65536u);signal=fvm_music_tone(e->u[FU_SCL]?fu_scale((int32_t)x,e):(int32_t)x,tick,(int32_t)z);}
     else if(kind==1u){
         env=fvm_music_env(age,4u*65536u);int32_t root=clamp((int32_t)x,0,103),color=clamp((int32_t)z,0,65536);
         int32_t third=color<32768?3:4,top=color>49152?10:12;
         if(color>=32768)root=clamp(root+12,0,115);
-        signal=(fvm_music_tone(root,tick,0)+fvm_music_tone(root+third,tick,0)+fvm_music_tone(root+7,tick,0)+fvm_music_tone(root+top,tick,0))/4;
+        int32_t r1=root+third,r2=root+7,r3=root+top;
+        if(e->u[FU_SCL]){root=fu_scale(root,e);r1=fu_scale(root+third,e);r2=fu_scale(root+7,e);r3=fu_scale(root+top,e);}   /* (func-scale)
+                                                         * its tones the scale's: its own chords */
+        signal=(fvm_music_tone(root,tick,0)+fvm_music_tone(r1,tick,0)+fvm_music_tone(r2,tick,0)+fvm_music_tone(r3,tick,0))/4;
     }else{
         uint32_t duration=kind==2u?32768u:kind==3u?24576u:8192u;
         env=fvm_music_env(age,duration);if(!env)return 0;

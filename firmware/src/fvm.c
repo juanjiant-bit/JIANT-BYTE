@@ -39,7 +39,7 @@
 enum { FT_INT, FT_FIX };
 /* the per-sample variables (fvm_env_t arr[]) and the block's (u[]) */
 enum { FA_T, FA_W, FA_TS, FA_X, FA_XF, FA_O1, FA_O6 = FA_O1 + 5, FA_IN, FA_BEAT, FA_N };   /* (FA_IN: an effect's input) */   /* (FA_O1..: the parts' outputs, cross-mod) */
-enum { FU_A, FU_B, FU_C, FU_D, FU_AF, FU_BF, FU_CF, FU_DF, FU_NOTE, FU_VEL, FU_STEP, FU_BEAT, FU_HZ, FU_BPS, FU_N };
+enum { FU_A, FU_B, FU_C, FU_D, FU_AF, FU_BF, FU_CF, FU_DF, FU_NOTE, FU_VEL, FU_STEP, FU_BEAT, FU_HZ, FU_BPS, FU_SCL, FU_SCT, FU_N };   /* (func-scale) FU_SCL FU_SCT: fvm_music.c fu_scale */
 
 typedef struct {
     uint8_t op, md;              /* md: the right operand (or a push's value): FM_STK FM_IMM FM_UNI FM_ARR */

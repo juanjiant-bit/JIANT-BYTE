@@ -81,7 +81,7 @@ int main(void){
        for(const char*c=d->label;*c;c++)assert((*c>='A'&&*c<='Z')||(*c>='0'&&*c<='9'));
        if(f==0||f>=(int)FUNC_NFORM)assert(d->label[0]=='A'+(int)k&&!d->label[1]);else assert(strlen(d->label)>1u);}
      assert(!func_knob_tip(lofi_desc(&ft,0))&&!func_knob_tip(lofi_desc(&ft,7)));}
-   ft.p[P_E7]=5;assert(!strcmp(lofi_desc(&ft,2)->label,"CUTOFF")&&!strcmp(lofi_desc(&ft,5)->label,"SEED")); }
+   ft.p[P_E7]=5;assert(!strcmp(lofi_desc(&ft,2)->label,"ENVMOD")&&!strcmp(lofi_desc(&ft,5)->label,"SEED")); }
  puts("funcbeat: FORM drums on the beat's grid at every knob value, every FORM's knobs named PASS");
  puts("funcbeat: ordered state, chunk invariance, voice isolation, helpers, controls, sample rate and rejection PASS");return 0;
 }

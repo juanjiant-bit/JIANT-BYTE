@@ -638,7 +638,7 @@ static int page_visible(uint32_t i)
     if (sys_load == LOAD_ECO && ((PAGES[i].graph == GR_SLCR || PAGES[i].graph == GR_SLPIT) ||
                                  (PAGES[i].fam == FAM_FX && PAGES[i].id[0] == G_CRATE)))
         return 0;                                       /* (0.6.30) LOAD ECO: no SLICER, no chorus: their pages gone */
-    if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[1] == P_FSWG || PAGES[i].id[1] == ID_FP0 || PAGES[i].id[0] == ID_FM0))   /* (funcplay) GROOVE, LAYERS; MOTION */
+    if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[1] == P_FSWG || PAGES[i].id[1] == ID_FP0 || PAGES[i].id[0] - ID_FM0 < 6u))   /* (funcplay) GROOVE, LAYERS; MOTION; LAYER B */
         return te == ENGI_FUNC;
     if(PAGES[i].graph==GR_TRACKGEN) return trackgen_ok(TSEL);
     if (PAGES[i].graph == GR_SWARM)                     /* (V10.6z6) FAR / NEAR: a SWARM track's */
@@ -677,7 +677,7 @@ static int page_visible(uint32_t i)
                                                          * place), no EDIT 2; every other engine EDIT 1 and EDIT 2 */
     {
         uint32_t a2 = PAGES[i].id[0] == P_E0 && PAGES[i].id[3] == P_E7, a3 = PAGES[i].id[0] == P_E0 && PAGES[i].id[1] == P_E7;
-        uint32_t fp = PAGES[i].id[3] == P_FCUT || PAGES[i].id[0] == P_E2;   /* (BYTE 0.17) FUNC's RECIPE and KNOBS */
+        uint32_t fp = PAGES[i].id[3] == ID_FM0 + 4u || PAGES[i].id[0] == P_E2;   /* (BYTE 0.17) FUNC's RECIPE and KNOBS */
         if (te == ENGI_FUNC || fp)                      /* (FUNC: its own two, no other's) */
             return te == ENGI_FUNC && fp;
         if (PAGES[i].id[0] == P_E7)                     /* (FM6's EDIT 2, SLOT first: retired) */

@@ -147,6 +147,8 @@ typedef struct {
                                                 * LAYERS as written, eng_lofi.c func_neutral), bit 2 KEYS OFF; its BLEND */
     uint8_t fmo[NTRK][4];                      /* (funcmotion) the FUNC parts' MOTION (eng_lofi.c fp_kp[2..5]): one 'F' 'M'
                                                 * block after the 'F' 'P's, when not all 0 (absent: 0, still) */
+    int8_t fxr[NTRK][5];                       /* (func-rate) their RATE, B LEVEL TONE OCT RATE (fp_kp[6..10]): one 'F' 'X'
+                                                * block after 'F' 'M', when not all 0 (absent: 0, as before) */
     uint32_t sum;
 } project_t;
 /* Serialized FUN7 keeps the retained cache's exact extent. Params are biased
@@ -625,6 +627,12 @@ static __attribute__((noinline)) uint32_t proj_fm_any(const project_t *q)   /* (
     for (k = 0; k < sizeof q->fmo; k++) a |= q->fmo[0][k];
     return a;
 }
+static __attribute__((noinline)) uint32_t proj_fx_any(const project_t *q)   /* (func-rate) */
+{
+    uint32_t k, a = 0;
+    for (k = 0; k < sizeof q->fxr; k++) a |= ((const uint8_t *)q->fxr)[k];
+    return a;
+}
 static uint32_t proj_packed_size(const project_t *q)
 {
     uint32_t n = (proj_sc_used(q) ? 6u : 0u) + (q->g[G_DRTIM] ? 3u : 0u) + 68u + sizeof q->chain + 4u + q->motion.count * sizeof q->motion.event[0] + 2u + G_SL_N, t, i;
@@ -640,6 +648,7 @@ static uint32_t proj_packed_size(const project_t *q)
         if (q->fpx[t] & 128u) n += 5u;
     if (proj_fm_any(q)) n += 2u + sizeof q->fmo;        /* (funcmotion) */
     if (q->g[G_HPROG]) n += 6u;                         /* (BYTE) SCL > HARMONY */
+    if (proj_fx_any(q)) n += 2u + sizeof q->fxr;        /* (func-rate) */
     if (q->dx_hands >> 4)                               /* (snd1) the kit's GLUE, when on */
         n += 3u;
     if (q->g[G_DDRV])                                   /* (snd2) the delay's DRIVE, when on */
@@ -935,6 +944,11 @@ static int proj_pack(project_store_t *out, const project_t *q)
                                                          * firmware stops before it; without it, OFF) */
         b[pos++] = 'H'; b[pos++] = 'M';
         for (i = 0; i < 4u; i++) b[pos++] = (uint8_t)clamp(q->g[G_HPROG + i], 0, 127);
+    }
+    if (proj_fx_any(q)) {                               /* (func-rate) RATE, LAYER B's, after it */
+        b[pos++] = 'F'; b[pos++] = 'X';
+        memcpy(b + pos, q->fxr, sizeof q->fxr);
+        pos += sizeof q->fxr;
     }
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
@@ -1314,6 +1328,7 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
     memset(q->fpx, 0, sizeof q->fpx);                   /* (funcplay) none: a FUNC part as written */
     memset(q->fbl, 64, sizeof q->fbl);
     memset(q->fmo, 0, sizeof q->fmo);
+    memset(q->fxr, 0, sizeof q->fxr);
     memcpy(q->psq, PROJ_PSQ_DEF, PSQ_BYTES);            /* (BYTE) PUNCH SEQ: empty, unless its block follows */
     if (pos + 2u <= room && b[pos]=='V' && b[pos+1u]=='L') {
         if (pos + 2u + NTRK > room) return 0;
@@ -1356,6 +1371,10 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         if (pos + 6u <= room && b[pos] == 'H' && b[pos + 1u] == 'M') {   /* (BYTE) SCL > HARMONY (else OFF: the defaults) */
             for (i = 0; i < 4u; i++) q->g[G_HPROG + i] = (int16_t)clamp(b[pos + 2u + i], GP[G_HPROG + i].min, GP[G_HPROG + i].max);
             pos += 6u;
+        }
+        if (pos + 2u + sizeof q->fxr <= room && b[pos] == 'F' && b[pos + 1u] == 'X') {   /* (func-rate) */
+            memcpy(q->fxr, b + pos + 2u, sizeof q->fxr);
+            pos += 2u + sizeof q->fxr;
         }
     }
     for (i = 0; i < 8u; i++) if (q->dx_form[i] == DX_USER && !q->dx_text[i][0]) q->dx_form[i] = 0;
@@ -1552,6 +1571,8 @@ static void project_capture(project_t *p)
         p->fbl[i] = (uint8_t)(fp_kp[i][0] & 127);
         for (uint32_t k = 0; k < 4u; k++)               /* (funcmotion; read by a FUNC part alone) */
             p->fmo[i][k] = (uint8_t)fp_kp[i][2u + k];
+        for (uint32_t k = 0; k < 5u; k++)               /* (func-rate) */
+            p->fxr[i][k] = (int8_t)(trk[i].eng_req == ENGI_FUNC ? fp_kp[i][FK_RATE + k] : 0);
         memset(p->fm6[i], 0, sizeof p->fm6[i]);         /* (BYTE: FM6 removed, the format's block empty) */
     }
     p->motion = motion;
@@ -1875,6 +1896,8 @@ static int project_restore_runtime(const project_t *input)
         memset(&fp_st[k], 0, sizeof fp_st[k]);           /* (funcplay) FUNC: GROOVE, nothing held; its own, or as written */
         fp_kp[k][0] = p->fbl[k]; fp_kp[k][1] = (int16_t)(p->fpx[k] >> 2 & 1u);
         for (uint32_t j = 0; j < 4u; j++) fp_kp[k][2u + j] = (int16_t)(p->fmo[k][j] & (j == 1u ? 3u : 127u));   /* (funcmotion) */
+        for (uint32_t j = 0; j < 5u; j++)              /* (func-rate) in range (FUNC_PX) */
+            fp_kp[k][FK_RATE + j] = (int16_t)clamp(p->fxr[k][j], FUNC_PX[11u + j].min, FUNC_PX[11u + j].max);
         if (trk[k].eng_req == ENGI_FUNC && !(p->fpx[k] & 128u)) func_neutral(&trk[k]);
         if (p->t[k].engine == ENGI_FORM)                /* (a FORM part: its modulators as stored, below WAVE) */
             clay_from_form(k, p->t[k].p);
