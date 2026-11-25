@@ -68,7 +68,7 @@ const splash = colours(a.screen());
 }
 a.render(800);
 check("  over by 1 s (~0.70 s)", a.ex.web_anim_levels() === 0);
-a.render(1200);                                               // (JIANT 0.5: the signature written, then held: ~2 s)
+a.render(2400);                                               // (JIANT 0.5: the signature written, then held: ~2.8 s)
 const home = a.screen();
 check(`boots: the splash, then HOME (${colours(home)} colours), the HOME LED lit`,
       splash > 1 && colours(home) > 4 && (a.ex.web_lit_buttons() >> B.HOME & 1) === 1);
@@ -159,7 +159,7 @@ check("a fresh instance with the kept sectors has it; one without does not",
 // ---- deterministic: the same gestures, the same samples
 async function song() {
   const d = await device(null);
-  d.render(500);
+  d.render(2900);                                   // (past the splash: ~2.8 s)
   d.ex.web_test_heavy();
   d.tap(B.PLAY);
   d.rec = true;
