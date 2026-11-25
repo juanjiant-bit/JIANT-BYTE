@@ -330,7 +330,8 @@ typedef struct { uint8_t n; int8_t deg[4]; uint8_t q[4]; } gprog_t;
 enum { PR_ONE, PR_I_VII, PR_I_VI, PR_I_IV, PR_I_V, PR_I_II, PR_I_III, PR_IV_I, PR_AEOL, PR_TRANCE, PR_MINOR4, PR_ANDAL,
        PR_EPIC, PR_50S, PR_CYCLE, PR_DEEP4, PR_DEEPVI, PR_JAZZ, PR_SUS, PR_NEOCL, PR_PHRY, PR_ELEC, PR_DREAM, PR_DREAM2,
        PR_TURN, PR_MSTAB, PR_NSOUL, PR_NSOUL2, PR_JAZZ2, PR_JAZZ3, PR_IDM1, PR_IDM2, PR_PROG1, PR_PROG2, PR_FAM,
-       PR_N = PR_FAM + 12 };   /* (PR_FAM: the harmony families' two each, HF_LOOP's first: PROGF) */
+       PR_JZ = PR_FAM + 12, PR_N = PR_JZ + 9 };   /* (PR_FAM: the harmony families' two each, HF_LOOP's first: PROGF;
+                                                         * PR_JZ: the jazz and neo-soul ones, their own extensions: HMX) */
 static const gprog_t PROG[PR_N] = {
     [PR_ONE]     = {1, {0}, {Q_7}},                                           /* i7 (a pedal) */
     [PR_I_VII]   = {2, {0, 6}, {Q_TRI, Q_TRI | F_FLAT}},                      /* i bVII (I bVII: borrowed) */
@@ -385,6 +386,33 @@ static const gprog_t PROG[PR_N] = {
     [PR_FAM + 9]  = {4, {0, 2, 3, 5}, {Q_TRI, Q_TRI, Q_TRI, Q_TRI}},
     [PR_FAM + 10] = {4, {0, 3, 2, 5}, {Q_7, Q_7, Q_7, Q_7 | F_DOM}},
     [PR_FAM + 11] = {4, {1, 4, 2, 5}, {Q_7, Q_7, Q_7, Q_7 | F_DOM}},
+    /* (BYTE, the owner: "more complex jazzy and neo-soul progressions") as GEN reads them (the chromatic chord the
+     * diatonic one it stands for, coloured as the plan colours: gprog_ok); SCL > HARMONY plays them as HMX writes */
+    [PR_JZ]     = {4, {1, 4, 0, 5}, {Q_9, Q_7 | F_DOM, Q_9, Q_7 | F_DOM}},      /* ii9 bII13 Imaj9 VI7alt: the tritone sub */
+    [PR_JZ + 1] = {4, {2, 5, 1, 4}, {Q_7, Q_7 | F_DOM, Q_9, Q_7}},              /* iii7 VI7 ii9 V13 */
+    [PR_JZ + 2] = {2, {0, 3}, {Q_9, Q_7 | F_DOM}},                              /* Imaj9 IV7(#11) */
+    [PR_JZ + 3] = {2, {0, 3}, {Q_9, Q_9}},                                      /* i9 iv9: neo-soul's minor vamp */
+    [PR_JZ + 4] = {4, {0, 5, 1, 4}, {Q_9, Q_9, Q_9, Q_SUS4}},                   /* Imaj9 vi9 ii9 V13sus */
+    [PR_JZ + 5] = {4, {1, 6, 0, 0}, {Q_9, Q_7 | F_FLAT, Q_9, Q_7}},             /* ii9 bVII9 Imaj9 Imaj13: the backdoor */
+    [PR_JZ + 6] = {4, {0, 6, 5, 4}, {Q_9, Q_7, Q_7, Q_7 | F_MAJ}},              /* im9 bVII13 bVImaj7 V7alt: down by steps */
+    [PR_JZ + 7] = {2, {0, 3}, {Q_11, Q_9}},                                     /* i11 IV9: the dorian vamp */
+    [PR_JZ + 8] = {4, {0, 3, 3, 0}, {Q_7, Q_7, Q_7 | F_PAR, Q_9}},              /* Imaj7 IVmaj7 iv7 Imaj9: iv borrowed */
+};
+/* (BYTE) SCL > HARMONY's own reading of PR_JZ's chords (seq.c hm_x): the root's semitones over the key's (0: the degree's,
+ * in the track's scale; 1, 8 or 10: bII bVI bVII), the quality (0 the scale's, 1 dominant, 2 major seventh, 3 minor
+ * seventh), the extensions it carries with EXTENS at 0 (1 the 7th, 2 the 9th, 3 the 11th or the 13th: EXTENS adds on
+ * top), its colour (1 sus4, 2 altered: b9 b13, 3 #11) */
+#define HX(semi, q, tier, col) (uint8_t)(((semi) == 1 ? 1 : (semi) == 8 ? 2 : (semi) == 10 ? 3 : 0) | (q) << 2 | (tier) << 4 | (col) << 6)
+static const uint8_t HMX[9][4] = {
+    {HX(0, 3, 2, 0), HX(1, 1, 3, 0), HX(0, 2, 2, 0), HX(0, 1, 2, 2)},
+    {HX(0, 3, 1, 0), HX(0, 1, 1, 0), HX(0, 3, 2, 0), HX(0, 1, 3, 0)},
+    {HX(0, 2, 2, 0), HX(0, 1, 3, 3)},
+    {HX(0, 3, 2, 0), HX(0, 3, 2, 0)},
+    {HX(0, 2, 2, 0), HX(0, 3, 2, 0), HX(0, 3, 2, 0), HX(0, 1, 3, 1)},
+    {HX(0, 3, 2, 0), HX(10, 1, 2, 0), HX(0, 2, 2, 0), HX(0, 2, 3, 0)},
+    {HX(0, 3, 2, 0), HX(10, 1, 3, 0), HX(8, 2, 1, 0), HX(0, 1, 2, 2)},
+    {HX(0, 3, 3, 0), HX(0, 1, 2, 0)},
+    {HX(0, 2, 1, 0), HX(0, 2, 1, 0), HX(0, 3, 1, 0), HX(0, 2, 2, 0)},
 };
 /* (0.8.3) a genre's harmony: its family (how it composes) and what it may colour with */
 enum { HF_LOOP, HF_JAZZY, HF_POP, HF_COLOR, HF_CINE, HF_JAZZ };   /* modal loops; 7th loops; functional pop; colour
@@ -875,9 +903,9 @@ _Static_assert(sizeof GGRAM / sizeof GGRAM[0] == NGENRE, "GGRAM: a grammar a gen
  * up (tests/gen_test.c: the mix pass) */
 #define GMX(d, b, p, l, a, t) {(uint8_t)(((d) & 15) | ((b) & 15) << 4), (uint8_t)(((p) & 15) | ((l) & 15) << 4), (uint8_t)(((a) & 15) | ((t) & 15) << 4)}
 static const uint8_t GMIX[][3] = {
-    GMX(0, 7, -2, 0, 5, 0),   /* MINIMAL TECHNO */
+    GMX(0, -3, -2, 0, 5, 0),   /* MINIMAL TECHNO (the owner: "the WAVE basses far too loud": its bass 15 dB down) */
     GMX(-3, 0, 0, 0, 7, 6),   /* HARD TECHNO (V10.7.2: the bass +1.5 dB, V10.6z10's basses ~1.8 under) */
-    GMX(-3, 7, 3, 7, 0, 6),   /* HARD BASS */
+    GMX(-3, 3, 3, 7, 0, 6),   /* HARD BASS (its bass 6 dB down) */
     GMX(-1, 2, 1, 0, 7, 0),   /* HOUSE */
     GMX(-2, 4, 2, 0, 7, 0),   /* DEEP HOUSE (V10.7.2: the bass +1.5, z10's ~1.2 under) */
     GMX(-3, 1, -1, 0, 7, 0),   /* TECH HOUSE (V10.7.2: the bass +1.5, z10's ~1.6 under) */
@@ -885,7 +913,7 @@ static const uint8_t GMIX[][3] = {
     GMX(0, 1, 2, 2, 0, -2),   /* CUMBIA */
     GMX(-1, 1, -5, 2, 5, 4),   /* REGGAETON (V10.7.8, the owner's reference: the drums up front, the 808 up, the pad, the hook
                                                          * and the arp under them, the pad under the arp) */
-    GMX(-3, 2, -2, 7, 7, 4),   /* DEMBOW (V10.7.2: the marimba's riff and the chants' arp up: phonk's levels) */
+    GMX(-3, -1, -2, 7, 7, 4),   /* DEMBOW (its bass 4.5 dB down) (V10.7.2: the marimba's riff and the chants' arp up: phonk's levels) */
     GMX(-3, 0, 1, 7, 7, 5),   /* ELECTRO */
     GMX(-2, 2, -2, 5, 6, 5),   /* BREAKBEAT (V10.7.2: the bass +1.5, z10's ~1.8 under) */
     GMX(-3, -3, 0, 6, 5, 6),   /* DRUM & BASS */
@@ -893,15 +921,15 @@ static const uint8_t GMIX[][3] = {
     GMX(-3, 0, 0, 3, 3, 4),   /* IDM AMBIENT */
     GMX(0, -3, 0, 2, 5, 3),   /* IDM WEIRD */
     GMX(-3, 1, 5, 7, 7, 5),   /* KRAUT */
-    GMX(-3, 7, 0, 7, 7, 0),   /* EBM (the owner's dark techno / industrial reference: its sub's rumble up; the
+    GMX(-3, 2, 0, 7, 7, 0),   /* EBM (its sub 7.5 dB down) (the owner's dark techno / industrial reference: its sub's rumble up; the
                                                          * other throws' FAT BASS as it was, at the level's top already) */
     GMX(0, 0, 4, 3, 2, 3),   /* NEO CLASSIC */
     GMX(0, 0, 5, 1, 1, 2),   /* FUGA */
     GMX(0, -2, -2, 4, -5, 1),   /* ELECTRO METAL */
     GMX(0, -1, 0, 3, 0, 1),   /* TECHNO ROCK */
-    GMX(-1, 4, -3, -1, 2, 3),   /* DREAM POP */
-    GMX(-4, 1, -2, 7, 7, 4),   /* PHONK (V10.7.2: the drums -1.5, z10's DNA ~2 dB over the parts) */
-    GMX(-3, 2, -3, 7, 4, 4),   /* BAILE FUNK (V10.7.8: the 808 4.5 dB up, the chops under) */
+    GMX(-1, 2, -3, -1, 2, 3),   /* DREAM POP (its bass 3 dB down) */
+    GMX(-4, -1, -2, 7, 7, 4),   /* PHONK (its 808 3 dB down) (V10.7.2: the drums -1.5, z10's DNA ~2 dB over the parts) */
+    GMX(-3, 0, -3, 7, 4, 4),   /* BAILE FUNK (its 808 3 dB down) (V10.7.8: the 808 4.5 dB up, the chops under) */
     GMX(0, 0, 0, 1, 0, -2),   /* JAZZ */
     GMX(-3, -2, -1, 7, 5, 4),   /* HIP HOP */
 };
@@ -1020,17 +1048,19 @@ static const uint8_t GSUB_TR[] = {
 /* its keys: the SCALE page's modes of seven, the exotic ones likeliest (LOC too: its tonic chord a diminished one the
  * plan never takes, the other six degrees do) */
 static const uint8_t GX_SCALE[9] = {SC_MAJ, SC_MIN, SC_DOR, SC_MIX, SC_HARM, SC_PHRY, SC_LYD, 10u /* LOC */, SC_MEL};
-static const uint8_t GX_SCALE_W[9] = {4, 4, 8, 8, 13, 14, 14, 8, 13};
+static const uint8_t GX_SCALE_W[9] = {10, 10, 14, 12, 12, 10, 14, 2, 10};   /* (the owner: EXPLORE "weird": the
+                                                         * exotic ones still there, LOC seldom) */
 /* the lead's degrees over the mode: all seven, the pentatonics, hexatonics, a gapped one, an odd five */
 static const uint8_t GX_PAL[8] = {0x7Fu, 0x5Du, 0x37u, 0x6Fu, 0x3Bu, 0x77u, 0x2Du, 0x5Bu};
 /* the recipes a role may take (beyond its usual ones: a plucked bass, a bell lead, an organ texture ..) */
 static const uint8_t GX_BASS[14] = {SR_SUB, SR_ACID, SR_REESE, SR_FMBASS, SR_ROCKBASS, SR_HOOK, SR_WOW, SR_EBMBASS, SR_PLUCK, SR_CHIP, SR_GTR,
                                     SR_808, SR_UPRIGHT, SR_TECHBASS};
-static const uint8_t GX_PADS[13] = {SR_PAD, SR_STRINGS, SR_PIANO, SR_ORGAN, SR_EP, SR_STAB, SR_DUBCHORD, SR_HOOVER, SR_WALL, SR_GTR, SR_KEYS, SR_BELL, SR_DRONE};   /* (V10.6n:
-                                                         * no VOICE on the chords) */
+static const uint8_t GX_PADS[13] = {SR_PAD, SR_STRINGS, SR_PIANO, SR_ORGAN, SR_EP, SR_PAD, SR_DUBCHORD, SR_STRINGS, SR_WALL, SR_DRONE, SR_KEYS, SR_BELL, SR_DRONE};   /* (V10.6n:
+                                                         * no VOICE on the chords; the owner: more pads and swells, the
+                                                         * STAB and the HOOVER out) */
 static const uint8_t GX_ARPS[8] = {SR_PLUCK, SR_BELL, SR_CHIP, SR_KEYS, SR_SINEKEY, SR_EP, SR_GTR, SR_STAB};
-static const uint8_t GX_LEADS[8] = {SR_LEAD, SR_VOXLEAD, SR_CHIP, SR_HOOVER, SR_BELL, SR_PLUCK, SR_WOW, SR_ORGAN};
-static const uint8_t GX_TEX[8] = {SR_NOISE, SR_TEXTURE, SR_DRONE, SR_CHOIR, SR_PAD, SR_ORGAN, SR_BELL, SR_STRINGS};
+static const uint8_t GX_LEADS[8] = {SR_LEAD, SR_VOXLEAD, SR_LEAD, SR_EP, SR_BELL, SR_PLUCK, SR_WOW, SR_ORGAN};
+static const uint8_t GX_TEX[8] = {SR_DRONE, SR_TEXTURE, SR_DRONE, SR_CHOIR, SR_PAD, SR_ORGAN, SR_BELL, SR_STRINGS};
 /* how often a role keeps the cycle (V10.6n: else half of it or a quarter, over one chord: gen.c gen_make) */
 static const uint8_t GX_KEEP[RL_N] = {60, 70, 80, 45, 45, 50};
 /* (the fix of V10.6n's: every loop on the bar) the lead's, the arp's, the texture's loop off the bar half the time:
@@ -1039,7 +1069,9 @@ static const uint8_t GX_LEN[10] = {12, 20, 24, 28, 36, 40, 44, 52, 56, 60};
 /* the step components it scatters (gen.c gx_comps): their weights on a melodic track */
 static const uint8_t GX_COMP[10] = {CP_RAND, CP_OCT, CP_BEND, CP_ECHO, CP_PULSE, CP_WALK, CP_CLIMB, CP_ARPQ, CP_ARPN,
                                     CP_TONAL};
-static const uint8_t GX_COMP_W[10] = {6, 14, 8, 14, 8, 6, 4, 10, 8, 8};   /* (V10.6l, the owner: no JUMP, no REV: steps
-                                                         * thrown about are not music, V10.6v: gone; less RAND and WALK) */
+static const uint8_t GX_COMP_W[10] = {2, 12, 3, 16, 6, 4, 4, 18, 16, 8};   /* (V10.6l, the owner: no JUMP, no REV: steps
+                                                         * thrown about are not music, V10.6v: gone; less RAND and WALK;
+                                                         * BYTE: EXPLORE "weird": RAND and BEND seldom, the arpeggios and
+                                                         * the echoes first) */
 /* a DRUM-X sound's own way on a step (LM_X2 .. LM_FLAM) */
 static const uint8_t GX_LM_W[LM_N] = {0, 30, 14, 4, 20, 22, 10};

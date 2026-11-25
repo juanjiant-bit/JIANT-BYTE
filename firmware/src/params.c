@@ -55,7 +55,7 @@ static const char *const N_HPROG[] = {"OFF", "PEDAL", "I-VII", "I-VI", "I-IV", "
                                       "ANDAL", "EPIC", "50S", "CADEN", "DEEP", "DEEP6", "2-5-1", "SUS", "POP", "PHRYG", "ELECT", "DREAM",
                                       "DRM 2", "TURN", "STAB", "NSOUL", "NSO 2", "JAZZ2", "JAZZ3", "IDM 1", "IDM 2", "LYD", "PROG",
                                       "LOOP", "MODAL", "4THS", "MIN 7", "4CHRD", "POP 6", "MIXO", "LIFT", "CINE", "CINE2", "JAZZ4",
-                                      "JAZZ5"};
+                                      "JAZZ5", "TRITN", "TURN3", "LYD7", "NSOL3", "NSOL4", "BKDOR", "CHROM", "DOR11", "MINIV"};
 static const char *const N_HLEN[] = {"1/4", "1/2", "1 BAR", "2 BAR", "4 BAR"};
 static const char *const N_HSKIP[] = {"NONE", "T1", "T2", "T3", "T4", "T5", "T6"};
 /* seq.c kb_map; 1 = SNAP (stored projects: the former ON); 3 = SEQ: SNAP, and the sequencer's notes snap too as
@@ -250,7 +250,7 @@ static const param_desc_t GP[G_COUNT] = {
     [G_DRTIM] = PE("R TIME", N_DRTIM, 0),           /* (V10.49) the right echo's time, a ratio of TIME (fx.c dly_rate) */
     [G_HPROG] = PE("PROG", N_HPROG, 0),            /* (BYTE, FM V10.7.66) SCL > HARMONY */
     [G_HLEN] = PE("LENGTH", N_HLEN, 2),
-    [G_HEVO] = PD("EVOLVE", F_PCT, 0, 127, 0),
+    [G_HEXT] = PD("EXTENS", F_PCT, 0, 127, 0),   /* (the owner: EVOLVE's place) the chords' extensions */
     [G_HSKIP] = PE("SKIP", N_HSKIP, 0),
     [G_DDRV] = PD("DRIVE", F_PCT, 0, 100, 0),    /* (snd2) the delay's loop driven: 0 clean as before, 100 x4 into the clip */
     [G_DMOD] = PD("MOD", F_PCT, 0, 127, 0),      /* (0.6.89: 0, the repeats exact copies, by default) */     /* (0.6.86) the delay's drift: WOW + FLUTTER (fx.c dly_wow_adv) */
@@ -860,7 +860,7 @@ static const page_t PAGES[] = {
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, ID_ALLTR}},   /* (JIANT: ROOT, SCALE every melodic track's;
                                                          * 0.7.6: ALL TR, the global, where TRANS was: SCL 2 gone) */
     {"CHORD", FAM_SCL, SC_TRACK, GR_NONE, {P_CHRD, P_CVOI, P_CSTR, 0xFF}},   /* (0.6.81) a key plays a chord (seq.c) */
-    {"HARMONY", FAM_SCL, SC_GLOBAL, GR_HARM, {G_HPROG, G_HLEN, G_HEVO, G_HSKIP}},   /* (BYTE, FM V10.7.66) a progression
+    {"HARMONY", FAM_SCL, SC_GLOBAL, GR_HARM, {G_HPROG, G_HLEN, G_HEXT, G_HSKIP}},   /* (BYTE, FM V10.7.66) a progression
                                                          * every melodic source follows (seq.c hm_shift; ui_lzpage.c graph_harm) */
     {"SCENE", FAM_SCL, SC_TRACK, GR_SCENE, {ID_SC0, ID_SC0 + 1u, ID_SC0 + 2u, ID_SC0 + 3u}},   /* (V10.25) the multitimbral
                                                          * mode: SCENE, TRACK, ROLE, CHORD (ui_scene.c) */

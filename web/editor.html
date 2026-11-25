@@ -1568,9 +1568,10 @@ function makeMockDevice(opt = {}) {
     E("PROG", ["OFF", "PEDAL", "I-VII", "I-VI", "I-IV", "I-V", "I-II", "I-III", "IV-I", "AXIS", "TRANC", "MIN 4", "ANDAL",
       "EPIC", "50S", "CADEN", "DEEP", "DEEP6", "2-5-1", "SUS", "POP", "PHRYG", "ELECT", "DREAM", "DRM 2", "TURN",
       "STAB", "NSOUL", "NSO 2", "JAZZ2", "JAZZ3", "IDM 1", "IDM 2", "LYD", "PROG", "LOOP", "MODAL", "4THS",
-      "MIN 7", "4CHRD", "POP 6", "MIXO", "LIFT", "CINE", "CINE2", "JAZZ4", "JAZZ5"], 0),   /* (BYTE) G_HPROG 73 ..: SCL > HARMONY, */
-    E("LENGTH", ["1/4", "1/2", "1 BAR", "2 BAR", "4 BAR"], 2), D("EVOLVE", F.PCT, 0, 127, 0),   /* the progression every melodic */
-    E("SKIP", ["NONE", "T1", "T2", "T3", "T4", "T5", "T6"], 0),   /* track follows, a chord's length, its substitutions, the track that does not */
+      "MIN 7", "4CHRD", "POP 6", "MIXO", "LIFT", "CINE", "CINE2", "JAZZ4", "JAZZ5", "TRITN", "TURN3", "LYD7",
+      "NSOL3", "NSOL4", "BKDOR", "CHROM", "DOR11", "MINIV"], 0),   /* (BYTE) G_HPROG 73 ..: SCL > HARMONY, */
+    E("LENGTH", ["1/4", "1/2", "1 BAR", "2 BAR", "4 BAR"], 2), D("EXTENS", F.PCT, 0, 127, 0),   /* the progression every melodic */
+    E("SKIP", ["NONE", "T1", "T2", "T3", "T4", "T5", "T6"], 0),   /* track follows, a chord's length, its extensions, the track that does not */
   ];
   const NONE = D("-", F.INT, 0, 0, 0);
   const RATIO = [".5", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "14", "16"];

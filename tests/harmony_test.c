@@ -15,7 +15,7 @@ int main(void)
     uint32_t i, k, hits, fam;
     ui_power_on();
     trk[1].p[P_ROOT] = 0; trk[1].p[P_SCALE] = 1;      /* (C major) */
-    song.g[G_HPROG] = 1 + PR_50S; song.g[G_HLEN] = 2; song.g[G_HEVO] = 0; song.g[G_HSKIP] = 0;
+    song.g[G_HPROG] = 1 + PR_50S; song.g[G_HLEN] = 2; song.g[G_HEXT] = 0; song.g[G_HSKIP] = 0;
     hm_load();
     song.playing = 1;
     ok = hm_n == 4u;
@@ -43,14 +43,56 @@ int main(void)
     song.g[G_HPROG] = 0; hm_load();
     ok &= hm_n == 0u && hm_shift(&trk[1]) == 0;
     bad += check("HARMONY: LENGTH 1/4 a chord a beat; SKIP T2 stays; stopped or OFF nothing", ok);
-    {   /* EVOLVE: now and then a chord a fourth or a third up, never on the first time round */
-        uint32_t moved = 0;
-        song.g[G_HPROG] = 1 + PR_50S; song.g[G_HLEN] = 2; song.g[G_HEVO] = 127; hm_load();
-        for (bar_n = 0, beat_n = 0, ok = 1; bar_n < 4u; bar_n++) ok &= hm_shift(&trk[1]) == hm_dg[bar_n];
-        for (bar_n = 4; bar_n < 64u; bar_n++) moved += hm_shift(&trk[1]) != hm_dg[bar_n % 4u];
-        ok &= moved >= 50u;
-        song.g[G_HEVO] = 0;
-        bad += check("HARMONY EVOLVE: the first time round as written, then its substitutions", ok);
+    {   /* (the owner) EXTENS, EVOLVE's place: 0 the chords as written (the progressions before PR_JZ); up, each chord
+         * its 7th, then 9ths, add9 and the suspensions, 11ths and 13ths, the scale's tones over the chord's root, the
+         * same every time for a chord (no flicker); a line of one note never */
+        uint8_t nn[8] = {60, 64, 67}, n0[8];
+        uint32_t n, tot = 0, okd = 1, ins = 1, same = 1, c;
+        song.g[G_HPROG] = 1 + PR_50S; song.g[G_HLEN] = 2; song.g[G_HEXT] = 0; hm_load();
+        for (bar_n = 0, beat_n = 0, ok = 1; bar_n < 8u; bar_n++) ok &= hm_shift(&trk[1]) == hm_dg[bar_n % 4u] && hm_ext(&trk[1], nn, 3) == 3u;
+        song.g[G_HEXT] = 127;
+        for (bar_n = 0; bar_n < 4u; bar_n++) {
+            int32_t d = hm_shift(&trk[1]);
+            for (i = 0; i < 3u; i++) n0[i] = (uint8_t)hm_move(&trk[1], (int32_t)(i ? 60 + 4 * (int32_t)i - (i == 2u) : 60), d);
+            memcpy(nn, n0, 3); n = hm_ext(&trk[1], nn, 3);
+            tot += n - 3u;
+            for (c = 0; c < n; c++) ins &= ((0xAB5u >> nn[c] % 12u) & 1u) != 0u;   /* (C major's tones) */
+            memcpy(n0 + 4, nn, 4);
+            memcpy(nn, n0, 3); same &= hm_ext(&trk[1], nn, 3) == n && !memcmp(nn, n0 + 4, 4);
+            nn[0] = 60; okd &= hm_ext(&trk[1], nn, 1) == 1u;
+        }
+        ok &= tot >= 4u && ins && same && okd;
+        if (!ok) printf("  extens: added %u in key %u same %u single %u\n", tot, ins, same, okd);
+        song.g[G_HEXT] = 0;
+        bad += check("HARMONY EXTENS: 0 as written; 127 the chords' 7ths 9ths 11ths 13ths, in the key, the same each time, never on one note", ok);
+    }
+    {   /* the jazz progressions (PR_JZ ..): their own extensions with EXTENS at 0, their chromatic chords (TRITN: ii9 bII13
+         * Imaj9 VI7alt), the cards' names */
+        static const char *const NM[4] = {"D-9", "C#13", "CM9", "A7+"};
+        uint8_t nn[8];
+        uint32_t n, c, pcs;
+        char b[8];
+        ok = str_eq(N_HPROG[1 + PR_JZ], "TRITN") && str_eq(N_HPROG[1 + PR_JZ + 5], "BKDOR") && str_eq(N_HPROG[PR_N], "MINIV");
+        song.g[G_HPROG] = 1 + PR_JZ; song.g[G_HEXT] = 0; hm_load();
+        for (bar_n = 0, beat_n = 0; bar_n < 4u; bar_n++) { hm_name(&trk[1], bar_n, b); ok &= str_eq(b, NM[bar_n]); if (!str_eq(b, NM[bar_n])) printf("  card %u: %s\n", bar_n, b); }
+        bar_n = 1;                                      /* bII13: C E G up a semitone, its b7 and 13 (Db F Ab Cb Bb) */
+        for (i = 0; i < 3u; i++) nn[i] = (uint8_t)hm_move(&trk[1], i == 0u ? 60 : i == 1u ? 64 : 67, hm_shift(&trk[1]));
+        n = hm_ext(&trk[1], nn, 3);
+        for (c = 0, pcs = 0; c < n; c++) pcs |= 1u << nn[c] % 12u;
+        ok &= nn[0] == 61 && nn[1] == 65 && nn[2] == 68 && n == 5u && pcs == (1u << 1 | 1u << 5 | 1u << 8 | 1u << 11 | 1u << 10);
+        bar_n = 3;                                      /* VI7alt: A C# G Bb (the b9) over C E G moved */
+        for (i = 0; i < 3u; i++) nn[i] = (uint8_t)hm_move(&trk[1], i == 0u ? 60 : i == 1u ? 64 : 67, hm_shift(&trk[1]));
+        n = hm_ext(&trk[1], nn, 3);
+        for (c = 0, pcs = 0; c < n; c++) pcs |= 1u << nn[c] % 12u;
+        ok &= nn[0] == 69 && nn[1] % 12u == 1u && ((pcs >> 7) & 1u) && ((pcs >> 10) & 1u);
+        song.g[G_HPROG] = 1 + PR_JZ + 3; hm_load(); bar_n = 0;   /* NSOL3's i9 on a C major track: C Eb G Bb D */
+        for (i = 0; i < 3u; i++) nn[i] = (uint8_t)hm_move(&trk[1], i == 0u ? 60 : i == 1u ? 64 : 67, hm_shift(&trk[1]));
+        n = hm_ext(&trk[1], nn, 3);
+        for (c = 0, pcs = 0; c < n; c++) pcs |= 1u << nn[c] % 12u;
+        ok &= pcs == (1u | 1u << 3 | 1u << 7 | 1u << 10 | 1u << 2);
+        if (!ok) printf("  jazz: n %u pcs %03x\n", n, pcs);
+        song.g[G_HPROG] = 0; hm_load(); bar_n = 0;
+        bad += check("HARMONY's jazz progressions: their own extensions at EXTENS 0, the tritone sub, the altered, the cards' names", ok);
     }
     {   /* FUNC and DRONE CLAY's root: the chord's (vi: +9), unless a root key is held on the part selected */
         song.g[G_HPROG] = 1 + PR_50S; hm_load(); bar_n = 1; beat_n = 0;
@@ -104,17 +146,17 @@ int main(void)
         for (i = 0; i < NSTEP; i++) { step_clear(&m->step[i]); step_clear(&nb->step[i]); }
     }
     {   /* the project keeps it; a project without the block loads OFF */
-        song.g[G_HPROG] = 1 + PR_JAZZ2; song.g[G_HLEN] = 3; song.g[G_HEVO] = 90; song.g[G_HSKIP] = 3;
+        song.g[G_HPROG] = 1 + PR_JAZZ2; song.g[G_HLEN] = 3; song.g[G_HEXT] = 90; song.g[G_HSKIP] = 3;
         ok = !project_save(1);
-        song.g[G_HPROG] = 0; song.g[G_HLEN] = 2; song.g[G_HEVO] = 0; song.g[G_HSKIP] = 0;
+        song.g[G_HPROG] = 0; song.g[G_HLEN] = 2; song.g[G_HEXT] = 0; song.g[G_HSKIP] = 0;
         project_load(1); frames(64);
-        ok &= song.g[G_HPROG] == 1 + PR_JAZZ2 && song.g[G_HLEN] == 3 && song.g[G_HEVO] == 90 && song.g[G_HSKIP] == 3;
+        ok &= song.g[G_HPROG] == 1 + PR_JAZZ2 && song.g[G_HLEN] == 3 && song.g[G_HEXT] == 90 && song.g[G_HSKIP] == 3;
         ok &= hm_n == 4u && hm_dg[0] == 2;
-        song.g[G_HPROG] = 0; song.g[G_HLEN] = 2; song.g[G_HEVO] = 0; song.g[G_HSKIP] = 0;
+        song.g[G_HPROG] = 0; song.g[G_HLEN] = 2; song.g[G_HEXT] = 0; song.g[G_HSKIP] = 0;
         ok &= !project_save(2);
-        song.g[G_HPROG] = 5; song.g[G_HLEN] = 4; song.g[G_HEVO] = 9; song.g[G_HSKIP] = 1;
+        song.g[G_HPROG] = 5; song.g[G_HLEN] = 4; song.g[G_HEXT] = 9; song.g[G_HSKIP] = 1;
         project_load(2); frames(64);
-        ok &= song.g[G_HPROG] == 0 && song.g[G_HLEN] == 2 && song.g[G_HEVO] == 0 && song.g[G_HSKIP] == 0 && hm_n == 0u;
+        ok &= song.g[G_HPROG] == 0 && song.g[G_HLEN] == 2 && song.g[G_HEXT] == 0 && song.g[G_HSKIP] == 0 && hm_n == 0u;
         bad += check("HARMONY kept with the project; one saved without it loads OFF", ok);
     }
     {   /* SCL > HARMONY: its page and knobs */

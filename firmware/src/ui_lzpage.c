@@ -416,9 +416,29 @@ static void graph_arp(const track_t *t)
     }
     cv_rect(10, 124, 220, 1, T_RAISE);
 }
+/* (BYTE, the owner) a chord of SCL > HARMONY's as EXTENS plays it (seq.c hm_pick), five letters at most: its root, "-"
+ * minor (a suspension: none), "M" its major seventh, its top extension (7 9 11 13, #11 its 11; 2 an add9), "+" altered */
+static __attribute__((noinline)) void hm_name(const track_t *t, uint32_t i, char *b)
+{
+    int32_t iv[5], a[2], r, th, top = 0;
+    uint32_t n = hm_pick(t, i, a, &th, iv, &r), c = HM_COL(hm_x[i]), s7 = 0, k;
+    const char *q = N_NOTE[(uint32_t)r % 12u];
+    char *p = b;
+    for (k = 0; k < n; k++) { s7 |= a[k] < 12; if (a[k] > top) top = a[k]; }
+    while (*q) *p++ = *q++;
+    if (th == 3) *p++ = '-';
+    if (s7 && iv[1] == 11) *p++ = 'M';
+    k = !top ? 0u : !s7 ? 2u : c == 2u || top < 12 ? 7u : top >= 20 ? 13u : top >= 17 ? 11u : 9u;
+    if (k > 9u) *p++ = '1';
+    if (k) *p++ = (char)('0' + k % 10u);
+    if (c == 2u && n) *p++ = '+';                      /* (altered) */
+    *p = 0;
+    b[5] = 0;
+}
 /* (BYTE, JIANT FM V10.7.70 / V10.8.14's design) SCL > HARMONY: the progression's name; a card a chord, in the key of
- * the track picked (a kit: the next melodic one's): its root large ("-" minor), its degree; the one playing yellow
- * (EVOLVE's substitution on it), a bar under them where the progression is; OFF: the key's first four dim, the hint */
+ * the track picked (a kit: the next melodic one's): its name as EXTENS plays it (hm_name: large when it is short), its
+ * degree ("b" a chromatic root); the one playing yellow, a bar under them where the progression is; OFF: the key's first
+ * four dim, the hint */
 BTAPP_FN static void graph_harm(const track_t *t)   /* (in the segment, as graph_key) */
 {
     static const char *const RN[7] = {"I", "II", "III", "IV", "V", "VI", "VII"};
@@ -433,14 +453,19 @@ BTAPP_FN static void graph_harm(const track_t *t)   /* (in the segment, as graph
     for (i = 0; i < 12u; i++) if ((m >> i) & 1u) pc[np++] = (uint8_t)i;
     ed_cap(10, 6, N_HPROG[(uint32_t)song.g[G_HPROG] % NELEM(N_HPROG)], hm_n ? HUD_YE : T_DIM);
     for (i = 0; i < n; i++) {
-        int32_t x = 8 + (int32_t)i * w, s = hm_n && i == now ? hm_shift(t) : 0;
-        uint32_t d = (uint32_t)(s ? s : hm_n ? hm_dg[i] : (int32_t)i) % 7u, on = i == now;
+        int32_t x = 8 + (int32_t)i * w;
+        uint32_t d = (uint32_t)(hm_n ? hm_dg[i] : (int32_t)i) % 7u, on = i == now, l;
         uint16_t bg = on ? HUD_YE : hm_n ? T_RAISE : T_SURF, ink = on ? 0x0000u : hm_n ? T_TEXT : T_DIM;
         cv_rect(x, 18, w - 6, 70, bg);
-        str_cpy(b, N_NOTE[(rt + pc[d]) % 12u], 4);
-        if ((pc[(d + 2u) % 7u] + 12u - pc[d]) % 12u == 3u) str_cpy(b + str_len(b), "-", 2);   /* (its third minor) */
-        cv_text_in(x, 32 - AF_L_CAP_Y, w - 6, &AF_L, b, ink, bg);
-        cv_text_in(x, 68 - AF_X_CAP_Y, w - 6, &AF_X, RN[d], on ? 0x0000u : d ? HUD_BL : TRK_COL[(uint32_t)(t - trk) % 6u], bg);
+        if (hm_n) hm_name(t, i, b);
+        else {
+            str_cpy(b, N_NOTE[(rt + pc[d]) % 12u], 4);
+            if ((pc[(d + 2u) % 7u] + 12u - pc[d]) % 12u == 3u) str_cpy(b + str_len(b), "-", 2);   /* (its third minor) */
+        }
+        l = str_len(b) > 3u;
+        cv_text_in(x, (l ? 33 - AF_M_CAP_Y : 32 - AF_L_CAP_Y), w - 6, l ? &AF_M : &AF_L, b, ink, bg);
+        b[0] = 'b'; str_cpy(b + 1, RN[d], 5);
+        cv_text_in(x, 68 - AF_X_CAP_Y, w - 6, &AF_X, b + !(hm_n && (hm_x[i] & 3u)), on ? 0x0000u : d ? HUD_BL : TRK_COL[(uint32_t)(t - trk) % 6u], bg);
     }
     cv_rect(8, 94, 218, 3, T_RAISE);
     if (now < n) cv_rect(8, 94, 218 * (int32_t)(now + 1u) / (int32_t)n, 3, HUD_YE);
