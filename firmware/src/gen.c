@@ -1805,10 +1805,10 @@ static __attribute__((noinline)) void gen_kit(track_t *t)
                                                          * CALM: to -25 a light hand (the kit ~8 dB under MID, a little
                                                          * shorter and darker), then the levels down (the kick the
                                                          * fastest; near -50 a low, short, dark closed hat alone); DANCE:
-                                                         * the kick whole, the snare, the clap and the hats up, longer,
+                                                         * the kick whole, the snare, the clap and the hats up, shorter,
                                                          * driven */
         int32_t m = grd.mood, l, c = m / 2 + (m < -25 ? (m + 25) * 5 : 0), e = c < -50 ? -50 : c;
-        t->p[P_E3] = (int16_t)clamp(t->p[P_E3] + (m < 0 ? e : m / 4), 0, 127);
+        t->p[P_E3] = (int16_t)clamp(t->p[P_E3] + (m < 0 ? e : -m / 8), 0, 127);   /* (the owner: DANCE's long decays covered the other layers: a little shorter) */
         if (m < 0) {
             t->p[P_FCUT] = (int16_t)(t->p[P_FCUT] + e);
             for (l = 0; l < 8; l++)
@@ -2463,9 +2463,9 @@ BTAPP_FN static void gen_parts(void)   /* (BYTE 0.17: the segment's, as gen_make
             if (bs < NTRK && (ld < NTRK || ar < NTRK || pd < NTRK)) trk[bs].p[P_MUTE] = 1;
         }
         grich(k);                                       /* (V10.7.30) the section's automation, locks, components */
-        for (i=0;i<NTRK;i++) if(gs.role[i]-1u<(gx.on?5u:0u) && gs.act[gs.role[i]] && trk[i].eng_req!=ENGI_DRUM) {   /* (RL_N
+        for (i=0;i<NTRK;i++) if(gs.role[i]-1u<5u && gs.act[gs.role[i]] && trk[i].eng_req!=ENGI_DRUM) {   /* (RL_N
                                                          * ui_layer.c's macro here, 1: none ever; BYTE, the owner's EXPLORE
-                                                         * "evolving": its melodic parts, the genres' as they were) */
+                                                         * "evolving": its melodic parts; the owner: every genre too) */
             track_t *q=&trk[i];
             uint32_t id=q->eng_req==ENGI_WAVE?P_E1:P_E6;
             int32_t depth=q->eng_req==ENGI_WAVE?18+(int32_t)gs.complex/3:4+(int32_t)gs.complex/8;
