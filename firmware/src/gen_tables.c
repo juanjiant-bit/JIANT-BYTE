@@ -110,7 +110,8 @@ static const char *const DRUM_MAP[][8] = {
      * foot on 2 and 4, the ride's
      * "ding, ding-da ding" (2 and 4 accented, the "da" the swung "and"), the snare's comping the ghosts' (gen.c) */
     [DM_BOOMBAP]   = {"X......7..9.....", "....X.......X...", "", "7.5.7.5.7.5.7.5.", "..............6.", "", "", ""},
-    [DM_JAZZ]      = {"6.6.6.6.6.6.6.6.", "", "", "..7...7...7...7.", "7.957.957.957.95", "", "", ""},
+    [DM_JAZZ]      = {"3.3.3.3.3.3.3.3.", "", "", "..7...7...7...7.", "6.956.956.956.95", "", "", ""},   /* (JIANT FM V10.8.41: the kick
+                                                         * softer, feathered; the ride's pulse under its skip) */
     /* (V10.6z10, the IDM throws' other breaks, gen.c gen_pick) the Funky Drummer's (the kick on 1, its "and", 3's "and"
      * and 4's "e", the backbeat with its ghosts, sixteenths opened on 4's "a"), Think's (the kick on 1 and pushed past 3,
      * the backbeat and its pickup, eighths) */
@@ -594,11 +595,12 @@ static const grecipe_t RECIPE[SR_N] = {
  * an EP's, a pluck's lead, its archetype's sustain under 56, a pluck's), an ARP's a pluck's (a fast attack, a short-medium decay, a low sustain), the CHORDS stabbed short (STAB PULSE DUB SKANK COMP
  * BROKEN TRANCE: GSTAB) or held slow in and out (HOLD SWELL DRONE), a BASS fast in; the rest as the archetype has it */
 static const uint8_t ENV_RULE[6][4] = {
-    {GR(0, 23), GR(48, 95), GR(56, 95), GR(16, 47)},    /* lead */
-    {GR(0, 7), GR(32, 79), GR(0, 39), GR(16, 63)},      /* arp: a pluck */
+    {GR(8, 31), GR(48, 95), GR(56, 95), GR(32, 63)},    /* lead (JIANT FM V10.8.45 / 46, the owner: "the envelopes": soft in
+                                                         * 8..31, some release 32..63; were 0..23, 16..47) */
+    {GR(0, 7), GR(32, 71), GR(0, 31), GR(16, 63)},      /* arp: a pluck (V10.8.46: shorter, 32..71, less sustain, 0..31) */
     {GR(0, 7), GR(32, 71), GR(0, 47), GR(16, 47)},      /* chords stabbed */
-    {GR(16, 127), GR(48, 127), GR(56, 127), GR(64, 127)},   /* chords held */
-    {GR(0, 15), GR(24, 127), GR(0, 127), GR(8, 63)},    /* bass */
+    {GR(48, 127), GR(48, 127), GR(56, 127), GR(88, 127)},   /* chords held (JIANT FM V10.8.45 / 46: slower in 16 -> 48, longer out 64 -> 88) */
+    {GR(0, 7), GR(24, 127), GR(0, 127), GR(16, 47)},    /* bass (V10.8.46: firm in, 0..7, a middle release, 16..47; were 0..15, 8..63) */
     {GR(0, 127), GR(0, 127), GR(0, 127), GR(0, 127)},   /* the others */
 };
 #define GSTAB(p) ((0x3C7Cu >> (p)) & 1u)                /* CS_STAB PULSE DUB SKANK COMP BROKEN TRANCE CHUG CHARL: the chords short */
@@ -850,7 +852,7 @@ static const ggenre_t GENRE[] = {
      * notes; ii-V-I and the I vi ii V turnaround in sevenths (secondary dominants, the turnaround's ii V in the last
      * chord: gen.c gplan), the EP's rootless voicings comped on Charleston's 1 and 2's "and" (gen_pads CS_CHARL), a
      * vibraphone's line with its chromatic approaches */
-    {"JAZZ", 40, 150, 70, {SC_MAJ, SC_MAJ, SC_DOR, SC_MIN}, DM_JAZZ, 100, KIT_SOFT, 2, HC_FLAT, FL_NONE, 1,
+    {"JAZZ", 40, 150, 70, {SC_MAJ, SC_MAJ, SC_DOR, SC_MIN}, DM_JAZZ, 100, KIT_SOFT, 0, HC_FLAT, FL_NONE, 1,
      {BA_WALK, BA_WALK2, BA_WALK3}, 28, KM_DOUBLE, 100, {PR_JAZZ2, PR_TURN, PR_JAZZ3}, 1, CS_CHARL, VM_RICH,
      {AP_WALK, AP_UPDOWN}, LD_MOTIF, AMT(100, 95, 80, 0, 55), {KIT_SOFT, SR_UPRIGHT, SR_EP, SR_PIANO, SR_SINEKEY}, SR_TEXTURE,
      0, 1, 30, 0, FM_PARTS, 70, HF_JAZZ | HX_RAISE | HX_SEC | HX_APPR, 0},
@@ -930,7 +932,7 @@ static const uint8_t GMIX[][3] = {
     GMX(-1, 2, -3, -1, 2, 3),   /* DREAM POP (its bass 3 dB down) */
     GMX(-4, -1, -2, 7, 7, 4),   /* PHONK (its 808 3 dB down) (V10.7.2: the drums -1.5, z10's DNA ~2 dB over the parts) */
     GMX(-3, 0, -3, 7, 4, 4),   /* BAILE FUNK (its 808 3 dB down) (V10.7.8: the 808 4.5 dB up, the chops under) */
-    GMX(0, 0, 0, 1, 0, -2),   /* JAZZ */
+    GMX(0, -2, 0, 1, 0, -2),   /* JAZZ (JIANT FM V10.8.41: the bass 3 dB down, under the drums) */
     GMX(-3, -2, -1, 7, 5, 4),   /* HIP HOP */
 };
 _Static_assert(sizeof GMIX / sizeof GMIX[0] == NGENRE, "GMIX: a mix a genre");

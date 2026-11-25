@@ -10,8 +10,8 @@
 enum{FD_PITCH,FD_FM,FD_FOLD,FD_NOISE,FD_SHAPE,FD_LEVEL,FD_RATIO,FD_N};
 static const char FORM_SHAPE[] = "SINE\0S&H\0DRIFT\0SPRING\0STAIRS\0BOUNCE\0EXP UP\0LOG DN\0CHAOS\0SWEEP\0RND GATE\0TRIPLET\0KICK\0SNARE\0HAT\0OPEN HAT\0CLAP\0RIM\0TOM\0ZAP\0BITHAT\0NOISE DN\0SWELL\0CRASH\0RAMP UP\0RAMP DN\0TRI\0GATE\0ENV UP\0ENV DN\0RISER\0STUTTER\0STUT UP\0DOWN\0UP\0REST\0ARP UP\0ARP DN\0ARP UPDN\0ARP RND\0CHORD m\0CHORD M\0SUS4\0m7\0CLUSTER\0+OCT\0+5TH\0GLIDE DN\0FM x1/2\0FM x1\0FM x1.5\0FM x2\0FM x3\0FM x5\0FM x7";   /* (str_nth: a text each, no pointer each) */
 #define FORM_NSH 55u
-/* (BYTE, RAM) DRONE CLAY's SHAPE knob: the same names, the HITS first (clay_sh), a table in the flash */
-static const char *const CLAY_SHN[]={"KICK","SNARE","HAT","OPEN HAT","CLAP","RIM","TOM","ZAP","BITHAT","NOISE DN","SWELL","CRASH","SINE","S&H","DRIFT","SPRING","STAIRS","BOUNCE","EXP UP","LOG DN","CHAOS","SWEEP","RND GATE","TRIPLET","RAMP UP","RAMP DN","TRI","GATE","ENV UP","ENV DN","RISER","STUTTER","STUT UP","DOWN","UP","REST","ARP UP","ARP DN","ARP UPDN","ARP RND","CHORD m","CHORD M","SUS4","m7","CLUSTER","+OCT","+5TH","GLIDE DN","FM x1/2","FM x1","FM x1.5","FM x2","FM x3","FM x5","FM x7",0};
+/* (BYTE, RAM) DRONE CLAY's SHAPE knob: the same names, the HITS first (clay_sh): (fmgen45, room) its table written in
+ * the low RAM from FORM_SHAPE's texts by clay_names (clay.c clay_desc), no pointer each in the flash */
 enum{FPG_TAB,FPG_HIT,FPG_GES,FPG_NOTE,FPG_FM};
 enum{S_SINE=0,S_KICK=12,S_SNARE,S_HAT,S_OHAT,S_CLAP,S_RIM,S_TOM,S_ZAP,S_BITHAT,S_NOISEDN,S_SWELL,S_CRASH,
  S_RAMPUP=24,S_RAMPDN,S_TRI,S_GATE,S_ENVUP,S_ENVDN,S_RISER,S_STUT,S_STUTUP,S_DOWN,S_UP,S_REST,
@@ -26,8 +26,7 @@ enum{S_SINE=0,S_KICK=12,S_SNARE,S_HAT,S_OHAT,S_CLAP,S_RIM,S_TOM,S_ZAP,S_BITHAT,S
 #define FORM_DSMAX (512*7-1)
 /* (BYTE) DRONE CLAY's EUCLID: the straight ones first (on the bar's grid), then the triplets' 12, then the polyrhythms;
  * "--" none (the keys, the recorded loop), FUSE two drawn from the SEED and joined, 1/1 every step */
-static const char *const CLAY_EU[]={"--","FUSE","1/1","1/4","2/4","3/4","1/8","2/8","3/8","5/8","7/8","3/16","5/16","7/16","9/16",
- "5/12","7/12","2/5","3/5","3/7","4/7","2/9","4/9","5/9","4/11","5/13",0};
+static const char CLAY_EUS[] = "--\0" "FUSE\0" "1/1\0" "1/4\0" "2/4\0" "3/4\0" "1/8\0" "2/8\0" "3/8\0" "5/8\0" "7/8\0" "3/16\0" "5/16\0" "7/16\0" "9/16\0" "5/12\0" "7/12\0" "2/5\0" "3/5\0" "3/7\0" "4/7\0" "2/9\0" "4/9\0" "5/9\0" "4/11\0" "5/13";   /* (str_nth; clay.c clay_names its table) */
 static const uint8_t CLAY_EUK[26][2]={{0,0},{0,0},{1,1},{1,4},{2,4},{3,4},{1,8},{2,8},{3,8},{5,8},{7,8},{3,16},{5,16},{7,16},{9,16},
  {5,12},{7,12},{2,5},{3,5},{3,7},{4,7},{2,9},{4,9},{5,9},{4,11},{5,13}};
 #define CLAY_NEU 26u
@@ -48,8 +47,7 @@ static const clay_res_t CLAY_RES[25] = {
     CR(5, 1, 5), CR(10, 1, 10), CR(20, 1, 20), CR(7, 1, 7), CR(14, 1, 14), CR(28, 1, 28)};
 #undef CR
 #define CLAY_NRES 25u
-static const char *const CLAY_RESN[]={"HOLD","1/64","1/32","1/16","1/8","1/4","1/2","1BAR","2BAR","4BAR",
- "1/32D","1/16D","1/8D","1/4D","1/2D","1/32T","1/16T","1/8T","1/4T","1/2T","1/5","1/10","1/20","1/7","1/14","1/28",0};
+static const char CLAY_RESS[] = "HOLD\0" "1/64\0" "1/32\0" "1/16\0" "1/8\0" "1/4\0" "1/2\0" "1BAR\0" "2BAR\0" "4BAR\0" "1/32D\0" "1/16D\0" "1/8D\0" "1/4D\0" "1/2D\0" "1/32T\0" "1/16T\0" "1/8T\0" "1/4T\0" "1/2T\0" "1/5\0" "1/10\0" "1/20\0" "1/7\0" "1/14\0" "1/28";   /* (str_nth; clay.c clay_names its table) */
 /* the step of resolution r at the time e (Q16 beats from the bar's start of PLAY) */
 static uint32_t clay_step(uint32_t e, uint32_t r)
 {

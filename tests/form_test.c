@@ -115,9 +115,9 @@ int main(int argc, char **argv)
             unsigned cnt = 0, last = ~0u;
             for (uint32_t e = 0; e < 4u * 262144u; e += 512u) { uint32_t s1 = clay_step(e, R[i]); cnt += s1 != last; last = s1; }
             ok &= cnt == N[i] && clay_step(0, R[i]) == 0 && clay_step(262144u, R[i]) == (CLAY_RES[R[i]].num > CLAY_RES[R[i]].den ? CLAY_RES[R[i]].spb : R[i] == 6u);
-            if (cnt != N[i]) printf("  %s: %u steps in 4 bars, not %u\n", CLAY_RESN[R[i] + 1], cnt, N[i]);
+            if (cnt != N[i]) printf("  %s: %u steps in 4 bars, not %u\n", str_nth(CLAY_RESS, R[i] + 1), cnt, N[i]);
         }
-        OK(ok && !strcmp(CLAY_RESN[1], "1/64") && !strcmp(CLAY_RESN[9], "4BAR"), "the resolutions: 1/64 .. 4 BAR, dotted, triplets, 1/5 .. on the bar's first step");
+        OK(ok && !strcmp(str_nth(CLAY_RESS, 1), "1/64") && !strcmp(str_nth(CLAY_RESS, 9), "4BAR"), "the resolutions: 1/64 .. 4 BAR, dotted, triplets, 1/5 .. on the bar's first step");
     }
     {   /* each modulator its own RATE, the drone's RATE not theirs */
         unsigned st[2][2];

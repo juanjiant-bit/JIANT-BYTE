@@ -55,7 +55,9 @@ int main(void)
     ui_power_on();
     {   /* MOOD MID: the pieces of the generator before MOOD (c68c3aac), byte for byte; a change to the generator records
          * them again (GEN_MID=1) */
-        static const uint32_t MID[3] = {0x1c150710u, 0x6323ccaau, 0x38b9eff5u};   /* (partstate, the owner: the kits
+        static const uint32_t MID[3] = {0x535e3d7au, 0x4933a57bu, 0xc33b4962u};   /* (fmgen45 recorded again, intended: JIANT
+                                                         * FM V10.8.41 .. 46's JAZZ, rows, envelopes, LFOs, the parts' filter
+                                                         * types; was 0x1c150710 0x6323ccaa 0x38b9eff5) (partstate, the owner: the kits
                                                          * shorter and less driven, WAVE quieter, the DJ FILTER rarer; the
                                                          * bass's LEVEL aside as ever) */
         for (md = 0; md < 3u; md++) {

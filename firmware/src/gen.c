@@ -398,7 +398,7 @@ static uint32_t gvo_mode(void)
 
 /* -------------------------------------------------------------------------------------------------- drums --- */
 /* lane k's level at step p (gen_drum_maps.h GM_LANE: a nibble a step; the text's '.' 0, '1'..'9' 26 a step, 'X' 255) */
-static uint32_t gm_level(uint32_t k, uint32_t p)
+static __attribute__((always_inline)) inline uint32_t gm_level(uint32_t k, uint32_t p)   /* (gen_drums' alone: in the segment with it) */
 {
     uint32_t v = (uint32_t)(GM_LANE[k][(p >> 1) & 7u] >> ((p & 1u) ? 0 : 4)) & 15u;
     return v == 10u ? 255u : v * 26u;
@@ -474,13 +474,8 @@ static __attribute__((noinline)) void gidm_edit(track_t *t, uint32_t len, uint32
                 q = b * 16u + (p & 8u);
                 for (k = 0; k < 4u; k++) { x = t->step[q + k]; t->step[q + k] = t->step[q + 7u - k]; t->step[q + 7u - k] = x; }
                 break;
-            default:                                    /* the kick out for a beat */
-                for (k = q % 16u ? 0u : 1u; k < 4u; k++) {
-                    s = &t->step[q + k];
-                    if (s->time != ST_NOTE || !(s->hit & 1u)) continue;
-                    s->hit &= (uint8_t)~1u; s->acc &= s->hit;
-                    if (!s->hit) gclear(s);
-                }
+            default:                                    /* the kick out for a beat (never the bar's one) */
+                gdrum_clear_region(t, q + !(q % 16u), q + 4u, 1u);
                 break;
             }
         }
@@ -492,6 +487,28 @@ static __attribute__((noinline)) void gidm_edit(track_t *t, uint32_t len, uint32
             gdrum_hit(t, len - 16u + k, 1, 64 + (int32_t)k * 3, 0);
             glane_rat(&t->step[len - 16u + k], 1, 4);
         }
+}
+/* (JIANT FM V10.8.41, the owner: "jazz's drums far more complex and subtle, ghost notes, off-beats") the snare's comping
+ * written: eight one-bar cells (its "and"s mostly), another every bar, every hit the lane's GHOST (the ride over it as it
+ * was); the ride's accent one beat in three, not every 2 and 4; a phrase's end a soft pickup */
+static const uint16_t GJZ_C[9] = {0x0808, 0x2080, 0x0220, 0x8008, 0x0A00, 0x0082, 0x2800, 0x4020, 0};   /* (nine: a table of 16 B
+                                                         * would join the merged constants of 16 and move them) */
+static __attribute__((noinline)) void gjazz(void)   /* (gen_post's; !sec: a section's gen_pitched leaves the drums) */
+{
+    uint32_t dr = gs.trk_of[RL_DRUM], r0, i, len;
+    track_t *t;
+    if (dr >= NTRK || !gs.act[RL_DRUM] || gs.g->drum != DM_JAZZ || gx.on || gs.sec) return;
+    gseed(GS_DRUMS);
+    t = &trk[dr]; len = dlen(t); r0 = gr() >> 9;
+    for (i = 0; i < len; i++) {
+        step_t *s = &t->step[i];
+        uint32_t p = i % 16u, b = i / 16u, fl = len >= 64u && i + 3u >= len && (p & 1u);
+        if (((GJZ_C[(r0 + b * 5u) & 7u] >> p) & 1u) || fl) {
+            gdrum_hit(t, i, 1, 46, 0);
+            if (!fl) step_set_lmode(s, 1, LM_GHOST);
+        }
+        if (s->time == ST_NOTE && ((r0 >> 8) + b + p / 4u) % 3u) s->acc &= (uint8_t)~0x10u;
+    }
 }
 /* (V10.6z10) a throw's groove DNA, the first draws of its drums' stream (gen_new_seed reads them too): the map, its
  * lanes from the pools the genre lets go (gen_tables.c GDNA: before, the club's alone), the snare and the clap swapped;
@@ -571,8 +588,7 @@ BTAPP_FN static void gen_drums(track_t *t, uint32_t len)   /* (V10.7.33: the seg
         for (i = 0; i < len; i++) {
             step_t *s = &t->step[i];
             if (s->time != ST_NOTE || !(s->hit & 0xD0u) || !gch(50)) continue;
-            s->hit &= (uint8_t)~0xD0u; s->acc &= s->hit;
-            if (!s->hit) gclear(s);
+            gdrum_clear_region(t, i, i + 1u, 0xD0u);
         }
     }
     for (i = 0; i < len; i++)                           /* (V10.6z10) the throw's extra kicks (gdna), soft, every bar */
@@ -1646,7 +1662,8 @@ static __attribute__((noinline)) void gen_sound(track_t *t, uint32_t role, uint3
     {   /* (gen3) the envelope by the role, whatever the archetype (gen_tables.c ENV_RULE): a lead never at full sustain, a
          * pluck or a stab short, a held pad slow in and out */
         const uint8_t *er = ENV_RULE[role == RL_LEAD ? ((r->sus & 15u) < 7u) : role == RL_ARP ? 1 : role == RL_BASS ? 4 : role != RL_PAD ? 5 :
-                                     GSTAB(gs.g->pads) ? 2 : (0x103u >> gs.g->pads) & 1u ? 3 : 5];   /* (held: HOLD SWELL DRONE) */
+                                     GSTAB(gs.g->pads) ? 2 : ((0x103u >> gs.g->pads) & 1u) || gs.g->wet >= 70u ? 3 : 5];   /* (held: HOLD SWELL
+                                                         * DRONE; JIANT FM V10.8.46: a wet genre's other chords too) */
         for (i = 0; i < 4u; i++)
             t->p[P_ATK + i] = (int16_t)clamp(t->p[P_ATK + i], (er[i] >> 4) * 8, (er[i] & 15u) * 8 + 7);
     }
@@ -1659,7 +1676,8 @@ static __attribute__((noinline)) void gen_sound(track_t *t, uint32_t role, uint3
         t->p[P_FCUT] = (int16_t)clamp(cut, 0, 127); t->p[P_FRES] = (int16_t)res;
         t->p[P_ED_FLT] = grg(r->envf, 4);
         if (role != RL_PAD && role != RL_TEX && t->p[P_ED_FLT] < 6)   /* (gen3: the filter's envelope on a bass, a lead, an arp) */
-            t->p[P_ED_FLT] = (int16_t)(6 + (gs.complex >> 4));
+            t->p[P_ED_FLT] = (int16_t)(12 + (gs.complex >> 3));   /* (JIANT FM V10.8.45: more of it, was 6 .. 12) */
+        else if (role == RL_PAD && t->p[P_ED_FLT] < 4) t->p[P_ED_FLT] = 6;   /* (V10.8.46: a chord's filter opens with its envelope) */
     }
     if (r->lfo) {                                       /* the LFO on the filter: a slow drift, or on the beat */
         uint32_t lr = r->lfo & 15u;
@@ -1794,7 +1812,11 @@ static __attribute__((noinline)) void gen_kit(track_t *t)
     t->p[P_LN3] = (int16_t)(gs.g->hats == HC_MACHINE ? 112 : 118);   /* (the hats a little under) */
     t->p[P_LN4] = 118;
     t->p[P_LN6] = t->p[P_LN7] = 110;
-    if (gs.g->drum == DM_JAZZ) t->p[P_LN0] = 72;        /* (V10.6w) JAZZ's kick feathered, under the ride */
+    if (gs.g->drum == DM_JAZZ) { t->p[P_LN0] = 72; t->p[P_LN3] = 38; t->p[P_LN4] = 39; }   /* (V10.6w) JAZZ's kick feathered, under
+                                                         * the ride; (JIANT FM V10.8.41, the owner: "jazz's hats still far
+                                                         * too loud": FM's 70 / 76; BYTE, the owner: still too loud, under 50)
+                                                         * the foot 38, the ride 39 (~20 dB under 118 by the square law; MOOD
+                                                         * DANCE's lift, m / 5, leaves them under 50) */
     if (gclub()) {                                      /* (gen5) the kick in front: the rest of the kit under it */
         t->p[P_LN0] = 127;
         t->p[P_LN1] = 104;
@@ -1898,6 +1920,40 @@ static __attribute__((noinline)) void gmix_more(track_t *t, uint32_t r)
     if (t->p[P_REL] < (CA[r][1] * m >> 6)) t->p[P_REL] = (int16_t)(CA[r][1] * m >> 6);
     t->p[P_ED_FLT] = (int16_t)(t->p[P_ED_FLT] * (64 - m) >> 6);
 }
+/* (JIANT FM V10.8.46, the owner: "every part its timbre, and modulations, parameters that evolve, a story in the sound:
+ * it is not only placing notes") a melodic part never still, a LOOP's too: its LFO where no vibrato has it, slow and free
+ * of the notes (PHASE FREE: 5 .. 20 s, a part its own period, no bar's), on the filter where nothing moved it and on the
+ * shape with it (the bass: its filter alone); the part across the stereo over four bars or two (the bass in the middle);
+ * a lead's and an arp's note its envelope on the shape too. gen_mix's last */
+static const uint8_t GFT[2][6] = {{FT_BP, 62, 78, 24, 56, 3}, {FT_HP, 30, 42, 0, 20, 0}};   /* (type, cut, res, level down) */
+static __attribute__((noinline)) void gen_evolve(track_t *t, uint32_t r)
+{
+    uint32_t k = (uint32_t)(t - trk), j, lp = 0, w;
+    int16_t *p = t->p;
+    if (r == RL_DRUM || r >= RL_N) return;
+    if (!p[P_LD_PIT] && !p[P_LD_FLT] && !p[P_LD_AMP]) {
+        p[P_LWAVE] = (int16_t)(k & 1u ? LW_DRIFT : LW_SIN); p[P_LRATE] = (int16_t)(1u + 4u * r + (gs.root & 3u));
+        p[P_LPHASE] = -1; p[P_LFADE] = 0;
+        p[P_LD_FLT] = (int16_t)(r == RL_BASS ? 5 : 9);
+    }
+    if (r == RL_BASS) return;                           /* (the bass: its filter alone, its weight and its own TYPE kept) */
+    if (!p[P_LD_PIT] && !p[P_LD_SHP]) p[P_LD_SHP] = 12;
+    if (!p[P_APDEP]) { p[P_APDEP] = (int16_t)(12u + 4u * r); p[P_APSYNC] = 1; p[P_APRATE] = (int16_t)(k & 1u); }
+    if (!p[P_ED_SHP] && r - RL_LEAD < 2u) p[P_ED_SHP] = (int16_t)(2u * r + 4u);
+    if (p[P_FTYPE] >= FT_COMB && p[P_FTYPE] < FT_LP24H) return;   /* (fmgen45, the owner: "the chords all filtered the
+                                                         * same, the low end muddy") a melodic part its own filter TYPE, a
+                                                         * piece's and a part's: BP in the mids (~0.6 .. 1.3 kHz, some
+                                                         * resonance) the most, then HP under ~130 .. 300 Hz (the bass's lows
+                                                         * left to it), LP only where no part before it is one; a BP part a
+                                                         * little lower; COMB's as the sound has it */
+    for (j = 0; j < k; j++)
+        lp |= gs.role[j] - 2u < 4u && gs.act[gs.role[j]] && (trk[j].p[P_FTYPE] == FT_LP || trk[j].p[P_FTYPE] >= FT_LP24H);
+    w = gr() % (lp ? 85u : 100u);
+    if (w < 85u) {
+        const uint8_t *q = GFT[w >= 50u];
+        p[P_FTYPE] = q[0]; p[P_FCUT] = (int16_t)grr(q[1], q[2]); p[P_FRES] = (int16_t)grr(q[3], q[4]); p[P_LEVEL] -= q[5];
+    } else if (p[P_FTYPE] < FT_LP24H) p[P_FTYPE] = FT_LP;
+}
 /* the mix and the humanity of a role */
 static __attribute__((noinline)) void gen_mix(track_t *t, uint32_t r)
 {
@@ -1960,6 +2016,7 @@ static __attribute__((noinline)) void gen_mix(track_t *t, uint32_t r)
         if (t->p[P_CHOR] < 24) t->p[P_CHOR] = 24;
     }
     gmix_more(t, r);
+    gen_evolve(t, r);                                   /* (JIANT FM V10.8.46) */
 }
 
 /* ---------------------------------------------------------------------------------------- the form: parts --- */
@@ -2023,6 +2080,7 @@ static void gfugue(void)
         if (k >= NTRK || !gs.act[gs.role[k]]) continue;
         t = &trk[k];
         if (t->p[P_FCUT] < 104) t->p[P_FCUT] = 104;
+        t->p[P_FTYPE] = FT_LP;                          /* (fmgen45: open, gen_evolve's BP / HP not at 5 kHz) */
         if (t->p[P_SUS] < 56) t->p[P_SUS] = 56;
     }
 }
@@ -2196,6 +2254,24 @@ static uint32_t grow(uint32_t r, uint32_t s, uint32_t bars, uint32_t m, uint32_t
     sc->on = (uint8_t)(1u | ((m >> 3) & 6u));
     sc->mute = (uint8_t)((m & 15u) | gm << 4);
     memcpy(sc->mac, macro_v, sizeof sc->mac);
+    if (!gls.on) {                                      /* (JIANT FM V10.8.45, the owner: "loops that do not evolve and come
+                                                         * back the same; every part its timbre") a row its own colour: the
+                                                         * macros a row's own values (the first as the piece stands); a
+                                                         * section come again (its fill row too): the drums', the lead's and
+                                                         * the arp's lines ARRANGE's VAR 1 / 2, where they are free */
+        static uint32_t seen;                           /* (a byte a section: the times it came) */
+        uint32_t i, n, k;
+        if (!r) seen = 0;
+        n = (seen >> (8u * (s & 3u))) & 255u;
+        seen += 1u << (8u * (s & 3u));
+        for (i = 0; i < 4u && r; i++) {                 /* (V10.8.46: an arc, a row a step of a dozen from the one before:
+                                                         * M1 opens, closes and ends a little open, the others their own turns) */
+            uint32_t q = (r + 2u * i) & 7u;
+            sc->mac[i] = (uint8_t)((q < 4u ? q : 8u - q) * (10u - 2u * i) + (i ? 0u : 2u * r));
+        }
+        for (i = 0; n && i < 3u; i++)                   /* (the drums, the lead, the arp: RL_DRUM, RL_LEAD, RL_ARP) */
+            if ((k = gs.trk_of[i ? i + 2u : 0u]) < NTRK && !((var >> (4u * k)) & 15u)) var |= (RV_MUT1 + ((n - 1u) & 1u)) << (4u * k);
+    }
     song_idx.tsrc[song_cur][r] = src;
     song_idx.tvar[song_cur][r] = var;
     return r + 1u;
@@ -2322,12 +2398,18 @@ static __attribute__((noinline)) uint32_t gsong(uint8_t *pb, uint32_t plan, uint
 }
 /* (the owner: "CALM's pieces too long, each part drags": its tempo low, its sections in bars) MOOD CALM a row's bars
  * down to 41 % at -50 (71 % at -25), two at least, even (a build's four kept over -25: its roll; under it the kit is a
- * hat); MID and DANCE as they were */
+ * hat). (JIANT FM V10.8.45, the owner: "a section lasts more than twice what it should") every row half its bars, four
+ * at least (CALM's its own where shorter), and none over ~24 s (a slow tempo's shorter); MY LOOP's as they were */
 static __attribute__((noinline)) uint32_t gmood_bars(uint32_t b, uint32_t t)
 {
-    if (grd.mood >= 0 || (t == GT_BUILD && grd.mood > -25)) return b;
-    b = ((b * (uint32_t)(128 + grd.mood + grd.mood / 2) >> 7) + 1u) & ~1u;
-    return b < 2u ? 2u : b;
+    uint32_t h = b;
+    if (!gls.on) h = b < 8u ? 4u : b / 2u;
+    if (grd.mood < 0 && (t != GT_BUILD || grd.mood <= -25)) {
+        b = ((b * (uint32_t)(128 + grd.mood + grd.mood / 2) >> 7) + 1u) & ~1u;
+        if (b < h) h = b < 2u ? 2u : b;
+    }
+    while (!gls.on && h > 4u && h * 10u > (uint32_t)song.g[G_BPM]) h = (h / 2u + 1u) & ~1u;
+    return h;
 }
 BTAPP_FN static void gen_parts(void)   /* (BYTE 0.17: the segment's, as gen_make: its only caller) */
 {
@@ -2764,6 +2846,7 @@ BTAPP_FN static void gx_heads(void)   /* (BYTE 0.17: gen_make's, in the segment 
 static void gen_post(void)
 {
     uint32_t dr = gs.trk_of[RL_DRUM], bs = gs.trk_of[RL_BASS], i, k;
+    gjazz();                                            /* (JIANT FM V10.8.41) */
     if (dr < NTRK && bs < NTRK && gs.act[RL_DRUM] && gs.act[RL_BASS] && gs.g->kick_mode == KM_SUSTAIN) {
         track_t *b = &trk[bs];                          /* the bass under the kick: softer there */
         for (i = 0; i < dlen(b); i++)

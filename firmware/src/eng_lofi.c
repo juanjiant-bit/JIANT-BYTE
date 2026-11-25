@@ -16,7 +16,11 @@ enum { RW_BYTE = 5, RW_FLOAT = 6, RW_USER = 7, RW_FUNC = 8 };
  * a (VAR: 1 .. 16); t runs with the note played (C4: ~8 kHz, the classic rate; an octave up twice as fast), restarts
  * at each note-on; the hold (4B/2), the bits (CHIP), TONE and the rest as for the other waves. Our own picks and
  * variations; each a few operations a sample */
-static const char *const N_BYTE[] = {"B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B09", "B10", "B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18", "B19", "B20", "B21", "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29", "B30", "B31", "B32", "B33", "B34", "B35", "B36", "B37", "B38", "B39", "B40", "B41", "B42", "B43", "B44", "B45", "B46", "B47", "B48", 0};   /* (p6: 48) */
+/* (fmgen45, room) BYTE's 48 names "B01" .. "B48" and FLOAT's "F01" .. "F48" written in the pool (zeroed at boot) the
+ * first time a desc is asked for (lofi_desc: every way to LOFI_ALGO / LOFI_FALGO), not 776 B of flash */
+static const char *lofi_nt[98] __attribute__((section(".pool")));
+#define N_BYTE lofi_nt
+#define N_FLOAT (lofi_nt + 49)
 /* (JIANT 0.5) BYTE's own: RES the filter's resonance (VIB's slot), LOOP (MASK's slot) t held in a window of 2^17 ..
  * 2^5 steps: the formula's long evolution (0: free) folded into a short cycle repeating at the note: a pitched tone */
 /* (JIANT 0.5) E4 (CUT) left: the filter is the FILTER page's (TYPE, CUT, RES: P_FTYPE P_FCUT P_FRES), on every engine */
@@ -87,8 +91,18 @@ static __attribute__((noinline)) uint32_t lofi_byte(uint32_t f, uint32_t t, uint
  * The same t as BYTE's: MOTN runs its slow bits at their own speed, VAR mutates it (lofi_mut), BEND folds it, LOOP
  * holds it in a window; FBK (E5, 0.6.4) feeds the output back into t, from a shimmer to chaos; CHIP the bits, RES the
  * filter's */
-static const char *const N_FLOAT[] = {"F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08", "F09", "F10", "F11", "F12", "F13", "F14", "F15", "F16", "F17", "F18", "F19", "F20", "F21", "F22", "F23", "F24", "F25", "F26", "F27", "F28", "F29", "F30", "F31", "F32", "F33", "F34", "F35", "F36", "F37", "F38", "F39", "F40", "F41", "F42", "F43", "F44", "F45", "F46", "F47", "F48", 0};   /* (p6: 48) */
-static const param_desc_t LOFI_ALGO = {"ALGO", F_INT, 0, 191, 64, N_BYTE};    /* (p6: 48; the knob's: edit[2] keeps
+static char lofi_nm[96][4] __attribute__((section(".lowbuf")));   /* (the low RAM, zeroed at boot too) */
+static __attribute__((noinline)) void lofi_names(void)
+{
+    uint32_t i, n;
+    for (i = 0; i < 96u; i++) {
+        char *c = lofi_nm[i];
+        n = i % 48u + 1u;
+        c[0] = i < 48u ? 'B' : 'F'; c[1] = (char)('0' + n / 10u); c[2] = (char)('0' + n % 10u);
+        lofi_nt[i + i / 48u] = c;
+    }
+}
+static const param_desc_t LOFI_ALGO = {"ALGO", F_INT, 0, 191, 64, (const char *const *)N_BYTE};    /* (p6: 48; the knob's: edit[2] keeps
                                                          * 0..127, FUN7's byte) */
 /* (JIANT BYTE) MOTION: the formula's slow time (its rhythm, its phrase) as a note value of the song's tempo: LIBRE the
  * slow time at its own pace (MATH's MOTN 0, as before), then 1/32 .. 4 bars, straight, dotted (.) and triplets (T).
@@ -101,7 +115,7 @@ static const param_desc_t LOFI_SEED = {"SEED", F_INT, 0, 191, 64, 0};
 static const param_desc_t LOFI_MUTA = {"MUTA", F_INT, 0, 127, 0, 0};
 /* (JIANT BYTE) USER's CHIP: up to FULL (a bytebeat's 16 bits between its steps; a floatbeat as it is) */
 static const param_desc_t LOFI_UCHIP = {"CHIP", F_ENUM, 0, 4, 4, N_CHIP};   /* (phase 9) USER: VAR 1..63 mutates, 64.. crosses */   /* (JIANT BYTE) USER: ALGO the generator's seed */   /* (p6: 128 .. 255 SYNC; V10.6d: 0) */
-static const param_desc_t LOFI_FALGO = {"ALGO", F_INT, 0, 191, 64, N_FLOAT};   /* = edit[2] (FLOAT) */
+static const param_desc_t LOFI_FALGO = {"ALGO", F_INT, 0, 191, 64, (const char *const *)N_FLOAT};   /* = edit[2] (FLOAT) */
 /* .. its CHIP the resolution: 4 bits, 4 bits held over two samples, FULL (smooth, the default), 1 bit, STEP (4 bits and
  * the stepped envelope) */
 static const char *const N_FCHIP[] = {"4BIT", "4B/2", "FULL", "1BIT"};
@@ -1010,6 +1024,8 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
     if(t->p[P_E1]==RW_FUNC)                             /* (a MATH part's, until it is FUNC's: as FUNC's) */
         return func_desc(t,k);
+    if (!N_FLOAT[0])                                    /* (fmgen45) the names written once */
+        lofi_names();
     if (k == 4u)                                        /* (the knobs' ranges past edit[]'s, as before) */
         return &LOFI_MOTN;
     if (t->p[P_E1] == RW_USER)                          /* (JIANT BYTE) the part's own formula: ALGO its seed */

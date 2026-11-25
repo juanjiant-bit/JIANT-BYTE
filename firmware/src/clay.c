@@ -253,6 +253,21 @@ static const char *const CL_RUNN[] = {"SONG", "FREE", 0};
 static const char *const CL_KEYN[] = {"ON", "OFF", 0};
 static const char *const CL_MODN[] = {"1", "2", "3", "4", 0};
 #define CL_NN N_NOTE                                   /* (eumel, flash: params.c's) */
+/* (fmgen45, room) the SHAPE, EUCLID and RATE names' tables, in the low RAM (zeroed at boot), written the first time a
+ * knob is asked for: FORM_SHAPE's texts the HITS first (CLAY_SHN, as it was), CLAY_EUS's, CLAY_RESS's */
+static const char *CLAY_SHN[FORM_NSH + 1u] __attribute__((section(".lowbuf"))), *CLAY_EU[CLAY_NEU + 1u] __attribute__((section(".lowbuf")));
+static const char *CLAY_RESN[CLAY_NRES + 2u] __attribute__((section(".lowbuf")));
+static __attribute__((noinline)) void clay_tab(const char **tab, const char *s, uint32_t n, uint32_t sw)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++) tab[sw && i < 24u ? (i + 12u) % 24u : i] = s, s += str_len(s) + 1u;
+}
+static __attribute__((noinline)) void clay_names(void)
+{
+    clay_tab(CLAY_SHN, FORM_SHAPE, FORM_NSH, 1);
+    clay_tab(CLAY_EU, CLAY_EUS, CLAY_NEU, 0);
+    clay_tab(CLAY_RESN, CLAY_RESS, CLAY_NRES + 1u, 0);
+}
 static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **valp)
 {
     static const char *nm[CLAY_ND + 1] __attribute__((section(".eu_keep"))), *on[5] __attribute__((section(".lowbuf")));   /* (DEST's: the sound's knobs by name) */
@@ -262,6 +277,7 @@ static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **val
                                               "REVERB", "LFO RATE", "VIBRATO", 0, 0, 0, 0, 0, 0, 0, 0, "VOICE CUT", "LEVEL", "LIFE"};
     static const char *const EN[8] = {"E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8"};
     uint32_t tr = (uint32_t)(t - trk) % NTRK, i;
+    if (!CLAY_RESN[0]) clay_names();
     d.def = 0; d.names = 0; d.fmt = F_ENUM; d.min = 0;
     if (f == CL_SEL) {                                   /* (the owner: one MOD, scrolled, as the sequences are) */
         *valp = &clay_km[tr];
@@ -288,7 +304,7 @@ static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **val
         }
         on[4] = 0;
         d.label = "DRONE"; d.max = 3; d.def = 1; d.names = on;
-    } else if (f == CL_RATE) { d.label = "RATE"; d.max = CLAY_NRES; d.names = CLAY_RESN; }
+    } else if (f == CL_RATE) { d.label = "RATE"; d.max = CLAY_NRES; d.names = (const char *const *)CLAY_RESN; }
     else if (f == CL_RUN) { d.label = "RUN"; d.max = 1; d.names = CL_RUNN; }
     else if (f == CL_PIT) { d.label = "PITCH"; d.fmt = F_SEMI; d.min = -24; d.max = 36; }   /* (FORM's FREQ: -24 .. +36) */
     else if (f == CL_SEED) { d.label = "SEED"; d.fmt = F_INT; d.max = 127; }
@@ -303,11 +319,11 @@ static const param_desc_t *clay_desc(const track_t *t, uint32_t f, int16_t **val
             nm[CLAY_ND] = 0;
             d.label = "DEST"; d.max = CLAY_ND - 1; d.names = nm;
         } else if (k == 1u) {                            /* SHAPE: the HITS first (the owner) */
-            d.label = "SHAPE"; d.max = FORM_NSH - 1; d.names = CLAY_SHN;
-        } else if (k == 2u) { d.label = "EUCLID"; d.max = CLAY_NEU - 1; d.names = CLAY_EU; }
+            d.label = "SHAPE"; d.max = FORM_NSH - 1; d.names = (const char *const *)CLAY_SHN;
+        } else if (k == 2u) { d.label = "EUCLID"; d.max = CLAY_NEU - 1; d.names = (const char *const *)CLAY_EU; }
         else if (k == 3u) { d.label = "AMOUNT"; d.fmt = F_PCT; d.max = 127; d.def = 100; }
         else if (k == 4u) { d.label = "DECAY"; d.fmt = F_PCT; d.max = 127; }
-        else { d.label = "RATE"; d.max = CLAY_NRES - 1; d.def = 2; d.names = CLAY_RESN + 1; }   /* (its own, as FORM's MOD RATE) */
+        else { d.label = "RATE"; d.max = CLAY_NRES - 1; d.def = 2; d.names = (const char *const *)CLAY_RESN + 1; }   /* (its own, as FORM's MOD RATE) */
     }
     return &d;
 }
