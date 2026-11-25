@@ -142,7 +142,7 @@ footer small { font-size: 11px; opacity: .8; }
 
 <p class="kofi" style="border-left:3px solid #ec6e50;padding:4px 0 4px 12px">If you resonate with my work, consider supporting me on <a href="https://ko-fi.com/juanjiant" target="_blank" rel="noopener" style="color:inherit;font-weight:600">Ko-fi</a> (in Argentina: <a href="https://cafecito.app/juanjiant" target="_blank" rel="noopener" style="color:inherit;font-weight:600">Cafecito</a>). Thanks for all the good energy, hope you enjoy this little beast 🫶✨🎹</p>
 <footer>
-  <small class="version">BYTE v0.16 · <a href="build.json">6686837</a></small><br>
+  <small class="version">BYTE v0.16 · <a href="build.json">1ef86b9</a></small><br>
   JIANT /B1T3 by Juan Jiant (a fork of JIANT FM) · <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0</a> · browser build after charlesvestal's <a href="https://github.com/charlesvestal/fm1-x0x">X0X</a> · DotGothic16 font, <a href="fonts/OFL.txt">SIL OFL 1.1</a><br>
   <nav><a href="../">JIANT /B1T3 home</a> · <a href="https://github.com/juanjiant-bit/JIANT-BYTE">Source</a> · <a href="../webapp/installer/">Install this version</a> ·
     <a href="../webapp/editor/">Editor</a></nav>
@@ -527,6 +527,7 @@ async function midiOn() {
 /* (studio) JIANT Studio's editor talks to this emulator as to an FM-1 (web/emu/editor-api.h): a frame in (sysex), the
  * replies and the live pushes out to each listener; on() says whether the emulator runs */
 const sysexListeners = new Set(), tapListeners = new Set();
+const genWait = new Map(); let genId = 0;
 window.jiantEmu = {
   on: () => !!node,
   midiInputs: () => midiAccess ? [...midiAccess.inputs.values()].filter((p) => p.state !== "disconnected").map((p) => ({ id: p.id, name: p.name || p.id })) : [],
@@ -543,7 +544,16 @@ window.jiantEmu = {
     tapListeners.add(f);
     if (tapListeners.size === 1) node.port.postMessage({ type: "tap", on: true });
     return () => { tapListeners.delete(f); if (!tapListeners.size && node) node.port.postMessage({ type: "tap", on: false }); };
-  },
+  },  /* (studio) the RADIO page: gen(cmd, arg, genres) -> a promise of { info: { radio, genre (-1 EXPLORE, -2 RANDOM),
+     seed, mood, energy, form (0 LOOP 1 PARTS 2 SONG 3 MY LOOP), n (the piece's number), playing }, genres: [names] when
+     asked }. cmd (felucca_web.c web_gen_cmd): 0 RADIO arg, 1 the next piece, 2 GENRE arg, 3 MOOD arg, 4 PLAY 1 / STOP 0;
+     null: the state alone */
+  gen: (cmd, arg, genres) => new Promise((res, rej) => {
+    if (!node) { rej(new Error("emulator off")); return; }
+    const id = ++genId;
+    genWait.set(id, { res, rej });
+    node.port.postMessage({ type: "gen", id, cmd: typeof cmd === "number" ? cmd : null, arg: arg | 0, genres: !!genres });
+  }),
 };
 
 // ------------------------------------------------------------------ switching on
@@ -581,6 +591,10 @@ async function switchOn() {
         }
         else if (m.type === "sysex") sysexListeners.forEach((f) => m.msgs.forEach(f));
         else if (m.type === "tap-chunk") tapListeners.forEach((f) => f(m));
+        else if (m.type === "gen") {
+          const w = genWait.get(m.id);
+          if (w) { genWait.delete(m.id); if (m.error) w.rej(new Error(m.error)); else w.res({ info: m.info, genres: m.genres }); }
+        }
         else if (m.type === "frame") {
           if (m.sysex) sysexListeners.forEach((f) => m.sysex.forEach(f));
           if (m.fb) drawScreen(m.fb);
