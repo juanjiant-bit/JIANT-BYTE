@@ -716,7 +716,7 @@ static void page_entered(void);
 static void page_flash(void);
 #define FX_NMOD 5u
 static const char *const FX_MOD[FX_NMOD] = {"DELAY", "REVERB", "CHORUS", "SLICER", "MASTER"};   /* (snd2: MASTER */
-static const char *const FX_MHEAD[FX_NMOD] = {"DELAY", "REVERB", "CHORUS", "SLICER", "MASTER"};   /* last) its first page */
+#define FX_MHEAD FX_MOD   /* (the same names: one table) */   /* last) its first page */
 static const uint8_t FX_MN[FX_NMOD] = {3, 2, 1, 4, 3};   /* its pages, one after another in PAGES (snd8: MASTER, TAPE; p9 EQ) */
 static int page_visible(uint32_t i);
 static int fx_on(void) { return !ui.home && !page_over && PAGES[ui.page].fam == FAM_FX; }
@@ -952,10 +952,8 @@ static void rate_name(const track_t *t, uint32_t n, char *b)
 /* (0.9.9-seq2d) SEQ > COMP / COMP 2: the step's C1 / C2 as ACTION LENGTH CONDITION VALUE (core.h CA_* CC_*) */
 /* (gen3) the names short, each read whole on its card: the value's M where it fits with its unit (COMP's 49 px), else S
  * (ui_test test_comp_cards: every value of every knob, every page) */
-static const char *const CA_NAMES[CA_N + 1u] = {"OFF", "ARP", "SEQ", "OCT+", "OCT-", "RATCHET", "STUTTER", "MUTE", "TRANS",
-                                                "RANDOM", "LOCK", "RAMP", "SOUND", "BEND", "SHIFT", "CHORD", "TRIG"};
-static const char *const CC_NAMES[CC_NM] = {"ALWAYS", "25%", "50%", "75%", "1ST", "!1ST", "FILL", "!FILL", "PRE",
-                                            "!PRE", "NEI", "!NEI", "ELSE"};
+static const char CA_NAMES[] = "OFF\0ARP\0SEQ\0OCT+\0OCT-\0RATCHET\0STUTTER\0MUTE\0TRANS\0RANDOM\0LOCK\0RAMP\0SOUND\0BEND\0SHIFT\0CHORD\0TRIG";   /* (str_nth: a text each, no pointer each) */
+static const char CC_NAMES[] = "ALWAYS\0""25%\0""50%\0""75%\0""1ST\0!1ST\0FILL\0!FILL\0PRE\0!PRE\0NEI\0!NEI\0ELSE";   /* (str_nth: a text each, no pointer each) */
 #define CCL_NM 135u                                     /* N:M, M 2..16, N 1..M */
 #define CCL_N (CC_NM + 2u * CCL_NM)                     /* KNOB 3's list: the thirteen, the N:Ms, the !N:Ms */
 /* the COMP pages one after another: COMP (the step's C1), COMP 2 (its C2): which this is (0..1) */
@@ -994,7 +992,7 @@ static void cond_at(uint32_t i, uint32_t *c, uint32_t *nm)
 static void cond_name(uint32_t c, uint32_t nm, char *b)
 {
     uint32_t k = 0;
-    if (c < CC_NM) { str_cpy(b, CC_NAMES[c], 8); return; }
+    if (c < CC_NM) { str_cpy(b, str_nth(CC_NAMES, c), 8); return; }
     if (c == CC_NNM) b[k++] = '!';
     fmt_int(b + k, (int32_t)CNM_N(nm));
     k = str_len(b); b[k++] = ':';
@@ -1196,7 +1194,7 @@ static void grid_hit(track_t *t, uint32_t i, uint32_t l, uint32_t on)
     }
 }
 /* (0.8.5) the grid's HIT of lane l at step i as one list: --, ON, then its modes x2 x4 x8 SHORT GHOST FLAM (0..7) */
-static const char *const GRID_HIT[LM_N + 1] = {"--", "ON", "x2", "x4", "x8", "SHORT", "GHOST", "FLAM"};
+static const char GRID_HIT[] = "--\0ON\0x2\0x4\0x8\0SHORT\0GHOST\0FLAM";   /* (str_nth: a text each, no pointer each) */
 static uint32_t grid_hit_of(const step_t *s, uint32_t l)
 {
     return (step_lanes_of(TSEL,s) >> (l % NLANE)) & 1u ? 1u + step_lmode(s, l) : 0u;

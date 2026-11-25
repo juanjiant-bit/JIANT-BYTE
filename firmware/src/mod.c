@@ -102,10 +102,9 @@ static const char *const MAC_FORMS[] = {
     "fix(int(p*2)*5%8)/7",                           /* SEQ: a line of eighths */
     "(sin(p/2)>0?1.:0.)*(1-(p-floor(p)))",           /* GATE: decays, a beat on, a beat off */
 };
-static const char *const N_MACF[] = {"TRI", "SIN", "RAMP", "DECAY", "RISE", "SQR", "STEP", "S&H", "S&HBR", "DRIFT", "BITS",
-                                     "FAST", "SEQ", "GATE"};
+static const char N_MACF[] = "TRI\0SIN\0RAMP\0DECAY\0RISE\0SQR\0STEP\0S&H\0S&HBR\0DRIFT\0BITS\0FAST\0SEQ\0GATE";   /* (str_nth: a text each, no pointer each) */
 #define MAC_NF (sizeof MAC_FORMS / sizeof MAC_FORMS[0])
-_Static_assert(MAC_NF == sizeof N_MACF / sizeof N_MACF[0], "a name a macro formula");
+/* (a name a macro formula: tests/macro_eq_test.c) */
 static uint8_t macro_f[4];                           /* 0, or 1 + the formula of MAC_FORMS */
 static uint8_t macro_e[4];                           /* the macro the matrix reads, 0..127 */
 static fvm_prog_t mac_prg[4];
@@ -130,7 +129,7 @@ static void macro_card(uint32_t c, char *val, uint32_t cap, const char **unit, i
     c &= 3u;
     if (macro_f[c] && macro_f[c] <= MAC_NF) {
         val[0] = 'E', val[1] = 'Q', val[2] = ':';
-        str_cpy(val + 3, N_MACF[macro_f[c] - 1u], cap - 3u);
+        str_cpy(val + 3, str_nth(N_MACF, macro_f[c] - 1u), cap - 3u);
         *unit = "";
         *ratio = macro_e[c] * 1000 / 127;
         return;

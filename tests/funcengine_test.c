@@ -396,7 +396,7 @@ static void funcplay_checks(int argc, char **argv)
         assert(nav_put(SEC_EDIT, "GROOVE") && !strcmp(nav_page_name(), "GROOVE")); frame();
         assert(nav_put(SEC_EDIT, "LAYERS") && !strcmp(nav_page_name(), "LAYERS")); frame();
         for (k = 0; k < 4u; k++) { int16_t *vp; const param_desc_t *dd = page_desc(cur_page(), k & 3u, &vp); (void)dd; }
-        for (k = 0; k < NELEM(FUNC_PX); k++) assert(strlen(FUNC_PX[k].label) + 2u + strlen(FUNC_PXT[k]) <= 26u && func_knob_tip(&FUNC_PX[k]));
+        for (k = 0; k < NELEM(FUNC_PX); k++) assert(strlen(FUNC_PX[k].label) + 2u + strlen(str_nth(FUNC_PXT, k)) <= 26u && func_knob_tip(&FUNC_PX[k]));
         for (k = 0; k < 5u; k++) assert(track_desc(TSEL, FUNC_PID[k]) == &FUNC_PX[k]);
         for (k = MD_FX1; k < MD_N; k++) assert(mod_dst_ok(TSEL, k) && mod_param(k) == FUNC_XDST[k - MD_FX1]);
         select_engine(ENGI_LOFI); frame();

@@ -99,13 +99,17 @@ def main():
                 "FIX. */\n")
         f.write("#ifndef FVM_BANK_C\n#define FVM_BANK_C\n")
         f.write(f"#define FVM_NBYTE {len(byte)}u\n#define FVM_NFLOAT {len(FLOAT)}u\n")
-        f.write("static const char *const FVM_BYTE_BANK[FVM_NBYTE] = {\n")
-        for i, s in enumerate(byte):
-            f.write(f"    /* B{i + 1:02d} */ {cstr(s)},\n")
-        f.write("};\nstatic const char *const FVM_FLOAT_BANK[FVM_NFLOAT] = {\n")
-        for i, s in enumerate(FLOAT):
-            f.write(f"    /* F{i + 1:02d} */ {cstr(s)},\n")
-        f.write("};\n#endif\n")
+        # (partstate) one text, each formula ended by its 0: no pointer each (384 B of the image); fvm_bank(flt, i) finds one
+        f.write("static const char FVM_BANK_TXT[] =\n")
+        allf = [("B", s) for s in byte] + [("F", s) for s in FLOAT]
+        for i, (k, s) in enumerate(allf):
+            n = i + 1 if k == "B" else i + 1 - len(byte)
+            f.write(f"    /* {k}{n:02d} */ {cstr(s)[:-1]}{'\\0' if i + 1 < len(allf) else ''}\"{';' if i + 1 == len(allf) else ''}\n")
+        f.write("/* the BYTE (flt 0) or FLOAT (flt 1) bank's formula i */\n"
+                "static const char *fvm_bank(uint32_t flt, uint32_t i)\n{\n"
+                "    const char *s = FVM_BANK_TXT;\n"
+                "    for (i += flt ? FVM_NBYTE : 0u; i; i--)\n        while (*s++) {}\n    return s;\n}\n")
+        f.write("#endif\n")
     print(f"fvm bank: {len(byte)} BYTE, {len(FLOAT)} FLOAT -> {OUT}")
 
 if __name__ == "__main__":

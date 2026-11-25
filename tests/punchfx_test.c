@@ -322,7 +322,7 @@ int main(int argc, char **argv)
             pq_psq = -1;
             m = pq_measure(y, base);
             if (pq_class(&m) != 'Y' || m.rest > (PQE[R[r].e].eng == ENGI_DRUM ? PQ_REST_DRUM : PQ_REST)) {
-                printf("punchfx: PUNCH SEQ %s on %s: spec %.3f fine %.3f rest %.3f    FAIL\n", PSQ_NM[R[r].fx], PQE[R[r].e].name, m.spec, m.fine, m.rest);
+                printf("punchfx: PUNCH SEQ %s on %s: spec %.3f fine %.3f rest %.3f    FAIL\n", str_nth(PSQ_NM, R[r].fx), PQE[R[r].e].name, m.spec, m.fine, m.rest);
                 rb++;
             }
         }

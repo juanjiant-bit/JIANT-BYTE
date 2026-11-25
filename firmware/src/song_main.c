@@ -140,6 +140,37 @@ static void row_vary(step_t *st, uint32_t len, int kit, uint32_t v, uint32_t see
     }
 }
 
+/* (STATE OVER) the values the parts' last start handed back (song_play.c sec_apply: the stage's ret) into their parts:
+ * the tracks' parameters (not MUTE; a track whose engine the part has no more: none), the kit's, the
+ * SLICER's; RAM (SAVE writes them). Main loop: the stage taken, before it is staged again */
+static void pst_store(void)
+{
+    project_t *p = &proj_scratch;
+    uint32_t x, k;
+    if (sec_stage.ready)
+        return;
+    for (x = 1; x <= 4u; x++) {
+        uint32_t m = 0;
+        for (k = 0; k < NTRK + 2u; k++)
+            m |= (uint32_t)(sec_stage.ret[k] == x) << k;
+        if (!m || !proj_import(p, &proj_slot[x - 1u], sizeof(project_store_t)))
+            continue;
+        for (k = 0; k < NTRK; k++)
+            if ((m >> k & 1u) && eng_live(p->t[k].engine) == sec_stage.reng[k]) {
+                int16_t mu = p->t[k].p[P_MUTE];     /* (the part's own mute: a row's VAR MUTE never into it) */
+                memcpy(p->t[k].p, sec_stage.t[k].p, sizeof p->t[k].p);
+                p->t[k].p[P_MUTE] = mu;
+            }
+        if (m >> NTRK & 1u) memcpy(p->dx, sec_stage.dx, sizeof p->dx);
+        if (m >> (NTRK + 1u) & 1u) memcpy(&p->g[G_SLMODE], sec_stage.slg, sizeof sec_stage.slg);
+        if (proj_pack(&proj_wire, p)) {
+            proj_wire_gen++;
+            memcpy(&proj_slot[x - 1u], &proj_wire, sizeof proj_slot[0]);
+            pst_t = fm1_ms;
+        }
+    }
+    memset(sec_stage.ret, 0, sizeof sec_stage.ret);
+}
 /* section s (a project slot) into sec_stage for row `row` (SEC_LIVE: a live jump); 0 = staged. (add15) A song's row may
  * take tracks from other sections (ARRANGE 2: row_src): each of those is decoded in turn, its tracks (sound, steps, FM6
  * patch, automation; DRUM's kit with the DRUM track) taken from it; the row's own section last, with the rest.
@@ -150,6 +181,7 @@ static int song_stage(uint32_t s, uint32_t row)
     project_t *p = &proj_scratch;
     uint32_t own = clip_mix ? 4u : s & 3u, k, i, u, n = 0, on = 0, dx_from = own, use = 0, srcs[NTRK], src = 0;
     sec_stage.ready = 0;
+    pst_store();                                      /* (STATE OVER: what the last start handed back, first) */
     for (k = 0; k < NTRK; k++) {
         uint32_t c = (uint32_t)(clip_go[k] ? clip_go[k] : clip_now[k]) - 1u;
         srcs[k] = clip_mix ? ((uint32_t)clip_go[k] - 1u < 4u ? clip_go[k] - 1u : 4u) :
@@ -171,6 +203,7 @@ static int song_stage(uint32_t s, uint32_t row)
             if (srcs[k] != sec)
                 continue;
             sec_stage_fit[k] = fit_valid(p->fit[k]);
+            sec_stage.srcs[k] = (uint8_t)sec;
             sec_extra.voices[k] = p->voice_limit[k] ? p->voice_limit[k] : NVOICE;
             d->engine = (uint8_t)e;
             d->preset = (uint8_t)(ENGINES[e]->npresets ? (t->preset >= PROJ_DEF_KEEP ? 0u : t->preset) % ENGINES[e]->npresets
@@ -201,6 +234,7 @@ static int song_stage(uint32_t s, uint32_t row)
             memcpy(sec_extra.lay,p->dx_lay,sizeof sec_extra.lay); memcpy(sec_extra.mot,p->dx_mot,sizeof sec_extra.mot);
             sec_extra.tone=p->dx_tone;sec_extra.hands=p->dx_hands;
             sec_stage.dx_mute = (uint16_t)(p->dx_mute & DXM_ALL);
+            sec_stage.srcs[NTRK] = (uint8_t)sec;
         }
     }
     memset(sec_stage.motion.event + n, 0, (MOTION_MAX - n) * sizeof sec_stage.motion.event[0]);
@@ -208,6 +242,7 @@ static int song_stage(uint32_t s, uint32_t row)
     sec_stage.motion.on = (uint8_t)(on | (p->motion.on & ~((1u << NTRK) - 1u)));
     memcpy(sec_stage.motion.rsv, p->motion.rsv, sizeof sec_stage.motion.rsv);
     memcpy(sec_stage.slg, &p->g[G_SLMODE], sizeof sec_stage.slg);   /* (0.6.3) the section's SLICER */
+    sec_stage.srcs[NTRK + 1u] = (uint8_t)own;
     sec_stage.row = (uint8_t)row;
     sec_stage.section = (uint8_t)(s & 3u);
     sec_stage.src = src;
@@ -298,6 +333,7 @@ static int section_load(uint32_t s)
     proj_cur = (uint8_t)(s & 3u);
     live.cur = (int8_t)(s & 3u);
     memset(clip_now, (int)(s & 3u) + 1, sizeof clip_now);   /* (V10.6s) CLIPS: every track that part's */
+    memset(pst_cur, (int)(s & 3u) + 1, sizeof pst_cur);     /* (STATE: its values) */
     memset(clip_go, 0, sizeof clip_go);
     sec_stage.src = 0;                                  /* (SONG REC's first row: the whole section) */
     return 0;
@@ -444,6 +480,7 @@ static void section_store(uint32_t s)
     proj_wire_gen++;
     memcpy(&proj_slot[s], &proj_wire, sizeof proj_slot[s]);
     live.cur = (int8_t)s;
+    memset(pst_cur, (int)s + 1, sizeof pst_cur);       /* (STATE: the values now s's) */
     live.dirty |= (uint8_t)(1u << s);
     ui_say("STORED ", b);
 }
@@ -578,6 +615,7 @@ static int song_draft_begin(void)
     song_draft = 1;
     dice_secs = 0;
     snd_held = snd_seen = 0;                          /* (V10.6z8: a throw, the sections' sounds) */
+    memset(pst_cur, 0, sizeof pst_cur);
     live.dirty = 0; live.cur = live.req = -1; sec_stage.ready = 0;
     proj_cur = PROJ_NO_SLOT; proj_name[0] = 0;
     memset(proj_slot, 0, sizeof proj_slot);
@@ -651,6 +689,7 @@ static void song_poll(void)
     uint32_t k;
     if (chain.applied) {
         chain.applied = 0;
+        pst_store();                                  /* (STATE OVER) */
         clip_seen();                                  /* (V10.6s) CLIPS: what sounds now */
         sync_reload = 1;
         ui.force = 1;
@@ -716,7 +755,7 @@ static void song_poll(void)
         }
     }
     if (song_draft) return;
-    chain_config.rsv[2] = SONG_MODE_TAG | (live.mode ? 1u : 0u);
+    chain_config.rsv[2] = SONG_MODE_BYTE(live.mode);
     if (memcmp(&chain_config, &song_idx.rows[song_cur], sizeof chain_config)) {   /* the rows or PLAY mode changed */
         song_idx.rows[song_cur] = chain_config;
         song_idx_dirty = 1;

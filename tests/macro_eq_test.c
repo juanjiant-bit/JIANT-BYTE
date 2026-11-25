@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     for (f = 0; f < MAC_NF; f++) {
         fvm_err_t er;
         if (fvm_compile(&cc, &pg, MAC_FORMS[f], (uint32_t)strlen(MAC_FORMS[f]), &er)) {
-            printf("maceq: %s: error %u at %u\n", N_MACF[f], er.code, er.pos);
+            printf("maceq: %s: error %u at %u\n", str_nth(N_MACF, f), er.code, er.pos);
             bad++;
         }
     }

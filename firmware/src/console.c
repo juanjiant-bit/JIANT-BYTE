@@ -265,13 +265,10 @@ static void con_status(void)
 static void con_dbg(void)
 {
     const uint32_t *w = (const uint32_t *)&felucca_dbg;
-    static const char *const NAMES[] = {"magic", "halves", "max_us", "nested", "in_audio", "late",
-                                        "timer_irqs", "ui_frames", "last_us", "cpu_q8", "boots",
-                                        "stage", "page", "home", "prev_stage", "prev_page",
-                                        "prev_home", "prev_rst", "prev_frames"};
+    static const char NAMES[] = "magic\0halves\0max_us\0nested\0in_audio\0late\0timer_irqs\0ui_frames\0last_us\0cpu_q8\0boots\0stage\0page\0home\0prev_stage\0prev_page\0prev_home\0prev_rst\0prev_frames";   /* (str_nth: a text each, no pointer each) */
     uint32_t i;
-    for (i = 0; i < sizeof NAMES / sizeof NAMES[0] && i < sizeof felucca_dbg / 4u; i++)
-        con_kx(NAMES[i], w[i]);
+    for (i = 0; i < 19u && i < sizeof felucca_dbg / 4u; i++)
+        con_kx(str_nth(NAMES, i), w[i]);
 #if FELUCCA_UAC
     con_uac();
 #endif

@@ -1774,7 +1774,7 @@ static __attribute__((noinline)) void graph_psq(void)
     for (r = 0; r < PSQ_ROWS; r++) {
         uint32_t e = psq.fx[r] % PSQ_NFX;
         int32_t y = y0 + (int32_t)r * rh;
-        hud_tag(4, y + (ch - 11) / 2, PSQ_NM[e], 0x0000, r == psq_row % PSQ_ROWS ? HUD_YE : PSQ_COL[e]);
+        hud_tag(4, y + (ch - 11) / 2, str_nth(PSQ_NM, e), 0x0000, r == psq_row % PSQ_ROWS ? HUD_YE : PSQ_COL[e]);
         for (i = 0; i < 16u; i++) {
             int32_t x = 44 + (int32_t)i * 12;
             uint32_t lit = (psq.st[r] >> i) & 1u;
@@ -1793,7 +1793,7 @@ static __attribute__((noinline)) void graph_psq(void)
             continue;
         if (seen)
             str_cpy(b + str_len(b), " + ", sizeof b - str_len(b));
-        str_cpy(b + str_len(b), PSQ_NM[e], sizeof b - str_len(b));
+        str_cpy(b + str_len(b), str_nth(PSQ_NM, e), sizeof b - str_len(b));
         seen |= 1u << e;
     }
     if (at < 16u && !seen)

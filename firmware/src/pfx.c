@@ -107,8 +107,7 @@ static uint32_t pfx_qon;            /* (JIANT) the effects in (quantized to the 
  * psq_boot, before the project's load); written on core 0 only (the pages, a load, the audio's psq_at psq_now) */
 static const uint8_t PSQ_FX[PSQ_NFX] = {PF_OCTD, PF_OCTU, PF_HALF, PF_WOB, PF_D16, PF_S8, PF_S16, PF_ATK, PF_ARP, PF_RND,
                                         PF_LP3, PF_LP5, PF_LP7, PF_RING, PF_LMAX};
-static const char *const PSQ_NM[PSQ_NFX] = {"OCT-", "OCT+", "HALF", "WOB", "REP", "S8", "S16", "BITS", "MIR", "SCR",
-                                            "LOOP3", "LOOP5", "LOOP7", "CAOS", "LIFE"};
+static const char PSQ_NM[] = "OCT-\0OCT+\0HALF\0WOB\0REP\0S8\0S16\0BITS\0MIR\0SCR\0LOOP3\0LOOP5\0LOOP7\0CAOS\0LIFE";   /* (str_nth: a text each, no pointer each) */
 typedef struct { uint16_t st[PSQ_ROWS]; uint8_t fx[PSQ_ROWS], len, res; } psq_t;   /* st bit s: step s lit; len 4..16;
                                                          * res 0 1/32, 1 1/16, 2 1/8, 3 1/4 */
 _Static_assert(sizeof(psq_t) == PSQ_BYTES, "PUNCH SEQ as stored (project.c 'P' 'Q')");

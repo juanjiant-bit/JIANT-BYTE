@@ -31,32 +31,9 @@ static void knob_hint(const char *label, const char *meaning)   /* (func-tame) m
 /* (BYTE, the owner: "the matrix's names are short, nobody knows what F.NOISE is") every SRC and DEST in full, in flash:
  * "NAME|what it is" (the part after '|' optional). Checked against mod.c (mod_tsrc, mod_begin, macro_master). The
  * engine's own (CUT SHP E1..E8) are named by the engine at the card (mod_full): ENGINE + its label's meaning */
-static const char *const MSRC_FULL[] = {
-    "OFF|THIS SLOT DOES NOTHING", "LFO|THE TRACK'S LOW FREQ OSCILLATOR", "AMP ENVELOPE|THE VOICE'S VOLUME ENVELOPE",
-    "VELOCITY|HOW HARD THE NOTE WAS PLAYED", "KEYBOARD NOTE|ABOVE C4 UP, BELOW C4 DOWN", "RANDOM|NEW VALUE EACH NOTE",
-    "MOD WHEEL|MIDI CC1", "AFTERTOUCH|MIDI CHANNEL PRESSURE", "EXPRESSION|MIDI CC11",
-    "MACRO 1|HOME > MACROS, KNOB 1", "MACRO 2|HOME > MACROS, KNOB 2", "MACRO 3|HOME > MACROS, KNOB 3",
-    "MACRO 4|HOME > MACROS, KNOB 4", "MOD SEQUENCE|LFO > MSEQ, ITS STEP NOW", "SMOOTH NOISE|A SLOW RANDOM WANDER",
-    "BLUETOOTH PROXIMITY|A HAND NEAR THE ANTENNA", "ENVELOPE 2|ENV > ENV 2, PER VOICE", "INPUT FOLLOWER|AUDIO IN LOUDNESS",
-    "TRACK 1 FOLLOWER|TRACK 1 LOUDNESS", "TRACK 2 FOLLOWER|TRACK 2 LOUDNESS", "TRACK 3 FOLLOWER|TRACK 3 LOUDNESS",
-    "TRACK 4 FOLLOWER|TRACK 4 LOUDNESS", "TRACK 5 FOLLOWER|TRACK 5 LOUDNESS", "TRACK 6 FOLLOWER|TRACK 6 LOUDNESS",
-    "OCT+ KEY BEND|THE EXPRESSION KEY'S BEND", "OCT- KEY VIBRATO|THE EXPRESSION KEY'S VIBRATO",
-    "FILTER 2 NOISE|RETIRED: ALWAYS 0", "LIFE BREATH|HOME > LIFE: ITS PULSE", "LIFE BEING|HOME > LIFE: HOW HIGH IT SWIMS",
-    "FUNC HITS", "FUNC NOTE", "FUNC BAR|4 BARS"};
-static const char *const MDST_FULL[] = {
-    "OFF|THIS SLOT DOES NOTHING", "PITCH|AN OCTAVE AT FULL AMT", "VOICE CUTOFF|PER VOICE", "VOICE SHAPE|PER VOICE",
-    "VOLUME|PER VOICE", "PAN|LEFT / RIGHT", "DISTORTION SEND", "CHORUS SEND", "DELAY SEND", "REVERB SEND", "LFO RATE",
-    "VIBRATO DEPTH|LFO TO PITCH", "ENGINE PARAM 1|EDIT 1, KNOB 1", "ENGINE PARAM 2|EDIT 1, KNOB 2",
-    "ENGINE PARAM 3|EDIT 1, KNOB 3", "ENGINE PARAM 4|EDIT 1, KNOB 4", "ENGINE PARAM 5|EDIT 2, KNOB 1",
-    "ENGINE PARAM 6|EDIT 2, KNOB 2", "ENGINE PARAM 7|EDIT 2, KNOB 3", "ENGINE PARAM 8|EDIT 2, KNOB 4",
-    "MASTER CLIPPER|FX > MASTER, ALL TRACKS", "MASTER PUNCH|FX > MASTER, ALL TRACKS", "DELAY TIME|FX BUS, ALL TRACKS",
-    "DELAY FEEDBACK|FX BUS, ALL TRACKS", "DELAY TONE|FX BUS, ALL TRACKS", "DELAY MIX|FX BUS, ALL TRACKS",
-    "REVERB SIZE|FX BUS, ALL TRACKS", "REVERB DAMPING|FX BUS, ALL TRACKS", "CHORUS RATE|FX BUS, ALL TRACKS",
-    "CHORUS DEPTH|FX BUS, ALL TRACKS", "FILTER CUTOFF|THE TRACK'S FILTER", "TRACK LEVEL", "LIFE DEPTH|HOME > LIFE",
-    "OLD FORM M1 AMOUNT|RETIRED", "OLD FORM M1 DECAY|RETIRED", "OLD FORM M2 AMOUNT|RETIRED", "OLD FORM M2 DECAY|RETIRED",
-    "OLD FORM M3 AMOUNT|RETIRED", "OLD FORM M3 DECAY|RETIRED", "GAIN|LEVEL BOOST, NO DISTORTION", "OLD FORM M4 DECAY|RETIRED",
-    "FUNC DENSITY|GROOVE, KNOB 1", "FUNC SWING|GROOVE, KNOB 2", "FUNC COMPLEX|GROOVE, KNOB 3", "FUNC RANGE|GROOVE, KNOB 4"};
-_Static_assert(NELEM(MSRC_FULL) == MS_N && NELEM(MDST_FULL) == MD_N, "a full name for every SRC and DEST");
+static const char MSRC_FULL[] = "OFF|THIS SLOT DOES NOTHING\0LFO|THE TRACK'S LOW FREQ OSCILLATOR\0AMP ENVELOPE|THE VOICE'S VOLUME ENVELOPE\0VELOCITY|HOW HARD THE NOTE WAS PLAYED\0KEYBOARD NOTE|ABOVE C4 UP, BELOW C4 DOWN\0RANDOM|NEW VALUE EACH NOTE\0MOD WHEEL|MIDI CC1\0AFTERTOUCH|MIDI CHANNEL PRESSURE\0EXPRESSION|MIDI CC11\0MACRO 1|HOME > MACROS, KNOB 1\0MACRO 2|HOME > MACROS, KNOB 2\0MACRO 3|HOME > MACROS, KNOB 3\0MACRO 4|HOME > MACROS, KNOB 4\0MOD SEQUENCE|LFO > MSEQ, ITS STEP NOW\0SMOOTH NOISE|A SLOW RANDOM WANDER\0BLUETOOTH PROXIMITY|A HAND NEAR THE ANTENNA\0ENVELOPE 2|ENV > ENV 2, PER VOICE\0INPUT FOLLOWER|AUDIO IN LOUDNESS\0TRACK 1 FOLLOWER|TRACK 1 LOUDNESS\0TRACK 2 FOLLOWER|TRACK 2 LOUDNESS\0TRACK 3 FOLLOWER|TRACK 3 LOUDNESS\0TRACK 4 FOLLOWER|TRACK 4 LOUDNESS\0TRACK 5 FOLLOWER|TRACK 5 LOUDNESS\0TRACK 6 FOLLOWER|TRACK 6 LOUDNESS\0OCT+ KEY BEND|THE EXPRESSION KEY'S BEND\0OCT- KEY VIBRATO|THE EXPRESSION KEY'S VIBRATO\0FILTER 2 NOISE|RETIRED: ALWAYS 0\0LIFE BREATH|HOME > LIFE: ITS PULSE\0LIFE BEING|HOME > LIFE: HOW HIGH IT SWIMS\0FUNC HITS\0FUNC NOTE\0FUNC BAR|4 BARS";   /* (str_nth: a text each, no pointer each) */
+static const char MDST_FULL[] = "OFF|THIS SLOT DOES NOTHING\0PITCH|AN OCTAVE AT FULL AMT\0VOICE CUTOFF|PER VOICE\0VOICE SHAPE|PER VOICE\0VOLUME|PER VOICE\0PAN|LEFT / RIGHT\0DISTORTION SEND\0CHORUS SEND\0DELAY SEND\0REVERB SEND\0LFO RATE\0VIBRATO DEPTH|LFO TO PITCH\0ENGINE PARAM 1|EDIT 1, KNOB 1\0ENGINE PARAM 2|EDIT 1, KNOB 2\0ENGINE PARAM 3|EDIT 1, KNOB 3\0ENGINE PARAM 4|EDIT 1, KNOB 4\0ENGINE PARAM 5|EDIT 2, KNOB 1\0ENGINE PARAM 6|EDIT 2, KNOB 2\0ENGINE PARAM 7|EDIT 2, KNOB 3\0ENGINE PARAM 8|EDIT 2, KNOB 4\0MASTER CLIPPER|FX > MASTER, ALL TRACKS\0MASTER PUNCH|FX > MASTER, ALL TRACKS\0DELAY TIME|FX BUS, ALL TRACKS\0DELAY FEEDBACK|FX BUS, ALL TRACKS\0DELAY TONE|FX BUS, ALL TRACKS\0DELAY MIX|FX BUS, ALL TRACKS\0REVERB SIZE|FX BUS, ALL TRACKS\0REVERB DAMPING|FX BUS, ALL TRACKS\0CHORUS RATE|FX BUS, ALL TRACKS\0CHORUS DEPTH|FX BUS, ALL TRACKS\0FILTER CUTOFF|THE TRACK'S FILTER\0TRACK LEVEL\0LIFE DEPTH|HOME > LIFE\0OLD FORM M1 AMOUNT|RETIRED\0OLD FORM M1 DECAY|RETIRED\0OLD FORM M2 AMOUNT|RETIRED\0OLD FORM M2 DECAY|RETIRED\0OLD FORM M3 AMOUNT|RETIRED\0OLD FORM M3 DECAY|RETIRED\0GAIN|LEVEL BOOST, NO DISTORTION\0OLD FORM M4 DECAY|RETIRED\0FUNC DENSITY|GROOVE, KNOB 1\0FUNC SWING|GROOVE, KNOB 2\0FUNC COMPLEX|GROOVE, KNOB 3\0FUNC RANGE|GROOVE, KNOB 4";   /* (str_nth: a text each, no pointer each) */
+/* (a full name for every SRC and DEST: tests/modnames_test.c counts them) */
 /* SRC (src 1) or DEST v of track t in full into b (n), what it is into w (wn) when w */
 static void mod_full(const track_t *t, uint32_t src, int32_t v, char *b, uint32_t n, char *w, uint32_t wn)
 {
@@ -65,14 +42,14 @@ static void mod_full(const track_t *t, uint32_t src, int32_t v, char *b, uint32_
     b[0] = 0;
     if (w) w[0] = 0;
     if (src) {
-        f = MSRC_FULL[clamp(v, 0, MS_N - 1)];
+        f = str_nth(MSRC_FULL, clamp(v, 0, MS_N - 1));
     } else {
         v = clamp(v, 0, MD_N - 1);
-        f = MDST_FULL[v];
+        f = str_nth(MDST_FULL, v);
         if (bt_hw_seg() && (v == MD_CUT || v == MD_SHP || (v >= MD_E1 && v < MD_CLIP))) {   /* (the engine's own) */
             const char *l = mod_dst_name(t, v), *m;
             if (str_eq(l, N_MDST[MD_FCUT])) {
-                f = MDST_FULL[MD_FCUT];
+                f = str_nth(MDST_FULL, MD_FCUT);
             } else if (str_eq(l, "N/A")) {
                 if (w) str_cpy(w, "NOT ON THIS ENGINE", wn);
                 w = 0;
@@ -1629,7 +1606,7 @@ static void edit_param(uint32_t slot, int32_t steps)
     }
     if (SONG_PARTS(pg)) {                               /* (V10.7.32: PARTS and CLIPS one grid) KNOB 1 the row: ALL (the
                                                          * parts' heads) or T1..T6 (a track's cells), 2 the part, 3 the song's
-                                                         * row of it (OCT- on a head plays from there), 4 what PLAY plays */
+                                                         * row of it (OCT- on a head plays from there), 4 the STATE */
         uint32_t s = ui.part & 3u;
         if (slot == 0u) {
             int32_t r = clamp((ui.part & PART_CELL ? (int32_t)song.sel + 1 : 0) + steps, 0, NTRK);
@@ -1640,8 +1617,9 @@ static void edit_param(uint32_t slot, int32_t steps)
             ui.part = (uint8_t)((ui.part & PART_CELL) | (uint32_t)clamp((int32_t)s + steps, 0, 3));
         else if (slot == 2u)
             ui.song_row = (uint8_t)part_row(s, steps);
-        else
-            live.mode = steps > 0;
+        else                                            /* (the owner) STATE LOCK JAM OVER (song_chain.c PST_*; PLAY's
+                                                         * LOOP / SONG: OCT+ / OCT-) */
+            live.pst = (uint8_t)clamp((int32_t)live.pst + steps, PST_LOCK, PST_OVER);
         return;
     }
     if (SONG_TRK(pg)) {                                 /* (V10.6o) TIMELINE: ROW, its SECT, its BARS, the VAR of the track
@@ -3435,7 +3413,7 @@ static void panel_setup(void)
     fm1_input_edges(0);
     for (i = 0; i < NB; i++) {
         uint32_t p = 0, id;
-        setup_show("PRESS", B_NAME[i]);
+        setup_show("PRESS", str_nth(B_NAME, i));
         t0 = fm1_ms;
         while (!(p & ~used)) {
             fm1_wdt_feed();

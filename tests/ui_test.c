@@ -2774,7 +2774,7 @@ static int test_display_preferences(void)
     bad += check("the expanded menu retains all three SPEAKER modes (OCT+ / OCT- step them, stopping at the ends)",
                  k && settings.lowcut == 0 && !fx_lowcut && ui.menu == 1);
     {   /* #42: SPEAKER EQ FLAT (the old OFF, stored 0) LOWCUT BASS+; KNOB 1 steps them, the audio follows at once */
-        int ok = str_eq(MI_NAME[MI_LOWCUT], "SPEAKER EQ") && str_eq(SPK_EQ[0], "FLAT") && str_eq(SPK_EQ[1], "LOWCUT") &&
+        int ok = str_eq(str_nth(MI_NAME, MI_LOWCUT), "SPEAKER EQ") && str_eq(SPK_EQ[0], "FLAT") && str_eq(SPK_EQ[1], "LOWCUT") &&
                  str_eq(SPK_EQ[2], "BASS+");
         turn(EN_K1, 1); ok &= settings.lowcut == 1u && fx_lowcut == 1u;
         turn(EN_K1, 1); ok &= settings.lowcut == 2u && fx_lowcut == 2u;
@@ -3018,7 +3018,7 @@ static int test_menu_tabs(void)
     ui_power_on();
     memset(&favorites.factory[6][24], 0, 8);
     bt_up = 0;
-    ok = MI_TAB[MI_BT] == MTAB_SYSTEM && MI_BT < MI_VALUES && str_eq(MI_NAME[MI_BT], "BLUETOOTH") && menu_get(MI_BT) == 0u &&
+    ok = MI_TAB[MI_BT] == MTAB_SYSTEM && MI_BT < MI_VALUES && str_eq(str_nth(MI_NAME, MI_BT), "BLUETOOTH") && menu_get(MI_BT) == 0u &&
          str_eq(menu_vname(MI_BT, 0), "OFF") && menu_n(MI_BT) == 3u;
     song.playing = 1;
     menu_put(MI_BT, 1u);
@@ -4698,7 +4698,7 @@ static int chain_walk(uint32_t btn, const char *const *want, uint32_t n, const c
             frames(2);
         }
         if (!str_eq(nav_name(), want[i])) {
-            printf("  %s: %s, wanted %s\n", SEC_NAME[nav_sec()], nav_name(), want[i]);
+            printf("  %s: %s, wanted %s\n", str_nth(SEC_NAME, nav_sec()), nav_name(), want[i]);
             ok = 0;
         }
     }
@@ -4709,7 +4709,7 @@ static int chain_walk(uint32_t btn, const char *const *want, uint32_t n, const c
     for (i = 0; i < nt; i++) {
         press(btn); frames(320);
         if (!str_eq(nav_name(), taps[i])) {
-            printf("  %s tap: %s, wanted %s\n", SEC_NAME[nav_sec()], nav_name(), taps[i]);
+            printf("  %s tap: %s, wanted %s\n", str_nth(SEC_NAME, nav_sec()), nav_name(), taps[i]);
             ok = 0;
         }
     }
@@ -6094,7 +6094,7 @@ static int test_large_face(void)
     uint32_t i, missing = 0;
     const char *s;
     for (i = 0; i < NB + NE + 2u; i++)                              /* ui_input.c setup_show: the control names */
-        for (s = i < NB ? B_NAME[i] : i < NB + NE ? E_NAME[i - NB] : FIXED[i - NB - NE]; *s; s++)
+        for (s = i < NB ? str_nth(B_NAME, i) : i < NB + NE ? E_NAME[i - NB] : FIXED[i - NB - NE]; *s; s++)
             missing += glyph_at(&AF_L, (uint8_t)*s) < 0;
     return check("the L face holds every glyph of the strings drawn in it", !missing);
 }
@@ -6782,7 +6782,7 @@ static int test_screen_off(void)
     int16_t *vp, v0;
 
     ui_power_on();
-    ok = ui_scr == 0u && scr_get() == 0u && SCR_MIN[scr_get()] == 0u && str_eq(MI_NAME[MI_SCROFF], "SCREEN OFF") &&
+    ok = ui_scr == 0u && scr_get() == 0u && SCR_MIN[scr_get()] == 0u && str_eq(str_nth(MI_NAME, MI_SCROFF), "SCREEN OFF") &&
          MI_TAB[MI_SCROFF] == MTAB_DISPLAY && menu_n(MI_SCROFF) == 5u && str_eq(menu_vname(MI_SCROFF, 0), "NEVER") &&
          str_eq(menu_vname(MI_SCROFF, 1), "5 MIN") && str_eq(menu_vname(MI_SCROFF, 2), "15 MIN") &&
          str_eq(menu_vname(MI_SCROFF, 3), "30 MIN") && str_eq(menu_vname(MI_SCROFF, 4), "60 MIN") &&
@@ -6971,7 +6971,7 @@ static int test_scale_leds(void)
     t->p[P_ROOT] = 0;
     settings_leds = LEDS_DIM;
     ui_leds();
-    ok = !menu_get(MI_SCLLED) && str_eq(MI_NAME[MI_SCLLED], "SCALE LEDS") && MI_TAB[MI_SCLLED] == MTAB_CONTROL &&
+    ok = !menu_get(MI_SCLLED) && str_eq(str_nth(MI_NAME, MI_SCLLED), "SCALE LEDS") && MI_TAB[MI_SCLLED] == MTAB_CONTROL &&
          !scale_leds(&root) && lit_keys(fm1_led_dim) == ALL && !lit_keys(fm1_led_hi);
     bad += check("#127 SCALE LEDS OFF (the default): every key glows as before (0.6.96: DIM HI's level above empty)", ok);
     menu_put(MI_SCLLED, menu_step(MI_SCLLED, 1));
@@ -7155,7 +7155,7 @@ static int test_layer_knob_leak(void)
                 if (!ok) {
                     fails++;
                     if (fails < 6u)
-                        printf("ui:   leak: %s scenario %u page %s\n", B_NAME[LB[b]], sc,
+                        printf("ui:   leak: %s scenario %u page %s\n", str_nth(B_NAME, LB[b]), sc,
                                pg < NPAGES ? PAGES[pg].title : "HOME");
                 }
                 if (b == 0u && pg < NPAGES && PAGES[pg].graph == GR_ARP && trk[0].p[P_AMODE] == lk_p[0][P_AMODE])
@@ -7385,7 +7385,7 @@ static int test_layer_knob_race(void)
                     if (!ok) {
                         fails++;
                         if (fails < 6u)
-                            printf("ui:   race: %s mode %u KNOB %u page %s\n", B_NAME[LB[l]], mode, k + 1u,
+                            printf("ui:   race: %s mode %u KNOB %u page %s\n", str_nth(B_NAME, LB[l]), mode, k + 1u,
                                    pg < NPAGES ? PAGES[pg].title : "HOME");
                     }
                 }
@@ -7658,9 +7658,13 @@ static int test_save_lens(void)
     transport_req = 0;
     turn(EN_K3, 1); frame();                                                 /* KNOB 3: B's row in the song */
     ok &= ui.song_row == 1u;
-    turn(EN_K4, 1); frame();                                                 /* KNOB 4: PLAY plays the SONG */
-    ok &= live.mode == 1u;
-    bad += check("V10.6o PARTS: F3..B3 pick and launch A..D; KNOB 3 the part's row, KNOB 4 LOOP / SONG", ok);
+    turn(EN_K4, 1); frame();                                                 /* KNOB 4: the STATE (the owner) */
+    ok &= live.pst == PST_JAM && !strncmp(ui.col[3], "STATE|JAM", 9);
+    turn(EN_K4, 5); frame();
+    ok &= live.pst == PST_OVER && !strncmp(ui.col[3], "STATE|OVER", 10);
+    turn(EN_K4, -5); frame();
+    ok &= live.pst == PST_LOCK && !strncmp(ui.col[3], "STATE|LOCK", 10);
+    bad += check("V10.6o PARTS: F3..B3 pick and launch A..D; KNOB 3 the part's row, KNOB 4 the STATE LOCK / JAM / OVER", ok);
     memset(song_idx.tvar[song_cur], 0, sizeof song_idx.tvar[song_cur]);
     chain_config.count = 0;
     ui_power_on();
@@ -9734,7 +9738,7 @@ static int test_usb_level(void)
     int bad = 0, ok;
     ui_power_on();
     frame();
-    ok = !fx_usb_fixed && str_eq(MI_NAME[MI_USB], "USB LEVEL") && str_eq(menu_vname(MI_USB, 0), "MASTER") && menu_n(MI_USB) == 6u;
+    ok = !fx_usb_fixed && str_eq(str_nth(MI_NAME, MI_USB), "USB LEVEL") && str_eq(menu_vname(MI_USB, 0), "MASTER") && menu_n(MI_USB) == 6u;
     hold(B_HOME);
     ui.menu_sel = MI_USB;
     ui.force = 1; ui_draw();
@@ -10158,7 +10162,7 @@ static int test_click_menu(void)
     ui_power_on();
     frame();
     ok = !ui_rec_prefs && click_mode == CLICK_OFF && click_lvl == 1u && !cin_bars &&
-         str_eq(MI_NAME[MI_CLICK], "CLICK") && str_eq(MI_NAME[MI_CLKLVL], "CLICK LEVEL") && str_eq(MI_NAME[MI_COUNTIN], "COUNT-IN") &&
+         str_eq(str_nth(MI_NAME, MI_CLICK), "CLICK") && str_eq(str_nth(MI_NAME, MI_CLKLVL), "CLICK LEVEL") && str_eq(str_nth(MI_NAME, MI_COUNTIN), "COUNT-IN") &&
          MI_TAB[MI_CLICK] == MTAB_AUDIO && MI_TAB[MI_CLKLVL] == MTAB_AUDIO && MI_TAB[MI_COUNTIN] == MTAB_AUDIO &&
          menu_get(MI_CLICK) == 0u && menu_get(MI_CLKLVL) == 1u && menu_get(MI_COUNTIN) == 0u;
     for (i = 0; i < 3u; i++)
@@ -10587,7 +10591,7 @@ static int test_midi_learn(void)
     trk[0].p[P_LEVEL] = 10;
     midi_event(0xB0, 0, 7, 127);                         /* (ROUT CH1-6: channel 1 plays T1) */
     lv = (uint32_t)trk[0].p[P_LEVEL];
-    ok = lv > 10u && ml_map() == MLM_FACTORY && str_eq(MI_NAME[MI_MIDIMAP], "MIDI MAP") && menu_n(MI_MIDIMAP) == 3u &&
+    ok = lv > 10u && ml_map() == MLM_FACTORY && str_eq(str_nth(MI_NAME, MI_MIDIMAP), "MIDI MAP") && menu_n(MI_MIDIMAP) == 3u &&
          str_eq(menu_vname(MI_MIDIMAP, 0), "FACTORY") && str_eq(menu_vname(MI_MIDIMAP, 1), "CUSTOM ADD") &&
          str_eq(menu_vname(MI_MIDIMAP, 2), "CUSTOM") && menu_n(MI_LEARN) == 4u && str_eq(menu_vname(MI_LEARN, 3), "CLEAR ALL");
     if (!ok) printf("  lv %u map %u n %u '%s' '%s' '%s' %u '%s'\n", lv, ml_map(), menu_n(MI_MIDIMAP), menu_vname(MI_MIDIMAP, 0), menu_vname(MI_MIDIMAP, 1), menu_vname(MI_MIDIMAP, 2), menu_n(MI_LEARN), menu_vname(MI_LEARN, 3));
@@ -10804,7 +10808,7 @@ static int test_usb_serial(void)
     ui_power_on();
     usb.up = 0;                                          /* (no SIE here: usb_cdc_switch only flips the descriptors) */
     frame();
-    ok = usb_cdc_on && dev_class() == 0xEF && !(ui_prefs & PREF_SERIAL_OFF) && !usb_out && str_eq(MI_NAME[MI_SERIAL], "USB") &&
+    ok = usb_cdc_on && dev_class() == 0xEF && !(ui_prefs & PREF_SERIAL_OFF) && !usb_out && str_eq(str_nth(MI_NAME, MI_SERIAL), "USB") &&
          menu_n(MI_SERIAL) == 5u && str_eq(menu_vname(MI_SERIAL, 0), "CONSOLE") && str_eq(menu_vname(MI_SERIAL, 1), "STEREO") &&
          str_eq(menu_vname(MI_SERIAL, 2), "STEMS") && str_eq(menu_vname(MI_SERIAL, 3), "IN+OUT") &&
          str_eq(menu_vname(MI_SERIAL, 4), "STEMS+IN");   /* (0.7.1: USB SERIAL ON / OFF became USB CONSOLE / STEREO /
@@ -10958,7 +10962,7 @@ static int test_bpm_lock(void)
     ui.force = 1; ui_draw();
     b0 = song.g[G_BPM];
     turn(EN_SELECT, 3);
-    ok = str_eq(MI_NAME[MI_BPMLOCK], "BPM LOCK") && ui.menu == 1u && song.g[G_BPM] == b0;   /* (the menu: no tempo) */
+    ok = str_eq(str_nth(MI_NAME, MI_BPMLOCK), "BPM LOCK") && ui.menu == 1u && song.g[G_BPM] == b0;   /* (the menu: no tempo) */
     ok &= ui.menu_sel == MI_BPMLOCK + 3u;               /* (0.9.2: SELECT the rows) */
     ui.menu_sel = MI_BPMLOCK;
     turn(EN_K1, 1); ok &= (ui_prefs & PREF_BPM_LOCK) != 0u;          /* right: ON */
@@ -11115,7 +11119,7 @@ static int test_large(void)
     frame();
     ok = !(ui_prefs & PREF_LARGE) && large_kind() == LK_OFF && card_h() == LZ_CARD_H && graph_y() == LZ_GRAPH_Y;   /* (HOME's
                                                          * lens) */
-    ok &= MI_LARGE == MI_SCOPE + 1u && str_eq(MI_NAME[MI_LARGE], "LARGE") && menu_flag(MI_LARGE) &&
+    ok &= MI_LARGE == MI_SCOPE + 1u && str_eq(str_nth(MI_NAME, MI_LARGE), "LARGE") && menu_flag(MI_LARGE) &&
           str_eq(menu_flag(MI_LARGE)->name[0], "OFF") && str_eq(menu_flag(MI_LARGE)->name[1], "ON");
     ui.force = 1; frame();
     memcpy(off, host_screen, sizeof off);
@@ -11256,9 +11260,9 @@ static int test_skin(void)
     frame();
     /* (V10.7.23, the owner) SKIN retired: COLORS the one skin, no row in MENU > DISPLAY; its byte (engine 15, byte 20) read
      * and written 0 (COLORS, as older firmware reads it), whatever was saved (3 AIR, 1 BOTTOM, 2 HUD) */
-    ok = MI_SCOPE == MI_COLOR + 1u && str_eq(MI_NAME[MI_SCOPE], "SCOPE") && MI_TAB[MI_SCOPE] == MTAB_DISPLAY;
+    ok = MI_SCOPE == MI_COLOR + 1u && str_eq(str_nth(MI_NAME, MI_SCOPE), "SCOPE") && MI_TAB[MI_SCOPE] == MTAB_DISPLAY;
     for (i = 0; i < MI_COUNT; i++)
-        ok &= !str_eq(MI_NAME[i], "SKIN");
+        ok &= !str_eq(str_nth(MI_NAME, i), "SKIN");
     bad += check("SKIN retired: no SKIN row in MENU > DISPLAY (COLOR, then SCOPE)", ok);
     {
         persist_t p, q;
@@ -11485,7 +11489,7 @@ static int test_scope(void)
     int bad = 0, ok;
     uint32_t e, sk, nseen = 0;
     ui_power_on(); frame();
-    ok = ui_scope == 0u && MI_SCOPE == MI_COLOR + 1u && str_eq(MI_NAME[MI_SCOPE], "SCOPE") && MI_TAB[MI_SCOPE] == MTAB_DISPLAY &&
+    ok = ui_scope == 0u && MI_SCOPE == MI_COLOR + 1u && str_eq(str_nth(MI_NAME, MI_SCOPE), "SCOPE") && MI_TAB[MI_SCOPE] == MTAB_DISPLAY &&
          menu_n(MI_SCOPE) == 2u && str_eq(menu_vname(MI_SCOPE, 0), "OFF") && str_eq(menu_vname(MI_SCOPE, 1), "ON") &&
          menu_get(MI_SCOPE) == 0u;
     hold(B_HOME); ui.menu_sel = MI_SCOPE;
@@ -11571,7 +11575,7 @@ static int test_menu_prefs(void)
     bad += check("0.9.2 MENU: SELECT reaches every row, ALGORITHM each tab's first, each tab a page of its own (was PRESETS)", ok);
     /* ANIM */
     ui.menu_sel = MI_ANIM;
-    ok = str_eq(MI_NAME[MI_ANIM], "ANIM") && !(ui_prefs & PREF_ANIM_OFF);
+    ok = str_eq(str_nth(MI_NAME, MI_ANIM), "ANIM") && !(ui_prefs & PREF_ANIM_OFF);
     turn(EN_K1, 1); ok &= !(ui_prefs & PREF_ANIM_OFF);            /* right: ON (stays: the default) */
     turn(EN_K1, -1); ok &= (ui_prefs & PREF_ANIM_OFF) != 0;       /* left: OFF */
     turn(EN_K1, 1); ok &= !(ui_prefs & PREF_ANIM_OFF);            /* right: ON (the switch's knob right) */
@@ -11631,7 +11635,7 @@ static int test_style(void)
     ui_power_on();
     frame();
     for (ok = 1, i = 0; i < MI_COUNT; i++)
-        ok &= !str_eq(MI_NAME[i], "STYLE");
+        ok &= !str_eq(str_nth(MI_NAME, i), "STYLE");
     ok &= MI_COLOR == 0u && MI_SCOPE == 1u && MI_LARGE == 2u && MI_ANIM == 3u && MI_LEDS == 4u && MI_SCROFF == 5u &&
           MI_HOLD == 6u && mtab_rows(MTAB_DISPLAY) == 6u && mtab_first(MTAB_CONTROL) == MI_HOLD;
     bad += check("MENU: no STYLE row, no SKIN row (FLAT and COLORS the ones); DISPLAY's six rows, the rest renumbered in order", ok);
@@ -13217,7 +13221,7 @@ static int test_coherence(void)
                     same &= in;
                 }
                 if (any && same && !coh_ok(sec, coh_name(sec, v[i]), coh_name(sec, v[i + 1u]))) {
-                    printf("  %s %s: %s and %s, neighbours, the same parameters\n", ENGINES[ee]->name, SEC_NAME[sec],
+                    printf("  %s %s: %s and %s, neighbours, the same parameters\n", ENGINES[ee]->name, str_nth(SEC_NAME, sec),
                            coh_name(sec, v[i]), coh_name(sec, v[i + 1u]));
                     ok = 0;
                 }
@@ -13227,7 +13231,7 @@ static int test_coherence(void)
                     for (k = 0; k < 4u; k++)
                         for (m = 0; m < 4u; m++)
                             if (key[i][k] && key[i][k] == key[j][m] && !coh_ok(sec, coh_name(sec, v[i]), coh_name(sec, v[j]))) {
-                                printf("  %s %s: parameter %u on %s and %s\n", ENGINES[ee]->name, SEC_NAME[sec], key[i][k],
+                                printf("  %s %s: parameter %u on %s and %s\n", ENGINES[ee]->name, str_nth(SEC_NAME, sec), key[i][k],
                                        coh_name(sec, v[i]), coh_name(sec, v[j]));
                                 ok = 0;
                             }
@@ -13246,7 +13250,7 @@ static int test_coherence(void)
              (nav_put(SEC_GLO, "RAILS") == FELUCCA_LIVE) && !nav_put(SEC_GLO, "MANO") && !nav_put(SEC_ENV, "TRACKS DEST") &&
              nav_put(SEC_EDIT, "VOICES") && !nav_put(SEC_EDIT, "VOICE") && !nav_put(SEC_EDIT, "STEREO");
         for (i = 0; i < MI_COUNT; i++)
-            ok &= !str_eq(MI_NAME[i], "INIT SYSTEM");   /* (one action, one name: SAVE > TOOLS > CLEAR PROJECT) */
+            ok &= !str_eq(str_nth(MI_NAME, i), "INIT SYSTEM");   /* (one action, one name: SAVE > TOOLS > CLEAR PROJECT) */
         go_title("MASTER"); frame();
         ok &= str_eq(page_desc(cur_page(), 1, &hv)->label, "PUNCH");   /* (the drums' punch: the master's own) */
         for (i = 0; i < NPAGES; i++)

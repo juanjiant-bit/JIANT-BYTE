@@ -158,8 +158,8 @@ static void test_byte(void)
     for (f = 0; f < FVM_NBYTE; f++) {
         fvm_err_t e;
         uint32_t a, b, i, nb = 0, worst = 0;
-        if (comp(&p, FVM_BYTE_BANK[f], &e)) {
-            printf("fvm: B%02u compile error %u at %u: %s\n", f + 1, e.code, e.pos, FVM_BYTE_BANK[f]);
+        if (comp(&p, fvm_bank(0u, f), &e)) {
+            printf("fvm: B%02u compile error %u at %u: %s\n", f + 1, e.code, e.pos, fvm_bank(0u, f));
             bad++;
             continue;
         }
@@ -185,7 +185,7 @@ static void test_byte(void)
             if (nb > worst) worst = nb;
         }
         if (worst) {
-            printf("fvm: B%02u differs (%u samples): %s\n", f + 1, worst, FVM_BYTE_BANK[f]);
+            printf("fvm: B%02u differs (%u samples): %s\n", f + 1, worst, fvm_bank(0u, f));
             bad++;
         }
     }
@@ -206,8 +206,8 @@ static void test_float(void)
         uint32_t tt = 0, tf = 0, i, j;
         int32_t aux = 0;
         double sxy = 0, sxx = 0, syy = 0, pk = 0, c;
-        if (comp(&p, FVM_FLOAT_BANK[f], &e)) {
-            printf("fvm: F%02u compile error %u at %u: %s\n", f + 1, e.code, e.pos, FVM_FLOAT_BANK[f]);
+        if (comp(&p, fvm_bank(1u, f), &e)) {
+            printf("fvm: F%02u compile error %u at %u: %s\n", f + 1, e.code, e.pos, fvm_bank(1u, f));
             fails++;
             continue;
         }
@@ -366,8 +366,8 @@ static void test_cost(void)
     double t0, fb, nbm, ff, nfm;
     int32_t aux = 0;
     fvm_err_t e;
-    for (f = 0; f < FVM_NBYTE; f++) comp(&pb[f], FVM_BYTE_BANK[f], &e);
-    for (f = 0; f < FVM_NFLOAT; f++) comp(&pf[f], FVM_FLOAT_BANK[f], &e);
+    for (f = 0; f < FVM_NBYTE; f++) comp(&pb[f], fvm_bank(0u, f), &e);
+    for (f = 0; f < FVM_NFLOAT; f++) comp(&pf[f], fvm_bank(1u, f), &e);
     for (i = 0; i < FVM_BLK; i++) tt[i] = 100000u + i;
     t0 = fvm_now_ns();
     for (f = 0; f < FVM_NBYTE; f++)

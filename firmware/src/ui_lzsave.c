@@ -114,6 +114,7 @@ static uint32_t song_bars(uint32_t s)                  /* the song's bars (s 4),
         if (s > 3u || chain_config.row[i].slot == s) t += chain_config.row[i].bars;
     return t;
 }
+static const char RV_SH[] = "\0\0TH\0FL\0HF\0RV\0SH\0+8\0-8\0V1\0V2\0V3\0V4";   /* (ARRANGE 2's VAR, short: str_nth) */
 /* (V10.6o) the song as a strip of blocks at y, h high in x 4..236 (a row its bars wide, its part's colour; hl: the part
  * lit, the others half; 4 all lit, 5 the cursor's, 6 none; the cursor's framed on PARTS; tl: TIMELINE's, a row with
  * tracks of its own (FROM, VAR) half below, its letter and bars, the cursor's framed twice); playing, a line where it is */
@@ -260,7 +261,7 @@ static __attribute__((noinline)) void graph_tl(void)
             cv_rect(195, y + 1, 1, 10, T_SURF);
             cv_rect(196, y + 1, 39, 10, T_ACCENT);
             GFX_HOOK_ALIGN(196, y + 1, 235, y + 11, AL_HV, "timeline variation chip");
-            cv_text_in(196, y + 1 + CAP_IN(X, 10), 39, &AF_X, RV_NAME[v < RV_N ? v : 0], T_INK, T_ACCENT);
+            cv_text_in(196, y + 1 + CAP_IN(X, 10), 39, &AF_X, str_nth(RV_NAME, v < RV_N ? v : 0), T_INK, T_ACCENT);
         }
     }
     cv_text(4, 128, &AF_X, "KEYS: F3-D4 MUTE \xB7 F4-B4 FROM", T_TEXT);
@@ -280,7 +281,6 @@ static void gb_name(char *b, uint32_t i)
 }
 static void gen_board(void)
 {
-    static const char *const RV_SH[RV_N] = {"", "", "TH", "FL", "HF", "RV", "SH", "+8", "-8", "V1", "V2", "V3", "V4"};
     uint32_t n = chain_config.count, cur = chain.running && chain.row < n ? chain.row : 0u, s, j, k;
     const chain_row_t *r;
     char b[24];
@@ -319,7 +319,7 @@ static void gen_board(void)
         uint16_t bg = v == RV_MUTE ? T_BG : own ? T_SURF : TRK_COL[j % 6u], fg = v == RV_MUTE ? T_DIM : own ? T_TEXT : (j % 6u >= 4u ? 0xFFFFu : 0x0000u);
         x = 8 + (int32_t)j * 38;
         b[0] = 'T'; b[1] = (char)('1' + j); b[2] = ' '; b[3] = (char)('A' + src); b[4] = 0;
-        if (v && v < RV_N && RV_SH[v][0]) { b[4] = ' '; str_cpy(b + 5, RV_SH[v], 4); }
+        if (v && v < RV_N && str_nth(RV_SH, v)[0]) { b[4] = ' '; str_cpy(b + 5, str_nth(RV_SH, v), 4); }
         if (v == RV_MUTE) cv_frame(x, 78, 35, 12, T_DIM);
         else cv_rect(x, 78, 35, 12, bg);
         cv_rect(x, 78, 2, 12, j < trk_live ? TRK_COL[j % 6u] : T_DIM);
@@ -339,8 +339,7 @@ static void graph_proj(int ar)
                                                          * its own section calm (half), another bright with its letter, MUTE an
                                                          * empty frame, a VAR its short name. (V10.6o: no scan lines) */
         static const char *const LN[NTRK + 1] = {"PRT", "T1", "T2", "T3", "T4", "T5", "T6"};
-        static const char *const RV_SH[RV_N] = {"", "", "TH", "FL", "HF", "RV", "SH", "+8", "-8", "V1", "V2", "V3", "V4"};
-        uint32_t t = song_bars(4u), acc = 0, played = 0, j;
+            uint32_t t = song_bars(4u), acc = 0, played = 0, j;
         int32_t ls = 15, lh = ls - 2;                    /* (V10.6i) lanes 2 px shorter, the helix a band of its own */
         for (j = 0; j <= NTRK; j++)
             cv_text(5, 4 + (int32_t)j * ls + (j ? 3 : 2), &AF_X, LN[j], T_TEXT);
@@ -366,7 +365,7 @@ static void graph_proj(int ar)
                         if (!j && w >= 22) fmt_int(b + 1, r->bars);
                         cv_text_on(x + 3, y + 2 + (h - 15) / 2, &AF_X, b, T_INK, c);
                     }
-                    if (v && v < RV_N && w >= 24) cv_text_r(x + w - 2, y + 2 + (h - 15) / 2, &AF_X, RV_SH[v], T_INK, c);
+                    if (v && v < RV_N && w >= 24) cv_text_r(x + w - 2, y + 2 + (h - 15) / 2, &AF_X, str_nth(RV_SH, v), T_INK, c);
                 }
             }
             if (chain.running && i < chain.row) played += r->bars;

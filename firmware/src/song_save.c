@@ -22,7 +22,7 @@ BTAPP_FN static int song_copy_section(uint32_t section, uint32_t current, const 
     proj_master_put(p);                          /* the master's EQ and TAPE, song-wide too */
     if (song_save_loop) chain_defaults(&p->chain); else p->chain = chain_config;
     p->chain.rsv[1] = 0;                         /* saved sections belong to the player, not GEN */
-    p->chain.rsv[2] = SONG_MODE_TAG | (!song_save_loop && live.mode ? 1u : 0u);
+    p->chain.rsv[2] = SONG_MODE_BYTE(!song_save_loop && live.mode);
     if (section == 0u && name) {
         memset(p->name, 0, sizeof p->name);
         memcpy(p->name, name, str_len(name) < PROJ_NAME_LEN ? str_len(name) : PROJ_NAME_LEN);
@@ -103,7 +103,7 @@ static __attribute__((noinline)) int song_save_as(uint32_t target, const char *n
         memcpy(index->tvar[target], song_idx.tvar[song_cur], sizeof index->tvar[target]);
     }
     index->rows[target].rsv[1] = 0;
-    index->rows[target].rsv[2] = SONG_MODE_TAG | (!song_save_loop && live.mode ? 1u : 0u);
+    index->rows[target].rsv[2] = SONG_MODE_BYTE(!song_save_loop && live.mode);
     if (st_save(OBJ_SONGIDX, index, sizeof *index)) { ui_message("SAVE ERROR: RETRY"); return 2; }
     /* RESTORE LAST must not mask an explicit overwrite of the open project
      * with a stale pre-generation session at the next boot. song_keep is the

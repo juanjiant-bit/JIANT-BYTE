@@ -36,7 +36,7 @@ static const char *ub_text(const track_t *t, uint32_t *fix)
         return math_txt[tr][0] ? math_txt[tr] : 0;
     }
     *fix = p[P_E1] == RW_FLOAT;
-    return *fix ? FVM_FLOAT_BANK[((uint32_t)p[P_E2] >> 2) % FVM_NFLOAT] : FVM_BYTE_BANK[((uint32_t)p[P_E2] >> 2) % FVM_NBYTE];
+    return fvm_bank(*fix != 0, ((uint32_t)p[P_E2] >> 2) % FVM_NBYTE);
 }
 /* compiled into the work space: 0 when it does not compile */
 static int ub_compile(gq_work_t *w, const char *s)

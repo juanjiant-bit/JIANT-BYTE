@@ -1796,6 +1796,7 @@ static int project_restore_runtime(const project_t *input)
     transport_req = 0;
     chain.ended = 0;                                    /* (a song stopped by this load: the load wins, song_poll keeps out) */
     snd_held = snd_seen = 0;                            /* (V10.6z8: the sounds the sections' again) */
+    memset(pst_cur, 0, sizeof pst_cur);                 /* (STATE: the values no part's) */
     memset(track_env, 0, sizeof track_env);
     for (i = 0; i < NTRK; i++) track_pk[i] = 0;
     memcpy(dx_kit, dx_kit_ok(p->dx) ? p->dx : DX_KIT_DEF, sizeof dx_kit);   /* (the section's DRUM-X kit) */

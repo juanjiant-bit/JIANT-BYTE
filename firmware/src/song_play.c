@@ -31,18 +31,34 @@ static uint32_t snd_own(uint32_t k)
         snd_held |= (uint8_t)(1u << k);
     return snd_held >> k & 1u;
 }
+/* (STATE: song_chain.c PST_*) entry i of the stage (a track, the kit NTRK, the SLICER NTRK + 1): its values kept as
+ * they are (JAM; OVER: the same part again), else the stage's; OVER: those it ended with for its part (ret) */
+static uint32_t pst_keep(uint32_t i, uint32_t m)
+{
+    uint32_t src = sec_stage.srcs[i] + 1u, keep = m && (m == PST_JAM || src > 4u || pst_cur[i] == src);
+    sec_stage.ret[i] = (uint8_t)(m == PST_OVER && !keep && pst_cur[i] - 1u < 4u ? pst_cur[i] : 0u);
+    pst_cur[i] = (uint8_t)src;
+    return keep;
+}
+static void pst_swap(void *a, void *b, uint32_t n)    /* (the stage keeps what was: OVER's store, song_main.c) */
+{
+    uint8_t *x = a, *y = b, v;
+    while (n--) { v = *x; *x++ = *y; *y++ = v; }
+}
 /* the staged section in: every track from its step 0 (seq_tick: chain.carry samples into it) */
 static void sec_apply(void)
 {
-    uint32_t i, j, own;
+    uint32_t i, j, own, keep, m = live.pst;
     if (!chain.running)
         snd_held = snd_seen = 0;                      /* (a live jump, CLIPS: the parts as stored) */
     for (i = 0; i < NTRK; i++) {
         track_t *t = &trk[i];
-        const sec_trk_t *s = &sec_stage.t[i];
+        sec_trk_t *s = &sec_stage.t[i];
         seq_release(t);
         motion_restore(t);                            /* (the sound's own values, not the motion's: snd_own) */
-        own = snd_own(i);
+        own = m != PST_OVER && snd_own(i);            /* (OVER: each part its own sound's values) */
+        sec_stage.reng[i] = t->eng_req;
+        keep = pst_keep(i, m) && (own || t->eng_req == s->engine);
         if (!own) {
             if (t->eng_req != s->engine)
                 panic_req |= (uint8_t)(1u << i);          /* (another engine: what the keys hold ends too) */
@@ -53,8 +69,8 @@ static void sec_apply(void)
         t->seq_fit = sec_stage_fit[i];
         if (!own) voice_limit[i] = (int16_t)clamp(sec_extra.voices[i],1,NVOICE);
         for (j = 0; j < P_COUNT; j++)
-            if (!own || param_kept(j))
-                t->p[j] = s->p[j];
+            if ((!own || param_kept(j)) && (!keep || PST_SEQ(j)))
+            { int16_t v = t->p[j]; t->p[j] = s->p[j]; s->p[j] = v; }
         memcpy(t->step, s->step, sizeof t->step);
         t->seq_idx = (uint16_t)(t->p[P_SLEN] - 1);
         t->seq_pos = 0x7FFFFFFFu;
@@ -64,8 +80,8 @@ static void sec_apply(void)
         snd_h[i] = snd_sig(i);
     }
     motion = sec_stage.motion;
-    if (!snd_own(NTRK)) {
-        memcpy(dx_kit, sec_stage.dx, sizeof dx_kit);
+    if (!pst_keep(NTRK, m) && (m == PST_OVER || !snd_own(NTRK))) {
+        pst_swap(dx_kit, sec_stage.dx, sizeof dx_kit);
         memcpy(dx_text,sec_extra.text,sizeof dx_text);memcpy(dx_form,sec_extra.form,sizeof dx_form);
         memcpy(dx_fmod,sec_extra.fmod,sizeof dx_fmod);memset(dx_fid,0,sizeof dx_fid);
         memcpy(dx_snd,sec_extra.snd,sizeof dx_snd);memcpy(dx_lay,sec_extra.lay,sizeof dx_lay);
@@ -74,7 +90,8 @@ static void sec_apply(void)
     snd_h[NTRK] = snd_sig(NTRK);
     snd_seen = chain.running ? 0xFFu : 0u;
     dx_mute_set(sec_stage.dx_mute);
-    memcpy(&song.g[G_SLMODE], sec_stage.slg, sizeof sec_stage.slg);   /* (0.6.3) the SLICER's bus as the section has it */
+    if (!pst_keep(NTRK + 1u, m))                      /* (0.6.3) the SLICER's bus as the section has it */
+        pst_swap(&song.g[G_SLMODE], sec_stage.slg, sizeof sec_stage.slg);
     memset(motion_active, 0, sizeof motion_active);
     memset(motion_locked, 0, sizeof motion_locked);
     motion_base_valid = 0;

@@ -291,7 +291,7 @@ static uint32_t gq_span(const char *a, uint32_t i)
 /* a cross of a into o (cap 96) with the factory formula f of its kind (flt): a bracket of a (or a whole) for one of f's */
 static uint32_t gq_cross(const char *a, char *o, uint32_t *s, uint32_t flt, uint32_t f)
 {
-    const char *d = flt ? FVM_FLOAT_BANK[f % FVM_NFLOAT] : FVM_BYTE_BANK[f % FVM_NBYTE];
+    const char *d = fvm_bank(flt, f % FVM_NBYTE);
     uint32_t na = 0, nr = 0, i, ri, rn, di, dn, k = 0, n = 0;
     while (a[na]) na++;
     for (i = 0; a[i]; i++) nr += a[i] == '(' && gq_span(a, i);

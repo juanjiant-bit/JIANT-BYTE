@@ -403,7 +403,7 @@ static const fvm_prog_t *lofi_prog(const track_t *t, lofi_work_t *w, uint32_t fl
     uint32_t id = user ? 0x400u | math_ver[tr] : 1u + (flt ? 64u : 0u) + f;
     if(user)return lofi_slot(tr); /* USER programs are validated/published by math_poll, never compiled here. */
     if (lofi_prg_id[tr] != id) {
-        const char *s = user ? math_txt[tr] : flt ? FVM_FLOAT_BANK[f % FVM_NFLOAT] : FVM_BYTE_BANK[f % FVM_NBYTE];
+        const char *s = user ? math_txt[tr] : fvm_bank(flt, f % FVM_NBYTE);
         uint32_t n = 0;
         while (s[n]) n++;
         if (fvm_compile(&w->c, lofi_slot(tr), s, n, 0) || lofi_prg[tr].nstate > LOFI_NSTATE)
@@ -957,9 +957,7 @@ static const param_desc_t FUNC_PX[16]={{"DENSITY",F_BIPCT,-64,63,0,0},{"SWING",F
     {"KEYS",F_ENUM,0,1,0,N_FKEYS},{"STEREO",F_PCT,0,127,0,0},{"MOVE",F_ENUM,0,3,0,N_FMOVE},{"TIMBRE",F_PCT,0,127,0,0},
     {"COLOR",F_PCT,0,127,0,0},{"RATE",F_ENUM,-3,3,0,N_FRATE+3},{"B GAIN",F_INT_DB,-12,6,0,0},{"B TONE",F_BIPCT,-64,63,0,0},
     {"B OCT",F_INT,-2,2,0,0},{"B RATE",F_ENUM,-3,3,0,N_FRATE+3}};
-static const char *const FUNC_PXT[16]={"THIN .. FILL HITS","ODD 1/16S LATER","STRAIGHT..BROKEN","NOTES 8VA DOWN..UP",
-    "A SECOND RECIPE","A .. A+B .. B","SECTIONS, FILLS","PAN BY THE FORMULA","PAN: NOTE HIT BAR","HITS MOVE CUT + A",
-    "FOLD .. CRUSH","TIME ON THE TEMPO","UNDER A .. OVER","DARK .. BRIGHT","OCTAVES DOWN, UP","B'S TIME"};
+static const char FUNC_PXT[] = "THIN .. FILL HITS\0ODD 1/16S LATER\0STRAIGHT..BROKEN\0NOTES 8VA DOWN..UP\0A SECOND RECIPE\0A .. A+B .. B\0SECTIONS, FILLS\0PAN BY THE FORMULA\0PAN: NOTE HIT BAR\0HITS MOVE CUT + A\0FOLD .. CRUSH\0TIME ON THE TEMPO\0UNDER A .. OVER\0DARK .. BRIGHT\0OCTAVES DOWN, UP\0B'S TIME";   /* (str_nth: a text each, no pointer each) */
 static const uint8_t FUNC_PID[5]={P_FDEN,P_FSWG,P_FCPX,P_FRNG,P_FFB};
 static const param_desc_t *func_pdesc(uint32_t id)    /* (params.c track_desc: a FUNC part's) */
 {
@@ -1002,7 +1000,7 @@ static const param_desc_t *func_knob(const track_t*t,uint32_t k)   /* part t's k
 /* its line of help: one of the knobs' by FORM (FUNC_PX's), else 0 (knob_hint's own table) */
 static const char *func_knob_tip(const param_desc_t*d){
     uintptr_t o=(uintptr_t)d-(uintptr_t)fk_d,q=(uintptr_t)d-(uintptr_t)FUNC_PX;
-    if(q<sizeof FUNC_PX)return FUNC_PXT[q/sizeof(param_desc_t)];
+    if(q<sizeof FUNC_PX)return str_nth(FUNC_PXT, q/sizeof(param_desc_t));
     o/=sizeof(param_desc_t);
     return o<4u*NTRK?func_tip(func_form(&trk[o/4u]),o%4u):0;
 }

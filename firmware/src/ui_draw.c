@@ -963,8 +963,7 @@ static void draw_tabs(void)
 /* (0.9.2, rule 6) the footer's breadcrumb, as the mock-up's: small, DIM, from x 6, its parts apart by " . ": SECTION .
  * GROUP . page ("FX . DELAY . DLY 2"; the menu "MENU . DISPLAY . COLOR", a layer "FX . MAP"), the group THEME, the page
  * TEXT (`last`: a flash TEXT; the DRUM grid with ACC held: ACCENT, "ACCENT"); its place n/N in the chain at the right */
-static const char *const FAM_CRUMB[FAM_COUNT] = {"HOME", "ENV", "LFO", "FX", "SCL", "EDIT", "GLO", "SAVE", "ARP", "SEQ",
-                                                 "GLO"};
+static const char FAM_CRUMB[] = "HOME\0ENV\0LFO\0FX\0SCL\0EDIT\0GLO\0SAVE\0ARP\0SEQ\0GLO";   /* (str_nth: a text each, no pointer each) */
 static __attribute__((noinline)) void foot_crumbs(char *b, uint32_t n)   /* b holds n (48) */
 {
     char ti[24];
@@ -975,7 +974,7 @@ static __attribute__((noinline)) void foot_crumbs(char *b, uint32_t n)   /* b ho
     }
     if (!lz_on()) {
         page_title(ti);
-        str_cpy(b, FAM_CRUMB[cur_page()->fam % FAM_COUNT], n);
+        str_cpy(b, str_nth(FAM_CRUMB, cur_page()->fam % FAM_COUNT), n);
         str_cpy(b + str_len(b), " \xB7 ", 4);
         str_cpy(b + str_len(b), ti, 20);
         return;
@@ -985,7 +984,7 @@ static __attribute__((noinline)) void foot_crumbs(char *b, uint32_t n)   /* b ho
         str_cpy(b, "MENU \xB7 ", n);
         str_cpy(b + str_len(b), MTAB_NAME[menu_tab()], 12);
         str_cpy(b + str_len(b), " \xB7 ", 4);
-        str_cpy(b + str_len(b), MI_NAME[ui.menu_sel % MI_COUNT], 16);
+        str_cpy(b + str_len(b), str_nth(MI_NAME, ui.menu_sel % MI_COUNT), 16);
         return;
     }
     if (f == LZ_LAYER) {
@@ -1000,7 +999,7 @@ static __attribute__((noinline)) void foot_crumbs(char *b, uint32_t n)   /* b ho
         uint8_t cnt[12], gi[12];
         uint32_t g, p, i, m;
         (void)nav_groups(cnt, gi, &g, &p, &i, &m);
-        str_cpy(b, SEC_NAME[nav_sec()], n);
+        str_cpy(b, str_nth(SEC_NAME, nav_sec()), n);
         str_cpy(b + str_len(b), " \xB7 ", 4);
         str_cpy(b + str_len(b), nav_group_name(gi[g]), 12);
         str_cpy(b + str_len(b), " \xB7 ", 4);
@@ -1292,7 +1291,7 @@ static __attribute__((noinline)) void comp_columns(void)
         const step_t *cs = &TSEL->step[ui.cursor];
         uint32_t a = comp_view(), k = comp_slot(), c = CO_COND(k ? cs->comp2 : cs->comp), l = cs->clen[k & 1u];
         char lb[10], un[8];
-        text_column(0, k ? "ACTION 2" : "ACTION", CA_NAMES[a], a ? VAL(0u) : T_DIM);
+        text_column(0, k ? "ACTION 2" : "ACTION", str_nth(CA_NAMES, a), a ? VAL(0u) : T_DIM);
         if (a) {
             fmt_int(val, (int32_t)(l < CL_MAX ? l + 1u : 1u));
             hot_unit_column(1, "LENGTH", val, a == CA_RAMP && (comp_arg(cs) & CV_RAMP_BARS) ? "BAR" : "ST");
@@ -1415,7 +1414,7 @@ static void draw_columns(void)
         return;
     }
     if (SONG_PARTS(cur_page())) {                      /* (V10.7.32) PARTS (CLIPS' grid): TRACK (ALL: the parts' heads), PART,
-                                                         * the part's ROW in the song, PLAY (LOOP / SONG) */
+                                                         * the part's ROW in the song, the STATE (LOCK JAM OVER) */
         uint32_t s = ui.part & 3u, r = ui.song_row;
         if (ui.part & PART_CELL) { val[0] = 'T'; val[1] = (char)('1' + song.sel % NTRK); val[2] = 0; }
         else str_cpy(val, "ALL", sizeof val);
@@ -1425,7 +1424,8 @@ static void draw_columns(void)
         if (r < chain_config.count && chain_config.row[r].slot == s) fmt_frac(val, (int32_t)r + 1, (int32_t)chain_config.count);
         else str_cpy(val, "--", sizeof val);
         text_column(2, "ROW", val, val[0] != '-' ? VAL(2u) : T_DIM);
-        text_column(3, "PLAY", live.mode ? "SONG" : "LOOP", VAL(3u));
+        text_column(3, "STATE", str_nth("LOCK\0JAM\0OVER\0OVER \x85", live.pst + (live.pst == PST_OVER && fm1_ms - pst_t < 800u)), VAL(3u));   /* (OVER: a
+                                                         * mark as it stores, song_main.c pst_store) */
         return;
     }
     if (SONG_TRK(cur_page())) {                        /* (V10.6o) TIMELINE: ROW, PART, BARS, the ALGORITHM track's VAR */
@@ -1443,7 +1443,7 @@ static void draw_columns(void)
         text_column(2, "BARS", val, VAL(2u));
         v = row_var(row, song.sel % NTRK);
         val[0] = 'T'; val[1] = (char)('1' + song.sel % NTRK); str_cpy(val + 2, " VAR", 5);
-        text_column(3, val, RV_NAME[v < RV_N ? v : 0], v ? VAL(3u) : T_DIM);
+        text_column(3, val, str_nth(RV_NAME, v < RV_N ? v : 0), v ? VAL(3u) : T_DIM);
         return;
     }
     if (cur_page()->graph == GR_SONG) {
@@ -1518,7 +1518,7 @@ static void draw_columns(void)
         uint32_t r = psq_row % PSQ_ROWS;
         fmt_int(val, (int32_t)r + 1);
         hot_text_column(0, "ROW", val);
-        hot_text_column(1, "EFFECT", PSQ_NM[psq.fx[r] % PSQ_NFX]);
+        hot_text_column(1, "EFFECT", str_nth(PSQ_NM, psq.fx[r] % PSQ_NFX));
         fmt_int(val, clamp(psq.len, 4, 16));
         hot_unit_column(2, "LEN", val, "ST");
         hot_text_column(3, "RES", PSQ_RESN[psq.res & 3u]);
@@ -1741,7 +1741,7 @@ static void draw_columns(void)
         fmt_int(sl + 1, TSEL->p[P_SLEN]);
         hot_unit_column(0, "STEP", sn, sl);
         hot_text_column(1, "LANE", drum_lane_name(TSEL, ui.lane));
-        text_column(2, "HIT", GRID_HIT[grid_hit_of(st, ui.lane)], on ? VAL(2u) : T_DIM);   /* (0.8.5: its mode) */
+        text_column(2, "HIT", str_nth(GRID_HIT, grid_hit_of(st, ui.lane)), on ? VAL(2u) : T_DIM);   /* (0.8.5: its mode) */
         text_column(3, "ACC", ac ? "ON" : "--", ac ? VAL(3u) : T_DIM);
         return;
     }
@@ -2242,7 +2242,7 @@ static void dlg_crumb(const char *a, const char *b)     /* "SAVE . NOTICE . CONF
 {
     int32_t x;
     cv_begin(240, LZ_FOOT_H, T_BG);
-    x = cv_text(6, CRUMB_Y, &AF_X, SEC_NAME[nav_sec()], T_TEXT);
+    x = cv_text(6, CRUMB_Y, &AF_X, str_nth(SEC_NAME, nav_sec()), T_TEXT);
     x = cv_text(x, CRUMB_Y, &AF_X, " \xB7 ", T_TEXT);
     x = cv_text(x, CRUMB_Y, &AF_X, a, T_THEME);
     x = cv_text(x, CRUMB_Y, &AF_X, " \xB7 ", T_TEXT);

@@ -340,7 +340,7 @@ static const char *menu_short(uint32_t row)          /* a card's label: the row'
     for (k = 0; k < NELEM(SH); k++)
         if (SH[k].row == row)
             return SH[k].s;
-    return MI_NAME[row];
+    return str_nth(MI_NAME, row);
 }
 static void menu_cards(void)
 {
@@ -404,7 +404,7 @@ static __attribute__((noinline)) void menu_panel(void)
             if (row == ui.menu_sel)
                 cv_rect(8, y, 3, h, T_ACCENT);
             GFX_HOOK_ALIGN(0, y, 0, y + h, AL_V, "menu row name centred up/down");
-            cv_free_text(16, y + CAP_IN(M, h), &AF_M, MI_NAME[row], T_TEXT, bg, 116);
+            cv_free_text(16, y + CAP_IN(M, h), &AF_M, str_nth(MI_NAME, row), T_TEXT, bg, 116);
             menu_val(row, v);
             cv_text_r(214, y + CAP_IN(M, h), &AF_M, v, T_TEXT, bg);
             cv_text(220, y + 3 - AF_X_CAP_Y, &AF_X, kn, T_THEME);
@@ -416,7 +416,7 @@ static __attribute__((noinline)) void menu_panel(void)
         char b[32];
         str_cpy(b, MTAB_NAME[t], 32);
         str_cpy(b + str_len(b), " > ", 32 - str_len(b));
-        str_cpy(b + str_len(b), MI_NAME[row], 32 - str_len(b));
+        str_cpy(b + str_len(b), str_nth(MI_NAME, row), 32 - str_len(b));
         cv_text(10, 6 - AF_X_CAP_Y, &AF_X, b, T_THEME);
         if (!nv) {
             cv_text_in(4, 60 - AF_M_CAP_Y, 232, &AF_M, "OCT+ OPENS IT", T_TEXT, T_SURF);

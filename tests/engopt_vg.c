@@ -268,8 +268,8 @@ int main(int argc, char **argv)
         CALLGRIND_ZERO_STATS;
         for (r = 0; r < 3u; r++)
             for (k = 0; k < WAVE_NF + FVM_NBYTE + FVM_NFLOAT; k++) {
-                const char *f = k < WAVE_NF ? WAVE_BANK[k] : k < WAVE_NF + FVM_NBYTE ? FVM_BYTE_BANK[k - WAVE_NF]
-                              : FVM_FLOAT_BANK[k - WAVE_NF - FVM_NBYTE];
+                const char *f = k < WAVE_NF ? WAVE_BANK[k] : k < WAVE_NF + FVM_NBYTE ? fvm_bank(0u, k - WAVE_NF)
+                              : fvm_bank(1u, k - WAVE_NF - FVM_NBYTE);
                 fvm_err_t er;
                 CALLGRIND_TOGGLE_COLLECT;
                 e = fvm_compile(&wk.c, FVM_FULL(&pf), f, (uint32_t)strlen(f), &er);

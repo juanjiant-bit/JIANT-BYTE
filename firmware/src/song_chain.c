@@ -27,7 +27,9 @@ static chain_config_t chain_config;           /* the current song's rows */
                                               * before: 7 and 8's flash is the drum sample bank's now (storage.c FL_SAMPLES) */
 #define NSONG_IDX 8u                          /* (V10.6p) the index's room, as before: its layout (flash, backups) kept;
                                               * rows 7, 8 unused, kept valid for an older firmware's restore */
-#define SONG_MODE_TAG 0xA0u                    /* chain.rsv[2]: saved LOOP/SONG mode, old files have zero */
+#define SONG_MODE_TAG 0xA0u                    /* chain.rsv[2]: saved LOOP/SONG mode (bit 0), STATE (bits 1, 2: live.pst), old
+                                              * files have zero */
+#define SONG_MODE_BYTE(play) (uint8_t)(SONG_MODE_TAG | live.pst << 1 | ((play) ? 1u : 0u))
 #define SONG_MAGIC 0x474E4F53u                /* "SONG" */
 /* (JIANT) a row's scene: when the row goes in (a song, not a quick chain) the tracks' mutes, DRUM's group mutes, the
  * macros and the punch-in MIDI effects become what was stored; they stay through the rows after it that have none.
@@ -53,8 +55,7 @@ typedef struct {                              /* the song index (flash: OBJ_SONG
 /* (add15-beta4) a row's variation of a track (ARRANGE 2's VAR): what its steps become when the row goes in (song_main.c
  * row_vary), MUTE the track silent for the row */
 enum { RV_NONE, RV_MUTE, RV_THIN, RV_FILL, RV_HALF, RV_REV, RV_SHIFT, RV_OCTU, RV_OCTD, RV_MUT1, RV_N = RV_MUT1 + 4 };
-static const char *const RV_NAME[RV_N] = {"--", "MUTE", "THIN", "FILL", "HALF", "REV", "SHIFT", "OCT+", "OCT-",
-                                          "VAR 1", "VAR 2", "VAR 3", "VAR 4"};
+static const char RV_NAME[] = "--\0MUTE\0THIN\0FILL\0HALF\0REV\0SHIFT\0OCT+\0OCT-\0VAR 1\0VAR 2\0VAR 3\0VAR 4";   /* (str_nth: a text each, no pointer each) */
 static void song_idx_touch(void);             /* song_main.c: the index changed, into flash soon */
 /* the state now as a scene (main loop: KNOB 4 on SONG; ISR: SONG REC) */
 static void scene_capture(scene_t *s)
@@ -99,6 +100,9 @@ static struct {
     volatile uint8_t ready;           /* main: staged; ISR: taken (0) */
     uint8_t row, section;             /* the song row it is for (SEC_LIVE: a live jump), the section (0..3) */
     uint32_t src;                     /* (V10.6s) CLIPS: each track's part as a row's tsrc has it (SONG REC's rows) */
+    uint8_t srcs[NTRK + 2u];          /* (STATE) each track's part 0..3 (4 the music as it was), the kit's, the SLICER's */
+    uint8_t ret[NTRK + 2u], reng[NTRK];   /* .. ISR, OVER: the values ended with (t[k].p, dx, slg: swapped in) for part
+                                      * ret - 1, the track's engine then (song_main.c pst_store) */
 } sec_stage __attribute__((section(".lowbuf")));
 /* Optional section extensions live in the pool; LOWBUF has no room for formula text. */
 static struct {
@@ -143,7 +147,22 @@ static struct {
     scene_t rec_scene[CHAIN_ROWS];    /* .. the scene as each row began */
     uint8_t dirty;                    /* sections stored in RAM, not in flash yet (bit s) */
     uint8_t mode;                     /* 1 SONG: PLAY plays the song; 0 LOOP */
+    uint8_t pst;                      /* (the owner) PARTS' STATE, PST_*: what a part's start does to its values */
 } live = {.req = -1, .cur = -1};
+/* (the owner: "la idea es poder editar on the fly las secuencias") HOME > PARTS KNOB 4 STATE, kept with the song
+ * (chain.rsv[2] bits 1, 2; older songs LOCK): what each part's start (song_play.c sec_apply: a song's row, a live jump,
+ * CLIPS) does to its VALUES, each track's parameters (its LEN, DIV and MUTE always the part's at its start: the
+ * steps', the scene's; OVER stores all but MUTE), the DRUM-X kit's and the SLICER's (the globals a part has). LOCK: the part's as stored (as ever). JAM:
+ * none, the values as they are (a track the part brings another engine: the part's). OVER: at the end of each pass (the
+ * part's next start: the same part again, it plays on as it is) the values it ended with into the part (RAM; SAVE
+ * keeps them), the part's own again when it comes back: a jam's cuts between sections (V10.6z8's sounds held over
+ * the song: not in OVER, each part its own). The sounds, the steps, the
+ * automation (REC's, first within a part) and the mutes are the part's in every mode */
+enum { PST_LOCK, PST_JAM, PST_OVER };
+#define PST_SEQ(j) ((j) == P_SLEN || (j) == P_SDIV || (j) == P_MUTE)   /* (the part's in every mode) */
+static uint8_t pst_cur[NTRK + 2u];    /* ISR: the part (+ 1; 0 not known) each track's values, the kit's (NTRK), the
+                                      * SLICER's (NTRK + 1) came in with; 5 the music as it was (CLIPS' others) */
+static uint32_t pst_t;                /* .. OVER stored a part's (when: KNOB 4's mark) */
 
 /* (V10.6s) SAVE > CLIPS (song_main.c clip_launch): each track's part that sounds, 1..4 A..D, CLIP_STOP stopped, 0 not
  * known (the music is no part as stored), and the one asked for, in on the next bar (0 none). Main loop; derived, not
@@ -156,8 +175,12 @@ static uint32_t rec_src[CHAIN_ROWS] __attribute__((section(".lowbuf")));   /* SO
 
 static void song_mode_restore(void)
 {
-    if ((chain_config.rsv[2] & 0xFEu) == SONG_MODE_TAG)
-        live.mode = (chain_config.rsv[2] & 1u) && chain_config.count;   /* (the owner: no rows, the loop: PLAY plays) */
+    uint32_t v = chain_config.rsv[2];
+    live.pst = 0;
+    if ((v & 0xF8u) == SONG_MODE_TAG) {
+        live.mode = (v & 1u) && chain_config.count;   /* (the owner: no rows, the loop: PLAY plays) */
+        live.pst = (uint8_t)((v >> 1 & 3u) % 3u);
+    }
 }
 
 static void chain_start(void);                   /* song_play.c (end of seq.c) */

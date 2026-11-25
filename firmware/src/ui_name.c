@@ -29,11 +29,10 @@ enum { NK_NONE, NK_USER_SAVE, NK_USER_RENAME, NK_PROJ_SAVE, NK_PROJ_RENAME, NK_L
 #define NM_REP_MS 450u                                 /* a held arrow / DELETE repeats after this, */
 #define NM_RATE_MS 90u                                 /* .. every this */
 enum { NB_LEFT, NB_SPACE, NB_RIGHT, NB_DEL, NB_MODE, NB_NONE };
-static const char *const NM_ABC[16] = {"AB", "CD", "EF", "GH", "IJK", "LM", "NO", "PQ", "RS", "TU", "VW", "XYZ",
-                                       "123", "456", "789", "0-."};
+static const char NM_ABC[] = "AB\0CD\0EF\0GH\0IJK\0LM\0NO\0PQ\0RS\0TU\0VW\0XYZ\0""123\0""456\0""789\0""0-.";   /* (str_nth: a text each, no pointer each) */
 static const char NM_NUM[17] = "1234567890-._/#+";
-static const char *const NM_FORM_ABC[16] = {"ab", "cd", "ef", "gh", "ijk", "lm", "no", "pq", "rs", "tu", "vw", "xyz", "ABCDT", "012", "345", "6789"};
-static const char *const NM_FORM_OP[16] = {"+", "-", "*", "/", "({", ")}", ".;", ",", "%", "&", "|", "^", "~!", "<", ">", "=?"};
+static const char NM_FORM_ABC[] = "ab\0cd\0ef\0gh\0ijk\0lm\0no\0pq\0rs\0tu\0vw\0xyz\0ABCDT\0""012\0""345\0""6789";   /* (str_nth: a text each, no pointer each) */
+static const char NM_FORM_OP[] = "+\0-\0*\0/\0({\0)}\0.;\0,\0%\0&\0|\0^\0~!\0<\0>\0=?";   /* (str_nth: a text each, no pointer each) */
 static const char NM_FORM_SET[] = " tTwABCDnv0123456789.+-*/(),;%&|^~!<>=?:{}[]_\"abcdefghijklmnopqrstuvwxyz";
 static const char NM_SET[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._/#+";   /* KNOB 2 */
 static struct {
@@ -72,9 +71,9 @@ static const char *nm_mode_name(uint32_t m)            /* ABC 123 */
 static const char *nm_group(uint32_t p)                /* white key place p's characters */
 {
     static char one[3];
-    if (nm_formula()) return nm.num ? NM_FORM_OP[p & 15u] : NM_FORM_ABC[p & 15u];
+    if (nm_formula()) return nm.num ? str_nth(NM_FORM_OP, p & 15u) : str_nth(NM_FORM_ABC, p & 15u);
     if (!nm.num)
-        return NM_ABC[p & 15u];
+        return str_nth(NM_ABC, p & 15u);
     one[0] = NM_NUM[p & 15u], one[1] = 0;
     return one;
 }

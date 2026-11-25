@@ -472,7 +472,7 @@ static int clay_card_text(char *a, char *b)
     if (clay_ke.kind == 1u) {                           /* a gesture: its shape, MOD, where it goes; how */
         uint32_t sh = clay_ke.a % FORM_NSH, m = clay_ke.b & 3u, j;
         const param_desc_t *dd = clay_desc(t, CL_MF(m, 0u), &dv);
-        str_cpy(a, FORM_SHAPE[sh], 24);
+        str_cpy(a, str_nth(FORM_SHAPE, sh), 24);
         str_cpy(a + str_len(a), " \xB7 M", 24 - str_len(a));
         j = str_len(a); a[j] = (char)('1' + m); a[j + 1u] = 0;
         str_cpy(a + str_len(a), " \xB7 ", 24 - str_len(a));
