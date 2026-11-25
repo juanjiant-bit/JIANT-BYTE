@@ -190,7 +190,9 @@ void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) 
         if (fm1_audio_free_half() != half) {
             felucca_dbg.late++;                         /* the DMA moved on while we rendered (0.8.9: caught up at
                                                          * once, its half pending; a click only past ~1.7 halves) */
-            shed_req = 1;                               /* (cpu5: the last resort, a voice faded: only a late half) */
+            if (!load_step())                           /* (BYTE relief) a stage of the guard's first (voice.c) */
+                shed_req = 1;                           /* (cpu5: the last resort, a voice faded: only a late half,
+                                                         * every stage on) */
         }
         {   /* (0.6.17) MENU > ABOUT's numbers (voice.c load_diag) */
             uint32_t pc = us * 100u / (HALF_FRAMES * 1000000u / FS);

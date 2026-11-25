@@ -29,6 +29,9 @@
 #define HV_N 4u
 #define HV_LINE COMB_LEN                                 /* (the line the strings share) */
 #define HV_MAGIC 0x48495645u
+#define HV_RLG 181                                       /* (BYTE relief) the input at half the rate, x sqrt 2 (Q7): what
+                                                          * a touch and the bloom give a second, a band-limited input's
+                                                          * and a broadband one's between (HIVE's presets +-3.5 dB) */
 #define HV_GAIN 43000                                    /* the mix's level (Q15: x 1.3; the prototype's 0.3, its renders
                                                           * normalised; the cubic's knee 2/3 of the tanh's) */
 typedef struct {
@@ -54,7 +57,9 @@ typedef struct {
     int16_t sm[8];                                       /* E1..E8 as heard (Q8: each a block a quarter of the way to its
                                                           * knob, the matrix's moves too: no zipper) */
     int16_t lv[HV_N + 1u];                               /* the strings' and the echo's levels (the screen) */
-    uint8_t nk, pl, smon, rsv;                           /* the keys held at the last block; the transport playing; sm, rv set */
+    uint8_t nk, pl, smon, rl;                            /* the keys held at the last block; the transport playing; sm, rv
+                                                          * set; (BYTE relief) the strings an octave under the rate laid
+                                                          * out for (sh one more) */
 } hv_st_t;
 /* the echo's stages: a byte each (sign, 3 bits of octave, 4 of mantissa: a BBD's grain), the rest of the kit row */
 #define HV_ES ((uint32_t)(sizeof drum_kit[0] - sizeof(hv_st_t)))
@@ -140,7 +145,7 @@ typedef struct {                                         /* a block's values (hv
     int32_t bf[2], bq, bg;                               /* BODY: its two resonators' frequencies, their damping and gain */
     uint32_t einc, rain, en;                             /* the echo's clock, RAIN, the echo's taps (at most HV_ES) */
     const uint8_t *F;                                    /* (the touch's row of HV_TF) */
-    uint8_t form;
+    uint8_t form, rl;                                    /* (rl: hv_st_t's: the DC's time kept) */
 } hv_blk_t;
 
 /* the four strings' periods, Q8 at 22 kHz, from the notes and PAIR */
@@ -161,8 +166,33 @@ static __attribute__((noinline)) void hv_periods(const track_t *t, const voice_t
     }
 }
 static uint32_t hv_req(uint32_t p) { return (p >> 8) + (p >> 11) + 4u; }   /* a string's room: CROSS's swing, the read */
+/* (BYTE relief) the strings to half their rate (r 1) or back (0), in their places: each line's samples by age, the
+ * newest first (down: age i takes age 2i, older, not yet written over) or the oldest first (up: age i between ages i / 2
+ * and i / 2 + 1, newer); their lengths, POS's pickup and the touch's time with them: the sound goes on, no dip */
+static __attribute__((noinline)) void hv_rerate(hv_st_t *s, int16_t *L, uint32_t r)
+{
+    uint32_t k;
+    for (k = 0; k < HV_N; k++) {
+        int16_t *b = L + s->base[k];
+        int32_t c = s->cap[k], w = s->w[k], i;
+#define HV_AT(a) b[w - (a) < 0 ? w - (a) + c : w - (a)]
+        if (r)
+            for (i = 1; 2 * i < c; i++)
+                HV_AT(i) = HV_AT(2 * i);
+        else
+            for (i = c - 1; i > 1; i--)
+                HV_AT(i) = (int16_t)((HV_AT(i >> 1) + HV_AT((i + 1) >> 1)) >> 1);
+#undef HV_AT
+        b[c] = b[0];
+        s->per[k] = r ? s->per[k] >> 1 : s->per[k] << 1;
+        s->pd[k] = r ? s->pd[k] >> 1 : s->pd[k] << 1;
+    }
+    s->tt = r ? s->tt >> 1 : s->tt << 1;
+    s->sh = (uint8_t)(s->sh + (r ? 1u : 0u) - (r ? 0u : 1u));
+    s->rl = (uint8_t)r;
+}
 /* the rate and the layout for periods P (Q8 at 22 kHz; out: at the rate chosen, an octave up where none fits) */
-static __attribute__((noinline)) void hv_layout(hv_st_t *s, uint32_t *P)
+static __attribute__((noinline)) void hv_layout(hv_st_t *s, uint32_t *P, int16_t *L)
 {
     uint32_t k, sh = 2, sum = 0, req[HV_N], fit = 1, b = 0;
     for (k = 0; k < HV_N; k++)                           /* 11 kHz; 22 kHz when a string passes ~2.2 kHz (10 samples) */
@@ -183,8 +213,8 @@ static __attribute__((noinline)) void hv_layout(hv_st_t *s, uint32_t *P)
         req[k] = hv_req(P[k]);
         fit &= req[k] <= s->cap[k];
     }
-    if (s->lay && sh == s->sh && fit)
-        return;
+    if (s->lay && sh + s->rl == s->sh && fit)
+        goto relief;
     for (k = 0; k < HV_N; k++) {                         /* the spare room shared by length: a glide, a bend fit */
         uint32_t c = req[k] + (HV_LINE - HV_N - sum) * req[k] / sum;
         s->base[k] = (uint16_t)b;
@@ -196,7 +226,18 @@ static __attribute__((noinline)) void hv_layout(hv_st_t *s, uint32_t *P)
     if (s->lay)
         s->duck = 3;                                     /* (the lines' old contents in new places: a dip) */
     s->sh = (uint8_t)sh;
+    s->rl = 0;
     s->lay = 1;
+relief:                                                  /* (BYTE relief) RL_HIVE: an octave lower where every string
+                                                          * keeps 10 samples (5.5 kHz; 11 kHz past ~550 Hz) */
+    if (!(fit = load_rl >= RL_HIVE) && !s->rl)
+        return;
+    for (k = 0; k < HV_N; k++)
+        fit &= P[k] >= (20u << 8);
+    if (fit != s->rl)
+        hv_rerate(s, L, fit);
+    for (k = 0; k < HV_N; k++)
+        P[k] >>= s->rl;
 }
 static void hv_touch(hv_st_t *s, uint32_t vel)
 {
@@ -230,7 +271,7 @@ static __attribute__((noinline)) void hv_prep(const track_t *t, const voice_t *v
     }
     f = s->sm[0]; c = s->sm[1]; e = s->sm[2]; st = s->sm[3]; bo = s->sm[4]; br = s->sm[5]; po = s->sm[6]; dr = s->sm[7];
     hv_periods(t, v, m, s, P);
-    hv_layout(s, P);
+    hv_layout(s, P, comb_buf[(uint32_t)(t - trk) % NTRK]);
     sh = s->sh;
     /* BRIGHT: the loop's one pole, its time constant tau 2^((64 - BRIGHT) / 16) samples at 44.1 kHz (64: the
      * prototype's 0.5), a = 1 / (1 + tau) at the strings' rate; its delay (tau) out of the length: in tune */
@@ -315,7 +356,8 @@ static __attribute__((noinline)) void hv_prep(const track_t *t, const voice_t *v
         int32_t u = e >> 8, u2 = u * u;
         B->edir = (u * 25756) >> 7;
         B->regen = 6554 + (u * 18022 >> 7);
-        B->ein = (int32_t)(((uint32_t)u2 * 100u) >> 14);   /* (~0.006 at 127: the loop through the strings under 1) */
+        B->ein = (int32_t)(((uint32_t)u2 * 100u) >> 14) * (s->rl ? HV_RLG : 128) / 128;   /* (~0.006 at 127: the loop
+                                                          * through the strings under 1; HV_RLG) */
     }
     bt = (uint32_t)FS * 60u / (uint32_t)clamp(song.g[G_BPM], 20, 300);   /* (a beat, samples at 44.1 kHz) */
     ts = tm < 7u ? (int32_t)(((uint32_t)FS >> sh) * HV_TMS[tm] / 1000u) : (int32_t)((bt >> sh) * HV_T16[tm - 7u] >> 2);
@@ -330,9 +372,11 @@ static __attribute__((noinline)) void hv_prep(const track_t *t, const voice_t *v
     B->ek = clamp((int32_t)(B->einc * 3u), 64, 32767);  /* (~ the clock's half: its band, no more) */
     /* TOUCH: a burst from the note (its length a share of the longest string), or on while held */
     lv = (int32_t)(s->tv * s->tv) * 258 >> 7;            /* (the velocity squared, Q15) */
-    lv = (F[7] * lv >> 7) << 8;                          /* (Q23: a slow SWELL's steps) */
+    lv = ((F[7] * lv >> 7) << 8) / 128 * (s->rl ? HV_RLG : 128);   /* (Q23: a slow SWELL's steps; HV_RLG; Q15 at most) */
+    lv = lv > (32767 << 8) ? 32767 << 8 : lv;
     B->F = F;
     B->form = (uint8_t)form;
+    B->rl = s->rl;
     B->tl = 0;
     B->rain = form == HT_RAIN && v->gate ? 2u << (sh - 1u) : 0u;   /* (RAIN: ~20 drops a second, each a few ms) */
     if (F[6]) {
@@ -442,7 +486,7 @@ static __attribute__((noinline)) void hv_str(hv_st_t *s, int16_t *L, uint32_t k,
         if (w == c) w = 0;
         b[c] = b[0];
     }
-    s->dc[k] += ((sum << 8) - s->dc[k] * (int32_t)m) >> 10;   /* (its DC a sub-block, Q8 finer: ~3 Hz) */
+    s->dc[k] += ((sum << 8) - s->dc[k] * (int32_t)m) >> (10u - B->rl);   /* (its DC a sub-block, Q8 finer: ~3 Hz) */
     s->per[k] = p; s->w[k] = (uint16_t)w; s->lp[k] = l; s->o[k] = (int16_t)o;
     s->ap[k][0] = s1; s->ap[k][1] = s2; s->pd[k] = dep ? pd : pdt; s->cav[k] = (int16_t)B->ca[k];
 }
@@ -508,12 +552,12 @@ static __attribute__((noinline)) void hv_run(hv_st_t *s, int16_t *L, uint8_t *E,
     if (tch) {                                           /* the touch: the bytebeat (or the noise) at its level, a string
                                                           * each its own (k + 3 x the string) */
         const uint8_t *F = B->F;
-        uint32_t nz = !F[0];
+        uint32_t nz = !F[0], trl = B->rl;
         for (j = 0; j < ni; j++) {
             uint32_t x = nz ? rng : ((tt + j) << s->sh) * F[4] >> F[5];
             int32_t ta;
             if (B->rain && (rng >> 21) < B->rain)        /* (RAIN: a drop) */
-                tamp = (int32_t)(3355443u * s->tv / 127u);
+                tamp = (int32_t)(3355443u * s->tv / 127u) * (trl ? HV_RLG : 128) / 128;
             ta = tamp >> 8;
             {
                 int32_t b0 = (int32_t)(nz ? x : x * F[0] & x >> F[1]) & 255, f = in[0][j];

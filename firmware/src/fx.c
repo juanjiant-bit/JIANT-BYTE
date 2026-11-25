@@ -2158,6 +2158,9 @@ static void fx_gate(int32_t *wet, uint32_t n)
 #define HB_N 14u                                         /* the taps' distinct values (offsets 1, 3 .. 27 from the middle) */
 #define HB_H (2u * HB_N)                                 /* the history: the even-offset samples (+ the middle's, odd) */
 static const int16_t HB_Q[HB_N] = {5194, -1675, 940, -607, 412, -283, 193, -129, 83, -51, 30, -16, 8, -3};   /* (sum 4096) */
+/* (BYTE relief, RL_DLY) the overload's: 7 taps a side (Kaiser 7, the same middle: no step in time), flat to 7 kHz,
+ * what folds -68 dB from 15 kHz (at a quarter rate half as high); sum 4096 (DC exact) */
+static const int16_t HB_Q7[7] = {5117, -1460, 635, -271, 98, -25, 2};
 typedef struct { int32_t e[2u * HB_H], o[2u * HB_N]; uint8_t ep, op, ph; } hbd_t;   /* (each line twice: no wrap) */
 typedef struct { int32_t u[2u * HB_H]; uint8_t p; } hbi_t;
 static struct {
@@ -2172,15 +2175,17 @@ static int32_t dlo_xr[CTL] __attribute__((section(".pool")));   /* .. the right 
 #define DSW_LOG2 7u
 #define DSW_FADE (1u << DSW_LOG2)                        /* a rate change's fade out (and the input's in): 2.9 ms */
 #define DLY_CLR 16384u                                   /* .. the line cleared 32 KB a block */
-static inline int32_t hb_sum(const int32_t *h)           /* h[0] the newest: the pairs about the middle (lag 13.5) */
+static inline int32_t hb_sum(const int32_t *h, const int16_t *q, uint32_t nq)   /* h[0] the newest: the pairs about
+                                                         * the middle (lag 13.5); q, nq: HB_Q's 14 (BYTE relief, RL_DLY:
+                                                         * HB_Q7's 7; dly_lo's block chooses) */
 {
     int32_t a = 0;
     uint32_t k;
-    for (k = 0; k < HB_N; k++)
-        a += HB_Q[k] * (h[HB_N - 1u - k] + h[HB_N + k]);
+    for (k = 0; k < nq; k++)
+        a += q[k] * (h[HB_N - 1u - k] + h[HB_N + k]);
     return a;
 }
-static inline int hb_dec(hbd_t *s, int32_t x, int32_t *y)   /* an FS sample in; every other one a sample out */
+static inline int hb_dec(hbd_t *s, int32_t x, int32_t *y, const int16_t *q, uint32_t nq)   /* an FS sample in; every other one a sample out */
 {
     if (s->ph) {                                         /* (odd: the middle tap's line) */
         s->op = (uint8_t)(s->op ? s->op - 1u : HB_N - 1u);
@@ -2191,14 +2196,14 @@ static inline int hb_dec(hbd_t *s, int32_t x, int32_t *y)   /* an FS sample in; 
     s->ep = (uint8_t)(s->ep ? s->ep - 1u : HB_H - 1u);
     s->e[s->ep] = s->e[s->ep + HB_H] = x;
     s->ph = 1;
-    *y = (hb_sum(s->e + s->ep) + s->o[s->op + HB_N - 1u] * 8192 + 8192) >> 14;
+    *y = (hb_sum(s->e + s->ep, q, nq) + s->o[s->op + HB_N - 1u] * 8192 + 8192) >> 14;
     return 1;
 }
-static inline void hb_int(hbi_t *s, int32_t u, int32_t *y0, int32_t *y1)   /* a sample in, two out (x2 the rate) */
+static inline void hb_int(hbi_t *s, int32_t u, int32_t *y0, int32_t *y1, const int16_t *q, uint32_t nq)   /* a sample in, two out (x2 the rate) */
 {
     s->p = (uint8_t)(s->p ? s->p - 1u : HB_H - 1u);
     s->u[s->p] = s->u[s->p + HB_H] = u;
-    *y0 = (hb_sum(s->u + s->p) + 4096) >> 13;
+    *y0 = (hb_sum(s->u + s->p, q, nq) + 4096) >> 13;
     *y1 = s->u[s->p + HB_N - 1u];
 }
 static inline int32_t dly_rd_sh(uint32_t d, int32_t m, uint32_t sh)   /* d (+ m, Q8) FS samples back, the line at FS >> sh */
@@ -2239,6 +2244,8 @@ static __attribute__((noinline)) void dly_lo(const int32_t *dly_in, int32_t *dx,
                                              const dlyk_t *k, int32_t wm, int32_t dwm)
 {
     uint32_t i, j, sh = fx.dr_sh, r = 1u << sh;
+    uint32_t nq = load_rl >= RL_DLY ? 7u : HB_N;         /* (BYTE relief: the half-bands' taps) */
+    const int16_t *hq = nq == HB_N ? HB_Q : HB_Q7;
     if (fx.dsw == 2u) {                                  /* (the line being cleared: silence) */
         for (i = 0; i < n; i++)
             dx[i] = dxr[i] = 0;
@@ -2257,9 +2264,9 @@ static __attribute__((noinline)) void dly_lo(const int32_t *dly_in, int32_t *dx,
             fx.din_g--;
         }
         if (sh) {
-            ok = hb_dec(&dlo.d[0], u, &u);
+            ok = hb_dec(&dlo.d[0], u, &u, hq, nq);
             if (ok && sh > 1u)
-                ok = hb_dec(&dlo.d[1], u, &u);
+                ok = hb_dec(&dlo.d[1], u, &u, hq, nq);
         }
         if (ok) {                                        /* a step of the loop, at the line's rate */
             int32_t lf, w;
@@ -2316,17 +2323,17 @@ static __attribute__((noinline)) void dly_lo(const int32_t *dly_in, int32_t *dx,
                     memcpy(dlo.ir, dlo.ix, sizeof dlo.ir);
                 dlo.st = (uint8_t)st;
                 if (sh == 1u) {
-                    hb_int(&dlo.ix[0], x, &dlo.ox[0], &dlo.ox[1]);
-                    if (st) hb_int(&dlo.ir[0], xr, &dlo.orr[0], &dlo.orr[1]);
+                    hb_int(&dlo.ix[0], x, &dlo.ox[0], &dlo.ox[1], hq, nq);
+                    if (st) hb_int(&dlo.ir[0], xr, &dlo.orr[0], &dlo.orr[1], hq, nq);
                 } else {
                     int32_t a, b;
-                    hb_int(&dlo.ix[1], x, &a, &b);
-                    hb_int(&dlo.ix[0], a, &dlo.ox[0], &dlo.ox[1]);
-                    hb_int(&dlo.ix[0], b, &dlo.ox[2], &dlo.ox[3]);
+                    hb_int(&dlo.ix[1], x, &a, &b, hq, nq);
+                    hb_int(&dlo.ix[0], a, &dlo.ox[0], &dlo.ox[1], hq, nq);
+                    hb_int(&dlo.ix[0], b, &dlo.ox[2], &dlo.ox[3], hq, nq);
                     if (st) {
-                        hb_int(&dlo.ir[1], xr, &a, &b);
-                        hb_int(&dlo.ir[0], a, &dlo.orr[0], &dlo.orr[1]);
-                        hb_int(&dlo.ir[0], b, &dlo.orr[2], &dlo.orr[3]);
+                        hb_int(&dlo.ir[1], xr, &a, &b, hq, nq);
+                        hb_int(&dlo.ir[0], a, &dlo.orr[0], &dlo.orr[1], hq, nq);
+                        hb_int(&dlo.ir[0], b, &dlo.orr[2], &dlo.orr[3], hq, nq);
                     }
                 }
                 if (!st)

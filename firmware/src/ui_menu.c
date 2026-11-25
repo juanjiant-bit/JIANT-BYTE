@@ -193,6 +193,16 @@ static __attribute__((noinline)) int32_t about_cpu(int32_t y, int draw)
     y = menu_text(crash_log_get(b) ? b : "NONE", y, T_TEXT, draw);
     return y;
 }
+/* (BYTE relief) ABOUT's cores line and the overload guard's relief stage, now / the deepest since power-on (voice.c
+ * load_rl; 0/0 none yet). Out of the segment: its call the one it had */
+static __attribute__((noinline)) const char *about_cores(void)
+{
+    static char b[40];
+    str_cpy(b, cpu_status(), 28);
+    str_cpy(b + str_len(b), "  GUARD ", 9);
+    fmt_frac(b + str_len(b), load_rl, (int32_t)load_diag.rl);
+    return b;
+}
 /* (0.6.17) the audio's load since power-on (voice.c load_diag): to tell what happened when it clicked. (V10.13) In the
  * segment (bt.c BTAPP_FN): without it ABOUT goes on with the CPU lines */
 BTAPP_FN static int32_t about_load(int32_t y, int draw)
@@ -206,7 +216,7 @@ BTAPP_FN static int32_t about_load(int32_t y, int draw)
     str_cpy(b, "LATE ", sizeof b); fmt_int(b + str_len(b), (int32_t)load_diag.late);
     str_cpy(b + str_len(b), "  SHED ", 8); fmt_int(b + str_len(b), (int32_t)load_diag.shed);
     y = menu_text(b, y, T_TEXT, draw);
-    y = menu_text(cpu_status(), y, T_TEXT, draw);   /* (the second core: fx.c; p1: MENU > CPU CORES, cpu_safe.c) */
+    y = menu_text(about_cores(), y, T_TEXT, draw);   /* (the second core: fx.c; p1: MENU > CPU CORES, cpu_safe.c) */
 #if FELUCCA_DUAL_CORE
     if (fm1_core1_fault.count) {                     /* (BYTE) core 1's fault, where: its PC, core 1's own, the debug word,
                                                       * the window it wrote into (hal/fm1_irq.h); the map names the code */
