@@ -2757,13 +2757,15 @@ BTAPP_FN static void gen_scale_page(void)   /* (gen_make's, as gx_sound) */
 /* (0.9.9-gen1) the clean base: a piece starts from NEW PROJECT's state (project.c system_init: the song's globals but
  * the clock, tune, MIDI and routing; every track's parameters, sound, steps and automation;
  * DRUM-X's kit, GLUE, octaves and sends, FUGUE's playheads, MUTATE's anchor, PLAY's SONG mode) and the
- * generator's own state cleared; kept: what the player locked (the tempo under BPM LOCK), the project's name, the
+ * generator's own state cleared; kept: what the player locked (the tempo under BPM LOCK), SCL > HARMONY, the project's name, the
  * sections of theirs (gen_parts). Nothing of the piece before stays in this one */
 static void system_init_named(void);                   /* (project.c: system_init, the project's name kept) */
 BTAPP_FN static void gen_clean(void)   /* (BYTE 0.17: gen_make's, in the segment with it) */
 {
-    int16_t bpm = song.g[G_BPM];
+    int16_t bpm = song.g[G_BPM], hm[4];
+    memcpy(hm, &song.g[G_HPROG], sizeof hm);            /* (BYTE) SCL > HARMONY the player's: kept */
     system_init_named();
+    memcpy(&song.g[G_HPROG], hm, sizeof hm);
     if (ui_prefs & PREF_BPM_LOCK) song.g[G_BPM] = bpm;
     memset(&gs, 0, sizeof gs);                          /* (LOOP: system_init) */
 }
@@ -2853,6 +2855,8 @@ BTAPP_FN static void gen_pick(void)
             gs.pq[k] = (uint8_t)(qq | f);
         }
     }
+    if (song.g[G_HPROG]) { gs.pn = 1; gs.pdeg[0] = 0; gs.pq[0] = QQ(gs.pq[0]); }   /* (BYTE) SCL > HARMONY on: the
+                                                         * parts on the key's tonic chord, HARMONY moving them (not twice) */
     gs.cst = 16u * g->cbars;
     if (gx.on || (g->spec & GSP_POLY))                  /* (V10.6n) EXPLORE: the chords over a cycle of 64 (48: three of
                                                          * them, or the 3:4 layer's), the period every track divides */
@@ -3192,8 +3196,6 @@ static void gen_go(void)
         return;
     }
     gls.u = gp.form == 3u;
-    song.g[G_HPROG] = 0;                                /* (BYTE) GEN writes its own progression into the notes: SCL >
-                                                         * HARMONY off, not moving them a second time */
     gen_make();
     if (gls.u && (dice_secs != 15u || !live.mode || chain_config.count < 4u)) {
         if (dice_secs & 1u) section_load(0);

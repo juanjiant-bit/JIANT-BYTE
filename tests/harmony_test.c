@@ -130,14 +130,17 @@ int main(void)
     {   /* (FM V10.8.34) GEN: the harmony families' own progressions (PROG's PR_FAM ..) thrown now and then */
         ok = PROG[PR_FAM].n == 4u && PROG[PR_FAM + 4].deg[1] == 4 && PROG[PR_FAM + 11].deg[0] == 1 &&
              str_eq(N_HPROG[1 + PR_FAM + 4], "4CHRD") && str_eq(N_HPROG[1 + PR_NSOUL], "NSOUL");
-        for (k = 0, hits = 0; k < 48u; k++) {
+        for (k = 0, hits = 0; k < 96u; k++) {
             ui_power_on();
-            gp.genre = 1u + k % NGENRE; gp.seed = 100u + k; gp.energy = 60; gp.form = 0;
+            gp.genre = 1u + (k >> 1) % NGENRE; gp.seed = 100u + (k >> 1); gp.energy = 60; gp.form = 0;
             gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30;
             for (i = 0; i < GP_N; ++i) gp.amt[i] = GA_AUTO;
-            song.g[G_HPROG] = 3;
+            song.g[G_HPROG] = k & 1u ? 3 : 0;
             gen_go();
-            ok &= song.g[G_HPROG] == 0;                 /* (GEN writes its own: HARMONY off) */
+            if (k & 1u) {                               /* (HARMONY on: kept, the parts on the tonic chord, HARMONY moves them) */
+                ok &= song.g[G_HPROG] == 3 && gs.pn == 1u && gs.pdeg[0] == 0u;
+                continue;
+            }
             fam = HXF(gs.hx);
             for (i = 0; i < 2u && fam < HF_N; i++) {
                 const gprog_t *p = &PROG[PR_FAM + 2u * fam + i];
@@ -146,7 +149,7 @@ int main(void)
             }
         }
         if (!hits) printf("  no family progression in 48 throws\n");
-        bad += check("GEN: the families' progressions among PROG's (SCL > HARMONY's too), thrown; GEN turns HARMONY off", ok && hits);
+        bad += check("GEN: the families' progressions among PROG's (SCL > HARMONY's too), thrown; HARMONY on kept, GEN on the tonic", ok && hits);
     }
     printf(bad ? "harmony: %d FAILED\n" : "harmony: all ok\n", bad);
     return bad != 0;

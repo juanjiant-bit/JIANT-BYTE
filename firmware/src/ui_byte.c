@@ -306,7 +306,8 @@ static void hud_wave(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
  * on the UI's side (the work space's copy, as CENSUS): one sample, the sounds not made, what it asks for kept: kick()
  * snare() hat()'s age, eu()'s answer (the recipes' action), the first note()'s or chord()'s pitch, the first table's
  * pick. The audio is not looked into; the same text, the same knobs, the same P */
-typedef struct { uint32_t age[3], eu[3], note, tab; uint8_t neu, has; } fpeek_t;
+typedef struct { uint32_t age[3], eu[3], note, tab, pn[2]; uint8_t neu, has; } fpeek_t;   /* (pn: a note begun, under the key
+                                                         * and over it: has 32 64) */
 static void func_peek(const fvm_prog_t *p, const uint32_t *u, uint32_t P, uint32_t tq, fpeek_t *o)
 {
     uint32_t stack[FVM_DEPTH], local[10] = {0}, sp = 0, pc, zero = 0, T = (uint32_t)((uint64_t)tq * 65536u / FS);
@@ -330,7 +331,11 @@ static void func_peek(const fvm_prog_t *p, const uint32_t *u, uint32_t P, uint32
             if (op == FO_EU && o->neu < 3u) o->eu[o->neu++] = stack[sp - 1u] & 1u;
         } else if (FO_ISUN(op)) stack[sp - 1u] = fvm_op1(op, a);
         else if (op == FO_MUSIC) {
-            if (in->k < 2u) { sp -= 2u; if (!(o->has & 8u)) o->note = stack[sp - 1u]; o->has |= 8u; }
+            if (in->k < 2u) {
+                uint32_t q = stack[sp - 3u], hb = q + 6u >= u[FU_NOTE];
+                sp -= 2u; if (!(o->has & 8u)) o->note = q; o->has |= 8u;
+                if (stack[sp] < 1024u && !(o->has & 32u << hb)) { o->pn[hb] = q; o->has |= (uint8_t)(32u << hb); }
+            }
             else { o->age[in->k - 2u] = a; o->has |= 1u << (in->k - 2u); }
             stack[sp - 1u] = 0;
         } else if (op == FO_SEL) { uint32_t y = stack[--sp], x = stack[--sp]; stack[sp - 1u] = stack[sp - 1u] ? x : y; }
@@ -357,16 +362,23 @@ static const char *fk_txt(uint32_t k, uint32_t *g)
 /* ui_layer.c: the keyboard drawn, each key by a pk_kf_t (its fill; its name and ink); FUNC's keys on it */
 typedef uint16_t (*pk_kf_t)(uint32_t a, int blk, uint32_t i, char *nm, uint16_t *ink);
 static int fk_map(const track_t *t, int32_t x, int32_t y, int32_t wd, int32_t ht);
-/* the bar now: 16 steps (the one playing outlined), a lane for each drum the program calls and each eu() action, the
- * note (or the table's pick: the recipes' w * x), the four knobs by their FORM's names */
+/* (the owner's mock-up A, PARTITURA VIVA) the bar now in three lanes, DRUMS BASS TOP, from what the formula begins at
+ * each of its 16 steps (func_peek): the hits as blocks (a kick whole, a snare two thirds, a hat a third), the notes at
+ * their pitch (under the key: BASS); the step playing lit, the ones before it fading to the left (round the bar); a
+ * lane muted (funcplay) dim. Under: the SECTION (or the FILL held; lit when anything is played on it), A's and B's
+ * RATE, MOTION's STEREO where the pan is now (mod.c func_mod's) */
 static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32_t wd, int32_t ht, uint16_t tc)
 {
-    static const char *const LN[6] = {"KICK", "SNARE", "HAT", "ACT", "ACT2", "ACT3"};
-    uint32_t u[FU_N] = {0}, i, k, pos = 0, live = 0, lanes = 0, hit[6] = {0}, bps = (uint32_t)FS * 60u / (uint32_t)clamp(song.g[G_BPM], 20, 300);
+    uint32_t u[FU_N] = {0}, i, k, l, pos = 0, live = 0, tr = (uint32_t)(t - trk) % NTRK, cur,
+             bps = (uint32_t)FS * 60u / (uint32_t)clamp(song.g[G_BPM], 20, 300);
     uint32_t form = func_form(t);
-    int32_t lx = x + 34, cw = (wd - 36) / 16, row = 12, yy;
-    fpeek_t pk = {{0}, {0}, 0, 0, 0, 0}, now = pk;
-    char b[24];
+    int32_t cw = wd / 16, lh = (ht - 12) / 3;
+    uint8_t st[3][16];
+    fpeek_t pk;
+    const fp_t *fs = &fp_st[tr];
+    const int16_t *kp = fp_kp[tr];
+    char m[24];
+    (void)tc;
     if (cw < 4 || fk_map(t, x, y, wd, ht)) return;      /* (funcplay) a key held: the keys' map */
     for (k = 0; k < 4u; k++) { uint32_t a = (uint32_t)clamp(t->p[P_E2 + k], 0, 127); u[FU_A + k] = a * 2u; u[FU_AF + k] = a * 65536u / 127u; }
     u[FU_NOTE] = (uint32_t)clamp(60 + t->p[P_E6], 0, 127); u[FU_VEL] = 100; u[FU_BPS] = bps;
@@ -374,63 +386,56 @@ static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
     else for (i = 0; i < NVOICE; i++)
         if (t->v[i].active) { pos = (uint32_t)(((uint64_t)(uint32_t)t->v[i].s[2] << 16) / bps); u[FU_NOTE] = t->v[i].note; live = 1; }
     pos &= 0x7fffffffu;
+    cur = pos >> 14 & 15u;
     for (k = 0; k < 16u; k++) {                         /* a step's start (and a hair): what begins there */
-        uint32_t P = (pos & ~0x3FFFFu) + k * 16384u + 64u;
+        uint32_t P = (pos & ~0x3FFFFu) + k * 16384u + 64u, d = 0;
         func_peek(&w->pg.p, u, P, (uint32_t)((uint64_t)P * bps >> 16), &pk);
-        for (i = 0; i < 3u; i++) if ((pk.has >> i & 1u) && pk.age[i] < 1024u) hit[i] |= 1u << k;
-        for (i = 0; i < pk.neu; i++) if (pk.eu[i]) hit[3u + i] |= 1u << k;
-        lanes |= (pk.has & 7u) | ((1u << pk.neu) - 1u) << 3;
+        for (i = 0; i < 3u; i++) d |= ((pk.has >> i & 1u) && pk.age[i] < 1024u) << i;
+        if (form == 13u) for (i = 0; i < pk.neu; i++) d |= pk.eu[i] << i;   /* (DRUMS: its three eu() its kick, snare, hats) */
+        st[0][k] = (uint8_t)(d & 1u ? 3u : d & 2u ? 2u : d & 4u ? 1u : 0u);
+        for (i = 0; i < 2u; i++) st[1u + i][k] = pk.has & 32u << i ? (uint8_t)clamp((int32_t)pk.pn[i], 1, 127) : 0u;
+        if (!(pk.has & 96u) && (pk.has & 16u) && (0x80E68u >> form & 1u) && (!pk.neu || pk.eu[0]))   /* (GROWL ACID REESE
+                                                         * JUST PLUCK PSY MINIMAL: w * x, the table's pick a harmonic; the
+                                                         * first three's in BASS) */
+            st[2u - (0x68u >> form & 1u)][k] = (uint8_t)clamp((int32_t)pk.tab, 1, 127);
     }
-    func_peek(&w->pg.p, u, pos, (uint32_t)((uint64_t)pos * bps >> 16), &now);
-    b[0] = 0; str_cpy(b, "BAR ", sizeof b); fmt_int(b + 4, (int32_t)(pos >> 18) + 1);
-    str_cpy(b + str_len(b), " STEP ", sizeof b - str_len(b)); fmt_int(b + str_len(b), (int32_t)(pos >> 14 & 15u) + 1);
-    hud_tag(x, y, N_FUNC_FORM[form], 0x0000, tc);       /* (BYTE 0.17) the FORM by its name, its RUN at the right */
-    cv_text_on(x + text_w(&AF_X, N_FUNC_FORM[form]) + 8, y + 2 - AF_X_CAP_Y, &AF_X, b, live ? T_TEXT : T_DIM, T_BG);
-    cv_text_r(x + wd, y + 2 - AF_X_CAP_Y, &AF_X, N_FUNC_RUN[clamp(t->p[P_E0], 4, 6)], live ? HUD_YE : T_MID, T_BG);
-    yy = y + 14;
-    for (k = 0; k < 16u; k++)                           /* the steps: the beats a little brighter */
-        cv_rect(lx + (int32_t)k * cw, yy, cw - 1, 3, k % 4u ? T_SURF : T_MID);
-    yy += 5;
-    for (i = 0; i < 6u && yy + row <= y + ht - 34; i++) {
-        if (!(lanes >> i & 1u)) continue;
-        cv_text_on(x, yy + 1 - AF_X_CAP_Y, &AF_X, form == 13u && i >= 3u ? LN[i - 3u] : LN[i], T_MID, T_BG);   /* (DRUMS: its
-                                                         * three eu() its kick, snare and hats) */
-        for (k = 0; k < 16u; k++)
-            cv_rect(lx + (int32_t)k * cw, yy, cw - 1, row - 2, hit[i] >> k & 1u ? tc : T_SURF);
-        yy += row;
+    for (l = 0; l < 3u; l++) {
+        static const uint8_t LC[3] = {1, 3, 4};         /* (FK_COL's: pink, cyan, green) */
+        int32_t ly = y + (int32_t)l * lh, by = ly + 11, bh = lh - 13;
+        uint32_t lo = 127, hi = 0;
+        uint16_t c = fs->mute >> (l > 0u) & 1u ? T_DIM : FK_COL[LC[l]];
+        cv_text_on(x, ly - AF_X_CAP_Y, &AF_X, str_nth("DRUMS\0BASS\0TOP", l), c, T_BG);
+        cv_rect(x, by + bh, 16 * cw - 2, 1, T_DIM);
+        for (k = 0; k < 16u; k++) if (st[l][k]) { lo = st[l][k] < lo ? st[l][k] : lo; hi = st[l][k] > hi ? st[l][k] : hi; }
+        for (k = 0; k < 16u; k++) {
+            int32_t v = st[l][k], h = 4, yb;
+            uint16_t kc = ux_mix(c, T_BG, live ? (int32_t)((cur - k) & 15u) * 5 : 40);
+            if (!v) continue;
+            if (!l) h = bh * v / 3, yb = by + bh - h;
+            else yb = by + bh - 4 - (hi > lo ? (v - (int32_t)lo) * (bh - 4) / (int32_t)(hi - lo) : (bh - 4) / 2);
+            cv_rect(x + (int32_t)k * cw, yb, cw - 2, h, kc);
+        }
+        if (live) cv_rect(x + (int32_t)cur * cw, by - 2, cw - 2, 1, T_TEXT);
     }
-    if (live) {                                         /* the step playing */
-        int32_t cx = lx + (int32_t)(pos >> 14 & 15u) * cw;
-        cv_rect(cx - 1, y + 12, cw + 1, 1, HUD_YE); cv_rect(cx - 1, yy, cw + 1, 1, HUD_YE);
-        cv_rect(cx - 1, y + 12, 1, yy - y - 12, HUD_YE); cv_rect(cx + cw - 1, y + 12, 1, yy - y - 12, HUD_YE);
-    }
-    {   /* (funcplay) the part played live: its SECTION (lit when not GROOVE), the one asked, the FILL held, the mutations
-         * and the mutes (a letter each, a dot when off: NOTES RHYTHM SWAP FREEZE, DRUMS NOTES B), layer B */
-        const fp_t *fs = &fp_st[(uint32_t)(t - trk) % NTRK];   /* (the names: FK_T's, INTRO and GROOVE swapped) */
-        uint32_t sc = fs->sec % 5u, rq = (fs->sreq - 1u) % 5u;
-        int32_t ry = y + ht - 32, sx = x + hud_tag(x, ry, str_nth(FK_T, (sc ^ (sc < 2u)) * 2u), 0x0000, fs->sec ? HUD_YE : T_MID) + 4;
-        char m[40];
-        uint32_t n = 0;
-        if (fs->sreq) { m[n++] = '>'; str_cpy(m + n, str_nth(FK_T, (rq ^ (rq < 2u)) * 2u), 8); n = str_len(m); m[n++] = ' '; }
-        str_cpy(m + n, str_nth(FK_T, fs->fill % 5u ? fs->fill % 5u * 2u + 8u : 18u), 6); n = str_len(m); m[n++] = ' ';
-        for (k = 0; k < 7u; k++) m[n++] = (k < 4u ? fs->mut >> k : fs->mute >> (k - 4u)) & 1u ? "NRSFDNB"[k] : '\xb7';
-        m[n++] = ' ';
-        str_cpy(m + n, N_FUNC_FB[clamp(t->p[P_FFB], 0, 20)] + (t->p[P_FFB] > 0 ? 0 : 3), 12);   /* (B OFF: none) */
-        cv_text_on(sx, ry + 1 - AF_X_CAP_Y, &AF_X, m, fs->fill | fs->mut | fs->mute | fs->sreq ? HUD_YE : T_MID, T_BG);
-    }
-    yy = y + ht - 20;
-    if (now.has & 8u) { str_cpy(b, "NOTE ", sizeof b); note_name(b + 5, clamp((int32_t)now.note, 0, 127)); }
-    else if ((now.has & 16u) && (0x80E68u >> form & 1u)) {   /* (GROWL ACID REESE JUST PLUCK NIBBLE MINIMAL: w * x / 4, the table's
-                                                         * pick a harmonic, as a ratio) */
-        int32_t q = ((int32_t)now.tab - 48) * 25;
-        str_cpy(b, "TONE X", sizeof b); fmt_int(b + 6, q / 100); str_cpy(b + str_len(b), ".", 2); fmt_int(b + str_len(b), q % 100 / 10);
-        fmt_int(b + str_len(b), q % 10);
-    } else { str_cpy(b, "KEY ", sizeof b); note_name(b + 4, u[FU_NOTE]); }
-    cv_text_on(x, yy - AF_X_CAP_Y, &AF_X, b, live ? HUD_YE : T_MID, T_BG);
-    for (k = 0; k < 4u; k++) {                          /* the knobs by their names, as on their cards */
-        str_cpy(b, func_kn(form, k), sizeof b); str_cpy(b + str_len(b), " ", 2);
-        fmt_int(b + str_len(b), clamp(t->p[P_E2 + k], 0, 127) * 100 / 127);
-        cv_text_on(x + (int32_t)(1u + k % 2u) * (wd / 3), yy + (int32_t)(k / 2u) * 10 - AF_X_CAP_Y, &AF_X, b, T_TEXT, T_BG);
+    {   /* the line under */
+        int32_t ry = y + ht - 11, bx = x + wd - 56, pan = t->p[P_PAN];
+        uint32_t sc = fs->sec % 5u;
+        const fn_sg_t *g = &fn_sg[tr];
+        int32_t h = g->v[0], z = g->v[1], b = g->v[2], q = (16384 + (h >> 1)) * (16384 + (z >> 1)) >> 15;
+        x += hud_tag(x, ry, fs->fill % 5u ? str_nth(FK_T, fs->fill % 5u * 2u + 8u) : str_nth(FK_T, (sc ^ (sc < 2u)) * 2u), 0x0000,
+                     fs->sec | fs->fill | fs->mut | fs->mute | fs->sreq ? HUD_YE : T_MID) + 4;
+        str_cpy(m, "A ", 3); str_cpy(m + 2, N_FRATE[3 + clamp(kp[FK_RATE], -3, 3)], 6);
+        if (t->p[P_FFB] > 0) {                          /* (layer B on: its RATE) */
+            str_cpy(m + str_len(m), "  B ", 5); str_cpy(m + str_len(m), N_FRATE[3 + clamp(kp[FK_BRATE], -3, 3)], 6);
+        }
+        cv_text_on(x, ry + 1 - AF_X_CAP_Y, &AF_X, m, T_TEXT, T_BG);
+        if (g->side) q = -q;                            /* (func_mod's offset, MOVE's way) */
+        q = kp[3] == 0 ? (z - g->line) * 4 : kp[3] == 1 ? q : kp[3] == 2 ? b : (q + b) >> 1;
+        if (kp[2]) pan += (q * kp[2] >> 7) * 127 >> 15;
+        cv_text_on(bx, ry + 1 - AF_X_CAP_Y, &AF_X, "L", T_TEXT, T_BG);
+        cv_text_r(bx + 56, ry + 1 - AF_X_CAP_Y, &AF_X, "R", T_TEXT, T_BG);
+        cv_rect(bx + 8, ry + 5, 40, 1, T_DIM);
+        cv_rect(bx + 8 + (clamp(pan, -64, 63) + 64) * 36 / 127, ry + 1, 4, 9, kp[2] ? HUD_YE : T_MID);
     }
 }
 /* the panel at A {x, y, w, h} (px), en_home HOME's level (-1: the part's own): 0 when t plays no formula */
