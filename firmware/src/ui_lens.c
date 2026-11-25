@@ -62,7 +62,7 @@ static const nv_t CE_HOME[] = {
                                NV(0, "TRACKS", FELUCCA_LIFE ? 3 : 2, 3), NV("TIMELINE", 0, FELUCCA_LIFE ? 4 : 3, SV_PROJ),
                                NV("ARRANGE", 0, FELUCCA_LIFE ? 5 : 4, SV_PROJ), NV("PARTS", 0, FELUCCA_LIFE ? 6 : 5, SV_PROJ),
                                NV(0, "GEN 1", FELUCCA_LIFE ? 7 : 6, 2), NV(0, "GEN 2", FELUCCA_LIFE ? 7 : 6, 2),
-                               NV(0, "GEN 3", FELUCCA_LIFE ? 7 : 6, 2)};
+                               NV(0, "GEN 3", FELUCCA_LIFE ? 7 : 6, 2), NV(0, "GEN 4", FELUCCA_LIFE ? 7 : 6, 2)};
 static const ng_t CG_HOME[] = {
 #if FELUCCA_LIFE
                                {"LIFE", 0},

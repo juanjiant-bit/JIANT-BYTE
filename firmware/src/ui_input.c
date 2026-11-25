@@ -2718,6 +2718,7 @@ static void ui_input(void)
     ui_input_frame();
     clay_card_poll();                                   /* (BYTE) DRONE CLAY's key cards */
     eu_tick();                                          /* (V10.16) EUCLID's MUTATE, on the bar */
+    gen_tick();                                         /* (GEN 4) RADIO: the next piece, on the bar */
     hm_load();                                          /* (BYTE) SCL > HARMONY's progression, for the audio side */
     scale_link();                                       /* (JIANT 0.4) one scale for every melodic track (after the
                                                          * frame's edits) */

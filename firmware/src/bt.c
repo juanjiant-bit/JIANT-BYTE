@@ -188,7 +188,8 @@ BTAPP_FN static int32_t bt_prox_map(int32_t lvl)
 }
 /* (V10.6z6) SWARM's closeness (eng_input.c sw_pxv): a central's link (ON, connected; not AIR's scan), as PROX maps it;
  * the points not stored, the level's own range (its lowest and highest, each relaxing towards it, ~10 s), larger nearer.
- * The points too, for AIR's devices */
+ * The points too, for AIR's devices. (BYTE, flash: with SWARM's synth only, FELUCCA_SWARM: its one reader, sw_prep) */
+#if FELUCCA_SWARM
 BTAPP_FN static void bt_sw_prox(uint32_t conn)
 {
     int32_t l = bp.lvl;
@@ -205,6 +206,9 @@ BTAPP_FN static void bt_sw_prox(uint32_t conn)
     sw_pxv = (int16_t)(BT_CAL[0] != BT_CAL[1] ? mod_prox : clamp((l - bp.alo) * 32767 / (bp.ahi - bp.alo > 1536 ? bp.ahi - bp.alo : 1536), 0, 32767));
     sw_pxon = 1;
 }
+#else
+#define bt_sw_prox(conn) ((void)0)
+#endif
 /* (V10.6z8, a Discord user: AIR's FAR / NEAR "jump chaotically") AIR's level (advertisements, every device's, far
  * noisier than a central's link): smoothed twice as long and, before PROX maps it, held within one level of it (a
  * backlash: the noise left under a level moves nothing) */

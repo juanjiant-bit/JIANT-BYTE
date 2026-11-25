@@ -402,7 +402,7 @@ static int8_t dx_pcur[NTRK][DV_NLANE];                   /* (0.6.81) each part's
 /* IMAGE img 1..127 -> lane l's pan, -64..64: each sound on a sine of its own rate over the knob (1 to 9 turns), so a
  * sweep goes through the kit's placings one after another, every one coming back at the same value; the first 16 open
  * it from the middle; the kick a quarter as far (the low end stays centred) */
-static int32_t dx_img_pan(uint32_t l, int32_t img)
+static __attribute__((noinline)) int32_t dx_img_pan(uint32_t l, int32_t img)   /* (noinline: drum_side_begin as it was, the UI's STEREO picture out) */
 {
     static const uint8_t F[DV_NLANE] = {1, 3, 5, 2, 7, 4, 6, 9};
     int32_t w = img >= 16 ? 64 : img * 4, s;
@@ -412,7 +412,7 @@ static int32_t dx_img_pan(uint32_t l, int32_t img)
     return l == DV_KICK ? s / 4 : s;
 }
 /* how wide the image plays, Q8: all of it, less with DRV, DIST and the COMB (they shape the mono sum only) */
-static int32_t dx_img_k(const track_t *t)
+static __attribute__((noinline)) int32_t dx_img_k(const track_t *t)
 {
     int32_t k = 256, d = clamp(t->p[P_DIST], 0, 64);   /* (BYTE 0.16: GAIN clean, the image whole) */
     if (d)

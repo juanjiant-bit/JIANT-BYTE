@@ -27,6 +27,7 @@ static int song_select(uint32_t n);
 static void undo_mark(void);                    /* (0.6.21) project.c: the music before a change, */
 static int trackgen_ok(const track_t *t);
 static void trackgen_knob(uint32_t k,int32_t s);
+static void gen_tick(void);                              /* (gen.c) GEN 4's RADIO */
 static void trackgen_cards(void);
 static void trackgen_make(void);
 static void system_init(void);                  /* (0.6.40) project.c: INIT SYSTEM */
@@ -2087,7 +2088,11 @@ static void sw_ui_cards_bt(const page_t *pg);
 #define SONG_CLIPS(pg) ((pg)->graph == GR_SONG && (pg)->title[0] == 'C')   /* (V10.6s) CLIPS: (V10.7.32) PARTS' grid, the
                                                          * page out (page_visible; kept in the table) */
 #define PART_CELL 4u                                    /* (V10.7.32) ui.part: a track's cell picked on PARTS (else ALL) */
-#define DX_KIT3(pg) ((pg)->graph == GR_DXIMG && (pg)->title[0] == 'K')   /* (0.6.58) GR_DXIMG: KIT 3, or STEREO (IMAGE) */
+/* (0.6.58) GR_DXIMG: KIT 3, or STEREO (IMAGE). (BYTE, flash: DRUM-W's EDIT is its own eight, PLAY .. MIX: KIT 3, KIT 4,
+ * STEREO and KIT LFO in no chain, ui_lens.c CE_DRM; their rows kept, their cards, knobs and pictures out: code no page
+ * reaches) */
+#define BYTE_DX_OLD 0
+#define DX_KIT3(pg) (BYTE_DX_OLD && (pg)->graph == GR_DXIMG && (pg)->title[0] == 'K')
 static void dx_kit3_cards(void);
 static uint32_t dx_sig(void);
 

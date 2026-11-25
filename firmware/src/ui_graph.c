@@ -196,7 +196,7 @@ static uint32_t vx_on_mask(const track_t *t)            /* (V10.49) the part's v
             m = (m ^ (1u << i) ^ (uint32_t)(clamp(t->v[i].env_out, 0, 32767) >> 12) << (i * 3u % 24u) ^ t->v[i].note << 8) * 16777619u;
     return m;
 }
-static void graph_dximg(const track_t *t)
+static __attribute__((unused)) void graph_dximg(const track_t *t)   /* (STEREO: in no chain, ui.c BYTE_DX_OLD) */
 {
     const char *const *AB = DRUM_AB + 1;               /* (eumel, flash: eng_drum.c's) */
     int32_t img = clamp(t->p[P_DXIMG], 0, 127), k = img ? dx_img_k(t) : 0, cx = PANEL_X0 + PANEL_W / 2;
@@ -1195,7 +1195,7 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
             h = (h ^ ((uint32_t)fg_set[ti][k].rate | (uint32_t)fg_set[ti][k].dir << 4 | (uint32_t)(uint8_t)fg_set[ti][k].ivl << 8 |
                       (song.playing ? (uint32_t)fg_head[ti][k].idx << 16 : 0u))) * 16777619u;
     }
-    if (pg->graph == GR_DXIMG)                       /* (0.6.48) IMAGE and how wide it plays */
+    if (BYTE_DX_OLD && pg->graph == GR_DXIMG)        /* (0.6.48) IMAGE and how wide it plays */
         h = (h ^ ((uint32_t)t->p[P_DXIMG] << 16 | (uint32_t)dx_img_k(t) | (uint32_t)t->p[P_SIMG] << 24 |
                   (trk_eng(t) != ENGI_DRUM ? vx_on_mask(t) << 9 : 0u))) * 16777619u;   /* (V10.49: a synth's, its voices lit) */
     if (pg->fam == FAM_EDIT && 0 /* (BYTE: never) */)   /* (V10.54) INPUT: its meters live */
@@ -1921,6 +1921,7 @@ static void draw_graph(void)
         case GR_ADSR:
             graph_adsr(t, c);
             break;
+#if BYTE_DX_OLD
         case GR_DXIMG:                               /* (0.6.58) KIT 3: the colony; STEREO: IMAGE */
             if (DX_KIT3(pg)) {
                 cv_oy = 0;
@@ -1928,6 +1929,7 @@ static void draw_graph(void)
             } else
                 graph_dximg(t);
             break;
+#endif
         case GR_ROLL:
         case GR_TRACKGEN:
         case GR_CHANCE:
@@ -1951,7 +1953,7 @@ static void draw_graph(void)
             break;
         case GR_DXSND:                               /* EDIT > SOUND: the kit's lanes, the sound edited singled out */
             cv_oy = 0;
-            if (dx_pagen(pg) >= 20u)                        /* (DRUM-W) its own pages */
+            if (dx_pagen(pg) >= 20u || !BYTE_DX_OLD)        /* (DRUM-W) its own pages (KIT LFO: in no chain) */
                 dw_panel2(dx_pagen(pg));
             else if (pg->title[0] == 'S' || pg->title[0] == 'P' || pg->title[0] == 'A')   /* (0.9.4) PITCH AMP (SOUND 1..4): the drum kit, the sound edited lit (ui_engvis.c) */
                 vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));

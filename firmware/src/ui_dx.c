@@ -34,7 +34,7 @@ static void dx_lane_turn(int32_t s) { dx_ui_lane = (uint8_t)clamp((int32_t)dx_ui
 static __attribute__((noinline)) void dx_knob(const page_t *pg, uint32_t k, int32_t s)
 {
     uint32_t pn = dx_pagen(pg);
-    if (pn >= 20u) { dw_knob(pn, k, s); return; }      /* (DRUM-W's own pages) */
+    if (pn >= 20u || !BYTE_DX_OLD) { dw_knob(pn, k, s); return; }   /* (DRUM-W's own pages; KIT LFO in no chain) */
     if (pn == 4u) {                                     /* (JIANT 0.5.1) KIT LFO: the kit's, not a sound's */
         static const uint8_t MX[4] = {8, 127, 4, 127};
         int32_t v0 = dx_mot[k & 3u];
@@ -43,7 +43,7 @@ static __attribute__((noinline)) void dx_knob(const page_t *pg, uint32_t k, int3
 }
 /* KIT 3 (the whole kit): KNOB 1 BP, 2 FEEDBK (TONE's, dx_tone), (0.7.9) 3 HANDS (the CLAP's, dx_hands), (0.9.9-snd1)
  * 4 GLUE (the bus's, eng_drum.c dx_glue: KIT 3's free knob) */
-static void dx_kit3_knob(uint32_t k, int32_t s)
+static __attribute__((unused)) void dx_kit3_knob(uint32_t k, int32_t s)   /* (KIT 3, KIT 4: in no chain, ui.c BYTE_DX_OLD) */
 {
     if(cur_page()->title[4]=='4') {                    /* KIT 4: KNOB 1 the KEY MAP (V10.6o: KNOB 1's ACOUST gone; codex/
                                                          * coherence: was KNOB 2) */
@@ -56,7 +56,7 @@ static void dx_kit3_knob(uint32_t k, int32_t s)
     else dx_glue = (uint8_t)clamp((int32_t)dx_glue + (s > 0 ? 1 : -1), 0, 15);
     dx_tone = (uint8_t)(bp | fb << 4);
 }
-static __attribute__((noinline)) void dx_kit3_cards(void)
+static __attribute__((noinline, unused)) void dx_kit3_cards(void)
 {
     if(cur_page()->title[4]=='4') {
         empty_column(1);
@@ -89,7 +89,7 @@ static void dx_cards(const page_t *pg)
     uint32_t pn = dx_pagen(pg);
     char val[12];
     dx_follow();
-    if (pn >= 20u) { dw_cards(pn); return; }            /* (DRUM-W's own pages) */
+    if (pn >= 20u || !BYTE_DX_OLD) { dw_cards(pn); return; }   /* (DRUM-W's own pages; KIT LFO in no chain) */
     {                                                   /* (JIANT 0.5.1) KIT LFO */
         static const char *const RT[9] = {"OFF", "4BAR", "2BAR", "1BAR", "1/2", "1/4", "1/8", "1/16", "1/32"};
         static const char *const SH[5] = {"SINE", "TRI", "SAW", "RAMP", "S&H"};
