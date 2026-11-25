@@ -3073,9 +3073,11 @@ static __attribute__((noinline)) void seq_anchor(track_t *t, uint32_t n, uint32_
         seq_oph[ti] = 0;
     }
     nom -= seq_org[ti] * s16 + seq_oph[ti];
-    if ((int32_t)nom < 0 || !period || (t->seq_fit & 128u) || ((len & 1u) && track_swing(t))) return;
+    if ((int32_t)nom < 0 || !period || (t->seq_fit & 128u)) return;
+    sw = period - step_samples(t, period, 1);           /* (SWING: the odd steps that much later; not FIT here) */
+    if ((len & 1u) && sw) return;
     k = (nom + period / 2u) / period;
-    sw = k & 1u ? period - swing_step_len(t, period, 1) : 0u;
+    sw = k & 1u ? sw : 0u;
     at = k * period + sw;
     t->seq_idx = (uint16_t)(k % (len ? len : 1u));
     if (nom >= at) t->seq_pos += nom - at;              /* (entered late: further into it) */

@@ -2503,7 +2503,7 @@ BTAPP_FN static int8_t gx_engine(uint32_t r)   /* (BYTE 0.17: gen_make's, in the
     return (int8_t)(gch(50) ? ENGI_WAVE : ENGI_LOFI);
 }
 /* the sound past its recipe: a distortion's type, a wide glide, a vibrato, detune */
-static __attribute__((noinline)) void gx_sound(track_t *t, uint32_t r)
+BTAPP_FN static void gx_sound(track_t *t, uint32_t r)   /* (gen_make's, in the segment with it: the clock fixes' room) */
 {
     if (t->eng_req == EG_VO && r == RL_LEAD && gch(70)) { (void)grr(1, 9); (void)grr(1, 25); }   /* (BYTE: VOICE removed;
                                                          * its words' two draws kept: GEN's sequence as before) */
@@ -2701,7 +2701,7 @@ static uint32_t gchord_page(void)
     for (k = 1; k < 5u; k++) if (n[k] > n[best]) best = k;
     return CD[best];
 }
-static void gen_scale_page(void)
+BTAPP_FN static void gen_scale_page(void)   /* (gen_make's, as gx_sound) */
 {
     uint32_t k, pd = gs.trk_of[RL_PAD];
     int16_t qn = QN_OFF;

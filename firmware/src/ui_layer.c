@@ -841,15 +841,16 @@ static void layer_knob(uint32_t k, int32_t s)
 }
 
 /* PLAY with GLO held open: RESTART (from the top, playing on); stopped: PLAY. 1 = done here */
-static int layer_play(void)
+static __attribute__((noinline)) int layer_play(void)
 {
-    if (layer_open() == LAYER_SEQ && song.playing) {    /* (FM V10.8.40) RESYNC: every track from its first step at
+    uint32_t l = layer_open();
+    if (l == LAYER_SEQ && song.playing) {    /* (FM V10.8.40) RESYNC: every track from its first step at
                                                          * the next bar, in time (seq.c seq_anchor) */
-        seq_rs = (clk_n / 16u + 1u) * 16u;
+        seq_rs = (clk_n | 15u) + 1u;                    /* (the next bar's first 1/16) */
         ui_message("RESYNC");
         return 1;
     }
-    if (layer_open() != LAYER_GLO || chain_busy())
+    if (l != LAYER_GLO || chain_busy())
         return 0;
     if (song.g[G_CLOCK] && song.playing) {
         ui_message("RESTART: CLK IS EXT");

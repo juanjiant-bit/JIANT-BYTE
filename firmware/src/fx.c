@@ -1040,7 +1040,7 @@ static uint32_t midi_beat_samples;                    /* zero until an external 
  * that shortens the beat by, the sequencer's time gives back: mix_block leaves a sample of it out now and then
  * (seq_time), the tempo exact over any length */
 static uint32_t tempo_acc;
-static uint32_t beat_real(void)                       /* (the beat in the DAC's samples: the DELAY's time) */
+static __attribute__((noinline)) uint32_t beat_real(void)   /* (the beat in the DAC's samples: the DELAY's time) */
 {
     return song.g[G_CLOCK] && midi_beat_samples ? midi_beat_samples : (uint32_t)FS * 60u / (uint32_t)song.g[G_BPM];
 }

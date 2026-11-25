@@ -123,7 +123,10 @@ def main(src, dst):
                   # .. and a track's step (its components, its automation): once a step, a pass
                   "motion_step", "motion_unlock", "motion_restore", "seq_step",
                   "arp_pick", "dxp_fire", "pfx_fire", "fg_play", "midi_clock_pulse", "rev_state_clear", "mo_knobs",
-                  "mo_flush_of"}
+                  "mo_flush_of",
+                  # (the clock fixes' room) a step's place from the transport's and its components (once a step), a
+                  # key on DRONE CLAY (once a press or a release)
+                  "seq_anchor", "comp_run", "clay_key", "clay_kb"}
     cold_ui = {"mod_dst_ok", "mod_dst_offer_bt", "mod_dst_name_bt", "gen_value", "gen_cards_bt", "gen_panel_bt",
                "song_remove_parts", "song_copy_section",
                "proj_unpack_bt", "about_load", "bt_prox_panel", "bt_prox_input",
