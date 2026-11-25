@@ -211,6 +211,8 @@ typedef struct {
     int32_t lane;                                    /* WSEQ's POS this block (Q8) */
     uint8_t na, nb, ok, use;                         /* A's frames (0 ..), B's (6 ..); drawn whole; read this block */
     uint8_t bf, bc, mx0, mx1;                        /* the frame being drawn, its step; MIX at the block's start, end */
+    uint8_t uo1, uo3;                                /* (BYTE relief) how far out the unison's second and third voices
+                                                      * are, its fourth on (0 whole .. 16 out: wave_block, a step a block) */
 } wf_t;
 static wf_t wf[NTRK] __attribute__((section(".pool")));
 static uint16_t wf_vpos[NTRK * NVOICE] __attribute__((section(".pool")));   /* a voice's POS at its last sample, Q8 + 1 */
@@ -415,6 +417,13 @@ static void wave_block(track_t *t)
     wf_t *f = &wf[tr];
     int32_t base = clamp(p[P_E1], 0, 127) << 8, lo = 0, hi = 0, g0 = 0, gs = 0;
     wt_go[tr] = 3u;
+    {   /* (BYTE relief) RL_WAVE3: the unison past three voices out, RL_WAVE1: to the centre one; faded over 16 blocks
+         * (23 ms), back as the guard lets go (the fourth on never more in than the second: uo3 >= uo1) */
+        uint32_t a = load_rl >= RL_WAVE3 ? 16u : 0u, b = load_rl >= RL_WAVE1 ? 16u : 0u;
+        f->uo1 = (uint8_t)(f->uo1 < b ? f->uo1 + 1u : f->uo1 > b ? f->uo1 - 1u : b);
+        if (a < f->uo1) a = f->uo1;
+        f->uo3 = (uint8_t)(f->uo3 < a ? f->uo3 + 1u : f->uo3 > a ? f->uo3 - 1u : a);
+    }
     f->mx0 = f->mx1;
     f->mx1 = (uint8_t)clamp(p[P_E5], 0, 127);
     if (seq)
@@ -682,7 +691,7 @@ static __attribute__((noinline)) void wave_fpart(track_t *t, voice_t *v, int32_t
     int32_t mx = rp->mx + rp->dmx * (int32_t)o0, fai = rp->fa + rp->dfa * (int32_t)o0, fbi = rp->fb + rp->dfb * (int32_t)o0;
     uint32_t need_b = rp->mx || rp->dmx || warp == WW_FM;
     wph_t wq;
-    int32_t gc = nu > 1u ? 32768 - clamp(p[P_LRTRG], 0, 127) * 256 : 32768, gsd = 32768, khc, khs, rr;   /* (BLEND: the
+    int32_t gc = nu > 1u ? 32768 - clamp(p[P_LRTRG], 0, 127) * 256 : 32768, gsd = 32768, khc, khs, rr, kh1 = 0, kh3 = 0;   /* (BLEND: the
                                                          * centre out, the sides kept) */
     int32_t wd = nu > 1u ? clamp(p[P_DXIMG], 0, 127) * (256 - clamp(p[P_DIST], 0, 64) * 3) >> 8 : 0;
     const fvm_prog_t *pa, *pb = 0;
@@ -712,9 +721,14 @@ static __attribute__((noinline)) void wave_fpart(track_t *t, voice_t *v, int32_t
             T[i] = ((uint32_t)v->s[2] + i) >> 2;     /* (t ~11 kHz from the note's start: B's formula, LIFE) */
     khc = khs = 16384;                               /* (each voice's share: the power of 1 / sqrt(N), BLEND's centre and */
     if (nu > 1u) {                                   /* sides; one voice x 0.5: Q16 -> Q15, as before) */
-        rr = (int32_t)isqrt32((uint32_t)((gc >> 1) * (gc >> 1)) + (nu - 1u) * (uint32_t)((gsd >> 1) * (gsd >> 1)));
+        uint32_t g1 = 16u - f->uo1, g3 = 16u - f->uo3, n3 = nu > 3u ? nu - 3u : 0u;   /* (BYTE relief: the voices
+                                                      * faded out each its share, the power kept; none out: (nu - 1) x
+                                                      * (gsd / 2)^2, exactly as before) */
+        rr = (int32_t)isqrt32((uint32_t)((gc >> 1) * (gc >> 1)) + (((nu - 1u - n3) * g1 * g1 + n3 * g3 * g3) << 20));
         khc = (gc << 13) / rr;
         khs = (gsd << 13) / rr;
+        kh1 = (khs * (int32_t)g1) >> 4;
+        kh3 = (khs * (int32_t)g3) >> 4;
     }
     wph_init(&wq, warp, amt);
     if (fr && nu > 4u && !stp && !rp->dfa && (fai & 4095)) {   /* (POS between two frames the run: blended once for
@@ -729,8 +743,10 @@ static __attribute__((noinline)) void wave_fpart(track_t *t, voice_t *v, int32_t
             sl[i] = sr[i] = 0;
     for (u = 0; u < nu; u++) {
         uint32_t *pp = u < 3u ? &v->ph[u] : (uint32_t *)&v->s[WF_PH[u - 3u]], ph = *pp, iu = inc;
-        int32_t o = WF_OFS[u], kh = u ? khs : khc, pg = (wd * WF_PW[u]) >> 7, *sd = u & 1u ? sl : sr;
+        int32_t o = WF_OFS[u], kh = u ? u < 3u ? kh1 : kh3 : khc, pg = (wd * WF_PW[u]) >> 7, *sd = u & 1u ? sl : sr;
         fvm_env_t em = ea;
+        if (u && !kh)                                /* (BYTE relief: a voice out, its phase where it was) */
+            continue;
         if (mode)
             iu = (inc >> 12) * WF_RAT[mode][u] + ((inc & 4095u) * WF_RAT[mode][u] >> 12);
         if (u && vc && det)                          /* (VOICES set: each its own slow drift, a quarter of the spread) */

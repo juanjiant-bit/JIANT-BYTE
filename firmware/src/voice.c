@@ -798,13 +798,24 @@ static uint32_t load_pred_q8;                           /* the admission's predi
 static uint8_t guard_run, guard_cap, load_cores2;       /* halves in a row past GUARD_ON_RUN; the cap while tripped
                                                          * (0: none: the budget's); both cores render */
 static uint32_t guard_calm, guard_trips;                /* halves of calm toward the next voice back; trips (console) */
+/* (BYTE relief, the owner: "the sound never cuts out for the CPU") Tripped, the guard first lightens the sound, a stage
+ * at a time (core.h load_rl: least heard first), and caps the voices only past the last; a late half takes a stage
+ * too before audio.c sheds anything. A stage more each half past GUARD_ON_RUN, or each RL_UP halves while the last few
+ * (rl_fast, ~12 ms: the stage's own relief is in them at once, not in the 93 ms average) stay past the trip; a stage
+ * back after GUARD_STEP of calm once the average without what that stage gave back (rl_sav) would be under the
+ * calm less RL_GAP, the hold doubled each time a stage given back is needed again soon (rl_back, up to 8 s: no pumping) */
+#define RL_UP 3u                                        /* halves between two stages (8.7 ms; past GUARD_ON_RUN, one) */
+#define RL_GAP 5u
+static uint8_t rl_wait, rl_back, rl_rel, rl_sav[RL_MAX + 1u];   /* (rl_sav: the share of the load each stage gave
+                                                         * back, measured, Q8) */
+static uint32_t rl_fast_q8, rl_pre_q8;                  /* (the fast load, as the last stage went on) */
 /* Extra shared voices are admitted only after the audio ISR establishes
  * sustained deadline headroom on two healthy cores. No extra per-part slots. */
 static uint8_t voice_headroom;
 #define FULL_VOICES 12u
 /* (0.6.17) what the audio did since power-on, for MENU > ABOUT (audio.c fills it): the slowest half's share of its
  * time (%), the halves that came late (each a click), the voices the overload guard faded */
-static struct { volatile uint32_t peak, late, shed; } load_diag;
+static struct { volatile uint32_t peak, late, shed, rl; } load_diag;   /* (rl: the deepest relief stage, load_rl) */
 /* (JIANT 0.6.70) the budget shared by all parts: NVOICE, LOAD ECO ECO_VOICES (4 parts with reverb and delay still
  * crackled on ECO: the peaks are the voices, a tail ringing on each part as the next hits come) */
 /* (V10.7.56, the owner) No voice taken from another part: each part keeps to its own voices. The part whose sequence
@@ -933,6 +944,30 @@ static int32_t vh_c[NTRK * NVOICE] __attribute__((section(".pool")));   /* a voi
 static int32_t vh_lp[NTRK * NVOICE] __attribute__((section(".pool")));   /* (V10.7.56) a tail at half the rate: its
                                                          * low-pass (~5.5 kHz, the tail's own sample) */
 #define VH_ST(c) ((uint32_t)(c) & 7u)
+/* (BYTE relief) a stage more (load_half: the load still over; audio.c: a half late, before any voice is shed); every
+ * stage on: the cap. Returns 0 when nothing more is left to give but the shed */
+static __attribute__((noinline)) int load_step(void)
+{
+    rl_wait = 0;
+    rl_pre_q8 = rl_fast_q8;
+    if (rl_rel && rl_back < 4u) rl_back++;
+    rl_rel = 0;
+    load_tight = 1;
+    guard_calm = 0;
+    if (load_rl < RL_MAX) {
+        if (!load_rl) guard_trips++;
+        load_rl++;
+        if (load_rl > load_diag.rl) load_diag.rl = load_rl;
+        return 1;
+    } else {
+        uint32_t busy = voices_busy(), cap = voice_cap0();
+        if (busy < GUARD_MIN) busy = GUARD_MIN;
+        if (busy > cap) busy = cap;
+        if (!guard_cap || busy < guard_cap)             /* every stage on and still over: down to what sounds */
+            guard_cap = (uint8_t)busy;
+        return 0;
+    }
+}
 /* the end of a half (audio.c shed_check): pct the render's share of it (%), pct_all with TIMER5 nested in it, cores2
  * both cores rendering. The guard above; the admission's prediction starts again from the average */
 static __attribute__((noinline)) void load_half(uint32_t pct, uint32_t pct_all, uint32_t cores2)
@@ -944,27 +979,42 @@ static __attribute__((noinline)) void load_half(uint32_t pct, uint32_t pct_all, 
     load_all_q8 = (load_all_q8 * ((1u << GUARD_AVG_LOG2) - 1u) + (pct_all << 8) + (1u << (GUARD_AVG_LOG2 - 1u))) >> GUARD_AVG_LOG2;
     load_cores2 = (uint8_t)cores2;
     guard_run = pct > on_run ? (uint8_t)(guard_run < 255u ? guard_run + 1u : 255u) : 0u;
-    if (guard_run >= GUARD_RUN || load_avg_q8 > (on_avg << 8)) {
-        uint32_t busy = voices_busy(), cap = voice_cap0();
-        if (busy < GUARD_MIN) busy = GUARD_MIN;
-        if (busy > cap) busy = cap;
-        if (!load_tight || !guard_cap || busy < guard_cap) {   /* a trip, or one on the way back: down to what sounds */
-            guard_cap = (uint8_t)busy;
-            guard_trips++;
-        }
-        load_tight = 1;
-        guard_calm = 0;
-    } else if (load_tight) {
-        if (load_avg_q8 >= (off << 8) || guard_run) {
+    rl_fast_q8 = (rl_fast_q8 * 3u + (pct << 8)) >> 2;
+    if (rl_wait < 255u) rl_wait++;
+    if (rl_wait == RL_UP && load_rl) {                  /* (what the stage gave back, once its halves are in rl_fast) */
+        uint32_t v = rl_pre_q8 > rl_fast_q8 ? ((rl_pre_q8 - rl_fast_q8) << 8) / rl_pre_q8 : 0u;
+        rl_sav[load_rl] = (uint8_t)(v > 255u ? 255u : v);
+    }
+    {
+        uint32_t trip = guard_run >= GUARD_RUN || load_avg_q8 > (on_avg << 8);
+        if (load_tight ? (rl_wait && pct > on_run) || (rl_wait >= RL_UP && rl_fast_q8 > (on_avg << 8)) : trip)
+            load_step();                                /* (relief, above: a stage more, the last past them the cap) */
+        else if (trip)
             guard_calm = 0;
-        } else if (++guard_calm >= GUARD_STEP) {        /* calm: a voice back, and so on */
-            guard_calm = 0;
-            if (!guard_cap || ++guard_cap >= voice_cap0()) {
-                guard_cap = 0;
-                load_tight = 0;
+        else if (load_tight) {
+            if (load_avg_q8 >= (off << 8) || guard_run) {
+                guard_calm = 0;
+            } else if (++guard_calm >= (guard_cap ? GUARD_STEP : GUARD_STEP << rl_back)) {   /* calm: a voice back, and
+                                                         * so on; then the stages, each once the load with what it
+                                                         * gave back is under the calm */
+                uint8_t *sv = &rl_sav[load_rl];
+                guard_calm = 0;
+                if (guard_cap) {
+                    if (++guard_cap >= voice_cap0())
+                        guard_cap = 0;
+                } else if ((load_avg_q8 << 8) < ((off - RL_GAP) << 8) * (256u - *sv)) {
+                    rl_rel = 1;
+                    rl_wait = RL_UP;                    /* (no saving measured for the stage now on top) */
+                    if (load_rl) load_rl--;
+                    if (!load_rl) load_tight = 0, rl_back = 0;
+                } else                                  /* (the measure eased: a load that fell as the stage went
+                                                         * on is not the stage's; none held for ever) */
+                    *sv = (uint8_t)(*sv - (*sv >> 2) - (*sv > 0u));
             }
         }
     }
+    if (rl_wait > 200u)
+        rl_rel = 0;                                     /* (a stage given back ~0.6 s ago and not needed: no doubling) */
     if (load_pred_q8 < load_avg_q8)
         load_pred_q8 = load_avg_q8;                     /* (what the voices added decays by the block: load_block) */
 }
@@ -1326,10 +1376,18 @@ static __attribute__((noinline)) void voice_half(track_t *t, const engine_t *e, 
         vh_c[vi] = (int32_t)(st == VH_ON ? VH_RE : st == VH_OUT ? VH_OFF : st);
         return;
     }
-    if (e->half == 2u && n == CTL && ((vh_quart >> (vi / NVOICE)) & 1u)) {   /* (V10.7.56) FM6 at a quarter: 11 kHz, CTL / 4
+    if (n == CTL && (e->half == 2u ? (vh_quart >> (vi / NVOICE)) & 1u :   /* (V10.7.56) FM6 at a quarter: 11 kHz, CTL / 4
                                                          * samples, each the last of its four, the others on the line */
+                     load_rl >= RL_QUART && st == VH_ON && e != &ENG_WAVE && VH_ALWAYS(t))) {   /* (BYTE relief) MATH
+                                                         * and FUNC too, from half the rate: the generic path's again */
         int32_t hq[CTL / 4];
         h.amp1 = 4 * m->amp1 - 3 * m->amp0;
+        if (gen) {
+            h.inc <<= 2;
+            h.pitch16 = clamp(h.pitch16 + 384, 0, 2047);
+            if (e->half == 1u)
+                h.cutoff += 2 * HALF_CUT;
+        }
         for (i = 0; i < CTL / 4u; i++)
             hq[i] = 0;
         *vs = 2;
