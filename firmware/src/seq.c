@@ -745,7 +745,7 @@ static int8_t hm_dg[4];
 static uint8_t hm_n;
 static uint32_t hm_pos(void) { return (bar_n * 4u + beat_n) >> (uint32_t)song.g[G_HLEN]; }   /* (LENGTH: 1, 2, 4, 8, 16 beats) */
 static uint32_t hm_now(void) { return hm_n ? hm_pos() % hm_n : 0u; }   /* (the chord playing: SCL > HARMONY's picture) */
-static int32_t hm_shift(const track_t *t)
+static __attribute__((noinline)) int32_t hm_shift(const track_t *t)
 {
     uint32_t pos, i, cyc, h;
     int32_t d;
@@ -760,7 +760,7 @@ static int32_t hm_shift(const track_t *t)
         d += cyc & 1u ? 3 : 2;                          /* (a fourth up, the relative) */
     return d;
 }
-static int32_t hm_move(const track_t *t, int32_t x, int32_t d)
+static __attribute__((noinline)) int32_t hm_move(const track_t *t, int32_t x, int32_t d)
 {
     uint32_t m = scale_mask(t) & 0xFFFu, c = 0;
     if (d <= 0) return x;
@@ -768,7 +768,7 @@ static int32_t hm_move(const track_t *t, int32_t x, int32_t d)
     if (c == 7u) return clamp(scale_steps(t, x, d), 0, 127);
     return clamp(x + (int32_t)((0xB975420u >> (4u * ((uint32_t)d % 7u))) & 15u) + 12 * (d / 7), 0, 127);
 }
-static int32_t hm_semi(const track_t *t)               /* (the chord's root over the key's, in semitones: DRONE CLAY, FUNC) */
+static __attribute__((noinline)) int32_t hm_semi(const track_t *t)               /* (the chord's root over the key's, in semitones: DRONE CLAY, FUNC) */
 {
     int32_t r = 48 + clamp(t->p[P_ROOT], 0, 11);
     return hm_move(t, r, hm_shift(t)) - r;

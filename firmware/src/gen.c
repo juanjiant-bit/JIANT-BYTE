@@ -762,8 +762,8 @@ static __attribute__((noinline)) int glatin(void)
 }
 /* (BYTE, JIANT FM V10.8.34, the owner: "more progressions") gen_pick's: the harmony family's own two (PROG's PR_FAM ..,
  * SCL > HARMONY's too), a throw in four where the mode takes them (not the latin genres', not MY LOOP's); 0 none. In the
- * image, as gprog_ok: the segment full */
-static __attribute__((noinline)) const gprog_t *gfam_prog(const gprog_t *p, uint32_t fam)
+ * segment, with its caller */
+BTAPP_FN static const gprog_t *gfam_prog(const gprog_t *p, uint32_t fam)
 {
     const gprog_t *f;
     if (glatin() || gls.on || p->n < 2u || !gch(25)) return 0;
@@ -783,7 +783,7 @@ BTAPP_FN static void gx_prog(uint32_t fam);
 /* (BYTE, FM V10.8.34, the owner: "different parts within a song") gen_parts' contrast section (PARTS' B, the others' D):
  * its own progression, the family's grammar's (as many chords as A's pn, A's qualities pq), not A's degrees pdeg; else
  * A's. Not MY LOOP's, not the latin genres' */
-static __attribute__((noinline)) void gsec_prog(uint32_t fam, const uint8_t *pdeg, const uint8_t *pq, uint32_t pn)
+BTAPP_FN static void gsec_prog(uint32_t fam, const uint8_t *pdeg, const uint8_t *pq, uint32_t pn)
 {
     uint32_t i;
     if (pn < 2u || gls.on || glatin() || !gch(80)) return;

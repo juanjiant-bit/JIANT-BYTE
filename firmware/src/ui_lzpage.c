@@ -232,7 +232,7 @@ static uint16_t note_col(uint32_t n)
 /* (BYTE, the owner's SPHERE + READING) the scale on a wireframe sphere's equator, turning: its notes as tags where
  * they face us (ROOT in the track's colour, the one sounding yellow), the far side dots; at the right large: the note
  * sounding, the scale, a cell a degree */
-static __attribute__((noinline)) void graph_key(const track_t *t, const page_t *pg)
+BTAPP_FN static void graph_key(const track_t *t, const page_t *pg)   /* (BYTE, flash: in the segment) */
 {
     const char *const *NN = N_NOTE;                   /* (eumel, flash: params.c's) */
     uint32_t mask = scale_mask(t), i, k, rt = (uint32_t)clamp(t->p[P_ROOT], 0, 11), now = last_note % 12u, nd = 0, age = 0;
@@ -419,7 +419,7 @@ static void graph_arp(const track_t *t)
 /* (BYTE, JIANT FM V10.7.70 / V10.8.14's design) SCL > HARMONY: the progression's name; a card a chord, in the key of
  * the track picked (a kit: the next melodic one's): its root large ("-" minor), its degree; the one playing yellow
  * (EVOLVE's substitution on it), a bar under them where the progression is; OFF: the key's first four dim, the hint */
-static __attribute__((noinline)) void graph_harm(const track_t *t)
+BTAPP_FN static void graph_harm(const track_t *t)   /* (in the segment, as graph_key) */
 {
     static const char *const RN[7] = {"I", "II", "III", "IV", "V", "VI", "VII"};
     uint32_t i, m, np = 0, n = hm_n ? hm_n : 4u, now = song.playing && hm_n ? hm_now() : 9u, rt;
@@ -450,11 +450,13 @@ static __attribute__((noinline)) void graph_harm(const track_t *t)
 /* the lens's panel for SCL . ARP's page pg (1), else 0 */
 static int graph_key_lz(const track_t *t, const page_t *pg)
 {
-    if (pg->graph == GR_SCALE)
+    uint32_t seg = bt_hw_seg();                         /* (KEY's and HARMONY's in the Bluetooth segment: without it, the
+                                                         * default picture) */
+    if (pg->graph == GR_SCALE && seg)
         graph_key(t, pg);
     else if (pg->id[0] == P_CHRD)
         graph_chord(t);
-    else if (pg->graph == GR_HARM)                      /* (BYTE) SCL > HARMONY */
+    else if (pg->graph == GR_HARM && seg)               /* (BYTE) SCL > HARMONY */
         graph_harm(t);
     else if (pg->fam == FAM_ARP)
         graph_arp(t);

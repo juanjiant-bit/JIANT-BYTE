@@ -570,7 +570,8 @@ static void vx_hive(const track_t *t, const int32_t *A, int32_t en_home)
 }
 
 typedef struct { const engine_t *e; void (*f)(const track_t *, const int32_t *, int32_t); } vxe_t;
-static const vxe_t VX_F[] = {{&ENG_LOFI, vx_lofi}, {&ENG_WAVE, vx_lofi}, {&ENG_HIVE, vx_hive}, {&ENG_FUNC, vx_lofi}};   /* (JIANT BYTE:
+static const vxe_t VX_F[] = {{&ENG_HIVE, vx_hive}};   /* (BYTE, flash: MATH WAVE FUNC drawn by ub_draw before it: vx_lofi
+                                                         * never reached, out of the segment) */   /* (JIANT BYTE:
                                                          * WEST PHASE STRING retired; WAVE drawn as MATH's) */   /* (0.9.9-snd5; V10.7.13+: ADD's gone, room for
                                                          * FORM MY LOOP: it draws the being) */
 static int vx_draw(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h, int32_t en_home)
