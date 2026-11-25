@@ -168,6 +168,23 @@ static uint32_t fvm_op1(uint32_t op, uint32_t a)
 
 /* ---- the machine */
 typedef struct { uint8_t input, number; uint32_t value; const int32_t *offset; } fvm_patch_t;
+/* (cpupass) an operator over a block's samples, its own loop each (the switch once a block, not a sample): the
+ * machine's (fvm_exec) and FUNC's block runner (fvm_func_block) alike */
+static __attribute__((noinline)) void fvm_blk_op(uint32_t op, uint32_t *L, const uint32_t *R, uint32_t b, uint32_t n)
+{
+    uint32_t i;
+    switch (op) {
+#define FVM_BINLOOP(nm, ex) case FO_##nm: \
+        if (R) { for (i = 0; i < n; i++) { uint32_t a = L[i], b = R[i]; L[i] = (ex); } } \
+        else { for (i = 0; i < n; i++) { uint32_t a = L[i]; L[i] = (ex); } } \
+        break;
+    FVM_OPS2(FVM_BINLOOP)
+#undef FVM_BINLOOP
+#define FVM_UNLOOP(nm, ex) case FO_##nm: for (i = 0; i < n; i++) { uint32_t a = L[i]; L[i] = (ex); } break;
+    FVM_OPS1(FVM_UNLOOP)
+#undef FVM_UNLOOP
+    }
+}
 #include "fvm_music.c"
 #include "fvm_func_run.c"
 static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_env_t *e, fvm_scratch_t *sc,
@@ -249,16 +266,11 @@ static __attribute__((noinline)) void fvm_exec(const fvm_prog_t *p, const fvm_en
             }
         }
         L = sc->s[sp - 1u];
+        if (FO_ISBIN(op) || FO_ISUN(op)) {
+            fvm_blk_op(op, L, R, b, n);
+            continue;
+        }
         switch (op) {
-#define FVM_BINLOOP(nm, ex) case FO_##nm: \
-            if (R) { for (i = 0; i < n; i++) { uint32_t a = L[i], b = R[i]; L[i] = (ex); } } \
-            else { for (i = 0; i < n; i++) { uint32_t a = L[i]; L[i] = (ex); } } \
-            break;
-        FVM_OPS2(FVM_BINLOOP)
-#undef FVM_BINLOOP
-#define FVM_UNLOOP(nm, ex) case FO_##nm: for (i = 0; i < n; i++) { uint32_t a = L[i]; L[i] = (ex); } break;
-        FVM_OPS1(FVM_UNLOOP)
-#undef FVM_UNLOOP
         case FO_SEL: {                               /* c ? x : y: [.. c x y] -> [.. r] */
             const uint32_t *X = sc->s[sp - 2u], *Y = sc->s[sp - 1u];
             uint32_t *C = sc->s[sp - 3u];

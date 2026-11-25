@@ -98,17 +98,22 @@ static void wph_init(wph_t *q, uint32_t warp, uint32_t amt)
 static __attribute__((noinline)) uint32_t wave_phw(const wph_t *q, uint32_t *W, uint32_t n, uint32_t ph, uint32_t iu)
 {
     uint32_t i, mb = q->mb;
-    for (i = 0; i < n; i++, ph += iu) {
-        uint32_t w = ph >> 16;
-        if (mb)
+    if (mb) {                                        /* (cpupass: each warp its own loop, none of the tests a sample) */
+        for (i = 0; i < n; i++, ph += iu) {
+            uint32_t w = ph >> 16;
             w = w < mb ? (uint32_t)(((uint64_t)w * q->r0) >> 16) : q->warp == WW_BEND ? 32768u + (uint32_t)(((uint64_t)(w - mb) * q->r1) >> 16)
                 : (uint32_t)(((uint64_t)(65535u - w) * q->r1) >> 16);
-        else if (q->sm)
-            w = w * q->sm >> 4;
-        else if (q->warp == WW_QUANT)
-            w = wave_warp(w, WW_QUANT, q->amt);
-        W[i] = w & 0xFFFFu;
-    }
+            W[i] = w & 0xFFFFu;
+        }
+    } else if (q->sm)
+        for (i = 0; i < n; i++, ph += iu)
+            W[i] = ((ph >> 16) * q->sm >> 4) & 0xFFFFu;
+    else if (q->warp == WW_QUANT)
+        for (i = 0; i < n; i++, ph += iu)
+            W[i] = wave_warp(ph >> 16, WW_QUANT, q->amt) & 0xFFFFu;
+    else                                             /* (no warp: the phase alone) */
+        for (i = 0; i < n; i++, ph += iu)
+            W[i] = ph >> 16;
     return ph;
 }
 
@@ -764,6 +769,16 @@ static __attribute__((noinline)) void wave_fpart(track_t *t, voice_t *v, int32_t
             if (!u) fl_post(pa, &em, &wk->s, n, ya);
         }
     mixed:
+        if (pb && !rp->dmx && !pg) {                 /* (cpupass) A .. B and the voice's share in one pass (the same
+                                                      * arithmetic: no WIDTH, MIX still) */
+            uint32_t mix = (uint32_t)mx >> 8;
+            for (i = 0; i < n; i++) {
+                uint32_t d = yb[i] - ya[i], y = ya[i] + (uint32_t)((int32_t)d >> 7) * mix + ((d & 127u) * mix >> 7);
+                acc[i] += (((int32_t)y >> 1) * kh) >> 14;
+            }
+            *pp = ph;
+            continue;
+        }
         if (pb && !rp->dmx) {                        /* (A .. B: as before, exactly; MIX moving: its ramp) */
             uint32_t mix = (uint32_t)mx >> 8;
             for (i = 0; i < n; i++) {

@@ -62,24 +62,10 @@ static __attribute__((noinline)) int fvm_func_block(const fvm_prog_t *p,const fv
         if(op==FO_PUSH){L=sc->s[sp++];if(R)for(i=0;i<n;i++)L[i]=R[i];else for(i=0;i<n;i++)L[i]=b;continue;}
         if(FO_ISBIN(op)&&md==FM_STK)R=sc->s[--sp];
         L=sc->s[sp-1];
-        if(FO_ISBIN(op)){                              /* (the commonest inline, the rest the shared operations: the
-                                                         * flash's room) */
+        if(FO_ISBIN(op)||FO_ISUN(op)){                 /* (cpupass: every operator its own loop, fvm_blk_op, the
+                                                         * machine's; no copy of a constant: the stack's bytes counted) */
             if(op==FO_EU&&e->fx&&e->fx->dens){for(i=0;i<n;i++)L[i]=fu_eu(e->fx,L[i],R?R[i]:b);continue;}   /* (funcplay) */
-            if(R){                                     /* (no copy of a constant: the stack's bytes are counted) */
-                if(op==FO_ADD)for(i=0;i<n;i++)L[i]+=R[i];
-                else if(op==FO_SUB)for(i=0;i<n;i++)L[i]-=R[i];
-                else if(op==FO_MULF)for(i=0;i<n;i++)L[i]=U32(I32(((int64_t)I32(L[i])*I32(R[i]))>>16));
-                else for(i=0;i<n;i++)L[i]=fvm_op2(op,L[i],R[i]);
-            }else{
-                if(op==FO_ADD)for(i=0;i<n;i++)L[i]+=b;
-                else if(op==FO_SUB)for(i=0;i<n;i++)L[i]-=b;
-                else if(op==FO_MULF)for(i=0;i<n;i++)L[i]=U32(I32(((int64_t)I32(L[i])*I32(b))>>16));
-                else for(i=0;i<n;i++)L[i]=fvm_op2(op,L[i],b);
-            }
-            continue;}
-        if(FO_ISUN(op)){
-            if(op==FO_SINF)for(i=0;i<n;i++)L[i]=U32(sine_i(L[i]<<16)*2);
-            else for(i=0;i<n;i++)L[i]=fvm_op1(op,L[i]);
+            fvm_blk_op(op,L,R,b,n);
             continue;}
         switch(op){
         case FO_MUSIC:{const uint32_t*Z=0,*Y=0;if(in->k<2u){Z=sc->s[--sp];Y=sc->s[--sp];}L=sc->s[sp-1];

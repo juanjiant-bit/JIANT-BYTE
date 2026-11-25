@@ -422,12 +422,18 @@ static __attribute__((noinline)) void hv_str(hv_st_t *s, int16_t *L, uint32_t k,
             l += ((o - l) * a) >> 15;
             sum += l;
             z = (((l - dc) * g) >> 15) + in[j];
-            {                                            /* (STIFF: y = c x + s, s = x - c y, twice) */
+            if (ca | cst) {                              /* (STIFF: y = c x + s, s = x - c y, twice) */
                 int32_t y = ((ca * z) >> 15) + s1;
                 s1 = z - ((ca * y) >> 15);
                 z = ((ca * y) >> 15) + s2;
                 s2 = y - ((ca * z) >> 15);
                 ca += cst;
+            } else {                                     /* (cpupass: STIFF 0, c 0: the two a sample's delay each, as
+                                                          * the four products of 0 were) */
+                int32_t y = s1;
+                s1 = z;
+                z = s2;
+                s2 = y;
             }
             b[w + j] = (int16_t)hv_sat(z);
         }
@@ -624,6 +630,12 @@ static void hive_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
             out[i] += (y0 + y1) >> 1;
             out[i + 1u] += y1;
             i += 2u;
+        } else if (e == 4u && sh == 2u) {                /* (cpupass: 11 kHz, a whole four: the line's quarters) */
+            out[i] += y0 + (d >> 2);
+            out[i + 1u] += y0 + (d >> 1);
+            out[i + 2u] += y0 + ((d * 3) >> 2);
+            out[i + 3u] += y1;
+            i += 4u;
         } else
             for (q = 1; q <= e; q++)
                 out[i++] += y0 + ((d * (int32_t)q) >> sh);
