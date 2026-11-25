@@ -427,13 +427,12 @@ static const gcell_t LD_CELLS[3] = {{{0, 0, -1, 0}, 16, 3}, {{0, 7, 0, 4}, 2, 1}
  * filter (type LP HP BP COMB COMB-, 6 LP24 (5 the retired MS20's), 7: the engine's own; its cutoff and resonance: ANALOG's CUT RES, the part's
  * filter on the others), the filter envelope (GR4: in fourths of 0..63), the glide, ANALOG's WAVE (two: the second one
  * time in three; MIX 0: one oscillator), the LFO on the filter (its depth, a free rate or 1/4 1/8 1/8T 1/16 synced), the
- * part's drive and chorus, the voice mode */
+ * part's drive and chorus, the voice mode. (funcmotion, flash: 11 B; the engine and preset options and ANALOG's WAVE
+ * out, read by nothing since gen_sound draws WAVE's and MATH's own presets, GEN_WAVE_PRESETS GEN_MATH_PRESETS) */
 typedef struct {
-    uint8_t o[3][2];                                    /* (engine, preset); engine 255: none */
     uint8_t atk, dec, sus, rel, cut, res;               /* GR ranges */
     uint8_t envf;                                       /* GR4 */
     uint8_t ft;                                         /* bits 0..2 P_FTYPE (7: unset), 3..7 GLIDE / 4 */
-    uint8_t wv;                                         /* ANALOG: bits 0..2 WAVE, 3..5 the other, 6 MIX 0, 7 none */
     uint8_t lfo;                                        /* high nibble depth / 4, low the rate (GLFO_RATE) */
     uint8_t dc;                                         /* high nibble DIST / 4, low CHORUS / 4 */
     uint8_t voice;
@@ -456,74 +455,74 @@ enum { SR_SUB, SR_ACID, SR_REESE, SR_FMBASS, SR_ROCKBASS, SR_HOOK, SR_WOW, SR_PA
  * owner's); a third of the time another of the engine's of the same type (gen.c gen_sound) */
 static const grecipe_t RECIPE[SR_N] = {
     /* ---- basses: their engine fixed */
-    [SR_SUB]      = {{{EG_A, 7}, {EG_A, 2}, {EG_LO, 4}}, GR(0, 7), GR(56, 79), GR(88, 119), GR(16, 31), GR(32, 47), GR(0, 15), GR4(0, 7), GFT(0, 0), GNOWV, 0, 0, V_LEGATO},
+    [SR_SUB]      = {GR(0, 7), GR(56, 79), GR(88, 119), GR(16, 31), GR(32, 47), GR(0, 15), GR4(0, 7), GFT(0, 0), 0, 0, V_LEGATO},
     /* the 303 (0.9.9-gen2, after X0X's Open303: CUT ~48, RES ~100, ENV MOD ~85 of 127, DECAY ~200..600 ms, a 60 ms
      * slide, ACCENT on the filter's envelope and the level): one saw (or a square), the low-pass low (~400 Hz at rest)
      * with RES high (not ringing on its own) and the envelope high on it (~2 kHz at its peak; an ACCENT opens it ~2
      * octaves more: voice.c), its decay short (400..900 ms to the end: the filter's sweep) and a sustain under it
      * (ANALOG's one envelope is the level's too: the note's body), LEGATO, the SLIDEs gliding in TIME (gen_sound:
      * ~55 ms, no retrigger), driven after (DIST) */
-    [SR_ACID]     = {{{EG_A, 4}, {EG_A, 2}, NO_}, GR(0, 7), GR(80, 88), GR(40, 48), GR(16, 31), GR(32, 40), GR(104, 112), GR4(52, 60), GFT(0, 24), GWV(0, 1, 1), 0, GDC(24, 0), V_LEGATO},
-    [SR_REESE]    = {{{EG_A, 16}, {EG_A, 14}, NO_}, GR(0, 7), GR(72, 95), GR(104, 119), GR(32, 47), GR(40, 55), GR(16, 31), GR4(0, 11), GFT(0, 16), GNOWV, GLFO(12, 1), GDC(20, 28), V_LEGATO},
+    [SR_ACID]     = {GR(0, 7), GR(80, 88), GR(40, 48), GR(16, 31), GR(32, 40), GR(104, 112), GR4(52, 60), GFT(0, 24), 0, GDC(24, 0), V_LEGATO},
+    [SR_REESE]    = {GR(0, 7), GR(72, 95), GR(104, 119), GR(32, 47), GR(40, 55), GR(16, 31), GR4(0, 11), GFT(0, 16), GLFO(12, 1), GDC(20, 28), V_LEGATO},
     /* (V10.54) the FM6 / WHEEL numbers below re-aimed after V10.42 replaced FM6 8..12 and 14 (ICE BELL DX KEYS FM PLUCK SOFT BELL FM
      * STRINGS WOOD) and WHEEL 5, 6 (DUB ORGAN SOFT KEYS): the roles got leads and basses (a SUB BASS on the bells) */
-    [SR_FMBASS]   = {{{EG_FM, 2}, {EG_FM, 13}, {EG_PH, 7}}, GR(0, 7), GR(48, 71), GR(40, 87), GR(16, 31), GR(72, 103), GR(8, 23), GR4(8, 27), GFT(0, 0), GNOWV, 0, GDC(8, 0), V_LEGATO},
-    [SR_ROCKBASS] = {{{EG_A, 2}, {EG_A, 14}, NO_}, GR(0, 7), GR(48, 71), GR(64, 111), GR(16, 39), GR(48, 71), GR(8, 23), GR4(8, 23), GFT(0, 0), GWV(1, 0, 0), 0, GDC(24, 16), V_LEGATO},
+    [SR_FMBASS]   = {GR(0, 7), GR(48, 71), GR(40, 87), GR(16, 31), GR(72, 103), GR(8, 23), GR4(8, 27), GFT(0, 0), 0, GDC(8, 0), V_LEGATO},
+    [SR_ROCKBASS] = {GR(0, 7), GR(48, 71), GR(64, 111), GR(16, 39), GR(48, 71), GR(8, 23), GR4(8, 23), GFT(0, 0), 0, GDC(24, 16), V_LEGATO},
     /* the octave bass of italo, synth pop, electro, trance: a saw (or a square), plucked by the filter */
-    [SR_HOOK]     = {{{EG_A, 2}, {EG_A, 14}, NO_}, GR(0, 7), GR(40, 63), GR(16, 55), GR(16, 31), GR(48, 71), GR(16, 39), GR4(20, 39), GFT(0, 0), GWV(0, 1, 0), 0, GDC(12, 16), V_LEGATO},
+    [SR_HOOK]     = {GR(0, 7), GR(40, 63), GR(16, 55), GR(16, 31), GR(48, 71), GR(16, 39), GR4(20, 39), GFT(0, 0), 0, GDC(12, 16), V_LEGATO},
     /* dubstep's wobble: the fat saws, the resonant low-pass moved by an LFO on the beat */
-    [SR_WOW]      = {{{EG_A, 14}, {EG_A, 16}, NO_}, GR(0, 7), GR(72, 95), GR(104, 127), GR(24, 39), GR(32, 47), GR(48, 71), GR4(0, 7), GFT(0, 8), GNOWV, GLFO(44, 13), GDC(40, 0), V_LEGATO},
+    [SR_WOW]      = {GR(0, 7), GR(72, 95), GR(104, 127), GR(24, 39), GR(32, 47), GR(48, 71), GR4(0, 7), GFT(0, 8), GLFO(44, 13), GDC(40, 0), V_LEGATO},
     /* ---- chords, pads */
-    [SR_PAD]      = {{{EG_A, 15}, {EG_PH, 2}, {EG_PH, 9}}, GR(56, 103), GR(80, 103), GR(104, 119), GR(80, 111), GR(40, 71), GR(8, 23), GR4(4, 19), GFT(0, 0), GNOWV, GLFO(12, 3), GDC(0, 40), V_POLY},
-    [SR_STRINGS]  = {{{EG_A, 11}, {EG_A, 22}, {EG_PH, 2}}, GR(40, 79), GR(80, 103), GR(104, 127), GR(72, 103), GR(48, 79), GR(8, 23), GR4(0, 11), GFT(0, 0), GNOWV, GLFO(12, 2), GDC(0, 56), V_POLY},
-    [SR_CHOIR]    = {{{EG_VO, 0}, {EG_VO, 4}, {EG_FM, 4}}, GR(56, 103), GR(88, 103), GR(104, 119), GR(80, 111), GR(56, 95), GR(0, 7), GR4(0, 7), GFT(0, 0), GNOWV, GLFO(8, 2), GDC(0, 60), V_POLY},
-    [SR_ORGAN]    = {{{EG_WH, 8}, {EG_WH, 1}, {EG_PH, 1}}, GR(0, 7), GR(64, 71), GR(120, 127), GR(24, 47), GR(56, 95), GR(0, 7), GR4(0, 3), GFT(0, 0), GNOWV, 0, GDC(0, 8), V_POLY},
-    [SR_EP]       = {{{EG_FM, 0}, {EG_FM, 5}, {EG_PH, 8}}, GR(0, 7), GR(72, 95), GR(16, 55), GR(48, 79), GR(56, 95), GR(0, 15), GR4(4, 19), GFT(0, 0), GNOWV, 0, GDC(0, 20), V_POLY},
-    [SR_STAB]     = {{{EG_A, 18}, {EG_PH, 10}, {EG_WH, 2}}, GR(0, 7), GR(56, 71), GR(24, 71), GR(24, 47), GR(48, 79), GR(16, 39), GR4(16, 39), GFT(0, 0), GNOWV, 0, GDC(8, 28), V_POLY},
-    [SR_DUBCHORD] = {{{EG_A, 18}, {EG_WH, 2}, {EG_A, 3}}, GR(0, 7), GR(48, 71), GR(16, 63), GR(32, 55), GR(48, 71), GR(24, 47), GR4(12, 31), GFT(2, 0), GNOWV, 0, GDC(0, 32), V_POLY},
+    [SR_PAD]      = {GR(56, 103), GR(80, 103), GR(104, 119), GR(80, 111), GR(40, 71), GR(8, 23), GR4(4, 19), GFT(0, 0), GLFO(12, 3), GDC(0, 40), V_POLY},
+    [SR_STRINGS]  = {GR(40, 79), GR(80, 103), GR(104, 127), GR(72, 103), GR(48, 79), GR(8, 23), GR4(0, 11), GFT(0, 0), GLFO(12, 2), GDC(0, 56), V_POLY},
+    [SR_CHOIR]    = {GR(56, 103), GR(88, 103), GR(104, 119), GR(80, 111), GR(56, 95), GR(0, 7), GR4(0, 7), GFT(0, 0), GLFO(8, 2), GDC(0, 60), V_POLY},
+    [SR_ORGAN]    = {GR(0, 7), GR(64, 71), GR(120, 127), GR(24, 47), GR(56, 95), GR(0, 7), GR4(0, 3), GFT(0, 0), 0, GDC(0, 8), V_POLY},
+    [SR_EP]       = {GR(0, 7), GR(72, 95), GR(16, 55), GR(48, 79), GR(56, 95), GR(0, 15), GR4(4, 19), GFT(0, 0), 0, GDC(0, 20), V_POLY},
+    [SR_STAB]     = {GR(0, 7), GR(56, 71), GR(24, 71), GR(24, 47), GR(48, 79), GR(16, 39), GR4(16, 39), GFT(0, 0), 0, GDC(8, 28), V_POLY},
+    [SR_DUBCHORD] = {GR(0, 7), GR(48, 71), GR(16, 63), GR(32, 55), GR(48, 71), GR(24, 47), GR4(12, 31), GFT(2, 0), 0, GDC(0, 32), V_POLY},
     /* ---- arps, leads */
-    [SR_PLUCK]    = {{{EG_A, 20}, {EG_FM, 7}, {EG_A, 8}}, GR(0, 7), GR(40, 63), GR(0, 23), GR(32, 63), GR(56, 87), GR(24, 47), GR4(28, 55), GFT(0, 0), GNOWV, 0, GDC(0, 8), V_POLY},
-    [SR_BELL]     = {{{EG_FM, 1}, {EG_FM, 5}, {EG_A, 13}}, GR(0, 7), GR(80, 103), GR(0, 7), GR(72, 103), GR(72, 103), GR(0, 15), GR4(0, 11), GFT(0, 0), GNOWV, 0, GDC(0, 8), V_POLY},
-    [SR_LEAD]     = {{{EG_A, 21}, {EG_A, 0}, {EG_PH, 14}}, GR(0, 23), GR(48, 87), GR(56, 95), GR(32, 71), GR(56, 87), GR(16, 39), GR4(16, 39), GFT(0, 16), GNOWV, GLFO(4, 6), GDC(12, 12), V_LEGATO},
-    [SR_VOXLEAD]  = {{{EG_VO, 1}, {EG_VO, 6}, {EG_A, 21}}, GR(0, 23), GR(56, 87), GR(56, 95), GR(32, 71), GR(56, 95), GR(8, 31), GR4(8, 23), GFT(0, 20), GNOWV, GLFO(4, 6), GDC(0, 20), V_LEGATO},
-    [SR_CHIP]     = {{{EG_A, 24}, {EG_LO, 6}, {EG_A, 20}}, GR(0, 7), GR(40, 79), GR(24, 79), GR(16, 47), GR(72, 111), GR(8, 31), GR4(8, 27), GFT(0, 0), GNOWV, 0, 0, V_LEGATO},
-    [SR_KEYS]     = {{{EG_A, 23}, {EG_PH, 15}, {EG_WH, 1}}, GR(0, 7), GR(64, 87), GR(16, 55), GR(40, 71), GR(56, 95), GR(0, 23), GR4(4, 19), GFT(0, 0), GNOWV, 0, GDC(0, 20), V_POLY},
+    [SR_PLUCK]    = {GR(0, 7), GR(40, 63), GR(0, 23), GR(32, 63), GR(56, 87), GR(24, 47), GR4(28, 55), GFT(0, 0), 0, GDC(0, 8), V_POLY},
+    [SR_BELL]     = {GR(0, 7), GR(80, 103), GR(0, 7), GR(72, 103), GR(72, 103), GR(0, 15), GR4(0, 11), GFT(0, 0), 0, GDC(0, 8), V_POLY},
+    [SR_LEAD]     = {GR(0, 23), GR(48, 87), GR(56, 95), GR(32, 71), GR(56, 87), GR(16, 39), GR4(16, 39), GFT(0, 16), GLFO(4, 6), GDC(12, 12), V_LEGATO},
+    [SR_VOXLEAD]  = {GR(0, 23), GR(56, 87), GR(56, 95), GR(32, 71), GR(56, 95), GR(8, 31), GR4(8, 23), GFT(0, 20), GLFO(4, 6), GDC(0, 20), V_LEGATO},
+    [SR_CHIP]     = {GR(0, 7), GR(40, 79), GR(24, 79), GR(16, 47), GR(72, 111), GR(8, 31), GR4(8, 27), GFT(0, 0), 0, 0, V_LEGATO},
+    [SR_KEYS]     = {GR(0, 7), GR(64, 87), GR(16, 55), GR(40, 71), GR(56, 95), GR(0, 23), GR4(4, 19), GFT(0, 0), 0, GDC(0, 20), V_POLY},
     /* ---- textures */
-    [SR_DRONE]    = {{{EG_A, 22}, {EG_A, 19}, {EG_PH, 9}}, GR(88, 119), GR(88, 103), GR(120, 127), GR(96, 127), GR(32, 63), GR(16, 39), GR4(0, 11), GFT(0, 0), GNOWV, GLFO(16, 1), GDC(0, 44), V_POLY},
-    [SR_NOISE]    = {{{EG_NO, 4}, {EG_NO, 7}, {EG_NO, 5}}, GR(80, 119), GR(88, 103), GR(104, 127), GR(80, 119), 0, 0, 0, GFT(7, 0), GNOWV, 0, 0, V_POLY},
-    [SR_TEXTURE]  = {{{EG_NO, 5}, {EG_NO, 6}, {EG_LO, 11}}, GR(64, 111), GR(88, 103), GR(104, 127), GR(88, 119), GR(40, 71), GR(16, 47), GR4(0, 11), GFT(2, 0), GNOWV, GLFO(20, 2), GDC(0, 32), V_POLY},
-    [SR_HOOVER]   = {{{EG_A, 17}, {EG_A, 6}, {EG_PH, 6}}, GR(0, 15), GR(56, 95), GR(56, 95), GR(32, 63), GR(56, 95), GR(8, 23), GR4(8, 31), GFT(0, 0), GNOWV, 0, GDC(24, 48), V_POLY},
-    [SR_WALL]     = {{{EG_A, 22}, {EG_A, 15}, {EG_A, 11}}, GR(24, 63), GR(88, 103), GR(104, 127), GR(80, 111), GR(48, 71), GR(0, 7), GR4(0, 7), GFT(0, 0), GNOWV, GLFO(8, 2), GDC(40, 56), V_POLY},
-    [SR_GTR]      = {{{EG_PH, 13}, {EG_PH, 2}, {EG_A, 8}}, GR(0, 15), GR(64, 95), GR(56, 103), GR(48, 79), GR(56, 79), GR(16, 39), GR4(4, 19), GFT(2, 0), GNOWV, 0, GDC(12, 28), V_POLY},
-    [SR_SINEKEY]  = {{{EG_A, 5}, {EG_FM, 0}, {EG_A, 23}}, GR(0, 7), GR(64, 95), GR(24, 63), GR(48, 79), GR(56, 95), GR(0, 15), GR4(0, 15), GFT(0, 0), GNOWV, 0, GDC(0, 8), V_POLY},
+    [SR_DRONE]    = {GR(88, 119), GR(88, 103), GR(120, 127), GR(96, 127), GR(32, 63), GR(16, 39), GR4(0, 11), GFT(0, 0), GLFO(16, 1), GDC(0, 44), V_POLY},
+    [SR_NOISE]    = {GR(80, 119), GR(88, 103), GR(104, 127), GR(80, 119), 0, 0, 0, GFT(7, 0), 0, 0, V_POLY},
+    [SR_TEXTURE]  = {GR(64, 111), GR(88, 103), GR(104, 127), GR(88, 119), GR(40, 71), GR(16, 47), GR4(0, 11), GFT(2, 0), GLFO(20, 2), GDC(0, 32), V_POLY},
+    [SR_HOOVER]   = {GR(0, 15), GR(56, 95), GR(56, 95), GR(32, 63), GR(56, 95), GR(8, 23), GR4(8, 31), GFT(0, 0), 0, GDC(24, 48), V_POLY},
+    [SR_WALL]     = {GR(24, 63), GR(88, 103), GR(104, 127), GR(80, 111), GR(48, 71), GR(0, 7), GR4(0, 7), GFT(0, 0), GLFO(8, 2), GDC(40, 56), V_POLY},
+    [SR_GTR]      = {GR(0, 15), GR(64, 95), GR(56, 103), GR(48, 79), GR(56, 79), GR(16, 39), GR4(4, 19), GFT(2, 0), 0, GDC(12, 28), V_POLY},
+    [SR_SINEKEY]  = {GR(0, 7), GR(64, 95), GR(24, 63), GR(48, 79), GR(56, 95), GR(0, 15), GR4(0, 15), GFT(0, 0), 0, GDC(0, 8), V_POLY},
     /* ---- (0.9.9-gen1) the archetypes the genres lacked */
     /* EBM (V10.6p, the owner: "a modular's analog basses, slightly detuned"): FAT BASS's two oscillators (two saws, two
      * squares one time in three) ~9 cents apart, the second an octave under (or a fourth, a fifth: GEN's consonant
      * INT), the LP24 filter driven into its growl (codex/filters2: was the MS20, retired; gen.c: DRIVE 55 % at least),
      * short, its envelope on it (the accents open it further), driven */
-    [SR_EBMBASS]  = {{{EG_A, 14}, {EG_A, 14}, NO_}, GR(0, 7), GR(32, 47), GR(8, 31), GR(8, 23), GR(48, 71), GR(40, 63), GR4(28, 47), GFT(6, 0), GWV(0, 1, 0), 0, GDC(28, 0), V_LEGATO},
+    [SR_EBMBASS]  = {GR(0, 7), GR(32, 47), GR(8, 31), GR(8, 23), GR(48, 71), GR(40, 63), GR4(28, 47), GFT(6, 0), 0, GDC(28, 0), V_LEGATO},
     /* trap's 808: a sine's long boom, gliding (the SLIDEs), driven */
-    [SR_808]      = {{{EG_A, 7}, {EG_A, 2}, NO_}, GR(0, 7), GR(88, 111), GR(0, 15), GR(32, 47), GR(56, 79), GR(0, 7), GR4(0, 7), GFT(0, 48), GWV(3, 3, 1), 0, GDC(36, 0), V_LEGATO},
+    [SR_808]      = {GR(0, 7), GR(88, 111), GR(0, 15), GR(32, 47), GR(56, 79), GR(0, 7), GR4(0, 7), GFT(0, 48), 0, GDC(36, 0), V_LEGATO},
     /* jazz, bossa, boom bap: an upright's triangle, plucked */
-    [SR_UPRIGHT]  = {{{EG_A, 7}, {EG_A, 14}, NO_}, GR(0, 7), GR(48, 63), GR(0, 23), GR(24, 39), GR(40, 63), GR(0, 15), GR4(8, 23), GFT(0, 0), GWV(2, 2, 1), 0, 0, V_LEGATO},
+    [SR_UPRIGHT]  = {GR(0, 7), GR(48, 63), GR(0, 23), GR(24, 39), GR(40, 63), GR(0, 15), GR4(8, 23), GFT(0, 0), 0, 0, V_LEGATO},
     /* techno's rolling bass: a saw (or a square), short, resonant, the envelope on it, driven */
-    [SR_TECHBASS] = {{{EG_A, 14}, {EG_A, 2}, NO_}, GR(0, 7), GR(40, 55), GR(0, 31), GR(16, 31), GR(32, 55), GR(32, 55), GR4(20, 39), GFT(0, 0), GWV(0, 1, 1), 0, GDC(32, 0), V_LEGATO},
+    [SR_TECHBASS] = {GR(0, 7), GR(40, 55), GR(0, 31), GR(16, 31), GR(32, 55), GR(32, 55), GR4(20, 39), GFT(0, 0), 0, GDC(32, 0), V_LEGATO},
     /* (V10.6n) neo classic's felt piano (STRING's PIANO, PHASE's CZ PIANO, FM6's TINE EP); the fugue's harpsichord (a
      * plucked string, bright, short, no sustain); metal's and techno rock's distorted guitar (a steel string or a saw,
      * palm-muted short, the drive high) */
-    [SR_PIANO]    = {{{ENGI_STRING, 5}, {EG_PH, 8}, {EG_FM, 0}}, GR(0, 7), GR(72, 103), GR(0, 31), GR(48, 79), GR(56, 87), GR(0, 15), GR4(0, 15), GFT(0, 0), GNOWV, 0, GDC(0, 8), V_POLY},
-    [SR_HARPSI]   = {{{ENGI_STRING, 6}, {EG_PH, 13}, {EG_FM, 7}}, GR(0, 7), GR(48, 71), GR(0, 7), GR(24, 47), GR(80, 111), GR(8, 23), GR4(8, 23), GFT(0, 0), GNOWV, 0, GDC(0, 4), V_POLY},
+    [SR_PIANO]    = {GR(0, 7), GR(72, 103), GR(0, 31), GR(48, 79), GR(56, 87), GR(0, 15), GR4(0, 15), GFT(0, 0), 0, GDC(0, 8), V_POLY},
+    [SR_HARPSI]   = {GR(0, 7), GR(48, 71), GR(0, 7), GR(24, 47), GR(80, 111), GR(8, 23), GR4(8, 23), GFT(0, 0), 0, GDC(0, 4), V_POLY},
     /* (V10.6p) the TR-808's cowbell pitched (phonk's melody): ANALOG's 808 COWBELL, two squares a 6th and 79 cents apart
      * (the 808's 540 / 800 Hz, x 1.48; gen.c gen_sound keeps them), band-passed, a short decay, driven */
-    [SR_COWBELL]  = {{{EG_A, 25}, {EG_A, 25}, NO_}, GR(0, 7), GR(32, 47), GR(0, 7), GR(16, 31), GR(64, 79), GR(40, 63), GR4(0, 11), GFT(2, 0), GWV(1, 1, 0), 0, GDC(24, 0), V_POLY},
+    [SR_COWBELL]  = {GR(0, 7), GR(32, 47), GR(0, 7), GR(16, 31), GR(64, 79), GR(40, 63), GR4(0, 11), GFT(2, 0), 0, GDC(24, 0), V_POLY},
     /* (V10.6p) baile funk's flute (Bum Bum Tam Tam's Bach): ANIMAL's whistles, WHEEL's flute; the voice's chops and
      * shouts (VOICE's CHANT, short: phonk's Memphis chops, the MC's chant, EBM's shout) */
-    [SR_FLUTE]    = {{{ENGI_ANIMAL, 25}, {EG_WH, 3}, {ENGI_ANIMAL, 5}}, GR(0, 15), GR(48, 79), GR(56, 87), GR(16, 39), GR(96, 119), GR(0, 15), GR4(4, 11), GFT(0, 0), GNOWV, 0, 0, V_LEGATO},
-    [SR_CHANT]    = {{{EG_VO, 5}, {EG_VO, 6}, {EG_VO, 1}}, GR(0, 7), GR(40, 63), GR(0, 23), GR(16, 31), GR(64, 95), GR(0, 15), GR4(0, 7), GFT(0, 0), GNOWV, 0, GDC(8, 0), V_POLY},
-    [SR_DIST]     = {{{ENGI_STRING, 1}, {EG_A, 9}, {EG_PH, 11}}, GR(0, 7), GR(32, 55), GR(16, 47), GR(8, 31), GR(56, 87), GR(8, 31), GR4(8, 27), GFT(0, 0), GWV(0, 0, 0), 0, GDC(60, 8), V_POLY},
+    [SR_FLUTE]    = {GR(0, 15), GR(48, 79), GR(56, 87), GR(16, 39), GR(96, 119), GR(0, 15), GR4(4, 11), GFT(0, 0), 0, 0, V_LEGATO},
+    [SR_CHANT]    = {GR(0, 7), GR(40, 63), GR(0, 23), GR(16, 31), GR(64, 95), GR(0, 15), GR4(0, 7), GFT(0, 0), 0, GDC(8, 0), V_POLY},
+    [SR_DIST]     = {GR(0, 7), GR(32, 55), GR(16, 47), GR(8, 31), GR(56, 87), GR(8, 31), GR4(8, 27), GFT(0, 0), 0, GDC(60, 8), V_POLY},
     /* (V10.7.2) the latin plucks: STRING's MARIMBA (Dominican dembow's riff), NYLON (reggaeton romantico's guitar
      * picked); short, no sustain */
-    [SR_MALLET]   = {{{ENGI_STRING, 7}, {ENGI_STRING, 7}, {ENGI_STRING, 0}}, GR(0, 7), GR(48, 71), GR(0, 7), GR(24, 47), GR(64, 95), GR(0, 15), GR4(0, 15), GFT(0, 0), GNOWV, 0, GDC(0, 4), V_POLY},
+    [SR_MALLET]   = {GR(0, 7), GR(48, 71), GR(0, 7), GR(24, 47), GR(64, 95), GR(0, 15), GR4(0, 15), GFT(0, 0), 0, GDC(0, 4), V_POLY},
 };
 /* (the GENE mix pass) each archetype's options evened: a trim a sound (3 nibbles, the options' 0 1 2, signed, x 3 dB:
  * gen.c gen_sound), from the host render of twelve throws of every genre: what a sound gives at LEVEL 0 dB while it

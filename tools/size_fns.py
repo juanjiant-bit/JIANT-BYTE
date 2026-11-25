@@ -187,7 +187,10 @@ def main(src, dst):
                   "sy_en_rules", "sy_ja", "sy_syl", "sy_phon", "sy_phauto", "ph_cl", "sy_ext", "sy_take",
                   # .. and CRUSH's block (V10.7.33, fx.c): built for size it is still cheaper than DIST TYPE CRUSH was (a
                   # call to the flash a sample)
-                  "crush_block"}
+                  "crush_block",
+                  # (funcmotion, flash) a key's press and release on DRONE CLAY's and FUNC's keys (their maps, their
+                  # gestures: once a key), the buses' fault (once), the panic's flags (its work once a panic)
+                  "clay_key", "clay_kb", "func_kb", "func_apply", "fx_trip", "panic_block"}
     names, hit = ((size_names() | cold_ui) - isr) | input_size | event_size, set()
     def mark(m):
         if m.group(2) not in names:

@@ -38,7 +38,7 @@
  * and the engines read t->p as before. An engine reads its parameters in note_on (events_block) unmodulated.
  * Nothing active (every slot with SRC, DST or AMT at 0): no work, and the sound is bit-identical. */
 enum { MS_OFF, MS_LFO, MS_ENV, MS_VEL, MS_KEY, MS_RAND, MS_MODW, MS_AT, MS_EXPR, MS_M1, MS_STEP = MS_M1 + 4, MS_NOISE, MS_PROX, MS_ENV2,
-       MS_FOLLOW, MS_T1, MS_OCTUP = MS_T1 + NTRK, MS_OCTDN, MS_FNZ, MS_LIFE, MS_BEING, MS_N };   /* (V10.54) FOLLOW: the audio input's envelope */
+       MS_FOLLOW, MS_T1, MS_OCTUP = MS_T1 + NTRK, MS_OCTDN, MS_FNZ, MS_LIFE, MS_BEING, MS_FNHIT, MS_FNNOTE, MS_FNBAR, MS_N };   /* (V10.54) FOLLOW: the audio input's envelope */
 /* (codex/filter2-mod, the owner: FILTER 2's modulator "on the cutoff or the pitch") F.NOISE: EDIT > FILTER 2's value
  * (voice.c fn_tick: SOFT STEP BREAK bipolar, DUST's spikes 0..1, METAL SOFT's wander), whatever its NOISE; appended (the
  * ids before it kept: projects, presets, the editor). A kit's, EXT's: 0 */
@@ -176,12 +176,14 @@ _Static_assert(NELEM(N_MSRC) == MS_N && NELEM(N_MDST) == MD_N, "N_MSRC / N_MDST 
 _Static_assert(PS_LFO == MS_LFO && PS_ENV2 == MS_ENV2 && PS_NOISE == MS_NOISE && PS_MODW == MS_MODW && PS_RAND == MS_RAND &&
                PD_VIB == MD_VIB && PD_E1 == MD_E1 && PD_FCUT == MD_FCUT && PD_LEVEL == MD_LEVEL && PD_REV == MD_REV,
                "core.h PS_* / PD_* (a preset's MOD slots) == MS_* / MD_*");
+_Static_assert(MS_FNHIT == FN_SRC0 && MS_FNBAR == FN_SRC0 + 2u, "eng_lofi.c fn_read: the FN sources");
 _Static_assert(LW_DRIFT == 5, "core.h LW_*: params.c N_LWAVE6");
 _Static_assert(P_M2SRC == P_M1SRC + 3 && P_M4AMT == P_M1SRC + 11 && P_M4AMT + 1 == P_FM1_ATK, "matrix slots: 3 ids each");
 #define NMSLOT 4u
 #define MS_VMASK ((1u << MS_ENV) | (1u << MS_VEL) | (1u << MS_KEY) | (1u << MS_RAND) | (1u << MS_ENV2))
 #define MS_VOICE(s) ((MS_VMASK >> ((s) & 31u)) & 1u)   /* a value per voice: ENV VEL KEY RAND, (V10.22) ENV2 */
-#define MS_BIPOLAR(s) ((s) == MS_LFO || (s) == MS_KEY || (s) == MS_RAND || (s) == MS_NOISE || (s) == MS_FNZ || (s) >= MS_LIFE)
+#define MS_BIPOLAR(s) ((s) == MS_LFO || (s) == MS_KEY || (s) == MS_RAND || (s) == MS_NOISE || (s) == MS_FNZ || \
+                       ((s) >= MS_LIFE && (uint32_t)(s) - MS_FNHIT > 1u))   /* (funcmotion: FN BAR, not HIT NOTE) */
 
 _Static_assert(MS_N <= 32 && MD_N <= 64, "matrix UI bitsets hold all IDs (ui_layer.c: the destinations in 64 bits)");
 
@@ -214,9 +216,9 @@ typedef struct {                 /* the part in mix_part (one at a time) */
     int32_t pit, cut, shp, gain; /* per voice, from the per-track sources (gain Q15) */
     uint8_t vsrc[NMSLOT], vdst[NMSLOT];
     int8_t vamt[NMSLOT];
-    uint8_t kid[NMSLOT + 7u];    /* per-block: the parameter, its stored value (V10.7.34: and LIFE's three sends; BYTE:
-                                  * DRONE CLAY's four) */
-    int16_t keep[NMSLOT + 7u];
+    uint8_t kid[NMSLOT + 9u];    /* per-block: the parameter, its stored value (V10.7.34: and LIFE's three sends; BYTE:
+                                  * DRONE CLAY's four; funcmotion: PAN, A) */
+    int16_t keep[NMSLOT + 9u];
     int16_t lof;                 /* (V10.7.34) the slots on LIFE this block (0..100 more or less: life.c life_pt) */
 } mod_t;
 static mod_t mod_c[2];                      /* (JIANT 0.6.71) one a core: each renders its own parts at once (fx.c mix_block) */
@@ -319,7 +321,7 @@ static int32_t fn_src(const track_t *t);                /* (filter2-mod: voice.c
 /* source s of the track: the per-track ones, the per-voice ones of the latest note-on */
 static int32_t mod_tsrc(const track_t *t, uint32_t s, int32_t lfo)
 {
-    if (s >= MS_T1) return s < MS_OCTUP ? track_env[s - MS_T1] : s == MS_FNZ ? fn_src(t) : s >= MS_LIFE ? life_src(t, s) : kx_src(t, s);   /* (V10.7.22
+    if (s >= MS_T1) return s < MS_OCTUP ? track_env[s - MS_T1] : s == MS_FNZ ? fn_src(t) : s >= MS_FNHIT ? fn_sg[(uint32_t)(t - trk) % NTRK].v[s - MS_FNHIT] : s >= MS_LIFE ? life_src(t, s) : kx_src(t, s);   /* (V10.7.22
                                                          * OCT+ OCT-: the keys; filter2-mod F.NOISE) */
     if ((s == MS_ENV || s == MS_ENV2) && (t->m_vi >= NVOICE || !t->v[t->m_vi].active)) return 0;
     switch (s) {
@@ -445,19 +447,38 @@ static __attribute__((noinline)) void clay_mod(track_t *t, mod_t *mp, int32_t *o
         }
     }
 }
+/* (funcmotion) a FUNC part's MOTION (fp_kp[2..5]) by its formula's own (fn_sg): STEREO the PAN by MOVE (NOTE: over its
+ * line right, under it left; HIT: each onset the other side, the low ones, a kick, nearer the middle; BAR: a sweep over four
+ * bars; ALL: HIT and BAR), TIMBRE the voices' CUT and knob A (open on the hits, drifting with the bars; COLOR's fold,
+ * eng_lofi.c) */
+static __attribute__((noinline)) void func_mod(track_t *t, mod_t *mp, int32_t *off, uint32_t tr)
+{
+    const fn_sg_t *g = &fn_sg[tr];
+    const int16_t *k = fp_kp[tr];
+    int32_t h = g->v[0], b = g->v[2], z = g->v[1], x = (16384 + (h >> 1)) * (16384 + (z >> 1)) >> 15;
+    if (g->side) x = -x;
+    x = k[3] == 0 ? (z - g->line) * 4 : k[3] == 1 ? x : k[3] == 2 ? b : (x + b) >> 1;
+    if (k[2]) clay_off(t, mp, off, P_PAN, x * k[2] >> 7);
+    if (k[4]) {
+        x = k[4] * (h - 16384 + (b >> 1));
+        mp->cut += x >> 7;
+        clay_off(t, mp, off, P_E2, x >> 8);
+    }
+}
 static __attribute__((noinline)) int mod_begin(track_t *t)
 {
     mod_t *const mp = &MOD;                          /* (0.6.71) this core's */
     const int16_t *p = t->p;
-    int32_t lfo, off[NMSLOT + 7u];
-    uint32_t k, j, tr = (uint32_t)(t - trk) % NTRK, cl = clay[tr][CL_ON] != 0;
+    int32_t lfo, off[NMSLOT + 9u];
+    uint32_t k, j, tr = (uint32_t)(t - trk) % NTRK, cl = clay[tr][CL_ON] != 0,
+             fm = t->eng_req == ENGI_FUNC && (fp_kp[tr][2] | fp_kp[tr][4]);   /* (funcmotion) */
     mp->on = 0;
     math_request[(uint32_t)(t-trk)]=0;
     math_request_base[(uint32_t)(t-trk)]=(uint32_t)clamp(t->p[P_E2],0,191)|((uint32_t)clamp(t->p[P_E3],0,127)<<8);
     for (k = 0; k < NMSLOT; k++)
         if (p[P_M1SRC + 3u * k] && p[P_M1DST + 3u * k] && p[P_M1AMT + 3u * k])
             break;
-    if (k == NMSLOT && !cl)
+    if (k == NMSLOT && !cl && !fm)
         return 0;
     lfo = mulq15(t->lfo_val, t->lfo_fade);              /* (the LFO of the block before: track_render ticks it) */
     for (j = k; j < NMSLOT; j++)
@@ -514,6 +535,8 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
     }
     if (cl)                                             /* (BYTE) DRONE CLAY's four, off the hot path (clay_mod) */
         clay_mod(t, mp, off, tr);
+    if (fm)
+        func_mod(t, mp, off, tr);
     for (j = 0; j < mp->nk; j++) {
         uint32_t id = mp->kid[j];
         const param_desc_t *pd = mod_track_desc(t, id);

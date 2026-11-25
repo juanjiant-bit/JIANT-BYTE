@@ -72,7 +72,7 @@ static const ng_t CG_HOME[] = {
 static const nv_t CE_SYN[] = {NV("EDIT 1", 0, 0, 0), NV("EDIT 2", 0, 0, 0), NV("UNISON", 0, 0, 1), NV("FRAMES", 0, 0, 1),
                               NV("WSEQ", 0, 0, 1),   /* (waveframes) WAVE's */
                               NV("TOUCH", 0, 0, 0),   /* (hive2: HIVE's third) */
-                              NV("GROOVE", 0, 0, 0), NV("LAYERS", 0, 0, 0),   /* (funcplay) FUNC's */
+                              NV("GROOVE", 0, 0, 0), NV("LAYERS", 0, 0, 0), NV("MOTION", 0, 0, 0),   /* (funcplay, funcmotion) FUNC's */
                               NV("WORDS", 0, 0, 1), NV("SWARM", 0, 0, 1), NV("SWARM 2", 0, 0, 1),
                               NV("FILTER", 0, 1, 1), NV("TONE", 0, 1, 1), NV("AUTO KNOBS", "FOCUS", 2, 2),
                               NV("VOICES", "PLAY", 3, 1), NV("MORE", 0, 3, 1), NV("VOICES 3", "MORE", 3, 1)};   /* (JIANT FM V10.7.60,

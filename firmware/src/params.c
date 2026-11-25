@@ -77,7 +77,7 @@ static const char *const N_APSYNC[] = {"FREE", "BEAT"};                  /* (JIA
 static const char *const N_APDIV[] = {"4BAR", "2BAR", "1BAR", "1/2", "1/4", "1/8", "1/16", "1/32"};   /* .. BEAT (fx.c AP_SIXT) */
 /* modulation matrix (mod.c): sources, destinations (E1..E8 = P_E0..P_E7: shown with the engine's labels) */
 static const char *const N_MSRC[] = {"OFF", "LFO", "ENV", "VEL", "KEY", "RAND", "MODW", "AT", "EXPR",
-                                     "M1", "M2", "M3", "M4", "STEP", "NOISE", "PROX", "ENV2", "IN ENV", "T1 ENV", "T2 ENV", "T3 ENV", "T4 ENV", "T5 ENV", "T6 ENV", "OCT+", "OCT-", "F.NOISE", "LIFE", "BEING"};   /* (V10.7.22) OCT+ OCT-: the expression keys; (filter2-mod) F.NOISE: FILTER 2's */   /* (V10.22) ENV2 */   /* (0.7.8) NOISE; (V10.14) PROX */   /* (JIANT: the macros, LFO held; the modulation sequence) */
+                                     "M1", "M2", "M3", "M4", "STEP", "NOISE", "PROX", "ENV2", "IN ENV", "T1 ENV", "T2 ENV", "T3 ENV", "T4 ENV", "T5 ENV", "T6 ENV", "OCT+", "OCT-", "F.NOISE", "LIFE", "BEING", "FN HIT", "FN NOTE", "FN BAR"};   /* (V10.7.22) OCT+ OCT-: the expression keys; (filter2-mod) F.NOISE: FILTER 2's */   /* (V10.22) ENV2 */   /* (0.7.8) NOISE; (V10.14) PROX */   /* (JIANT: the macros, LFO held; the modulation sequence) */
 static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN", "DIST", "CHO", "DLY", "REV", "L.RATE",
                                      "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
                                      "CLIP", "PNCH",   /* (JIANT: the master, FX > MASTER) */
@@ -272,12 +272,8 @@ static const param_desc_t GP[G_COUNT] = {
 static const param_desc_t LOFI_RTRG = {"RTRG", F_ONOFF, 0, 1, 1, 0};   /* (0.6.12) P_LRTRG on a MATH track (V10.6d: ON its default) */
 static const param_desc_t TRK_CHANCE = {"CHANCE", F_PCTINV, 0, 127, 0, 0};   /* (0.6.37) P_TCHAN: 0 = 100 % */
 static const param_desc_t MORPH_DESC = {"MORPH", F_PCT, 0, 127, 0, 0};   /* (0.6.45) P_MORPH */
-static const char *const N_CLEN[] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15",
-                                     "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
-                                     "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43",
-                                     "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57",
-                                     "58", "59", "60", "61", "62", "63", "64", 0};
-static const param_desc_t CLEN_DESC = {"C.LEN", F_ENUM, 0, 64, 0, N_CLEN};   /* (0.6.47) P_CLEN */
+static const param_desc_t CLEN_DESC = {"C.LEN", F_STEPS, 0, 64, 0, 0};   /* (0.6.47) P_CLEN (funcmotion, flash: its 65 names
+                                                         * gone, F_STEPS shows 0 OFF) */
 static const param_desc_t DXIMG_DESC = {"IMAGE", F_INT, 0, 127, 0, 0};       /* (0.6.48) P_DXIMG */
 /* (V10.6) SEQ > EUCLID / MODES' knobs (ui_euclid.c: ids ID_EU0 + EK_*, the views of the selected track's settings) */
 #define ID_EU0 0xF0u
@@ -666,7 +662,8 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
     case F_ONOFF:
         str_cpy(val, N_ONOFF[v ? 1 : 0], 6);
         break;
-    case F_STEPS:
+    case F_STEPS:                                     /* (0: OFF, C.LEN's) */
+        if (!v) { str_cpy(val, "OFF", 6); break; }
         fmt_int(val, v);
         *unit = "STEP";
         break;
@@ -773,6 +770,7 @@ static int16_t dnz_v[NTRK] __attribute__((section(".bss.tape")));
  * alone, in the middle: MIX 100 and the send whole, a vibrato. Kept with the project ('C' 'M', project.c; absent: 0) */
 #define ID_CMIX (ID_EQ0 + 4u)
 #define ID_FP0 0xE5u                                    /* (funcplay) FUNC's LAYERS: BLEND, KEYS (eng_lofi.c func_view) */
+#define ID_FM0 0xB0u                                    /* (funcmotion) FUNC's MOTION: STEREO MOVE TIMBRE COLOR (fp_kp[2..5]) */
 static const param_desc_t CMIX_DESC __attribute__((section(".rodata.tape"))) = PD("MIX", F_PCT, 0, 100, 0);
 static int16_t cho_mix __attribute__((section(".bss.tape")));
 static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CRUSH (0..127: DIST's DRIVE, shown 0..100 %) */
@@ -1014,6 +1012,7 @@ static const page_t PAGES[] = {
      * the keys'), its alone (ui.c page_visible) */
     {"GROOVE", FAM_EDIT, SC_TRACK, GR_NONE, {P_FDEN, P_FSWG, P_FCPX, P_FRNG}},
     {"LAYERS", FAM_EDIT, SC_TRACK, GR_NONE, {P_FFB, ID_FP0, ID_FP0 + 1u, 0xFF}},
+    {"MOTION", FAM_EDIT, SC_TRACK, GR_NONE, {ID_FM0, ID_FM0 + 1u, ID_FM0 + 2u, ID_FM0 + 3u}},   /* (funcmotion) its alone */
 };
 #define SPLIT_PAGE(pg) (FELUCCA_SPLIT && (uint32_t)((pg)->graph - GR_SPLIT) < 2u)   /* (V10.7.32: out, core.h) */
 #define STAGE_PAGE(pg) (FELUCCA_ENVX && (pg)->graph == GR_STAGE)   /* (V10.7.32: ENV > STAGE out, core.h) */
@@ -1109,8 +1108,8 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return eu_desc(id - ID_EU0, valp);
     if (id >= ID_SC0 && id < ID_SC0 + 4u)            /* (V10.25) SCENE's */
         return sc_desc(id - ID_SC0, valp);
-    if (id - ID_FP0 < 2u)                                /* (funcplay) LAYERS' BLEND and KEYS (eng_lofi.c fp_kp) */
-        return func_view(id - ID_FP0, valp);
+    if (id - ID_FP0 < 2u || id - ID_FM0 < 4u)            /* (funcplay) LAYERS' BLEND and KEYS (mod.c fp_kp); MOTION's */
+        return func_view(id - (id < ID_FP0 ? ID_FM0 - 2u : ID_FP0), valp);
     if (id >= ID_CL0 && id <= ID_CL0 + CL_KEYS)          /* (BYTE) DRONE CLAY's (clay.c clay_page_desc) */
         return clay_page_desc(TSEL, id - ID_CL0, valp);
     *valp = &TSEL->p[id];

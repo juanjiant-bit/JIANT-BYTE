@@ -713,8 +713,22 @@ typedef struct {
                                          * start and end (0 open), the bar frozen; the last P */
 } fp_t;
 static fp_t fp_st[NTRK] __attribute__((section(".pool")));
-static int16_t fp_kp[NTRK][2] __attribute__((section(".pool")));   /* LAYERS' BLEND (0 A .. 64 both .. 127 B) and KEYS
-                                                         * (0 ON): the knobs' own, the project's 'F' 'P' */
+/* (funcmotion, the owner: "FUNC to move its stereo and its timbre by the formula") the matrix's FN HIT FN NOTE FN BAR
+ * (mod.c MS_FNHIT ..): a FUNC part's formula as sources, from what it plays (lofi_func_render, fn_track: its latest
+ * voice, a block late): HIT its onsets (1 at each, decaying ~0.1 s), NOTE how high it plays (its zero crossings, smoothed), BAR its
+ * time's place in four bars (bipolar, a triangle); side: L or R at each onset, by its 1/16 (the same each time round). Any other part's: 0 */
+typedef struct { int16_t v[3], slow, line; uint8_t side, rsv; } fn_sg_t;
+#define FN_SRC0 29u                                     /* (mod.c MS_FNHIT: checked there) */
+static int fn_read(const track_t *t)                    /* a MOD slot of t reads FN HIT NOTE BAR */
+{
+    uint32_t k, r = 0;
+    for (k = 0; k < 12u; k += 3u) r |= (uint32_t)t->p[P_M1SRC + k] - FN_SRC0 < 3u;
+    return (int)r;
+}   /* (line: NOTE's own, slowly) */
+static fn_sg_t fn_sg[NTRK] __attribute__((section(".pool")));
+/* (funcplay) a FUNC part's LAYERS' BLEND (0 A .. 64 both .. 127 B) and KEYS (0 ON), the project's 'F' 'P'; (funcmotion)
+ * its MOTION: STEREO MOVE TIMBRE COLOR (FUNC_PX; mod.c func_mod), the project's 'F' 'M' (none: 0, as before) */
+static int16_t fp_kp[NTRK][6] __attribute__((section(".pool")));
 typedef struct { fvm_prog_t p; uint8_t tr, form; } fpb_t;   /* layer B's program: two parts at once (the pool's room) */
 static fpb_t fp_b[2] __attribute__((section(".pool")));
 static fvm_ins_t fp_bins[2][FVM_MAXINS] __attribute__((section(".pool")));
@@ -740,6 +754,34 @@ static __attribute__((noinline)) void pt_beat_blk(uint32_t *P, uint32_t n, uint3
     } else
         for (i = 0; i < n; i++)
             P[i] = pt_beat_x(P[i], song_p) & 0x7fffffffu;
+}
+/* (funcmotion) the block's sources of FUNC part g (mod.c fn_sg) from its formula's n samples Y (every other: its peak
+ * within a bit, its zero crossings) and its time p0. Once a block, the latest voice's: no cost a sample */
+static __attribute__((noinline)) void fn_track(fn_sg_t*g,const uint32_t*Y,uint32_t n,uint32_t p0)
+{
+    uint32_t i,zc=0;
+    int32_t pk=0,pr=0,z,s=g->slow;
+    for(i=0;i<n;i+=2u){int32_t y=(int32_t)Y[i]>>1;pk|=y^y>>31;zc+=(uint32_t)(y^pr)>>31;pr=y;}
+    pk=pk>32767?32767:pk;
+    z=(int32_t)(zc*131068u/n);
+    if(pk-s>(s>>1)+1500&&g->v[0]<12000){g->v[0]=32767;g->side=(uint8_t)(fvm_hash(p0>>14)&1u);}   /* an onset: well over its slow level */
+    else g->v[0]=(int16_t)(g->v[0]-(g->v[0]>>7));
+    g->slow=(int16_t)(s+((pk-s)>>4));
+    g->v[1]=(int16_t)(g->v[1]+(((z>32767?32767:z)-g->v[1])>>3));
+    g->line=(int16_t)(g->line+((g->v[1]-g->line)>>8));
+    p0=p0>>4&0xFFFFu;                                   /* (four bars: 2^20) */
+    g->v[2]=(int16_t)((int32_t)(p0<32768u?p0:65535u-p0)*2-32767);
+}
+/* (funcmotion) COLOR c (1 .. 127) on x: up to ~9 times into a triangle's fold; past 64 its low bits dropped too */
+static inline int32_t fn_color(int32_t x,int32_t c)
+{
+    uint32_t u=(uint32_t)((x*(16+c)>>4)+32768)&0x1FFFFu;
+    int32_t y=u<65536u?(int32_t)u-32768:98304-(int32_t)u;
+    return c>64?y&-(1<<((c-64)>>2)):y;
+}
+static __attribute__((noinline)) void fn_color_blk(uint32_t*Y,uint32_t n,int32_t c)   /* .. on the block's formula, in place */
+{
+    for(uint32_t i=0;i<n;i++)Y[i]=(uint32_t)(fn_color((int32_t)Y[i]>>1,c)*2);   /* (the fold wraps: no clamp first) */
 }
 static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32_t*out,uint32_t n,const vmod_t*m,uint32_t inc,const tsvf_t*flt)
 {
@@ -767,15 +809,23 @@ static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32
     if(func_live(t))func_run(t,v,p,&en,n,Y,W,P);       /* (funcplay) its sections, fills, groove, layer B */
     else lofi_run(p,&en,&lofi_work[MC_CPU()&1u],n,Y);
     int32_t y1=v->s[4],y2=v->s[5],kd=8192-(t->p[P_FRES]>50?t->p[P_FRES]:50)*7600/127;
+    uint32_t tr=(uint32_t)(t-trk)%NTRK;
+    fn_sg_t*g=&fn_sg[tr];const int16_t*k=fp_kp[tr];
+    int32_t c=k[5]|k[4]?clamp(k[5]+(k[4]*(g->v[2]+g->v[0]-16384)>>16),1,127):0;   /* (funcmotion) COLOR, TIMBRE's sway */
+    if(v==&t->v[t->m_vi%NVOICE]&&(k[2]|k[4]||fn_read(t)))fn_track(g,Y,n,P[0]);   /* (funcmotion) the sources: its latest
+                                                         * voice's, when MOTION or a slot reads them (else no work) */
+    if(c)fn_color_blk(Y,n,c);
     for(uint32_t i=0;i<n;i++){int32_t sample=fvm_sample(FT_FIX,Y[i]);out[i]+=voice_amp(soft_knee(svf_mode(flt,sample>>1,&y1,&y2,ft_voice(t->p),kd),16000)<<1,m,i);}
     v->s[2]=(int32_t)(q+(n<<sh));v->ph[0]=ph;v->s[4]=y1;v->s[5]=y2;
 }
 
 /* (func-tame) FUNC's A B C D by FORM: their names on the cards, the matrix, the editor (all through lofi_desc), and a
  * line each in the header while one turns (ui_input.c knob_hint, MENU > DISPLAY > HELP). CUSTOM (and a LOOP past the
- * recipes', as math_func_text) the program's own A B C D. Flash only; the stored values the same (0 .. 127) */
-#define FK(a,b,c,d) {{a,F_PCT,0,127,64,0},{b,F_PCT,0,127,32,0},{c,F_PCT,0,127,16,0},{d,F_PCT,0,127,0,0}}
-static const param_desc_t FUNC_KNOBS[FUNC_NFORM][4]={FK("A","B","C","D"),FK("COLOR","SNARE","HATS","STEPS"),
+ * recipes', as math_func_text) the program's own A B C D. Flash only; the stored values the same (0 .. 127). (funcmotion,
+ * flash) their names alone in flash, each part's four cards made from them (fk_d: its form's, the same whoever asks,
+ * the audio's matrix or the panel; 0 .. 127, at 64 32 16 0) */
+#define FK(a,b,c,d) {a,b,c,d}
+static const char *const FUNC_KN[FUNC_NFORM][4]={FK("A","B","C","D"),FK("COLOR","SNARE","HATS","STEPS"),
     FK("COLOR","SNARE","HATS","KICK"),FK("VOWEL","WOBBLE","DRIVE","SEED"),FK("DEPTH","RING","DRIVE","SEED"),
     FK("CUTOFF","RESO","DRIVE","SEED"),FK("DETUNE","TONE","DRIVE","SEED"),FK("CHORD","BASS","KICK","SEED"),
     FK("COLOR","CHORD","DRIVE","SEED"),FK("BRIGHT","FM","DRIVE","SEED"),FK("SHAPE","TONE","DRIVE","SEED"),
@@ -816,11 +866,14 @@ static const char *const N_FUNC_FB[]={"OFF","SONG","BEAT","GROWL","HALFTIME","AC
     "NIBBLE","BITS","DRUMS","SCREECH","DUB","AMEN","TRANCE","AMBIENT","MINIMAL","JUNGLE"};
 _Static_assert(NELEM(N_FUNC_FB)==FUNC_NFORM,"FUNC: FORM B's names");
 static const char *const N_FKEYS[]={"ON","OFF",0};
-static const param_desc_t FUNC_PX[7]={{"DENSITY",F_BIPCT,-64,63,0,0},{"SWING",F_PCT,0,127,0,0},{"COMPLEX",F_PCTINV,0,127,127,0},
+static const char *const N_FMOVE[]={"NOTE","HIT","BAR","ALL",0};
+static const param_desc_t FUNC_PX[11]={{"DENSITY",F_BIPCT,-64,63,0,0},{"SWING",F_PCT,0,127,0,0},{"COMPLEX",F_PCTINV,0,127,127,0},
     {"RANGE",F_BIPCT,-64,63,0,0},{"FORM B",F_ENUM,0,FUNC_NFORM-1u,0,N_FUNC_FB},{"BLEND",F_PCT,0,127,64,0},
-    {"KEYS",F_ENUM,0,1,0,N_FKEYS}};
-static const char *const FUNC_PXT[7]={"THIN .. FILL HITS","ODD 1/16S LATER","STRAIGHT..BROKEN","NOTES 8VA DOWN..UP",
-    "A SECOND RECIPE","A .. A+B .. B","SECTIONS, FILLS"};
+    {"KEYS",F_ENUM,0,1,0,N_FKEYS},{"STEREO",F_PCT,0,127,0,0},{"MOVE",F_ENUM,0,3,0,N_FMOVE},{"TIMBRE",F_PCT,0,127,0,0},
+    {"COLOR",F_PCT,0,127,0,0}};
+static const char *const FUNC_PXT[11]={"THIN .. FILL HITS","ODD 1/16S LATER","STRAIGHT..BROKEN","NOTES 8VA DOWN..UP",
+    "A SECOND RECIPE","A .. A+B .. B","SECTIONS, FILLS","PAN BY THE FORMULA","PAN: NOTE HIT BAR","HITS MOVE CUT + A",
+    "FOLD .. CRUSH"};
 static const uint8_t FUNC_PID[5]={P_FDEN,P_FSWG,P_FCPX,P_FRNG,P_FFB};
 static const param_desc_t *func_pdesc(uint32_t id)    /* (params.c track_desc: a FUNC part's) */
 {
@@ -828,26 +881,43 @@ static const param_desc_t *func_pdesc(uint32_t id)    /* (params.c track_desc: a
     for(k=0;k<5u;k++)if(FUNC_PID[k]==id)return &FUNC_PX[k];
     return 0;
 }
-static const param_desc_t *func_view(uint32_t k,int16_t**valp)   /* (params.c page_desc: LAYERS' BLEND, KEYS) */
+static const param_desc_t *func_view(uint32_t k,int16_t**valp)   /* (params.c page_desc: LAYERS' BLEND, KEYS; MOTION's) */
 {
-    *valp=&fp_kp[song.sel%NTRK][k&1u];
-    return &FUNC_PX[5u+(k&1u)];
+    *valp=&fp_kp[song.sel%NTRK][k%6u];
+    return &FUNC_PX[5u+k%6u];
+}
+/* (funcmotion) the FUNC presets' MOTION: STEREO MOVE TIMBRE COLOR a nibble each (x 8; MOVE as it is) */
+static const uint16_t FUNC_MO[FUNC_NFORM-1u]={0x6340,0x4142,0x2264,0x2253,0x3273,0x4243,0x7151,0x8030,0x6041,0x7152,
+    0x5363,0x6382,0x6141,0x5375,0x6252,0x5131,0x6351,0x9240,0x8162,0x3253};
+static void func_motion(track_t*t,uint32_t pi)        /* (ui.c apply_preset_to) */
+{
+    uint32_t k,m=FUNC_MO[pi%(FUNC_NFORM-1u)];
+    for(k=0;k<4u;k++)fp_kp[(uint32_t)(t-trk)%NTRK][2u+k]=(int16_t)((m>>(12u-4u*k)&15u)<<(k==1u?0:3));
 }
 /* a FUNC part as written: GROOVE and LAYERS at their middles (apply_preset_to, project.c, math_poll) */
 static void func_neutral(track_t*t)
 {
     uint32_t k;
     for(k=0;k<5u;k++)t->p[FUNC_PID[k]]=FUNC_PX[k].def;
-    fp_kp[(uint32_t)(t-trk)%NTRK][0]=64;fp_kp[(uint32_t)(t-trk)%NTRK][1]=0;
+    int16_t*q=fp_kp[(uint32_t)(t-trk)%NTRK];
+    q[0]=64;q[1]=q[2]=q[3]=q[4]=q[5]=0;                /* (funcmotion: MOTION still) */
 }
-/* its line of help: one of FUNC_KNOBS's (FUNC_PX's), else 0 (knob_hint's own table) */
+static param_desc_t fk_d[NTRK][4];
+static const param_desc_t *func_knob(const track_t*t,uint32_t k)   /* part t's knob k (0 .. 3: A B C D) by its FORM */
+{
+    param_desc_t*d=&fk_d[(uint32_t)(t-trk)%NTRK][k&3u];
+    d->label=FUNC_KN[func_form(t)][k&3u];d->fmt=F_PCT;d->max=127;d->def=(int16_t)(k<3u?64>>k:0);
+    return d;
+}
+/* its line of help: one of the knobs' by FORM (FUNC_PX's), else 0 (knob_hint's own table) */
 static const char *func_knob_tip(const param_desc_t*d){
-    uintptr_t o=(uintptr_t)d-(uintptr_t)&FUNC_KNOBS[0][0],q=(uintptr_t)d-(uintptr_t)FUNC_PX;
+    uintptr_t o=(uintptr_t)d-(uintptr_t)fk_d,q=(uintptr_t)d-(uintptr_t)FUNC_PX;
     if(q<sizeof FUNC_PX)return FUNC_PXT[q/sizeof(param_desc_t)];
-    return o<sizeof FUNC_KNOBS?FUNC_TIPS[o/sizeof FUNC_KNOBS[0]][o%sizeof FUNC_KNOBS[0]/sizeof(param_desc_t)]:0;
+    o/=sizeof(param_desc_t);
+    return o<4u*NTRK?FUNC_TIPS[func_form(&trk[o/4u])][o%4u]:0;
 }
 /* (BYTE 0.17) FUNC's EDIT k: RUN ROOT FORM its own, A B C D by FORM (WAVE 0: edit[], FUNC alone) */
-static const param_desc_t *func_desc(const track_t*t,uint32_t k){return k-2u<4u?&FUNC_KNOBS[func_form(t)][k-2u]:k-1u?&ENG_FUNC.edit[k&7u]:0;}
+static const param_desc_t *func_desc(const track_t*t,uint32_t k){return k-2u<4u?func_knob(t,k-2u):k-1u?&ENG_FUNC.edit[k&7u]:0;}
 static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {
     if(t->p[P_E1]==RW_FUNC)                             /* (a MATH part's, until it is FUNC's: as FUNC's) */

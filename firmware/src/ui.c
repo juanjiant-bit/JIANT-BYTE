@@ -646,7 +646,7 @@ static int page_visible(uint32_t i)
         return 0;                                       /* (0.6.30) LOAD ECO: no SLICER, no chorus: their pages gone */
     if (PAGES[i].graph == GR_MORPH)                     /* (0.6.45) MORPH: ANALOG's (JIANT BYTE: retired) */
         return 0;
-    if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[1] == P_FSWG || PAGES[i].id[1] == ID_FP0))   /* (funcplay) GROOVE, LAYERS */
+    if (PAGES[i].fam == FAM_EDIT && (PAGES[i].id[1] == P_FSWG || PAGES[i].id[1] == ID_FP0 || PAGES[i].id[0] == ID_FM0))   /* (funcplay) GROOVE, LAYERS; MOTION */
         return te == ENGI_FUNC;
     if(PAGES[i].graph==GR_TRACKGEN) return trackgen_ok(TSEL);
     if (PAGES[i].graph == GR_SWARM)                     /* (V10.6z6) FAR / NEAR: a SWARM track's */
@@ -1561,8 +1561,10 @@ static void apply_preset_to(track_t *t, uint32_t pi)
         t->p[P_TVEL] = 0;                             /* every note at 100, its ACCENTs still 127 */
     if (ENG_IS_MATH(e) || e == &ENG_DRUM)             /* (V10.6d) MATH: RTRG on, each note the formula from its start */
         t->p[P_LRTRG] = e == &ENG_DRUM ? km : 1;
-    if (e == &ENG_FUNC)                                 /* (funcplay) its GROOVE and LAYERS as written */
+    if (e == &ENG_FUNC) {                               /* (funcplay) its GROOVE and LAYERS as written; (funcmotion) its MOTION */
         func_neutral(t);
+        func_motion(t, pi);
+    }
     if (0 /* (BYTE: never) */) {                          /* (0.8.5) VOICE's words: LANG, LYRIC (0: its vowels) */
         t->p[P_VLANG] = (int16_t)(e->presets[pi].xp & 3u);
         t->p[P_VLYR] = (int16_t)(e->presets[pi].xp >> 2);
