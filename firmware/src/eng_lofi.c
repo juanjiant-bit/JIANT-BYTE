@@ -386,6 +386,15 @@ static void xm_env(fvm_env_t *e, const fvm_prog_t *p)   /* O1 .. O6, when the fo
 }
 #define LOFI_N 64u                                   /* a render's samples at most (CTL); the FVM runs FVM_BLK at once */
 _Static_assert(CTL <= LOFI_N, "MATH: a render longer than its arrays");
+/* (devcpu2) formula_run from the RAM code (lofi_run, lofi_float_render) through a register: fl_run sits near the
+ * image's end, past the reach build.py keeps from RAMTEXT (7.5 KiB lower) */
+static inline __attribute__((always_inline)) void formula_run_r(const fvm_prog_t *p, const fvm_env_t *e, fvm_scratch_t *sc,
+                                                                uint32_t n, uint32_t *out)
+{
+    void (*f)(const fvm_prog_t *, const fvm_env_t *, fvm_scratch_t *, uint32_t, uint32_t *) = formula_run;
+    FM1_OPAQUE(f);
+    f(p, e, sc, n, out);
+}
 /* the formula over m samples (the variables' arrays m long), FVM_BLK at a time */
 static __attribute__((noinline)) void lofi_run(const fvm_prog_t *pg, fvm_env_t *en, lofi_work_t *wk, uint32_t m, uint32_t *out)
 {
@@ -396,7 +405,7 @@ static __attribute__((noinline)) void lofi_run(const fvm_prog_t *pg, fvm_env_t *
     for (o = 0; o < m; o += FVM_BLK) {
         for (k = 0; k < FA_N; k++)
             en->arr[k] = a0[k] ? a0[k] + o : 0;
-        formula_run(pg, en, &wk->s, m - o < FVM_BLK ? m - o : FVM_BLK, out + o);
+        formula_run_r(pg, en, &wk->s, m - o < FVM_BLK ? m - o : FVM_BLK, out + o);
     }
     for (k = 0; k < FA_N; k++)
         en->arr[k] = a0[k];
@@ -644,7 +653,7 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
             fvm_env_t e1 = {{&T1, &W1, 0, 0, 0}, {0}, &v->s[6]};   /* (FEEDBK: no cross-mod here) */
             e1.u[FU_NOTE] = v->note;
             e1.u[FU_VEL] = v->vel;
-            formula_run(pg, &e1, &wk->s, 1, &o1);
+            formula_run_r(pg, &e1, &wk->s, 1, &o1);
             s = (int32_t)o1 >> 1;
         } else {
             s = (int32_t)vals[i] >> 1;                   /* (FIX Q16 -> MATH's Q15) */

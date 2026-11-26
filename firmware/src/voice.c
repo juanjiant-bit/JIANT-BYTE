@@ -746,7 +746,8 @@ static volatile uint8_t sys_load;
 #define LITE_FM6_POLY 2u
 #define ECO_POLY 4u
 #define ECO_VOICES 6u            /* (0.6.70) LOAD ECO: the voices all parts share (NVOICE else) */
-static uint32_t trk_nvoice(const track_t *t)
+static inline __attribute__((always_inline)) uint32_t trk_nvoice_q(const track_t *t)   /* (devcpu2: the RAM code's
+                                                         * copy, voice_limit_apply's; trk_nvoice the flash's) */
 {
     uint32_t c = ENGINES[t->engine]->poly;
     if (sys_load && t->engine == ENGI_FM6 && c > LITE_FM6_POLY)
@@ -757,6 +758,7 @@ static uint32_t trk_nvoice(const track_t *t)
     { uint32_t wanted = (uint32_t)clamp(voice_limit[(uint32_t)(t - trk) % NTRK] ? voice_limit[(uint32_t)(t - trk) % NTRK] : NVOICE, 1, NVOICE); if (wanted < c) c = wanted; }
     return c;
 }
+static uint32_t trk_nvoice(const track_t *t) { return trk_nvoice_q(t); }
 
 /* the part's voice mode: P_VOICE, POLY for an engine of hits (engine_t.oneshot: DRUM); (V10.7.33) DRONE allocates as
  * POLY (its notes held: trk_drone, drone_on) */
@@ -1489,14 +1491,15 @@ static __attribute__((noinline)) int voice_room(track_t *t, int soft)   /* (V10.
     return 1;
 }
 
-/* Kept outside the RAM render routine: fade out retired slots, then skip their DSP entirely. */
+/* Kept outside the RAM render routine: fade out retired slots, then skip their DSP entirely. (devcpu2) In RAM itself
+ * (build.py HOT_FNS: every part's every block), its count of voices inlined (trk_nvoice_q) */
 static __attribute__((noinline)) void voice_limit_apply(track_t *t)
 {
     uint32_t i, ti = (uint32_t)(t - trk) % NTRK;
     if ((t->p[P_GAIN] | pg_db[ti]) && !tf_on[ti])      /* (a kit's: track_post leaves it, part_gain not run) */
         tf_on[ti] = 2;                                  /* (gainall) GAIN on (or ramping off): track_post this block,
                                                          * part_gain in it (as FILTER 2's flag, fn_voice) */
-    for (i=trk_nvoice(t);i<NVOICE;i++) if (t->v[i].active) {
+    for (i=trk_nvoice_q(t);i<NVOICE;i++) if (t->v[i].active) {
         t->v[i].sub=0;t->v[i].pn_flags=0;voice_kill(&t->v[i]);
     }
 }

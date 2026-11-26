@@ -20,8 +20,9 @@ MEMORY
     XIP    (rx)  : ORIGIN = 0x02000120, LENGTH = 0x8EA90   /* = tools/fm1pkg_make.py APP_SLOT (0.9.13: the region ends at 0x92FFE) */
     LOWBUF (rw)  : ORIGIN = 0x01C00000, LENGTH = 0x8000
     RAM    (rwx) : ORIGIN = 0x01C08000, LENGTH = 96K
-    POOL   (rw)  : ORIGIN = 0x01C20000, LENGTH = 0x4DBC0
-    RAMTEXT (rwx): ORIGIN = 0x01C6DBC0, LENGTH = 0x8440   /* (BYTE 0.17: 1216 B up, then 256 B for FORM's keys, the sequencer out of the RAM code, the pool its FORM B programs) (0.6.97, 0.7.0: up 4 KiB each, the image grew: a call from here must
+    POOL   (rw)  : ORIGIN = 0x01C20000, LENGTH = 0x4BDC0
+    RAMTEXT (rwx): ORIGIN = 0x01C6BDC0, LENGTH = 0xA240   /* (devcpu2: 7.5 KiB lower, the USB resampler's table halved: the
+                                                           * sound's per-block code from the flash) (BYTE 0.17: 1216 B up, then 256 B for FORM's keys, the sequencer out of the RAM code, the pool its FORM B programs) (0.6.97, 0.7.0: up 4 KiB each, the image grew: a call from here must
                                                            * reach its end; the user stack 4 KiB shorter each time, 15.75 KiB;
                                                            * 0.9.9-stab, as 0.9.12: 1 KiB lower, from the pool: the 320 MHz switch;
                                                            * 0.9.9-beta4: 9 KiB lower, from the pool (8 KiB of its main-loop

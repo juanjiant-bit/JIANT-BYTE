@@ -39,7 +39,7 @@ import size_fns  # noqa: E402
 APP_XIP = 0x02000120                # app.bin offset 0 in the XIP map; the SPL jumps here
 APP_SLOT = fm1pkg_make.APP_SLOT
 LOADER_LOAD = 0x01C0A800
-POOL_END = 0x01C6DBC0            # (JIANT 0.6.78) app.ld: POOL's end, RAMTEXT's start (0.6.97, 0.7.0: up 4 KiB each; 0.9.9-beta4: 9 KiB lower;
+POOL_END = 0x01C6BDC0            # (devcpu2: 7.5 KiB lower, usb.c rs_tab halved) (JIANT 0.6.78) app.ld: POOL's end, RAMTEXT's start (0.6.97, 0.7.0: up 4 KiB each; 0.9.9-beta4: 9 KiB lower;
                                  # 0.9.9-stab: 1 KiB lower, the 320 MHz switch's RAM code)
 RAMTEXT_END = 0x01C76000         # .. RAMTEXT's end (the user stack's guard band)
 LOADER_NAME = b"usb_hid_ota.bin"    # the file name the SPL looks for
@@ -219,7 +219,17 @@ HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0",
            # VAR's, BYTE's too)
            "lofi_float_render", "lofi_mut",
            # (devcpu) an idle MATH part's every block: its formula looked up (lofi_block, compiled before the note)
-           "lofi_prog")
+           "lofi_prog",
+           # (devcpu2) core 1's job (its block's buses and parts: from the flash's end it no longer reaches the RAM
+           # code, 7.5 KiB lower)
+           "mc_job",
+           # (devcpu2) the flash's dearest lines a block for their bytes (the lines model: tests/cpu_lines_test.py),
+           # in the room the USB resampler's halved table gave: the parts' count of voices,
+           # WAVE's per-block frames and its render, the split, the buses' tone and ROOM MOD (CLOUD's), DRUM-W's
+           # bus, MATH's time, the formulas' interpreter
+           "voice_limit_apply", "wave_block", "mc_split", "tone_set", "trackgen_ok",
+           "wave_render", "lofi_time", "wave_phw", "drum_bus", "rev_room_mod",
+           "fvm_exec", "wf_read")
 # (engopt) fx_rest out (432 B: it runs where the buses have nothing to do, its CPU not wanted) and dly_wow_adv (154 B,
 # two sines a block): their room for the GRAIN delay's constants held in fx_buses (fx.c grk_set, gr_one)
 

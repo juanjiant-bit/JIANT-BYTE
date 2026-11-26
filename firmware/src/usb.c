@@ -186,7 +186,9 @@ static struct {
 /* (0.8.9) all 160 phases in RAM (the pool, built from the 80 in the flash the first time the ring primes at 48 kHz):
  * one forward loop, no flash reads (the table no longer pushes the render's code out of the cache), and core 1 can
  * run it outside the audio ISR, with the flash off */
-static int32_t rs_tab[UAC_FIR_L][UAC_FIR_N] __attribute__((section(".pool")));   /* (15 KiB) */
+static int32_t rs_tab[UAC_FIR_L / 2u][UAC_FIR_N] __attribute__((section(".pool")));   /* (devcpu2: 7.5 KiB, the 80 phases:
+                                                         * phase 159 - p is phase p backwards, uac_rs_run reads it so; the
+                                                         * other 7.5 KiB the RAM code's) */
 static uint32_t rs_in[HALF_FRAMES] __attribute__((section(".pool")));            /* a half (CORES 2) or a block, 16-bit L | R */
 static struct {
     uint8_t c1;                  /* this stream resamples on core 1, a half at a time (chosen when it primes) */
@@ -1252,8 +1254,7 @@ static void uac_rs_init(void)                           /* the resampler from si
     for (i = 0; i < UAC_FIR_N; i++) {                   /* each tap along the phases: its differences summed back */
         int32_t x = UAC_FIR0[0][i], a = UAC_FIR0[1][i], b = UAC_FIR0[2][i], c = UAC_FIR3S[i];
         for (p = 0; p < UAC_FIR_L / 2u; p++) {
-            rs_tab[p][i] = x;
-            rs_tab[UAC_FIR_L - 1u - p][UAC_FIR_N - 1u - i] = x;   /* (phase 159 - p: phase p backwards) */
+            rs_tab[p][i] = x;                           /* (phase 159 - p: phase p backwards, read so) */
             x += a;
             a += b;
             if (p < UAC_FIR_L / 2u - 3u) {
@@ -1346,11 +1347,12 @@ static UAC_C1_TEXT uint32_t uac_rs_run(const uint32_t *in, uint32_t n, uint32_t 
         s = (h - UAC_FIR_N) & (RS_H - 1u);              /* the window: oldest .. this frame */
         do {
             const int16_t *x = &rs.l[s];                /* R: x[2 * RS_H] */
-            const int32_t *c = rs_tab[ph];
+            int32_t d = ph < UAC_FIR_L / 2u ? 1 : -1;  /* (devcpu2) 80 .. 159: 159 - ph's taps from its last */
+            const int32_t *c = d > 0 ? rs_tab[ph] : &rs_tab[UAC_FIR_L - 1u - ph][UAC_FIR_N - 1u];
             int64_t al = 0, ar = 0;
             int32_t yl, yr;
-            for (j = UAC_FIR_N / 4u; j; j--, x += 4, c += 4) {
-                int32_t c0 = c[0], c1 = c[1], c2 = c[2], c3 = c[3];
+            for (j = UAC_FIR_N / 4u; j; j--, x += 4, c += 4 * d) {
+                int32_t c0 = c[0], c1 = c[d], c2 = c[2 * d], c3 = c[3 * d];
                 al += uac_mac2(c0, x[0], c1, x[1]);
                 ar += uac_mac2(c0, x[2u * RS_H], c1, x[2u * RS_H + 1u]);
                 al += uac_mac2(c2, x[2], c3, x[3]);
