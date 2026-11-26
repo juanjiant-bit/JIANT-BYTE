@@ -1144,7 +1144,7 @@ static __attribute__((noinline)) void grk_set(grk_t *k, uint32_t dln)   /* (out 
         k->bn[j] = ((dln + sp > top ? top - sp : dln) + sp) << 8;
     }
 }
-static inline int32_t gr_one(uint32_t base, uint32_t e3, uint32_t up, uint32_t ph, uint32_t w)
+static __attribute__((noinline)) int32_t gr_one(uint32_t base, uint32_t e3, uint32_t up, uint32_t ph, uint32_t w)
 {
     uint32_t d = base + ((e3 * ((up ? 65535u - ph : ph) >> 4)) >> 9), di = d >> 8;
     int32_t a, b, t = (int32_t)(ph < 32768u ? ph : 65535u - ph);   /* the triangle, 0 .. 32767 */
@@ -1180,7 +1180,7 @@ static inline int32_t dly_sat(int32_t u)            /* Q15 in, out within +-3276
  * then / g: a quiet repeat comes back as it went, a loud one rounded and pressed down, a little more grit and a little
  * less level each pass (a tape driven, a BBD's input pushed). x within +-32767; g Q12, gi = 1 / g Q15. DRIVE 0: not
  * called (the loop as before, bit for bit) */
-static inline int32_t dly_drive(int32_t x, int32_t g, int32_t gi)
+static __attribute__((noinline)) int32_t dly_drive(int32_t x, int32_t g, int32_t gi)
 {
     int32_t u = (x * g) >> 12, u3;
     if (u > 49152) u = 49152;
@@ -1196,7 +1196,7 @@ static inline int32_t dly_drive(int32_t x, int32_t g, int32_t gi)
  * not as a wash. a 0: not run (the loop as before, bit for bit). ah / al Q15 one-pole coefficients at the line's rate */
 #define DB_HOLD 8268u                    /* 12 s of blocks of 64 */
 typedef struct { int32_t ah, al, a; } dband_t;
-static inline int32_t dly_band(int32_t x, const dband_t *b)
+static __attribute__((noinline)) int32_t dly_band(int32_t x, const dband_t *b)
 {
     int32_t h;
     fx.db_h += (((x << 3) - fx.db_h) * b->ah + 16384) >> 15;
@@ -1271,7 +1271,7 @@ static void dly_wow_adv(uint32_t n, int32_t *m0, int32_t *dm)   /* the block's d
 /* the line buf (written at w) d samples back, plus m (Q8): on a sample exact; between two (MOD's drift) a 4-point
  * Hermite (0.6.89: the linear one was a low-pass on every pass, the repeats dulled; as DaisySP's DelayLine ReadHermite,
  * MIT) */
-static inline int32_t dly_rd_q(const int16_t *buf, uint32_t w, int32_t q)   /* (q: Q8 samples back) */
+static __attribute__((noinline)) int32_t dly_rd_q(const int16_t *buf, uint32_t w, int32_t q)   /* (q: Q8 samples back; devcpu2: one copy, in RAM, for its dozen reads) */
 {
     int32_t f = q & 255, xm1, x0, x1, x2, c1, c2, c3;
     uint32_t i = w - (uint32_t)(q >> 8);
@@ -2186,7 +2186,7 @@ static inline int32_t hb_sum(const int32_t *h, const int16_t *q, uint32_t nq)   
         a += q[k] * (h[HB_N - 1u - k] + h[HB_N + k]);
     return a;
 }
-static inline int hb_dec(hbd_t *s, int32_t x, int32_t *y, const int16_t *q, uint32_t nq)   /* an FS sample in; every other one a sample out */
+static __attribute__((noinline)) int hb_dec(hbd_t *s, int32_t x, int32_t *y, const int16_t *q, uint32_t nq)   /* an FS sample in; every other one a sample out */
 {
     if (s->ph) {                                         /* (odd: the middle tap's line) */
         s->op = (uint8_t)(s->op ? s->op - 1u : HB_N - 1u);
@@ -2200,7 +2200,7 @@ static inline int hb_dec(hbd_t *s, int32_t x, int32_t *y, const int16_t *q, uint
     *y = (hb_sum(s->e + s->ep, q, nq) + s->o[s->op + HB_N - 1u] * 8192 + 8192) >> 14;
     return 1;
 }
-static inline void hb_int(hbi_t *s, int32_t u, int32_t *y0, int32_t *y1, const int16_t *q, uint32_t nq)   /* a sample in, two out (x2 the rate) */
+static __attribute__((noinline)) void hb_int(hbi_t *s, int32_t u, int32_t *y0, int32_t *y1, const int16_t *q, uint32_t nq)   /* a sample in, two out (x2 the rate) */
 {
     s->p = (uint8_t)(s->p ? s->p - 1u : HB_H - 1u);
     s->u[s->p] = s->u[s->p + HB_H] = u;

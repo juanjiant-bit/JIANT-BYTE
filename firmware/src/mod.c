@@ -182,8 +182,9 @@ _Static_assert(P_M2SRC == P_M1SRC + 3 && P_M4AMT == P_M1SRC + 11 && P_M4AMT + 1 
 
 _Static_assert(MS_N <= 32 && MD_N <= 64, "matrix UI bitsets hold all IDs (ui_layer.c: the destinations in 64 bits)");
 
-/* the track parameter of a per-block destination */
-static uint32_t mod_param(uint32_t d)
+/* the track parameter of a per-block destination (devcpu2: mod_param_q the RAM code's copy, mod_begin's; mod_param the
+ * flash's, the Bluetooth segment's names too) */
+static inline __attribute__((always_inline)) uint32_t mod_param_q(uint32_t d)
 {
     static const uint8_t ID[MD_E1] = {[MD_PAN] = P_PAN, [MD_DIST] = P_DIST, [MD_CHO] = P_CHOR, [MD_DLY] = P_DLY,
                                       [MD_REV] = P_REV, [MD_RATE] = P_LRATE, [MD_VIB] = P_LD_PIT};
@@ -192,6 +193,7 @@ static uint32_t mod_param(uint32_t d)
     if (d >= MD_X1) return d >= MD_FX1 ? FUNC_XDST[d - MD_FX1] : FORM_XDST[d - MD_X1];
     return d >= MD_E1 ? P_E0 + d - MD_E1 : ID[d];
 }
+static uint32_t mod_param(uint32_t d) { return mod_param_q(d); }
 
 /* The mode's parameter range, not its engine's generic fallback descriptor. */
 static const param_desc_t *mod_track_desc(const track_t *t, uint32_t id)
@@ -506,7 +508,7 @@ static __attribute__((noinline)) int mod_begin(track_t *t)
             continue;
         }
         {                                               /* per block: AMT 64 = the whole range */
-            uint32_t id = mod_param(d);
+            uint32_t id = mod_param_q(d);
             const param_desc_t *pd;
             x = mod_tsrc(t, s, lfo);
             if (d == MD_LIFE) {                         /* (V10.7.34) the track's LIFE, this block (life.c life_pt) */
