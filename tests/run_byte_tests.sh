@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 OUT=build/byte-check
 mkdir -p "$OUT"
 python3 -c 'import tools.build as b; b.generate()' > "$OUT/generate.log"
-for test in fvm harmony funcbeat funcbeat_ui func_music funcsong funcengine funcmotion funcsmooth funcbank byte wave waveframes life_byte life_sound life_extreme byte_generation song_generator fuga drumw hive voice_limit euclid_mel byte_myloop byte_controls byte_automation form clay_engines image nav punchseq punchfx modnames uipush chorus_mix dist_noise gain key_trk drift resync relief c1stack gen_radio part_state arp_grid gen_port; do
+for test in fvm harmony funcbeat funcbeat_ui func_music funcsong funcengine funcmotion funcsmooth funcbank byte wave waveframes life_byte life_sound life_extreme byte_generation song_generator fuga drumw hive voice_limit euclid_mel byte_myloop byte_controls byte_automation form clay_engines image nav punchseq punchfx modnames uipush chorus_mix dist_noise gain key_trk drift resync relief c1stack gen_radio part_state arp_grid gen_port cpu3; do
     echo "BYTE: $test"
     # ui_test.c still contains unused helpers for retired FM engines. GCC 14+
     # diagnoses their declarations; they are eliminated from these host checks.
@@ -26,6 +26,11 @@ mkdir -p "$OUT/fx_demo"                     # (byte-cpu-light) REVERB TYPE: ROOM
 "${CC:-cc}" -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/reverb" tests/reverb_test.c -lm
 "$OUT/reverb" "$OUT/fx_demo" > "$OUT/reverb.log" 2>&1 || { cat "$OUT/reverb.log"; exit 1; }
 echo "BYTE: reverb ok"
+if command -v valgrind > /dev/null 2>&1; then   # (cpu3) the owner's project: each core's block as the FM-1's time
+    python3 tests/cpu3_test.py "$OUT/cpu3"
+else
+    echo "BYTE: cpu3 timing skipped (no valgrind)"
+fi
 python3 tests/life_sound_test.py
 python3 tests/life_extreme_test.py
 python3 tests/funcsong_test.py

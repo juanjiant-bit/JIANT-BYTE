@@ -430,6 +430,31 @@ def late_tables():
     return names
 
 
+# (cpu3) code the compiler's order moved out of the sound's run, put back where it was. c1fault (35c66933) took the
+# formula compiler out of the audio's reach, so the compiler emitted it ~150 KB later and the sound's code after it came
+# 7 KB down the flash: the shared I-cache's conflicts changed and the owner's FM-1 went to NOW 88 %, PEAK 165 % (ABOUT:
+# FX 434 us, was 17; a FUNC voice 432 us) with nothing else changed. FELUCCA_REPIN=1 records the order anew from the
+# compiler's: these follow their anchor again, in e649a32a's order (the new ones beside their callers), so the sound
+# sits at its addresses before c1fault, give or take the compiler's own few bytes
+ORDER_AFTER = ("pfx_block", ("fvm_ws", "fvm_ch", "fvm_isal", "fvm_eat", "fvm_word", "fvm_new", "fvm_un",
+                             "fvm_toint", "fvm_cmp", "fvm_tofix", "fvm_bin", "fvm_binop",
+                             "fvm_primary", "fvm_unary", "fvm_level", "fvm_cond", "fvm_expr", "fvm_ident",
+                             "fvm_free_name", "fvm_fail", "fvm_emit", "fvm_leaf", "fvm_mirror", "fvm_gen", "fvm_compile"))
+
+
+def order_after(ins):
+    """the code sections in the link's order, ORDER_AFTER's moved behind their anchor"""
+    names = [n[6:] for n, a, sz, o in ins if n.startswith(".text.") and n != ".text.crt0" and APP_XIP <= a < 0x02100000
+             and not o.endswith("bt_seg.o")]
+    anchor, group = ORDER_AFTER
+    if anchor not in names:
+        return names
+    move = [n for n in group if n in names]
+    names = [n for n in names if n not in move]
+    at = names.index(anchor) + 1
+    return names[:at] + move + names[at:]
+
+
 def layout_ld(rows, fills=None):
     """build/layout.ld: the code sections in the recorded order, each run of the sound at its address; fills: {run: [n
     sections]} put in the hole before it"""
@@ -623,6 +648,8 @@ def build_app():
                 at = keep.index("seq_step") if "seq_step" in keep else 0
                 keep[at:at] = clocks
             compile_hot([])
+            if not keep:
+                keep = order_after(map_inputs(link(probe=True)[0]))
             LAYOUT_LD.write_text("".join(f"*(.text.{n})\n" for n in keep) + "*(.text*)\n")
             # This preliminary link has not packed UI tables into the audio
             # layout's holes yet. Use the same enlarged probe as below; the
