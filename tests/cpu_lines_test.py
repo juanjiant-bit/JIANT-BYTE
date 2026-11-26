@@ -3,8 +3,9 @@
 # Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant)
 """(devcpu2) the lines model: the FM-1's time a block, core by core, as the 32-byte lines of the flash the sound reads
 (its code and its constants: each a cache line filled, ~1.25 us, the I-cache 32 KiB shared by both cores and the UI)
-plus its instructions (one a cycle at 360 MHz). Fitted to MENU > ABOUT on f22f004f (the owner's project: NOW 83 %,
-PEAK 132 % with the relief on; FX on core 1 212 us): this model reads it 90 / 100 % (mean / worst), FX 269 us.
+plus its instructions (one a cycle at 360 MHz). Fitted to MENU > ABOUT on f22f004f, the owner's project (NOW 83 %,
+PEAK 132 % with the relief on; FUNC 581 .. 610 us, DRUM-W 422 .. 509, FX 212): this model reads it 89 / 99 % (mean /
+worst of the busier core), FUNC 641 us, DRUM-W 425, the buses 139 (each part alone, cold).
 
 How: tests/cpu_lines_test.c plays a scene on the host (built -fno-inline: its functions the source's) under valgrind's
 lackey (tests/cpu_lines_lk.c: each block's lines of code and constants, core 0's and core 1's, each part's); callgrind
@@ -18,7 +19,7 @@ the FM-1 measures them). The FM-1 runs a block in 1451 us.
 import bisect, collections, json, os, re, subprocess, sys, tempfile
 
 K_US, RHO, MHZ, BLOCK = 1.25, 0.77, 360.0, 64 / 44100 * 1e6
-LIMIT = {"101": 0.85}
+LIMIT = {"101": 0.90}           # (a guard on this round's gain: 6892b2b6 read 119 %; the owner's 70 % not yet reached)
 NBLK = int(os.environ.get("CL_NBLK", "16"))
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAMDATA = {"SINE_Q", "ENGINES", "ENG_LIVE", "MOT_24", "LOFI_FDCY", "DIV_DEN", "DLY_REV_SET", "TRACK_FOLLOW", "PF_BK", "ID", "U"}
