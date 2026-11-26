@@ -518,12 +518,8 @@ enum { PT_NONE, PT_BASS, PT_LEAD, PT_PAD, PT_KEYS, PT_PLUCK, PT_BELL, PT_VOX, PT
 
 struct track;
 typedef struct {                 /* an engine (engines.c ENGINES[]; the eng_*.c files) */
-    const char *name;            /* "ANALOG" (PRESETS, the editor) */
-    const char *page_title[2];   /* EDIT 1 and EDIT 2 */
-    param_desc_t edit[8];        /* P_E0..P_E7 */
-    const preset_t *presets;
-    uint8_t npresets;
-    uint8_t knob[4];             /* HOME: the four parameters on KNOB 1..4 */
+    /* (devcpu2) what a part's every block reads first, together (its flags and its calls: one 32-byte line of the flash,
+     * the struct aligned to one): the rest after */
     uint8_t poly;                /* voice cap for POLY and UNISON, 0 = NVOICE */
     uint8_t sampled;             /* 1 = plays recorded material (a position, not a phase): voice.c keeps
                                   * no phases over a retrigger, spreads none for UNISON, renders at SUS 0 */
@@ -541,7 +537,6 @@ typedef struct {                 /* an engine (engines.c ENGINES[]; the eng_*.c 
      * doubled and its filter an octave up (vmod_t: inc, pitch16, cutoff), any number of samples; 2 = it sees CTL / 2
      * samples and does it itself (FM6); 0 = no */
     uint8_t half;
-    /* (V10.7.21: these three bytes beside the others, in their padding: 8 B less an engine) */
     void (*note_on)(struct track *t, voice_t *v);
     void (*render)(struct track *t, voice_t *v, int32_t *out, uint32_t n, const vmod_t *m);
     /* optional (0 = none): the voice amplitude instead of the ADSR curve, once per control tick;
@@ -556,7 +551,13 @@ typedef struct {                 /* an engine (engines.c ENGINES[]; the eng_*.c 
      * (then the scale keyboard of seq.c kb_map) */
     int32_t (*keys)(const struct track *t, uint32_t k);
     int (*done)(struct track *t, voice_t *v);
-} engine_t;
+    const char *name;            /* "ANALOG" (PRESETS, the editor) */
+    const char *page_title[2];   /* EDIT 1 and EDIT 2 */
+    param_desc_t edit[8];        /* P_E0..P_E7 */
+    const preset_t *presets;
+    uint8_t npresets;
+    uint8_t knob[4];             /* HOME: the four parameters on KNOB 1..4 */
+} __attribute__((aligned(32))) engine_t;
 
 /* ------------------------------------------------- tracks, the song --- */
 enum { ST_NOTE, ST_TIE, ST_REST };
@@ -972,6 +973,14 @@ static volatile uint32_t fm1_ms;  /* milliseconds since boot (TIMER4-based, TIME
 /* boot-loop guard (main.c): two boots in a row that die in the first 30 s -> UBOOT */
 #define BOOTGUARD_MAGIC 0x42475244u
 struct { uint32_t magic, failed, pending; } bootguard __attribute__((section(".noinit")));
+
+/* (devcpu2) a small table the audio reads every block, in RAM (.data, copied at boot) not the flash: each a flash cache
+ * line a block less (a line is ~1 us on the FM-1: tests/cpu_lines_test.py). Constant all the same */
+#if FELUCCA_HOTRAM
+#define RAM_RO(nm) __attribute__((section(".data.ro_" #nm)))
+#else
+#define RAM_RO(nm)
+#endif
 
 /* (V10.60) the Bluetooth segment's section macros and its check, here, ahead of the sound: cold code of
  * its files (fm4_convert.c) goes there too (bt.c has the story) */

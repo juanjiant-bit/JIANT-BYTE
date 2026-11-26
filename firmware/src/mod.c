@@ -186,7 +186,7 @@ _Static_assert(MS_N <= 32 && MD_N <= 64, "matrix UI bitsets hold all IDs (ui_lay
  * flash's, the Bluetooth segment's names too) */
 static inline __attribute__((always_inline)) uint32_t mod_param_q(uint32_t d)
 {
-    static const uint8_t ID[MD_E1] = {[MD_PAN] = P_PAN, [MD_DIST] = P_DIST, [MD_CHO] = P_CHOR, [MD_DLY] = P_DLY,
+    static const uint8_t ID[MD_E1] RAM_RO(mod_id) = {[MD_PAN] = P_PAN, [MD_DIST] = P_DIST, [MD_CHO] = P_CHOR, [MD_DLY] = P_DLY,
                                       [MD_REV] = P_REV, [MD_RATE] = P_LRATE, [MD_VIB] = P_LD_PIT};
     if (d == MD_FCUT) return P_FCUT;
     if (d == MD_LEVEL) return P_LEVEL;

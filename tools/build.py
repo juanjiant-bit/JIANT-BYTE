@@ -231,7 +231,10 @@ HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0",
            "wave_render", "lofi_time", "wave_phw", "drum_bus", "rev_room_mod",
            "fvm_exec", "wf_read", "hb_int", "hb_dec", "dly_rd_q", "gr_one", "dly_drive", "dly_band",
            # (devcpu2) the matrix's block, every part's (its sources)
-           "mod_begin", "mod_tsrc")
+           "mod_begin", "mod_tsrc",
+           # (devcpu2) a part's small per-block calls (its level and pan's gains, the FILTER's post, FUNC's tick and
+           # voice, the cross-mod's env), the SLICER's on, MATH's sync
+           "mp_gains", "track_post", "fn_tick", "fn_voice", "xm_env", "slicer_on", "lofi_sync")
 # (engopt) fx_rest out (432 B: it runs where the buses have nothing to do, its CPU not wanted) and dly_wow_adv (154 B,
 # two sines a block): their room for the GRAIN delay's constants held in fx_buses (fx.c grk_set, gr_one)
 

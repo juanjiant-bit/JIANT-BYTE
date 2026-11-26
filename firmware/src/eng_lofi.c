@@ -109,7 +109,7 @@ static const param_desc_t LOFI_ALGO = {"ALGO", F_INT, 0, 191, 64, (const char *c
  * MOT_24: the value in 1/24 of a beat */
 static const char *const N_MOTION[] = {"LIBRE", "1/32", "1/16T", "1/16", "1/16.", "1/8T", "1/8", "1/8.", "1/4T", "1/4",
                                        "1/4.", "1/2T", "1/2", "1/2.", "1", "2", "4", 0};
-static const uint16_t MOT_24[17] = {24, 3, 4, 6, 9, 8, 12, 18, 16, 24, 36, 32, 48, 72, 96, 192, 384};
+static const uint16_t MOT_24[17] RAM_RO(mot_24) = {24, 3, 4, 6, 9, 8, 12, 18, 16, 24, 36, 32, 48, 72, 96, 192, 384};
 static const param_desc_t LOFI_MOTN = {"MOTION", F_ENUM, 0, 16, 0, N_MOTION};
 static const param_desc_t LOFI_SEED = {"SEED", F_INT, 0, 191, 64, 0};
 static const param_desc_t LOFI_MUTA = {"MUTA", F_INT, 0, 127, 0, 0};
@@ -122,7 +122,7 @@ static const char *const N_FCHIP[] = {"4BIT", "4B/2", "FULL", "1BIT"};
 static const param_desc_t LOFI_FCHIP = {"CHIP", F_ENUM, 0, 3, 2, N_FCHIP};    /* = edit[0] (FLOAT; 0.5.5: no STEP) */
 /* (0.5.4) BYTE's and FLOAT's own second page: MOTN (E4, where CUT was: the time's speed, 64 as written), GRIT (BYTE,
  * E5: the samples held longer, a rate crusher), FBK (FLOAT, E5: the output back into the formula's time) */
-static const param_desc_t LOFI_FDCY = {"FEEDBK", F_PCT, 0, 127, 0, 0};            /* = edit[5] (FLOAT, 0.6.4: was DRV, a
+static const param_desc_t LOFI_FDCY RAM_RO(lofi_fdcy) = {"FEEDBK", F_PCT, 0, 127, 0, 0};            /* = edit[5] (FLOAT, 0.6.4: was DRV, a
                                                          * fold that silenced it and doubled the FILTER page's DIST) */
 /* MOTN 0..127 -> the time's speed, Q8: x1/16 .. x1 (64) .. x15.5, exponential */
 /* (p6, the owner: "the notes only transpose, not the speed") MOTION 128 .. 255: SYNC, the formula's slow bits (its

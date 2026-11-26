@@ -1033,7 +1033,7 @@ static inline void master_out(int32_t *l, int32_t *r)   /* a sample of it (tests
 }
 
 /* length of one division (N_DIV order) in samples at the song tempo */
-static const uint8_t DIV_DEN[6] = {1, 2, 4, 8, 3, 6};    /* original IDs stay fixed; slow rates append */
+static const uint8_t DIV_DEN[6] RAM_RO(div_den) = {1, 2, 4, 8, 3, 6};    /* original IDs stay fixed; slow rates append */
 static uint32_t midi_beat_samples;                    /* zero until an external clock has a measured tempo */
 /* (FM V10.8.40, a user: "the sequencer creeps ahead of the tempo"; the owner: "tracks leave each other's phase") a
  * beat a multiple of 24 samples: every division of it (2 4 8 3 6, the 24 pulses of the clock) whole, so tracks on
@@ -1309,7 +1309,7 @@ static __attribute__((noinline)) void dly_rev_set(void)
     gr_inc = 65536u / L;                                /* (L a power of two: 32 16 8) */
     gr_len = L;
 }
-static void (*const volatile DLY_REV_SET)(void) = dly_rev_set;   /* (mod.c macro_master: RAM code) */
+static void (*const volatile DLY_REV_SET)(void) RAM_RO(dly_rev_set) = dly_rev_set;   /* (mod.c macro_master: RAM code) */
 static uint32_t delay_samples(void)
 {
     uint32_t g = (uint32_t)GFX(GF_DTIME);
@@ -2900,7 +2900,7 @@ static __attribute__((noinline)) void track_follow_peak(const track_t *t, const 
     track_pk[ti] = (int16_t)clamp(pl > pr ? pl : pr, 0, 32767);
 }
 /* mix_part's RAM copy may be out of the new helper's direct-call range. */
-static void (*const volatile TRACK_FOLLOW)(const track_t *, const int32_t *, uint32_t) = track_follow_peak;
+static void (*const volatile TRACK_FOLLOW)(const track_t *, const int32_t *, uint32_t) RAM_RO(track_follow) = track_follow_peak;
 /* (JIANT FM V10.7.60, the owner) IMAGE on a part that is not POLY (one voice: nothing to place apart): a spread, the
  * part's sound through three first-order allpasses (its phase turned, a part its own corners) as a side, + left, - right:
  * wide in stereo, gone in a mono sum (L + R the dry part as it was). No delay line (the RAM): 4 words a part. Its level

@@ -57,7 +57,7 @@ enum { PF_R8, PF_R16, PF_R32, PF_REV, PF_TAPE,
        PF_COMB,                                            /* G5 COMB */
        PF_N };
 /* the black keys F#3 .. F#5 (seq.c perf_key, ui_layer.c's map) */
-static const uint8_t PF_BK[11] = {PF_PUP, PF_PDN, PF_FRZ, PF_RVA, PF_DLA, PF_RING, PF_LP3, PF_LMAX, PF_LP5, PF_LP7, PF_GLT};
+static const uint8_t PF_BK[11] RAM_RO(pf_bk) = {PF_PUP, PF_PDN, PF_FRZ, PF_RVA, PF_DLA, PF_RING, PF_LP3, PF_LMAX, PF_LP5, PF_LP7, PF_GLT};
 #define PF_BIT(e) (1u << (e))
 #define PF_REPEAT 0x7u                                         /* the three REPEAT rates */
 #define PF_PITCH (PF_BIT(PF_PUP) | PF_BIT(PF_PDN))

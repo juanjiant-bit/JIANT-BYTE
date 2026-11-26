@@ -47,7 +47,7 @@ static const engine_t ENG_GONE = {
 #define ENGI_PHYS_TO 0u          /* the engine a retired engine's sound plays as: ANALOG (its first preset) */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
-static const engine_t *const ENGINES[NENGINES] = {
+static const engine_t *const ENGINES[NENGINES] RAM_RO(engines) = {
     &ENG_WAVE,                   /* 0: (JIANT BYTE) ANALOG retired: plays as WAVE (a bad number too: eng_idx) */
     &ENG_GONE,                   /* 1: reserved (DIGITAL, retired: its sounds arrive as engine 12, fm4_convert.c) */
     &ENG_WAVE,                   /* 2: (JIANT BYTE) PHASE retired: plays as WAVE */
@@ -73,7 +73,7 @@ static const engine_t *const ENGINES[NENGINES] = {
 
 /* (JIANT BYTE) the engines that still sound: a retired one's number (a pattern's sound, GEN's pick, an old store) is
  * MATH's, so a part never goes silent and no page of the retired engine opens (ui.c trk_eng, the audio's eng_idx) */
-static const uint8_t ENG_LIVE[NENGINES] = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 13, 17, 18};   /* (13: WAVE) */
+static const uint8_t ENG_LIVE[NENGINES] RAM_RO(eng_live) = {13, 1, 13, 3, 4, 13, 6, 3, 13, 9, 10, 13, 3, 13, 3, 3, 13, 17, 18};   /* (13: WAVE) */
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
 static inline uint32_t eng_idx(uint32_t e) { return ENG_LIVE[e < NENGINES ? e : 0u]; }
 
