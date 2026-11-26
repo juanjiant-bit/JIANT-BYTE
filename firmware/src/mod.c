@@ -109,7 +109,7 @@ static uint8_t macro_f[4];                           /* 0, or 1 + the formula of
 static uint8_t macro_e[4];                           /* the macro the matrix reads, 0..127 */
 static fvm_prog_t mac_prg[4];
 static fvm_ins_t mac_ins[4][20] __attribute__((section(".pool")));
-static uint8_t mac_id[4];
+static uint16_t mac_id[4];
 static int32_t mac_st[4][2];
 static uint32_t mac_free;                            /* (stopped: beats, Q16, from the blocks) */
 /* a macro's knob turned s (ui_input.c, ui_layer.c): the value as ever; turned left past 0, its equations (1..MAC_NF),
@@ -149,13 +149,9 @@ static void mac_eval(uint32_t beat_q16)
         }
         if (!mac_prg[k].ins)
             fvm_prog_init(&mac_prg[k], mac_ins[k], 20u);
-        if (mac_id[k] != f) {
-            const char *s = MAC_FORMS[f - 1u];
-            uint32_t n = 0;
-            while (s[n]) n++;
-            if (fvm_compile(&lofi_work[MC_CPU() & 1u].c, &mac_prg[k], s, n, 0) || mac_prg[k].nstate > 2u)
-                mac_prg[k].n = 0;
-            mac_id[k] = (uint8_t)f;
+        if ((void)fvm_want(3u * NTRK + k, &mac_prg[k], &mac_id[k], f, MAC_FORMS[f - 1u], 2u), mac_id[k] != f) {
+            macro_e[k] = macro_v[k];                 /* (c1fault: until the main loop compiled it, fvm_serve) */
+            continue;
         }
         {
             uint32_t o;

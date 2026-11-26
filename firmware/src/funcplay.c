@@ -292,7 +292,8 @@ static void func_b_poll(gq_work_t *w)
  * hm_pick reads it) on PLAY or FREE while the song plays, else the root's own in the part's SCALE (the key's tonic, a
  * key played its note's). MORPH (gliding as the knobs do: fn_knob) between A's and B's samples, equal power, each at
  * its level (FB_LV); B only while it is heard, A only while it is. A's state v->s[6], B's v->s[7] (one each). A is
- * the part's program (math_poll), B its second (wave_prg_b, compiled as it changes: eng_lofi.c func_act) */
+ * the part's program (math_poll), B its second (wave_prg_b, asked for as it changes: eng_lofi.c func_act; compiled by
+ * the main loop, engines.c fvm_serve) */
 static const uint16_t FB_SEMI[13] = {4096, 4340, 4598, 4871, 5161, 5468, 5793, 6137, 6502, 6889, 7298, 7732, 8192};   /*
                                                          * 2^(k/12), Q12 */
 static uint32_t fb_ph[NTRK * NVOICE][4] __attribute__((section(".bss.funcbank")));   /* each voice's root's, third's, fifth's,
@@ -338,12 +339,17 @@ static FB_SZ void fb_setup(const track_t *t, const fvm_env_t *en, fvm_env_t *e, 
     e->u[FU_NOTE] = (uint32_t)r;
     e->u[FU_DF] = (en->arr[FA_BEAT][0] & ((1u << (16u + h)) - 1u)) >> h;   /* D: the chord's age */
 }
+#define FB_ROW (FVM_DEPTH - 6u)                         /* (c1fault) a BANK formula's stack at most (FB_*: up to 6, ARP's;
+                                                         * tests/c1stack_test.c) */
 static __attribute__((noinline)) void func_bank_run(track_t *t, voice_t *v, const fvm_prog_t *pa, const fvm_env_t *en, uint32_t n, uint32_t *Y)
 {
-    uint32_t tr = (uint32_t)(t - trk) % NTRK, a, b, i, k, m, d[4], X[6][FVM_BLK], YB[FVM_BLK], fb = func_bank_f(t, 1);
+    uint32_t tr = (uint32_t)(t - trk) % NTRK, a, b, i, k, m, d[4], YB[FVM_BLK], fb = func_bank_f(t, 1);
+    uint32_t (*X)[FVM_BLK] = lofi_work[MC_CPU() & 1u].s.s + FB_ROW;   /* (c1fault) its variables in the machine's
+                                                         * stack above the formulas' own (FB_ROW): 768 B less of core 1's */
     uint32_t *ph = fb_ph[tr * NVOICE + (uint32_t)(v - t->v) % NVOICE];
     int32_t g[2];
-    const fvm_prog_t *pb = wave_id_b[tr] == (0x8000u | fb) && wave_prg_b[tr].n ? &wave_prg_b[tr] : 0, *pr[2] = {pa, pb};
+    const fvm_prog_t *pb = wave_id_b[tr] == (0x8000u | fb) && wave_prg_b[tr].n && wave_prg_b[tr].depth <= FB_ROW ? &wave_prg_b[tr] : 0,
+                     *pr[2] = {pa->depth <= FB_ROW ? pa : &fvm_mute, pb};
     const uint32_t *P = en->arr[FA_BEAT];
     fvm_env_t e;
     static const uint8_t ARR[6] = {FA_W, FA_XF, FA_IN, FA_X, FA_T, FA_TS};   /* w w3 w5 wd, t T */

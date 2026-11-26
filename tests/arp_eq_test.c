@@ -23,6 +23,8 @@ static uint32_t pick(uint32_t mode, uint32_t i, uint32_t len)
     for (k = 0; k < len; k++) list[k] = 48u + k * 3u;
     trk[0].p[P_AMODE] = (int16_t)mode;
     trk[0].arp_idx = (uint16_t)i;
+    (void)arp_pick(&trk[0], list, len);              /* (c1fault: the mode's equation asked for, the main loop's */
+    fvm_host_serve();                                /* fvm_serve compiles it) */
     return arp_pick(&trk[0], list, len);
 }
 int main(int argc, char **argv)

@@ -63,7 +63,7 @@ static void sends(uint32_t rt)                           /* the buses, every par
 static void guard_reset(void)
 {
     load_rl = 0; load_tight = 0; guard_cap = guard_run = 0; guard_calm = 0; load_avg_q8 = load_all_q8 = 0;
-    rl_wait = rl_back = rl_rel = 0; rl_fast_q8 = rl_pre_q8 = 0; cpu_pause = 0;
+    rl_wait = rl_back = rl_rel = rl_late = 0; load_cores2 = 0; rl_fast_q8 = rl_pre_q8 = 0; cpu_pause = 0;
     memset(rl_sav, 0, sizeof rl_sav);
 }
 static void scene(uint32_t s)
@@ -183,7 +183,7 @@ int main(void)
             load_half((uint32_t)pct, (uint32_t)pct, 1);
             if (pct > 100.0) {                           /* (audio.c: a late half) */
                 late++;
-                shed += !load_step();
+                shed += load_late();
             }
             if (i >= 200u && pct > peak) peak = pct;
             if (load_rl > top) top = load_rl;
@@ -213,7 +213,7 @@ int main(void)
                 rt_half();
                 pct = 92.0 * (load < 1.0 ? load : 1.0) * (1.0 - given(s));
                 load_half((uint32_t)pct, (uint32_t)pct, 1);
-                if (pct > 100.0) sh0 += !load_step();
+                if (pct > 100.0) sh0 += load_late();
                 mv += load_rl != l0;
                 dn += load_rl < l0;
                 re += load_rl > l0 && dn;                /* (a stage given back, then taken again: a pump) */
@@ -228,6 +228,24 @@ int main(void)
         snprintf(line, sizeof line, "%s: the overload over (%.0f %%), every stage given back (%.1f s)", SCENE[s],
                  OVER[s] * 33.0, (double)back * HALF_FRAMES / FS);
         rcheck(line, !load_rl && !load_tight && given(s) == 0.0);
+    }
+    {   /* (c1fault) core 1 lost (CORES 1 (FAULT)) under FUNC x4: the load doubled at once, every half late. The guard
+         * on at the loss; the late halves take the stages, then the cap, and no voice is shed before the half rate had
+         * its time (~93 ms, RL_LATE halves late past all of it); a lasting overload still sheds (the last resort) */
+        uint32_t sh = 0, first = 0, h, rl1 = 0;
+        scene(3);
+        load_half(60, 60, 1);
+        load_half(60, 60, 0);                            /* (the loss) */
+        rl1 = load_tight && load_rl >= RL_TIGHT;
+        for (h = 0; h < 400u; h++) {
+            rt_half();
+            load_half(200, 200, 0);
+            if (load_late()) { sh++; if (!first) first = h + 1u; }
+        }
+        snprintf(line, sizeof line, "one core left under FUNC x4 (200 %%): the guard on at the loss, every stage and the cap "
+                 "before a voice is shed (the first at half %u, past %u), the last resort still there (%u, one each %u)", first, RL_LATE, sh, RL_UP + 1u);
+        rcheck(line, rl1 && first > RL_LATE && load_rl == RL_MAX && guard_cap && sh > 0u && sh <= 400u / (RL_UP + 1u) + 1u);
+        guard_reset();
     }
     {   /* a late half with stages left: a stage, no shed; with every stage on: the cap, and the shed (as before) */
         guard_reset();

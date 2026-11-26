@@ -51,16 +51,10 @@ enum { WW_OFF, WW_SYNC, WW_BEND, WW_MIRROR, WW_QUANT, WW_FM, WW_SMEAR, WW_SKEW, 
 
 static const fvm_prog_t *wave_prog(fvm_prog_t *pg, uint16_t *id, uint32_t f, lofi_work_t *w)
 {
-    uint32_t want = 0x100u + f % WAVE_NF;
-    if (*id != want) {
-        const char *s = WAVE_BANK[f % WAVE_NF];
-        uint32_t n = 0;
-        while (s[n]) n++;
-        if (fvm_compile(&w->c, pg, s, n, 0) || pg->nstate > 1u)
-            pg->n = 0;                               /* (silent) */
-        *id = (uint16_t)want;
-    }
-    return pg;
+    uint32_t b = (uint32_t)((uintptr_t)pg - (uintptr_t)wave_prg_b) / sizeof *pg, tr = b < NTRK ? NTRK + b : (uint32_t)(pg - lofi_prg);   /*
+                                                         * (c1fault: A's slot or B's; the main loop compiles: fvm_serve) */
+    (void)w;
+    return fvm_want(tr, pg, id, 0x100u + f % WAVE_NF, WAVE_BANK[f % WAVE_NF], 1u);
 }
 /* the phase w (Q16 turns, 0 .. 65535) bent by WARP, its amount k (0 .. 127) */
 static inline uint32_t wave_warp(uint32_t w, uint32_t mode, uint32_t k)
@@ -714,7 +708,7 @@ static __attribute__((noinline)) void wave_fpart(track_t *t, voice_t *v, int32_t
     ea.u[FU_VEL] = eb.u[FU_VEL] = v->vel;
     if (pb && !FB && (fb == 0u || fb == 8u)) {       /* (B: a borrowed row, as before; frames: its own two) */
         uint32_t rb = wt_brow(tr);
-        tb = rb < NTRK ? wt_get(tr, rb, 1, pb, fb, rp->pos >> 8, 1u, &eb, wk) : 0;
+        tb = rb < NTRK && wave_id_b[tr] == 0x100u + fb ? wt_get(tr, rb, 1, pb, fb, rp->pos >> 8, 1u, &eb, wk) : 0;
     }
     if (fl.on || (pb && !FB && !tb))
         for (i = 0; i < n; i++)
@@ -860,7 +854,9 @@ static void wave_render_x(track_t *t, voice_t *v, int32_t *out, uint32_t n, cons
         if (!f->use) {                               /* (the frames being drawn: the table at POS, as before) */
             lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
             fvm_env_t e = {{0, 0, 0, 0, 0}, {0}, &v->s[6]};
-            F = wt_get(tr, tr, 0, wave_prog(lofi_slot(tr), &lofi_prg_id[tr], fa, wk), fa, (uint32_t)p1 >> 8, 1u, &e, wk);
+            const fvm_prog_t *pa = wave_prog(lofi_slot(tr), &lofi_prg_id[tr], fa, wk);
+            F = lofi_prg_id[tr] == 0x100u + fa ? wt_get(tr, tr, 0, pa, fa, (uint32_t)p1 >> 8, 1u, &e, wk) : 0;   /* (c1fault:
+                                                         * a table of the formula asked for only, fvm_serve's) */
         }
         if (F) {
             int32_t d = ((p1 - p0) << 8) / (int32_t)n, q0 = (p0 << 8) + d, q1 = p1 << 8, k = n > 1u ? (int32_t)n - 1 : 1;

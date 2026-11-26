@@ -664,7 +664,7 @@ static const char *const ARP_EQ[] = {"s*3", "s^s>>2", "s*s", "(s>>1)^s", "\"0213
 #define ARP_NEQ (sizeof ARP_EQ / sizeof ARP_EQ[0])
 static fvm_prog_t arp_prg;
 static fvm_ins_t arp_ins[20];
-static uint8_t arp_id;
+static uint16_t arp_id;                                  /* (c1fault: compiled by the main loop, fvm_serve) */
 static uint32_t arp_eq(uint32_t m, uint32_t i, uint32_t len)
 {
     lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
@@ -672,14 +672,8 @@ static uint32_t arp_eq(uint32_t m, uint32_t i, uint32_t len)
     fvm_env_t en = {{0}, {0}, 0};
     if (!arp_prg.ins)
         fvm_prog_init(&arp_prg, arp_ins, 20u);
-    if (arp_id != m) {
-        const char *s = ARP_EQ[(m - AM_EQ0) % ARP_NEQ];
-        uint32_t k = 0;
-        while (s[k]) k++;
-        if (fvm_compile(&wk->c, &arp_prg, s, k, 0) || arp_prg.nstate)
-            arp_prg.n = 0;
-        arp_id = (uint8_t)m;
-    }
+    if ((void)fvm_want(3u * NTRK + 4u, &arp_prg, &arp_id, m, ARP_EQ[(m - AM_EQ0) % ARP_NEQ], 0u), arp_id != m)
+        return len ? i % len : 0u;                   /* (c1fault: until the main loop compiled it, fvm_serve: UP) */
     en.u[FU_STEP] = i;
     en.u[FU_A] = len;
     fvm_run(&arp_prg, &en, &wk->s, 1u, &o);

@@ -250,7 +250,7 @@ static const char *const DIST_EQ[] = {
 #define DIST_NEQ (sizeof DIST_EQ / sizeof DIST_EQ[0])
 static fvm_prog_t deq_prg[NTRK];
 static fvm_ins_t deq_ins[NTRK][20] __attribute__((section(".pool")));
-static uint8_t deq_id[NTRK];
+static uint16_t deq_id[NTRK], deq_run[NTRK];         /* (c1fault: compiled by the main loop, fvm_serve; the state's) */
 static int32_t deq_st[NTRK][2];
 static uint32_t deq_beat;                            /* (the block's beat, mac_tick's) */
 static __attribute__((noinline)) void dist_eq(track_t *t, int32_t *b, uint32_t n, uint32_t type, int32_t w0, int32_t dw)
@@ -261,13 +261,11 @@ static __attribute__((noinline)) void dist_eq(track_t *t, int32_t *b, uint32_t n
     fvm_env_t en = {{0}, {0}, deq_st[ti]};
     if (!deq_prg[ti].ins)
         fvm_prog_init(&deq_prg[ti], deq_ins[ti], 20u);
-    if (deq_id[ti] != type) {
-        const char *s = DIST_EQ[f % DIST_NEQ];
-        uint32_t k = 0;
-        while (s[k]) k++;
-        if (fvm_compile(&wk->c, &deq_prg[ti], s, k, 0) || deq_prg[ti].nstate > 2u || deq_prg[ti].ty != FT_FIX)
-            deq_prg[ti].n = 0;
-        deq_id[ti] = (uint8_t)type;
+    if ((void)fvm_want(2u * NTRK + ti, &deq_prg[ti], &deq_id[ti], type, DIST_EQ[f % DIST_NEQ], 2u | FVM_AFIX),
+        deq_id[ti] != type || !deq_prg[ti].n)
+        return;                                      /* (c1fault: until the main loop compiled it, dry) */
+    if (deq_run[ti] != deq_id[ti]) {
+        deq_run[ti] = deq_id[ti];
         deq_st[ti][0] = deq_st[ti][1] = 0;
     }
     if (n > CTL)
@@ -3500,6 +3498,8 @@ static __attribute__((noinline)) void mac_tick(uint32_t n)
 static __attribute__((noinline)) void mix_block(int32_t *out, uint32_t n)   /* (0.6.71: kept out of the ISR's
                                                                                * body, as before: target_budget.py) */
 {
+    FVM_HOST_SERVE();                                   /* (c1fault: no compile in here; the host's main loop, and */
+    FVM_AUDIO_SCOPE();                                  /* its check) */
     uint32_t i, c1m = 0, c1j = 0;
     int perf;
     int32_t mg = fx_usb_fixed ? MASTER_FULL : (int32_t)song.master_q12;   /* (USB LEVEL FIXED: MASTER after) */

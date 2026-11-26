@@ -968,6 +968,24 @@ static __attribute__((noinline)) int load_step(void)
         return 0;
     }
 }
+/* (c1fault) a late half (audio.c): a stage, else the cap lower, else, late still RL_LATE halves on (~93 ms: the half
+ * rate's turn too, voice_soft HALF_WAIT), a voice shed (1). Was a shed at each late half past the last stage: one core
+ * left (CORES 1 (FAULT)), its lates took the six stages in six halves and then a voice each (ABOUT: LATE 76, SHED 51)
+ * before the relief was heard. Past that, a voice each RL_UP late halves */
+#define RL_LATE 32u
+static uint8_t rl_late;
+static __attribute__((noinline)) int load_late(void)
+{
+    uint32_t c = guard_cap;
+    if (load_step() || guard_cap != c) {
+        rl_late = 0;
+        return 0;
+    }
+    if (++rl_late <= RL_LATE)
+        return 0;
+    rl_late = (uint8_t)(RL_LATE - RL_UP);               /* (then one each RL_UP halves: what it gave back seen) */
+    return 1;
+}
 /* the end of a half (audio.c shed_check): pct the render's share of it (%), pct_all with TIMER5 nested in it, cores2
  * both cores rendering. The guard above; the admission's prediction starts again from the average */
 static __attribute__((noinline)) void load_half(uint32_t pct, uint32_t pct_all, uint32_t cores2)
@@ -977,8 +995,12 @@ static __attribute__((noinline)) void load_half(uint32_t pct, uint32_t pct_all, 
     uint32_t off = eco ? GUARD_OFF_ECO : GUARD_OFF;
     load_avg_q8 = (load_avg_q8 * ((1u << GUARD_AVG_LOG2) - 1u) + (pct << 8) + (1u << (GUARD_AVG_LOG2 - 1u))) >> GUARD_AVG_LOG2;
     load_all_q8 = (load_all_q8 * ((1u << GUARD_AVG_LOG2) - 1u) + (pct_all << 8) + (1u << (GUARD_AVG_LOG2 - 1u))) >> GUARD_AVG_LOG2;
+    if (load_cores2 && !cores2)
+        load_step();                                    /* (c1fault) core 1 lost: the guard on at once (its average two
+                                                         * cores') */
     load_cores2 = (uint8_t)cores2;
     guard_run = pct > on_run ? (uint8_t)(guard_run < 255u ? guard_run + 1u : 255u) : 0u;
+    if (!guard_run) rl_late = 0;
     rl_fast_q8 = (rl_fast_q8 * 3u + (pct << 8)) >> 2;
     if (rl_wait < 255u) rl_wait++;
     if (rl_wait == RL_UP && load_rl) {                  /* (what the stage gave back, once its halves are in rl_fast) */
@@ -2447,6 +2469,8 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
     const int16_t *p = t->p;
     uint32_t i;
     int32_t lfo = mulq15(t->lfo_val, t->lfo_fade);
+    FVM_HOST_SERVE();                                   /* (c1fault: the host's main loop, fx.c mix_block's) */
+    FVM_AUDIO_SCOPE();
     /* TUNE in cents: whole 1/16 semitones in the pitch, the rest as a fine factor (no dead zone) */
     int32_t tune = song.g[G_TUNE] >= 0 ? song.g[G_TUNE] * 16 / 100 : -((-song.g[G_TUNE] * 16 + 99) / 100);
     int32_t tune_fine = (song.g[G_TUNE] * 16 - tune * 100) * 2367 / 16000;   /* rest, in 1/4096 (1 ct = 2.367) */

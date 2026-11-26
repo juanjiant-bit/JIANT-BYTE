@@ -9,8 +9,11 @@ static void scene(unsigned level,unsigned hit,unsigned kind){
  const char*s="func{state q;q=q+(A-q)*.002;return sin(w)+q*.4*sin(w*3);}";
  compile(&src,s);*lofi_slot(1)=src.p;lofi_prg_id[1]=0x400;math_ver[1]=0;
  for(unsigned k=0;k<3;k++){trk[k].p[P_DIST]=trk[k].p[P_CHOR]=trk[k].p[P_DLY]=trk[k].p[P_REV]=0;trk[k].p[P_SUS]=127;trk[k].p[P_LEVEL]=100;trk[k].p[P_VOICE]=V_POLY;trk[k].p[P_DRIFT]=127;}
- trk_note_on(&trk[0],48,110);
- int32_t b[CTL];for(unsigned o=0;o<LONGNS;o+=CTL){
+ int32_t b[CTL];if(!wave_prg_b[0].ins)fvm_prog_init(&wave_prg_b[0],wave_ins_b[0],32u);
+ (void)wave_prog(lofi_slot(0),&lofi_prg_id[0],(uint32_t)trk[0].p[P_E0],0);fvm_host_serve();   /* (c1fault: WAVE's A and B */
+ (void)wave_prog(&wave_prg_b[0],&wave_id_b[0],(uint32_t)trk[0].p[P_E4],0);fvm_host_serve();   /* compiled before the note,
+                                                         * the main loop's fvm_serve: every scene from the same start) */
+ trk_note_on(&trk[0],48,110);for(unsigned o=0;o<LONGNS;o+=CTL){
   if(o==CTL*344u)trk_note_on(&trk[1],55,110);
   if(o==CTL*689u)trk_note_on(&trk[0],60,100);
   if(hit&&o>=CTL*1033u&&((o/CTL-1033u)%344u)==0)trk_note_on(&trk[2],(hit==1?36:hit==2?38:39),115);

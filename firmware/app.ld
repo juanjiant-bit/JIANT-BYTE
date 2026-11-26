@@ -78,9 +78,12 @@ SECTIONS
     .bss (NOLOAD) : { _bss_start = .; *(EXCLUDE_FILE(*bt_seg.o) .bss*) *(EXCLUDE_FILE(*bt_seg.o) .sbss*)
                       *(EXCLUDE_FILE(*bt_seg.o) COMMON) *bt_seg.o(.bss.bb) . = ALIGN(4); _bss_end = .; } > RAM
     .pool (NOLOAD) : { _pool_start = .; *(.pool) *(.pool.*) *bt_seg.o(.bss* .sbss* COMMON) . = ALIGN(4); _pool_end = .; } > POOL
-    /* (JIANT 0.6.71) the second core's stacks (hal/fm1_multicore.h): 6 KiB for the render, 1 KiB for an exception */
-    .c1_stacks (NOLOAD) : { . = ALIGN(32); _c1_stack_lo = .; . += 7168; _c1_stack_hi = .; } > POOL
-    _c1_ustack_top = _c1_stack_lo + 6144;
+    /* (JIANT 0.6.71) the second core's stacks (hal/fm1_multicore.h): 7 KiB for the render, 1 KiB for an exception.
+     * (c1fault) was 6: a FUNC part live with BANK, LIFE on it (mc_job .. func_run, func_bank_run, fl_post) ~6.2 KiB
+     * deep by build/felucca.dis' frames; no compile in it any more (tests/c1stack_test.c). Its KiB the compiler's
+     * share of eng_lofi.c lofi_work, the audio's no longer */
+    .c1_stacks (NOLOAD) : { . = ALIGN(32); _c1_stack_lo = .; . += 8192; _c1_stack_hi = .; } > POOL
+    _c1_ustack_top = _c1_stack_lo + 7168;
     _c1_sstack_top = _c1_stack_hi;
     .lowbuf (NOLOAD) : { _low_start = .; *(.lowbuf*) . = ALIGN(4); _low_end = .; } > LOWBUF
     .noinit (NOLOAD) : { *(.noinit) *(.noinit.*) } > NOINIT   /* (V10.12: .noinit.* after: none of the others moves) */

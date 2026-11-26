@@ -56,6 +56,8 @@ static void render(uint32_t preset, uint32_t note, int32_t caos, int32_t key, do
     song.g[G_BPM] = 120;
     beat_pos = beat_n = 0;
     bar_n = start_bar;
+    track_render(t, blk, CTL);                       /* (c1fault: a block before the note, the formula asked for:
+                                                      * the main loop compiles it, fvm_serve, as on the device) */
     trk_note_on(t, note, 100);
     while (got < NS) {
         uint32_t k;

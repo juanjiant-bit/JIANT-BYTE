@@ -871,6 +871,30 @@ def check(img, syms, dis, rt):
                       "move RAMTEXT up (app.ld) or that code earlier in the image")
     if RAMTEXT_END - sym("_hot_end") < 2048:
         errors.append(f"RAM code headroom {RAMTEXT_END - sym('_hot_end')} B < 2048 B")
+    # (c1fault) no formula compiled in the audio: fvm_compile out of the direct calls' reach of the audio interrupt
+    # and core 1's job (the parser's recursion overflowed core 1's stack: eng_lofi.c fvm_want, engines.c fvm_serve).
+    # The engines' renders are called through their table: tests/c1stack_test.c covers them on the host
+    graph, cur = {}, None
+    for ln in dis.splitlines():
+        mm = re.match(r"^([A-Za-z_][\w.]*):$", ln)
+        if mm:
+            cur = graph.setdefault(mm.group(1), set())
+            continue
+        mm = cur is not None and re.search(r"\bcall [-\d]+ <([\w.]+)", ln)
+        if mm:
+            cur.add(mm.group(1))
+    seen, todo = set(), [r for r in ("fm1_alnk0_irq", "mc_job") if r in graph]
+    while todo:
+        f = todo.pop()
+        if f not in seen:
+            seen.add(f)
+            todo.extend(graph.get(f, ()))
+    if "fvm_compile" in seen:
+        errors.append("the audio reaches fvm_compile (a formula compiled in the audio: eng_lofi.c fvm_want)")
+    elif len(seen) < 100:
+        errors.append("the audio's call graph not found in the disassembly")
+    else:
+        notes.append(f"audio: {len(seen)} functions reached, no formula compiled in it")
     return errors, notes
 
 

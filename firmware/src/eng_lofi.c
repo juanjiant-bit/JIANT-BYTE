@@ -292,12 +292,13 @@ static __attribute__((noinline)) int32_t lofi_float(uint32_t f, uint32_t t, uint
 #undef PM
 
 /* (JIANT BYTE, phase 2) MATH plays its formulas through the FVM (fvm.c): BYTE's 48 and FLOAT's 48 as text
- * (fvm_bank.c), each part's compiled when its WAVE or ALGO changes (lofi_prog, in the audio: a few hundred microseconds
- * once) and run a block at a time. lofi_byte / lofi_float above stay as the reference (tests/fvm_test.c). The
- * machine's work space and the compiler's share one area a core (they never run at once): fvm_cc_t's ~2 KB. A formula
+ * (fvm_bank.c), each part's compiled when its WAVE or ALGO changes (lofi_prog asks, the main loop compiles: c1fault,
+ * fvm_want) and run a block at a time. lofi_byte / lofi_float above stay as the reference (tests/fvm_test.c). The
+ * machine's work space one area a core (lofi_work; the compiler's the main loop's own). A formula
  * keeps at most LOFI_NSTATE states (ph lp hp) in the voice (v->s[6], v->s[7]); one with more is refused (silent) */
 #define LOFI_NSTATE 2u
-typedef union { fvm_scratch_t s; fvm_cc_t c; } lofi_work_t;
+typedef union { fvm_scratch_t s; } lofi_work_t;   /* (c1fault: no compiler here any more, fvm_serve's in the main loop:
+                                                      * 2 x 0.5 KiB of the pool back) */
 static lofi_work_t lofi_work[2] __attribute__((section(".pool")));                     /* one a core (MC_CPU) */
 static fvm_prog_t lofi_prg[NTRK];
 static fvm_ins_t lofi_ins[NTRK][FVM_MAXINS] __attribute__((section(".pool")));         /* (its instructions: a part's formula the longest, 64) */
@@ -313,6 +314,29 @@ static fvm_prog_t *lofi_slot(uint32_t tr)            /* a part's program, its st
 static fvm_prog_t wave_prg_b[NTRK];                  /* B's program a part (A's: lofi_prg) */
 static fvm_ins_t wave_ins_b[NTRK][32] __attribute__((section(".pool")));               /* (its instructions: the bank's longest fits in 32) */
 static uint16_t wave_id_b[NTRK];
+/* (c1fault) The audio never compiles a formula: the parser's recursion (fvm_level: ~750 B of stack a level of
+ * parentheses) on core 1's 6 KiB, under a part's render, overflowed it (FUNC BANK's B: ABOUT CORES 1 (FAULT), C1 PC at
+ * fvm_level). Its render asks (fvm_want) for program want in slot k (pg, its id pg_id) from the text src (a bank's:
+ * FVM_ABANK, its number); the main loop compiles it and publishes it whole (engines.c fvm_serve), as math_poll does
+ * USER's. Meanwhile the slot's own program if of the same kind (ids within 64: the next ALGO, the next WAVE), else
+ * silence. fl: the most states (bits 0..3), FVM_AFIX FIX only, FVM_AFADE the part's voices faded into it (math_fade).
+ * Slots: A (lofi_slot) tr, B (wave_prg_b) NTRK + tr, DIST EQ 2 NTRK + tr, the macros 3 NTRK + k, ARP's EQ 3 NTRK + 4:
+ * each written by the one core rendering it, read by the main loop with interrupts off */
+typedef struct { fvm_prog_t *pg; uint16_t *id; const char *src; uint16_t want; uint8_t fl, tr; } fvm_ask_t;
+#define FVM_NASK (3u * NTRK + 5u)
+#define FVM_AFIX 16u
+#define FVM_AFADE 32u
+#define FVM_ABANK(i) ((const char *)(uintptr_t)((i) + 1u))
+static fvm_ask_t fvm_asks[FVM_NASK] __attribute__((section(".pool")));
+static fvm_prog_t fvm_mute __attribute__((section(".pool")));   /* (n 0: silence) */
+static __attribute__((noinline)) const fvm_prog_t *fvm_want(uint32_t k, fvm_prog_t *pg, uint16_t *pg_id, uint32_t want, const char *src, uint32_t fl)
+{
+    fvm_ask_t *a = &fvm_asks[k];
+    if (*pg_id == want) return pg;
+    a->id = pg_id; a->src = src; a->want = (uint16_t)want; a->fl = (uint8_t)fl; a->tr = (uint8_t)(k % NTRK);
+    a->pg = pg;
+    return (*pg_id ^ want) >> 6 ? &fvm_mute : pg;
+}
 /* (JIANT BYTE, phase 6) cross-mod: each part's output (its dry sum, FIX: full scale 1.0) of the block before, what a
  * formula reads as O1 .. O6; written as the parts render (fx.c xm_put), turned over at each block's start (xm_turn) */
 static int32_t xm_buf[2][NTRK][CTL] __attribute__((section(".pool")));
@@ -415,17 +439,10 @@ static const fvm_prog_t *lofi_prog(const track_t *t, lofi_work_t *w, uint32_t fl
 {
     uint32_t tr = (uint32_t)(t - trk) % NTRK, user = t->p[P_E1] >= RW_USER;
     uint32_t id = user ? 0x400u | math_ver[tr] : 1u + (flt ? 64u : 0u) + f;
+    (void)w;
     if(user)return lofi_slot(tr); /* USER programs are validated/published by math_poll, never compiled here. */
-    if (lofi_prg_id[tr] != id) {
-        char *s = (char *)math_transition[MC_CPU() & 1u];   /* (funcbank, flash: the bank packed) its text here: a
-                                                         * BYTE / FLOAT part never fades through it (a USER's only) */
-        uint32_t n = fvm_bank_to(f % FVM_NBYTE + (flt ? FVM_NBYTE : 0u), s);
-        _Static_assert(sizeof math_transition[0] >= 256u, "MATH: a bank formula's room");
-        if (fvm_compile(&w->c, lofi_slot(tr), s, n, 0) || lofi_prg[tr].nstate > LOFI_NSTATE)
-            lofi_prg[tr].n = 0;                      /* (silent) */
-        lofi_prg_id[tr] = (uint16_t)id;
-    }
-    return &lofi_prg[tr];
+    return fvm_want(tr, lofi_slot(tr), &lofi_prg_id[tr], id, FVM_ABANK(f % FVM_NBYTE + (flt ? FVM_NBYTE : 0u)), LOFI_NSTATE);   /*
+                                                         * (c1fault: the main loop's, fvm_serve) */
 }
 
 /* (0.9.11) LOFI's level and its edges. Through the master's leveler (fx.c lev_block: peaks to ~-9 dBFS, 2:1) LOFI measured
@@ -1069,12 +1086,10 @@ static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 
 static void lofi_block(track_t *t)                   /* (engopt) BYTE's / FLOAT's formula compiled before the note */
 {
-    if (fvm_warm_tok && (t->p[P_E1] == RW_BYTE || t->p[P_E1] == RW_FLOAT)) {
-        uint32_t tr = (uint32_t)(t - trk) % NTRK, flt = t->p[P_E1] == RW_FLOAT, f = (uint32_t)t->p[P_E2] >> 2;
-        if (lofi_prg_id[tr] != 1u + (flt ? 64u : 0u) + f && trk_quiet(t)) {
-            fvm_warm_tok = 0;
-            (void)lofi_prog(t, &lofi_work[MC_CPU() & 1u], flt, f);
-        }
+    if (t->p[P_E1] == RW_BYTE || t->p[P_E1] == RW_FLOAT) {   /* (c1fault: asked, the main loop compiles it) */
+        uint32_t flt = t->p[P_E1] == RW_FLOAT;
+        if (trk_quiet(t))
+            (void)lofi_prog(t, 0, flt, (uint32_t)t->p[P_E2] >> 2);
     }
 }
 /* (func-rate) part t's RATE, B RATE, B OCT as asked: OCT at once, the RATEs at the bar while the song plays (at once
@@ -1085,16 +1100,11 @@ static __attribute__((noinline)) void func_act(track_t *t)
     const int16_t *q = fp_kp[tr];
     fp_t *f = &fp_st[tr];
     uint32_t w = (uint32_t)((q[FK_RATE] + 3) ^ 3) | (uint32_t)((q[FK_BRATE] + 3) ^ 3) << 3 | (uint32_t)((q[FK_BOCT] + 2) ^ 2) << 6;
-    if (func_form(t) == FUNC_BANK && wave_id_b[tr] != (0x8000u | func_bank_f(t, 1))) {   /* (funcbank) BANK's B, as
-                                                         * FORM B asks: compiled here (as BYTE's, lofi_prog; its text in
-                                                         * math_transition, no voice fading through it between two), faded */
-        char *s = (char *)math_transition[MC_CPU() & 1u];
-        uint32_t n = fvm_bank_to(2u * FVM_NBYTE + func_bank_f(t, 1), s);
-        fvm_prog_t *pg = &wave_prg_b[tr];
-        if (!pg->ins) fvm_prog_init(pg, wave_ins_b[tr], 32u);
-        if (fvm_compile(&lofi_work[MC_CPU() & 1u].c, pg, s, n, 0) || pg->nstate > 1u) pg->n = 0;
-        wave_id_b[tr] = (uint16_t)(0x8000u | func_bank_f(t, 1));
-        memset(&math_fade[tr * NVOICE], 128, NVOICE);
+    if (func_form(t) == FUNC_BANK) {                    /* (funcbank) BANK's B, as FORM B asks: (c1fault) the main
+                                                         * loop compiles it (fvm_serve), the voices faded into it */
+        if (!wave_prg_b[tr].ins) fvm_prog_init(&wave_prg_b[tr], wave_ins_b[tr], 32u);
+        (void)fvm_want(NTRK + tr, &wave_prg_b[tr], &wave_id_b[tr], 0x8000u | func_bank_f(t, 1),
+                       FVM_ABANK(2u * FVM_NBYTE + func_bank_f(t, 1)), 1u | FVM_AFADE);
     }
     if (func_bar(t) && func_clock_begin >> 18 == func_clock_end >> 18) w = (w & 0x1C0u) | (f->act & 0x3Fu);   /* (not yet) */
     if (w == f->act) return;

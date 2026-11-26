@@ -206,6 +206,41 @@ static uint32_t math_hash[NTRK];
 #define MATH_PUBLISH_UNLOCK() ((void)0)
 #endif
 static void func_b_poll(gq_work_t *w);                  /* (funcplay.c: FUNC's layer B) */
+/* (c1fault) what the audio asked for (eng_lofi.c fvm_want): each compiled here and published whole, the slot's id
+ * last; a failure (or more states than its slot keeps) published silent, as the audio did. A request changed while
+ * it compiled is taken at the next pass */
+static __attribute__((noinline)) void fvm_serve(gq_work_t *w)
+{
+    for (uint32_t k = 0; k < FVM_NASK; k++) {
+        fvm_ask_t q;
+        MATH_PUBLISH_LOCK();
+        q = fvm_asks[k];
+        MATH_PUBLISH_UNLOCK();
+        if (!q.pg) continue;
+        const char *s = q.src;
+        uint32_t n = 0, bad;
+        if ((uintptr_t)s <= 2u * FVM_NBYTE + FB_N) { n = fvm_bank_to((uint32_t)(uintptr_t)s - 1u, fvm_tx); s = fvm_tx; }
+        else while (s[n]) n++;
+        bad = fvm_compile(&w->cc, FVM_FULL(&w->pg), s, n, 0) || w->pg.p.nstate > (q.fl & 15u) ||
+              ((q.fl & FVM_AFIX) && w->pg.p.ty != FT_FIX) || w->pg.p.n > q.pg->cap;
+        MATH_PUBLISH_LOCK();
+        if (fvm_asks[k].pg == q.pg && fvm_asks[k].want == q.want && fvm_asks[k].src == q.src) {
+            fvm_ins_t *ins = q.pg->ins;
+            uint32_t cap = q.pg->cap;
+            if (bad) q.pg->n = 0;
+            else {
+                memcpy(ins, w->pg.ins, w->pg.p.n * sizeof *ins);
+                *q.pg = w->pg.p;
+                q.pg->ins = ins;
+                q.pg->cap = (uint8_t)cap;
+            }
+            *q.id = q.want;
+            fvm_asks[k].pg = 0;
+            if (q.fl & FVM_AFADE) memset(&math_fade[q.tr * NVOICE], 128, NVOICE);
+        }
+        MATH_PUBLISH_UNLOCK();
+    }
+}
 static void math_poll_ws(gq_work_t *w)
 {
     static uint8_t cursor;
@@ -256,7 +291,20 @@ static void math_poll_ws(gq_work_t *w)
     }
     cursor=(uint8_t)((cursor+1u)%NTRK); /* fair coalescing: <=31 rebuilds/s per track, <=62/s total */
     func_b_poll(w);
+    fvm_serve(w);
 }
 
+#if !FELUCCA_DUAL_CORE
+/* (c1fault, the host) no main loop beside the tests' renders: what it does between two blocks (fvm_serve) at a
+ * render's start, outside the audio's scope (FVM_AUDIO_SCOPE); the device's main loop runs meanwhile */
+static void fvm_host_serve(void)
+{
+    static gq_work_t w;
+    if (!fvm_in_audio) fvm_serve(&w);
+}
+#define FVM_HOST_SERVE() fvm_host_serve()
+#else
+#define FVM_HOST_SERVE() ((void)0)
+#endif
 static void math_poll(void);                            /* (JIANT BYTE: project.c, the main loop calls it: ui_input.c) */
 static void dw_poll(void);                              /* (DRUM-W: project.c, the main loop: ui_input.c) */

@@ -22,6 +22,7 @@ static double run(int nz, int type, int amp, double *side)
         for (i = 0; i < CTL; i++)
             o[i] = (int32_t)(amp * sin(2 * M_PI * 220.0 * (b * CTL + i) / 44100.0));
         track_dist(t, o, CTL);
+        fvm_host_serve();                                /* (c1fault: the main loop between blocks compiles its EQ) */
     }
     for (i = 0; i < 4096; i++) {
         double x = buf[nz ? 1 : 0][i], w = 2 * M_PI * i / 44100.0, hw = 0.5 - 0.5 * cos(2 * M_PI * i / 4096.0);

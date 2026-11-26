@@ -704,8 +704,20 @@ static uint32_t fvm_unary_inner(fvm_cc_t *c)
         return fvm_un(c, FO_LNOT, fvm_unary(c), FT_INT);
     return fvm_primary(c);
 }
+#if !FELUCCA_DUAL_CORE                                  /* (c1fault, the host) a compile in the audio counted (fx.c
+                                                         * mix_block's, voice.c track_render's scope): tests/c1stack_test.c */
+static uint32_t fvm_in_audio, fvm_audio_compiles, fvm_ncompile;
+static void fvm_audio_out(uint32_t *p) { (void)p; fvm_in_audio--; }
+#define FVM_AUDIO_SCOPE() uint32_t fvm_au __attribute((cleanup(fvm_audio_out), unused))   /* (__attribute: hostsim.c drops __attribute__) */ = fvm_in_audio++
+#else
+#define FVM_AUDIO_SCOPE() ((void)0)
+#endif
+#ifndef FVM_STACK_PROBE
+#define FVM_STACK_PROBE() ((void)0)                    /* (c1fault: tests/c1stack_test.c, the parser's depth) */
+#endif
 static uint32_t fvm_unary(fvm_cc_t*c)
 {
+    FVM_STACK_PROBE();
     if(c->parse_depth>=16u){fvm_fail(c,FE_DEEP);return 0;}
     c->parse_depth++;uint32_t r=fvm_unary_inner(c);c->parse_depth--;return r;
 }
@@ -920,6 +932,7 @@ static void fvm_gen_inner(fvm_cc_t *c, uint32_t x)
 
 static void fvm_gen(fvm_cc_t*c,uint32_t x)
 {
+    FVM_STACK_PROBE();
     if(c->gen_depth>=24u){fvm_fail(c,FE_DEEP);return;}
     c->gen_depth++;fvm_gen_inner(c,x);c->gen_depth--;
 }
@@ -930,6 +943,10 @@ static uint32_t fvm_compile(fvm_cc_t *c, fvm_prog_t *p, const char *src, uint32_
 {
     uint32_t root, cap = p->cap;
     fvm_ins_t *ins = p->ins;
+#if !FELUCCA_DUAL_CORE
+    fvm_audio_compiles += fvm_in_audio != 0;          /* (c1fault: never in the audio, tests/c1stack_test.c) */
+    fvm_ncompile++;
+#endif
     memset(p, 0, sizeof *p);
     p->ins = ins;
     p->cap = (uint8_t)(ins ? cap : 0u);

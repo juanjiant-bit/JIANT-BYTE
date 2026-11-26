@@ -17,7 +17,7 @@ static void drum(int fold,int env,int32_t*y){
 static void distortion(unsigned ty,int tone,int noise,int32_t*y){
  ui_power_on();memset(dist_w,0,sizeof dist_w);memset(deq_id,0,sizeof deq_id);dist_rnd=12345;
  track_t*t=&trk[0];t->p[P_DTYPE]=ty;t->p[P_DIST]=75;t->p[P_DTONE]=tone;dnz_v[0]=noise;
- for(unsigned n=0;n<BN;n+=CTL){for(unsigned j=0;j<CTL;j++)y[n+j]=(sine_i((n+j)*98765432u)+sine_i((n+j)*12345678u))/3;track_dist(t,y+n,CTL);}
+ for(unsigned n=0;n<BN;n+=CTL){for(unsigned j=0;j<CTL;j++)y[n+j]=(sine_i((n+j)*98765432u)+sine_i((n+j)*12345678u))/3;track_dist(t,y+n,CTL);fvm_host_serve();}   /* (c1fault: the main loop between blocks compiles its formula) */
 }
 int main(void){
  drum(0,0,a);drum(100,0,b);drum(0,100,c);
