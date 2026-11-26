@@ -417,9 +417,10 @@ static const fvm_prog_t *lofi_prog(const track_t *t, lofi_work_t *w, uint32_t fl
     uint32_t id = user ? 0x400u | math_ver[tr] : 1u + (flt ? 64u : 0u) + f;
     if(user)return lofi_slot(tr); /* USER programs are validated/published by math_poll, never compiled here. */
     if (lofi_prg_id[tr] != id) {
-        const char *s = user ? math_txt[tr] : fvm_bank(flt, f % FVM_NBYTE);
-        uint32_t n = 0;
-        while (s[n]) n++;
+        char *s = (char *)math_transition[MC_CPU() & 1u];   /* (funcbank, flash: the bank packed) its text here: a
+                                                         * BYTE / FLOAT part never fades through it (a USER's only) */
+        uint32_t n = fvm_bank_to(f % FVM_NBYTE + (flt ? FVM_NBYTE : 0u), s);
+        _Static_assert(sizeof math_transition[0] >= 256u, "MATH: a bank formula's room");
         if (fvm_compile(&w->c, lofi_slot(tr), s, n, 0) || lofi_prg[tr].nstate > LOFI_NSTATE)
             lofi_prg[tr].n = 0;                      /* (silent) */
         lofi_prg_id[tr] = (uint16_t)id;
@@ -695,9 +696,15 @@ static const char MATH_FUNC_R_MINIMAL[] = "func{let k=int(P*4);let g=P*4%1;let e
 static const char MATH_FUNC_R_JUNGLE[] = "func{let j=int(P*4);let g=P*4%1*.25;let y=w*(\"4436\"[(j>>3)+rnd(j>>5^d)&3]-48)*.125;return sat(sin(y+sin(y*2)*B*.6)*(.7+C*1.5)*(1-sin(P*.5)*A*.45)+kick(g+(4227791870>>j&1)*2)*.8+snare(g+(4025479151>>j&1)*2)*.5);}";
 static const char *const MATH_FUNC_R[] = {MATH_FUNC_R_ACID,MATH_FUNC_R_REESE,MATH_FUNC_R_HOUSE,MATH_FUNC_R_STRUM,MATH_FUNC_R_JUST,MATH_FUNC_R_PLUCK,MATH_FUNC_R_NIBBLE,MATH_FUNC_R_BITS,MATH_FUNC_R_BEATS,MATH_FUNC_R_SCREECH,
     MATH_FUNC_R_DUB,MATH_FUNC_R_AMEN,MATH_FUNC_R_TRANCE,MATH_FUNC_R_AMBIENT,MATH_FUNC_R_MINIMAL,MATH_FUNC_R_JUNGLE};
-#define FUNC_NFORM (5u+NELEM(MATH_FUNC_R))       /* CUSTOM, SONG, BEAT, GROWL, HALFTIME and the rest */
+#define FUNC_NFORM (6u+NELEM(MATH_FUNC_R))       /* CUSTOM, SONG, BEAT, GROWL, HALFTIME and the rest; BANK last */
+/* (funcbank, the owner: "the formulas of the first FUNC, the ones that made chords with the harmony") BANK: FORM 3's
+ * formula bank (fvm_bank.c FB_*, curated: in families, each in tune with the chord and at its level) as a recipe: its
+ * knobs FORM A, FORM B (by name), MORPH (A to B, equal power), DEF (the formula's A); w w3 w5 the chord's root, third
+ * and fifth from SCL > HARMONY (its LENGTH the chords' changes), else the key's (the part's SCALE): funcplay.c
+ * func_bank_run. A in the part's program (math_poll), B in its second (wave_prg_b: a part is one engine at a time) */
+#define FUNC_BANK (FUNC_NFORM-1u)
 static const char *const N_FUNC_FORM[]={"CUSTOM","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK",
-    "PSY","DSTEP","DRUMS","MELODY","DUB","AMEN","TRANCE","AMBIENT","MINIMAL","JUNGLE"};
+    "PSY","DSTEP","DRUMS","MELODY","DUB","AMEN","TRANCE","AMBIENT","MINIMAL","JUNGLE","BANK"};
 static const char *const N_FUNC_RUN[]={"-","-","-","-","TRIG","PLAY","FREE"};
 _Static_assert(NELEM(N_FUNC_FORM)==FUNC_NFORM,"FUNC: a name for every FORM");
 static const engine_t ENG_FUNC;                         /* (BYTE 0.17) below: FUNC, an engine of its own */
@@ -716,8 +723,14 @@ static inline int func_free(const track_t*t){return func_on(t)&&t->p[P_E0]==6;}
  * place); stopped, NOTE from the key, FREE its own */
 #define func_bar(t) (song.playing&&!func_free(t))
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
-static const char *func_form_text(int32_t f){return f==1?MATH_FUNC_DEFAULT:f==2?MATH_FUNC_BEAT:f==3?MATH_FUNC_GROWL:f==4?MATH_FUNC_HALF:f>=5&&f<(int)FUNC_NFORM?MATH_FUNC_R[f-5]:0;}
-static const char *math_func_text(const track_t*t,const char*custom){const char*s=func_form_text(t->p[P_E7]);return s?s:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
+static const char *func_form_text(int32_t f){return f==1?MATH_FUNC_DEFAULT:f==2?MATH_FUNC_BEAT:f==3?MATH_FUNC_GROWL:f==4?MATH_FUNC_HALF:f>=5&&f<(int)FUNC_BANK?MATH_FUNC_R[f-5]:0;}
+/* (funcbank) BANK's formula k (0 A, 1 B) of part t, into o (256 B); its number */
+static uint32_t func_bank_f(const track_t*t,uint32_t k){return (uint32_t)clamp(t->p[P_E2+k],0,FB_N-1u);}
+static void func_bank_text(const track_t*t,uint32_t k,char*o){fvm_bank_to(2u*FVM_NBYTE+func_bank_f(t,k),o);}
+static const char *math_func_text(const track_t*t,const char*custom){
+    const char*s=func_form_text(t->p[P_E7]);
+    if(t->p[P_E7]==(int)FUNC_BANK){func_bank_text(t,0,fvm_tx);return fvm_tx;}   /* (funcbank: A's; the main loop's buffer) */
+    return s?s:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
 /* (funcplay, the owner: "FUNC to play, not to listen to") FUNC played live (funcplay.c): its SECTION (GROOVE as written,
  * INTRO BUILD DROP BREAK: at the next bar line), a FILL held (ROLL STUTTER REVERSE DOUBLE: from the next 1/16 to the 1/16
  * after the key is let go), the mutations (NOTES RHYTHM SWAP FREEZE), the parts muted (bit 0 the drums, 1 the notes,
@@ -762,6 +775,14 @@ typedef struct { fvm_prog_t p; uint8_t tr, form; } fpb_t;   /* layer B's program
 static fpb_t fp_b[2] __attribute__((section(".pool")));
 static fvm_ins_t fp_bins[2][FVM_MAXINS] __attribute__((section(".pool")));
 static uint32_t func_run(track_t*t,voice_t*v,const fvm_prog_t*pa,fvm_env_t*en,uint32_t n,uint32_t*Y,uint32_t*W,uint32_t*P);
+static void func_bank_run(track_t*t,voice_t*v,const fvm_prog_t*pa,const fvm_env_t*en,uint32_t n,uint32_t*Y);
+static uint32_t func_form(const track_t*t);
+/* layer A's block: BANK's (its two formulas, the chord) or the recipe's */
+static void func_arun(track_t*t,voice_t*v,const fvm_prog_t*pa,fvm_env_t*en,uint32_t n,uint32_t*Y)
+{
+    if(func_form(t)==FUNC_BANK)func_bank_run(t,v,pa,en,n,Y);
+    else lofi_run(pa,en,&lofi_work[MC_CPU()&1u],n,Y);
+}
 static int func_live(const track_t*t);
 static uint32_t math_music_cost(const track_t*t){
     if(t->p[P_E1]!=RW_FUNC)return 2u;
@@ -854,7 +875,8 @@ static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32
     uint32_t T[LOFI_N],W[LOFI_N],S[LOFI_N],P[LOFI_N],Y[LOFI_N],q=(uint32_t)v->s[2],ph=v->ph[0],rate;
     const fvm_prog_t*p=lofi_slot((uint32_t)(t-trk));
     fvm_env_t en={{T,W,S,0,0},{0},&v->s[6]};xm_env(&en,p);
-    for(uint32_t k=0;k<4;k++){uint32_t a=(uint32_t)clamp(t->p[P_E2+k],0,127);en.u[FU_A+k]=a*2u;en.u[FU_AF+k]=fn_knob(v,k,a*65536u/127u,!q);}
+    for(uint32_t k=func_form(t)==FUNC_BANK?2u:0u;k<4;k++){uint32_t a=(uint32_t)clamp(t->p[P_E2+k],0,127);en.u[FU_A+k]=a*2u;en.u[FU_AF+k]=fn_knob(v,k,a*65536u/127u,!q);}   /*
+                                                         * (funcbank: FORM A B picks, no glide) */
     en.u[FU_NOTE]=(uint32_t)clamp((int32_t)v->note+(t->pfx_pit+pt_vp[(uint32_t)(t-trk)%NTRK]-pt_wob)/16,0,127);   /* (BYTE
                                                          * punchfx) OCT- / OCT+ and CAOS MAX's throw on n too: its notes
                                                          * are n's, not the voice's pitch (WOBBLE: in w, and P swayed) */
@@ -876,7 +898,7 @@ static __attribute__((noinline)) void lofi_func_render(track_t*t,voice_t*v,int32
     int32_t lv=(int32_t)func_lv(func_form(t));          /* (func-level) the FORM's level, before the knee (with B: the
                                                          * louder one's, func_run) */
     if(func_live(t))lv=(int32_t)func_run(t,v,p,&en,n,Y,W,P);   /* (funcplay) its sections, fills, groove, layer B */
-    else{if(ra!=3u)fn_rate(P,P,n,ra);lofi_run(p,&en,&lofi_work[MC_CPU()&1u],n,Y);}
+    else{if(ra!=3u)fn_rate(P,P,n,ra);func_arun(t,v,p,&en,n,Y);}
     int32_t y1=v->s[4],y2=v->s[5],kd=8192-(t->p[P_FRES]>50?t->p[P_FRES]:50)*7600/127;
     uint32_t tr=(uint32_t)(t-trk)%NTRK;
     fn_sg_t*g=&fn_sg[tr];const int16_t*k=fp_kp[tr];
@@ -916,7 +938,8 @@ static const char FUNC_KN_S[]="A\0""B\0""C\0""D\0"
     "TONE\0""GATE\0""BASS\0""\0"
     "FM\0""DRIFT\0""SHINE\0""\0"
     "BLIP\0""HATS\0""DRIVE\0""\0"
-    "WOBBLE\0""GROWL\0""DRIVE\0""\0";
+    "WOBBLE\0""GROWL\0""DRIVE\0""\0"
+    "FORM A\0""FORM B\0""MORPH\0""DEF\0";
 static const char FUNC_TIPS_S[]="CONTROL A, 0 TO 1\0""CONTROL B, 0 TO 1\0""CONTROL C, 0 TO 1\0""CONTROL D, 0 TO 1\0"
     "CHORD + MELODY TONE\0""EVERY 2 BEATS OR 1\0""2, 4 OR 8 A BEAT\0""1, 2 OR 4 A BEAT\0"
     "BASS HARMONICS\0""EVERY 2 BEATS OR 1\0""2, 4 OR 8 A BEAT\0""3-3-2, 4 OR 2 A BAR\0"
@@ -937,7 +960,8 @@ static const char FUNC_TIPS_S[]="CONTROL A, 0 TO 1\0""CONTROL B, 0 TO 1\0""CONTR
     "NOTE HARMONICS\0""NOTE LENGTH\0""OFFBEAT BASS\0""\0"
     "FM SHIMMER\0""SLOW TO FASTER\0""HIGH PARTIAL\0""PHASES OF PARTIALS\0"
     "BLIP FM DEPTH\0""OFFBEAT HAT LEVEL\0""BLIP LEVEL\0""\0"
-    "VOLUME WOBBLE\0""SUB FM GROWL\0""BASS LEVEL\0""\0";
+    "VOLUME WOBBLE\0""SUB FM GROWL\0""BASS LEVEL\0""\0"
+    "THE FIRST FORMULA\0""THE SECOND FORMULA\0""FORM A .. FORM B\0""THE FORMULAS' A\0";
 static const char *fk_walk(const char*s,uint32_t n){while(n--)while(*s++){}return s;}
 static const char *func_kn(uint32_t f,uint32_t k){const char*s=fk_walk(FUNC_KN_S,(f%FUNC_NFORM)*4u+(k&3u));return *s?s:"SEED";}
 static const char *func_tip(uint32_t f,uint32_t k){const char*s=fk_walk(FUNC_TIPS_S,(f%FUNC_NFORM)*4u+(k&3u));return *s?s:"PICKS NOTES + RHYTHM";}
@@ -945,7 +969,8 @@ static uint32_t func_form(const track_t*t){return t->p[P_E7]>=1&&t->p[P_E7]<(int
 /* (func-level, the owner: "AMBIENT and GROWL far too loud, ACID too, next to DUB and MINIMAL") each FORM's level (128 as
  * written), measured: the recipes' loudness (K-weighted, 8 bars at their preset, MOTION on) within 1.5 dB of DUB's
  * and MINIMAL's; on the formula's samples (lofi_func_render), layer B's at its own (func_brel) */
-static const uint8_t FUNC_LV[FUNC_NFORM]={128,129,85,58,58,216,32,127,56,48,105,124,89,182,144,129,137,178,137,127,53};
+static const uint8_t FUNC_LV[FUNC_NFORM]={128,129,85,58,58,216,32,127,56,48,105,124,89,182,144,129,137,178,137,127,53,128};   /*
+                                                         * (funcbank: BANK's each formula's own, FB_LV) */
 static uint32_t func_lv(uint32_t f){return FUNC_LV[f%FUNC_NFORM];}
 /* layer B's BLEND gain g (funcplay.c func_run): its FORM's level over L (the louder layer's, applied after), B GAIN's
  * dB on it; 0 .. 65535 */
@@ -961,13 +986,13 @@ static uint32_t func_brel(const track_t*t,uint32_t fb,uint32_t g,uint32_t L)
  * BLEND and KEYS views of fp_kp (params.c ID_FP0) */
 static const char *const N_FUNC_FB[]={"OFF","SONG","BEAT","GROWL","HALFTIME","ACID","REESE","HOUSE","STRUM","JUST","PLUCK",
     "PSY","DSTEP","DRUMS","MELODY","DUB","AMEN","TRANCE","AMBIENT","MINIMAL","JUNGLE"};
-_Static_assert(NELEM(N_FUNC_FB)==FUNC_NFORM,"FUNC: FORM B's names");
+_Static_assert(NELEM(N_FUNC_FB)==FUNC_BANK,"FUNC: FORM B's names (BANK not a layer: its own A and B)");
 static const char *const N_FKEYS[]={"ON","OFF",0};
 static const char *const N_FMOVE[]={"NOTE","HIT","BAR","ALL",0};
 /* (func-rate, the owner: "a RATE, on the tempo") the formula's time (P) times one of these: on the grid, never drifting */
 static const char *const N_FRATE[]={"1/4X","1/2X","2/3X","1X","3/2X","2X","4X",0};
 static const param_desc_t FUNC_PX[16]={{"DENSITY",F_BIPCT,-64,63,0,0},{"SWING",F_PCT,0,127,0,0},{"COMPLEX",F_PCTINV,0,127,127,0},
-    {"RANGE",F_BIPCT,-64,63,0,0},{"FORM B",F_ENUM,0,FUNC_NFORM-1u,0,N_FUNC_FB},{"BLEND",F_PCT,0,127,64,0},
+    {"RANGE",F_BIPCT,-64,63,0,0},{"FORM B",F_ENUM,0,FUNC_BANK-1u,0,N_FUNC_FB},{"BLEND",F_PCT,0,127,64,0},
     {"KEYS",F_ENUM,0,1,0,N_FKEYS},{"STEREO",F_PCT,0,127,0,0},{"MOVE",F_ENUM,0,3,0,N_FMOVE},{"TIMBRE",F_PCT,0,127,0,0},
     {"COLOR",F_PCT,0,127,0,0},{"RATE",F_ENUM,-3,3,0,N_FRATE+3},{"B GAIN",F_INT_DB,-12,6,0,0},{"B TONE",F_BIPCT,-64,63,0,0},
     {"B OCT",F_INT,-2,2,0,0},{"B RATE",F_ENUM,-3,3,0,N_FRATE+3}};
@@ -986,7 +1011,7 @@ static const param_desc_t *func_view(uint32_t k,int16_t**valp)   /* (params.c pa
 }
 /* (funcmotion) the FUNC presets' MOTION: STEREO MOVE TIMBRE COLOR a nibble each (x 8; MOVE as it is) */
 static const uint16_t FUNC_MO[FUNC_NFORM-1u]={0x6340,0x4142,0x2240,0x2253,0x3230,0x4243,0x7151,0x8030,0x6041,0x7152,
-    0x4320,0x3220,0x6141,0x6230,0x6252,0x5131,0x6351,0x9240,0x8162,0x3240};   /* (func-level: GROWL ACID JUNGLE no
+    0x4320,0x3220,0x6141,0x6230,0x6252,0x5131,0x6351,0x9240,0x8162,0x3240,0x4100};   /* (func-level: GROWL ACID JUNGLE no
                                                          * COLOR, PSY DSTEP MELODY new) */
 static void func_motion(track_t*t,uint32_t pi)        /* (ui.c apply_preset_to) */
 {
@@ -1008,7 +1033,14 @@ static const param_desc_t *func_knob(const track_t*t,uint32_t k)   /* part t's k
     uint32_t tr=(uint32_t)(t-trk)%NTRK,f=func_form(t);
     param_desc_t*d=&fk_d[tr][k&3u];
     if(fk_f[tr][k&3u]!=f+1u){d->label=func_kn(f,k);fk_f[tr][k&3u]=(uint8_t)(f+1u);}
-    d->fmt=F_PCT;d->max=127;d->def=(int16_t)(k<3u?64>>k:0);
+    d->fmt=F_PCT;d->max=127;d->def=(int16_t)(k<3u?64>>k:0);d->names=0;
+    if(f==FUNC_BANK){                                   /* (funcbank) FORM A, FORM B by name; MORPH 0; DEF 64 */
+        static const char *fb_nm[FB_N+1u] __attribute__((section(".bss.funcbank")));   /* (out of the merged statics:
+                                                         * their neighbours' offsets kept short, GEN's code its size) */
+        if(!fb_nm[0])for(uint32_t i=0;i<FB_N;i++)fb_nm[i]=fk_walk(FB_NAMES,i);   /* (not str_nth: the audio reaches this, the UI's -Oz keeps str_nth) */
+        if(k<2u){d->fmt=F_ENUM;d->max=FB_N-1u;d->names=fb_nm;}
+        d->def=(int16_t)(k==3u?64:k==1u?2:0);
+    }
     return d;
 }
 /* its line of help: one of the knobs' by FORM (FUNC_PX's), else 0 (knob_hint's own table) */
@@ -1053,6 +1085,17 @@ static __attribute__((noinline)) void func_act(track_t *t)
     const int16_t *q = fp_kp[tr];
     fp_t *f = &fp_st[tr];
     uint32_t w = (uint32_t)((q[FK_RATE] + 3) ^ 3) | (uint32_t)((q[FK_BRATE] + 3) ^ 3) << 3 | (uint32_t)((q[FK_BOCT] + 2) ^ 2) << 6;
+    if (func_form(t) == FUNC_BANK && wave_id_b[tr] != (0x8000u | func_bank_f(t, 1))) {   /* (funcbank) BANK's B, as
+                                                         * FORM B asks: compiled here (as BYTE's, lofi_prog; its text in
+                                                         * math_transition, no voice fading through it between two), faded */
+        char *s = (char *)math_transition[MC_CPU() & 1u];
+        uint32_t n = fvm_bank_to(2u * FVM_NBYTE + func_bank_f(t, 1), s);
+        fvm_prog_t *pg = &wave_prg_b[tr];
+        if (!pg->ins) fvm_prog_init(pg, wave_ins_b[tr], 32u);
+        if (fvm_compile(&lofi_work[MC_CPU() & 1u].c, pg, s, n, 0) || pg->nstate > 1u) pg->n = 0;
+        wave_id_b[tr] = (uint16_t)(0x8000u | func_bank_f(t, 1));
+        memset(&math_fade[tr * NVOICE], 128, NVOICE);
+    }
     if (func_bar(t) && func_clock_begin >> 18 == func_clock_end >> 18) w = (w & 0x1C0u) | (f->act & 0x3Fu);   /* (not yet) */
     if (w == f->act) return;
     f->act = (uint16_t)w;
@@ -1222,6 +1265,7 @@ static const preset_t FUNC_PRESETS[] = {
     {"AMBIENT", FU(18, 34, 40, 28, 0), {0, 0, 127, 60}, 0, TAG(PAD), FX(0, 50, 30, 70), MODS(P_FCUT, 100)},
     {"MINIMAL", FU(19, 70, 80, 40, 0), {0, 0, 127, 24}, 0, TAG(DRUM), FX(0, 0, 30, 10)},
     {"JUNGLE", FU(20, 40, 36, 30, 0), {0, 0, 127, 24}, 1, TAG(BASS), FX(0, 0, 0, 10), MODS(P_FCUT, 100)},
+    {"BANK", FU(21, 0, 2, 0, 64), {0, 0, 127, 24}, 0, TAG(PAD), FX(0, 0, 20, 30)},   /* (funcbank) PAD to SUPERSAW */
 };
 #undef FU
 _Static_assert(NELEM(FUNC_PRESETS) == FUNC_NFORM - 1u, "FUNC: a preset for every FORM");

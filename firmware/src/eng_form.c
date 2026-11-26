@@ -97,7 +97,7 @@ static int form_hit(uint32_t e,uint32_t m,uint32_t s,uint32_t seed)
 }
 /* 2^(-x/256), Q15 */
 static int32_t form_fexp(uint32_t x){if(x>=15u*256u)return 0;uint32_t u=x&255u;int32_t m=32768-(int32_t)((u*(21512u-((u*5128u)>>8)))>>8);m>>=x>>8;return m>32767?32767:m;}
-static uint32_t form_isqrt(uint32_t x){uint32_t r=0,b=1u<<30;while(b>x)b>>=2;while(b){if(x>=r+b){x-=r+b;r=(r>>1)+b;}else r>>=1;b>>=2;}return r;}
+#define form_isqrt isqrt32                             /* (funcbank, flash: the same root, filt.c's; was a copy) */
 static int form_oneshot(uint32_t sh){return sh/12u==FPG_HIT||sh==S_ENVDN||sh==3u||sh==5u;}
 static uint32_t form_spawn(form_st_t*st,uint32_t sh,uint32_t mod,uint32_t vel,uint32_t fl,uint32_t len,uint32_t key)
 {

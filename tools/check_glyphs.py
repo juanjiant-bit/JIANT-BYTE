@@ -99,6 +99,8 @@ def main():
         files += sorted(p.rglob("*.[ch]")) if p.is_dir() else [p]
     bad = []
     for f in files:
+        if f.name == "fvm_bank.c":                   # (funcbank) the formulas packed by pairs: data, not text (its names:
+            continue                                 # tools/gen_fvm_bank.py checks them)
         for line, b in literals(f.read_text(encoding="utf-8", errors="surrogateescape")):
             if (f.name, b) in DATA:
                 continue

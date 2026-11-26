@@ -447,7 +447,7 @@ int main(int argc, char **argv)
     assert(eng_vis(eng_rank(ENGI_LOFI) + 1u) == ENGI_FUNC && eng_step(ENGI_LOFI, 1) == ENGI_FUNC);
     assert(ENGINE_PC_ORDER[NENG_SHOWN - 1u] == ENGI_FUNC);
     assert(ENG_LOFI.edit[1].max == RW_USER && ENG_FUNC.edit[1].min == RW_FUNC && ENG_FUNC.edit[1].max == RW_FUNC);
-    assert(ENG_FUNC.npresets == FUNC_NFORM - 1u && FUNC_NFORM == 21u);
+    assert(ENG_FUNC.npresets == FUNC_NFORM - 1u && FUNC_NFORM == 22u && FUNC_BANK == 21u);   /* (funcbank: BANK last) */
     for (k = 0; k < ENG_FUNC.npresets; k++) {
         const preset_t *p = &ENG_FUNC.presets[k];
         assert(p->e[1] == RW_FUNC && p->e[7] == (int)k + 1 && p->e[0] >= 4 && p->e[0] <= 6 && PR_TAG(p));
@@ -479,7 +479,7 @@ int main(int argc, char **argv)
         frame();
         for (f = 1; f < FUNC_NFORM; f++) {               /* the knobs by FORM's names, the cards' and the matrix's */
             TSEL->p[P_E7] = (int16_t)f;
-            for (k = 0; k < 4u; k++) assert(!strcmp(track_desc(TSEL, P_E2 + k)->label, func_kn(f, k)) && track_desc(TSEL, P_E2 + k)->max == 127 &&
+            for (k = 0; k < 4u; k++) assert(!strcmp(track_desc(TSEL, P_E2 + k)->label, func_kn(f, k)) && track_desc(TSEL, P_E2 + k)->max == (f == FUNC_BANK && k < 2u ? (int)FB_N - 1 : 127) &&
                                             !strcmp(func_knob_tip(track_desc(TSEL, P_E2 + k)), func_tip(f, k)));
             assert(!strcmp(track_desc(TSEL, P_E7)->label, "FORM") && !strcmp(track_desc(TSEL, P_E0)->label, "RUN"));
         }
@@ -494,7 +494,7 @@ int main(int argc, char **argv)
         static const char *const N[6][4] = {{"CHORD", "ECHO", "BASS", "SEED"}, {"HATS", "CHOP", "SNARE", "SEED"},
             {"TONE", "GATE", "BASS", "SEED"}, {"FM", "DRIFT", "SHINE", "SEED"}, {"BLIP", "HATS", "DRIVE", "SEED"},
             {"WOBBLE", "GROWL", "DRIVE", "SEED"}};
-        for (f = 15; f < FUNC_NFORM; f++)
+        for (f = 15; f < FUNC_BANK; f++)
             for (k = 0; k < 4u; k++) assert(!strcmp(func_kn(f, k), N[f - 15u][k]) && strlen(func_tip(f, k)) > 4u);
     }
     puts("funcengine: RECIPE and KNOBS its own EDIT pages, by their names; MATH's its own; the new FORMs' knobs named PASS");
@@ -533,7 +533,7 @@ int main(int argc, char **argv)
     for (k = 0; k < ENG_FUNC.npresets; k++) {
         int32_t pk, p0, p1; double r, r0, r1;
         setup(k);
-        assert(TSEL->eng_req == ENGI_FUNC && lofi_prg[0].func && lofi_prg[0].n <= FVM_MAXINS && math_music_cost(TSEL) <= 12u);
+        assert(TSEL->eng_req == ENGI_FUNC && (lofi_prg[0].func || k + 1u == FUNC_BANK) && lofi_prg[0].n <= FVM_MAXINS && math_music_cost(TSEL) <= 12u);
         play(3000, &pk, &r, 0);
         setup(k); for (f = 0; f < 4u; f++) TSEL->p[P_E2 + f] = 0; math_poll(); play(1500, &p0, &r0, 0);
         setup(k); for (f = 0; f < 4u; f++) TSEL->p[P_E2 + f] = 127; math_poll(); play(1500, &p1, &r1, 0);

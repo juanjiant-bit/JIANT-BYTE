@@ -184,8 +184,11 @@ static __attribute__((noinline)) uint32_t func_run(track_t *t, voice_t *v, const
             if (L && r1 != r0) e.arr[FA_BEAT] = PB + a;
             if (L && ob) e.arr[FA_W] = WB + a;
             e.fx = cx;
-            e.u[FU_NOTE] = (uint32_t)clamp((int32_t)e.u[FU_NOTE] + (hm_n && func_song(t) && !hm_rootkey(tr) ? hm_semi(t) : f->semi), 0, 127);
-            lofi_run(L ? pb : pa, &e, &lofi_work[MC_CPU() & 1u], b - a, o + a);
+            e.u[FU_NOTE] = (uint32_t)clamp((int32_t)e.u[FU_NOTE] + (hm_n && func_song(t) && !hm_rootkey(tr) ?
+                                           (!L && func_form(t) == FUNC_BANK ? 0 : hm_semi(t)) : f->semi), 0, 127);   /*
+                                                         * (funcbank: BANK its own chord, func_bank_chord) */
+            if (L) lofi_run(pb, &e, &lofi_work[MC_CPU() & 1u], b - a, o + a);
+            else func_arun(t, v, pa, &e, b - a, o + a);
             if (L && tb)                                /* (func-rate) B TONE: a tilt about ~800 Hz, 0 as it is */
                 for (i = a; i < b; i++) {
                     int32_t y = (int32_t)Yb[i] >> 1;
@@ -260,7 +263,7 @@ static void func_b_poll(gq_work_t *w)
     for (tr = 0; tr < NTRK && k < 2u; tr++) {           /* (the first two FUNC parts with a B, in order) */
         int32_t fb = trk[tr].p[P_FFB];
         const char *s;
-        if (trk[tr].eng_req != ENGI_FUNC || fb <= 0 || fb >= (int32_t)FUNC_NFORM) continue;
+        if (trk[tr].eng_req != ENGI_FUNC || fb <= 0 || fb >= (int32_t)FUNC_BANK) continue;
         if (fp_b[k].tr != tr + 1u || fp_b[k].form != (uint32_t)fb) {
             for (s = func_form_text(fb), n = 0; s[n]; n++) {}
             if (fvm_compile(&w->cc, FVM_FULL(&w->pg), s, n, 0) || w->pg.p.nstate) continue;
@@ -276,4 +279,93 @@ static void func_b_poll(gq_work_t *w)
         k++;
     }
     for (; k < 2u; k++) fp_b[k].tr = 0;                 /* (a slot let go) */
+}
+
+/* ---- (funcbank) BANK: FORM 3's formulas (fvm_bank.c FB_*) on the chord. Their variables, made here a block at a time
+ * from FUNC's time P (its RATE, the GROOVE's swing and fills on it already) and the chord:
+ *   w w3 w5   the chord's root, third and fifth (turns; their phases the voice's, never reset at a change: fb_ph),
+ *             the root in the second octave (C2 .. B2 and up the progression), wd the root 1/128 sharp
+ *   T         the 1/16's age (0 .. 1)    s c d  the 1/16s, the bar's 1/16 (0 .. 15), the bars (s c d constant in a run:
+ *             the block cut at each 1/16)    P  the beats    t  P x 4096 (bytebeat's time, ~8 kHz at 120 BPM)
+ *   D         the chord's age (0 .. 1 over LENGTH)    b  its degree    A  DEF    n  the root's note
+ * The chord: SCL > HARMONY's (its LENGTH: 4 BAR a chord each four bars; EXTENS: the third suspended, an add9's, as
+ * hm_pick reads it) on PLAY or FREE while the song plays, else the root's own in the part's SCALE (the key's tonic, a
+ * key played its note's). MORPH (gliding as the knobs do: fn_knob) between A's and B's samples, equal power, each at
+ * its level (FB_LV); B only while it is heard, A only while it is. A's state v->s[6], B's v->s[7] (one each). A is
+ * the part's program (math_poll), B its second (wave_prg_b, compiled as it changes: eng_lofi.c func_act) */
+static const uint16_t FB_SEMI[13] = {4096, 4340, 4598, 4871, 5161, 5468, 5793, 6137, 6502, 6889, 7298, 7732, 8192};   /*
+                                                         * 2^(k/12), Q12 */
+static uint32_t fb_ph[NTRK * NVOICE][4] __attribute__((section(".bss.funcbank")));   /* each voice's root's, third's, fifth's,
+                                                         * the sharp root's phase */
+#define FB_SZ __attribute__((noinline, minsize))       /* (flash: once a block, not a sample) */
+static FB_SZ int32_t fb_dia(const track_t *t, int32_t x, int32_t d) { return hm_dia(t, x, d) - x; }
+/* part t's chord as BANK hears it, for note n (the voice's, 60 its root): its root's note (returned), the third and
+ * the fifth over it (semitones) and its degree */
+static FB_SZ int32_t func_bank_chord(const track_t *t, int32_t n, int32_t *th, int32_t *fi, int32_t *dg)
+{
+    uint32_t tr = (uint32_t)(t - trk) % NTRK;
+    int32_t r, a[2], iv[5];
+    *dg = 0;
+    if (hm_on(t) && (func_song(t) || func_free(t)) && !hm_rootkey(tr)) {   /* SCL > HARMONY's chord now */
+        uint32_t i = hm_now();
+        int32_t t0 = 48 + clamp(t->p[P_ROOT], 0, 11), d0 = t0 + fb_dia(t, t0, hm_dg[i]);
+        (void)hm_pick(t, i, a, th, iv, &r);
+        *fi = (int32_t)hm_cls(i, (uint32_t)clamp(fb_dia(t, d0, 4), 0, 11));   /* (its fifth: the scale's, onto its quality) */
+        *dg = hm_dg[i];
+        r += n - 72;                                    /* (an octave under the key's: C2 .. ; ROOT, the keys' moves on it) */
+    } else {                                            /* the root's own chord in the part's scale */
+        r = n - 24 + ((func_song(t) || func_free(t)) && !func_pitch[tr] ? clamp(t->p[P_ROOT], 0, 11) : 0);   /* (no
+                                                         * key: the key's tonic, as HARMONY's: C2 .. B2) */
+        *th = fb_dia(t, r, 2);
+        *fi = fb_dia(t, r, 4);
+    }
+    *th = clamp(*th, 2, 5);
+    *fi = clamp(*fi, 6, 8);
+    return clamp(r, 12, 96);
+}
+/* the block's set-up: the chord into e (b n D A), the phases' steps d[4], the gains g[2] (0: that side not run) */
+static FB_SZ void fb_setup(const track_t *t, const fvm_env_t *en, fvm_env_t *e, uint32_t *d, int32_t *g, uint32_t fa, uint32_t fb, int hb)
+{
+    int32_t th, fi, dg, r = func_bank_chord(t, (int32_t)en->u[FU_NOTE], &th, &fi, &dg);
+    uint32_t inc = pitch_inc((uint32_t)r * 16u) << VH_SH(), mo = en->u[FU_CF] << 14, h = (uint32_t)clamp(song.g[G_HLEN], 0, 4);
+    *e = *en;
+    d[0] = inc; d[1] = (uint32_t)(umul64(inc, FB_SEMI[th]) >> 12); d[2] = (uint32_t)(umul64(inc, FB_SEMI[fi]) >> 12); d[3] = inc + (inc >> 7);
+    g[0] = (fa == fb ? 32767 : sine_i(mo + (1u << 30))) * FB_LV[fa] >> 7;   /* (MORPH, equal power: cos, sin) */
+    g[1] = fa == fb || !hb ? 0 : sine_i(mo) * FB_LV[fb] >> 7;
+    e->u[FU_AF] = en->u[FU_DF];                         /* A: DEF */
+    e->u[FU_A] = en->u[FU_D];
+    e->u[FU_B] = (uint32_t)dg;
+    e->u[FU_NOTE] = (uint32_t)r;
+    e->u[FU_DF] = (en->arr[FA_BEAT][0] & ((1u << (16u + h)) - 1u)) >> h;   /* D: the chord's age */
+}
+static __attribute__((noinline)) void func_bank_run(track_t *t, voice_t *v, const fvm_prog_t *pa, const fvm_env_t *en, uint32_t n, uint32_t *Y)
+{
+    uint32_t tr = (uint32_t)(t - trk) % NTRK, a, b, i, k, m, d[4], X[6][FVM_BLK], YB[FVM_BLK], fb = func_bank_f(t, 1);
+    uint32_t *ph = fb_ph[tr * NVOICE + (uint32_t)(v - t->v) % NVOICE];
+    int32_t g[2];
+    const fvm_prog_t *pb = wave_id_b[tr] == (0x8000u | fb) && wave_prg_b[tr].n ? &wave_prg_b[tr] : 0, *pr[2] = {pa, pb};
+    const uint32_t *P = en->arr[FA_BEAT];
+    fvm_env_t e;
+    static const uint8_t ARR[6] = {FA_W, FA_XF, FA_IN, FA_X, FA_T, FA_TS};   /* w w3 w5 wd, t T */
+    fb_setup(t, en, &e, d, g, func_bank_f(t, 0), fb, pb != 0);
+    for (k = 0; k < 6u; k++) e.arr[ARR[k]] = X[k];
+    for (a = 0; a < n; a = b) {                         /* a run: one 1/16, FVM_BLK at most */
+        uint32_t st = P[a] >> 14;
+        for (b = a + 1u; b < n && b - a < FVM_BLK && P[b] >> 14 == st; b++) {}
+        m = b - a;
+        for (k = 0; k < 4u; k++) for (i = 0; i < m; i++) { X[k][i] = ph[k] >> 16; ph[k] += d[k]; }
+        for (i = 0; i < m; i++) { X[4][i] = P[a + i] >> 4; X[5][i] = (P[a + i] << 2) & 0xFFFFu; }
+        e.arr[FA_BEAT] = P + a;
+        e.u[FU_STEP] = st; e.u[FU_C] = st & 15u; e.u[FU_D] = st >> 4;
+        for (k = 0; k < 2u; k++) {                      /* A (its state v->s[6]), B (v->s[7]) */
+            uint32_t *o = k ? YB : Y + a;
+            if (g[k]) { e.state = &v->s[6u + k]; lofi_run(pr[k], &e, &lofi_work[MC_CPU() & 1u], m, o); }
+            else memset(o, 0, m * sizeof *o);
+        }
+        for (i = 0; i < m; i++)
+            Y[a + i] = (uint32_t)((((int32_t)Y[a + i] >> 2) * g[0] + ((int32_t)YB[i] >> 2) * g[1]) >> 13);
+#ifdef FUNCBANK_PEAK
+        for (i = 0; i < m; i++) { int32_t y = (int32_t)Y[a + i]; if (y < 0) y = -y; if (y > FUNCBANK_PEAK) FUNCBANK_PEAK = y; }
+#endif
+    }
 }

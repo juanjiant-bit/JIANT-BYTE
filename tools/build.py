@@ -109,7 +109,8 @@ def generate():
             [tools / "gen_ui_shapes.py", GEN / "ui_shapes.h"],
             [tools / "gen_tables.py", GEN / "felucca_tables.h"],
             [tools / "gen_drum_maps.py", FW / "src" / "gen_tables.c", FW / "src" / "song_dice.c", GEN / "gen_drum_maps.h",
-             GEN / "dice_bars.h", GEN / "gen_bass.h"]]   # (0.9.7)
+             GEN / "dice_bars.h", GEN / "gen_bass.h"],   # (0.9.7)
+            [tools / "gen_help_z.py", FW / "src" / "clay.c", GEN / "clay_how.h"]]   # (funcbank, flash) CLAY_HOW packed
     procs = [subprocess.Popen([sys.executable, *map(str, c)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                               text=True) for c in cmds]
     failed = []
