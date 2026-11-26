@@ -121,7 +121,23 @@ static void clay_play(uint32_t tr, track_t *t, form_st_t *st)
 static int func_kb(uint32_t k, track_t *t, int op);   /* (funcplay.c: the selected FUNC part's keys, after DRONE CLAY's) */
 static __attribute__((noinline)) void clay_tick(uint32_t n)
 {
-    uint32_t s16 = div_samples(2), bps = beat_samples(), b, tr, k, playing = song.playing && clk_pos != CLK_START;
+    uint32_t s16, bps = beat_samples(), b, tr, k, playing = song.playing && clk_pos != CLK_START;
+    for (tr = 0; tr < NTRK; tr++) {                     /* (devcpu2) no CLAY on and nothing of one left: the pass below
+                                                         * would only keep its free clock and the loops' place, so that
+                                                         * alone (its lines of the flash not read every block) */
+        const form_st_t *st = &form_st[tr];
+        if (clay[tr][CL_ON] || st->pt || clay_dn[tr] | clay_nn[tr] | st->pn | form_lit[tr] | st->hb.on)
+            break;
+    }
+    if (tr == NTRK) {
+        if (!playing) {
+            clay_free += (n << 16) / (bps | 1u);
+            for (tr = 0; tr < NTRK; tr++)
+                form_st[tr].rp = ~0u;
+        }
+        return;
+    }
+    s16 = div_samples(2);
     if (playing)                                        /* (Q16 beats from PLAY: the bar's start; wraps at 16384 bars) */
         b = ((clk_n & 0x3FFFFu) << 14) + (clk_pos << 14) / (s16 ? s16 : 1u);
     else

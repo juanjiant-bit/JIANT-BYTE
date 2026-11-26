@@ -1170,13 +1170,21 @@ static void lofi_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
         v->s[3] = cw = !v->s[2] || !(d >> 3) ? cw : v->s[3] + (d >> 3);
     }
     tsvf_coef(&flt, cw, rs);                            /* (JIANT 0.5: the FILTER page's CUT; punchfx: WOBBLE's) */
-    if(p[P_E1]==RW_FUNC)lofi_func_render(t,v,destination,n,&mg,inc,&flt);
+    if(p[P_E1]==RW_FUNC){                               /* (devcpu2: lofi_render in RAM, FUNC's and BYTE's renders in the
+                                                         * flash past its direct reach: through a register) */
+        void (*f)(track_t*,voice_t*,int32_t*,uint32_t,const vmod_t*,uint32_t,const tsvf_t*)=lofi_func_render;
+        FM1_OPAQUE(f);f(t,v,destination,n,&mg,inc,&flt);
+    }
     else if (p[P_E1] == RW_FLOAT || (p[P_E1] == RW_USER && math_ty[(uint32_t)(t - trk) % NTRK] == FT_FIX))   /* (JIANT 0.5.1)
                                                          * floatbeat (JIANT BYTE: a USER one in FIX too) */
         lofi_float_render(t, v, destination, n, &mg, inc, &flt);
-    else                                                /* (JIANT 0.4) bytebeat */
-        lofi_byte_render(t, v, destination, n, &mg, inc, 1 + (chip == CHIP_4B2 ? 1 : 0),
-                         chip == CHIP_FULL ? 16 : chip == CHIP_8BIT ? 8 : chip == CHIP_1BIT ? 1 : 4, &flt);
+    else {                                              /* (JIANT 0.4) bytebeat */
+        void (*f)(track_t *, voice_t *, int32_t *, uint32_t, const vmod_t *, uint32_t, int32_t, int32_t, const tsvf_t *) =
+            lofi_byte_render;
+        FM1_OPAQUE(f);
+        f(t, v, destination, n, &mg, inc, 1 + (chip == CHIP_4B2 ? 1 : 0),
+          chip == CHIP_FULL ? 16 : chip == CHIP_8BIT ? 8 : chip == CHIP_1BIT ? 1 : 4, &flt);
+    }
     if(destination!=out){
         uint32_t remaining=math_fade[vi];int32_t held=math_last[vi],last=held;
         for(uint32_t i=0;i<n;i++){

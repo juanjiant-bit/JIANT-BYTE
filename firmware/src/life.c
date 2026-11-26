@@ -64,6 +64,12 @@ static LIFE_SZ void life_formula_block(uint32_t hush)
     fl.rd^=1u;
     fl_blk++;
     punch_exchange_tick();
+    if(!life_v[LIFE_AMT]&&fl_idle&&!(punch_amount[0]|punch_amount[1]|punch_amount[2])){
+        /* (devcpu2) LIFE 0, no punch, cleared already: what the pass below does then, alone */
+        fl.on=0;fl.numbers_amt=fl.fragments_amt=fl.link_amt=0;
+        fl.count=fl.ncount=fl.weight=fl.number_weight=0;fl.numbers=0;fl.strikes=0;
+        return;
+    }
     int punch=0;
     for(unsigned k=0;k<3;k++)if(punch_amount[k]>punch)punch=punch_amount[k];
     if(fl.on&&!life_v[LIFE_AMT]&&!punch)memset(fl.shape,0,sizeof fl.shape);

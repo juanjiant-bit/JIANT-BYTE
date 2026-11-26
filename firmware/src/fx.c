@@ -1951,7 +1951,7 @@ static __attribute__((noinline)) int rev_idle(uint32_t ty, const int32_t *rev_in
 /* the model ty's block into out */
 static void rev_run(uint32_t ty, const int32_t *rev_in, int32_t *out, uint32_t n)
 {
-    if (rev_idle(ty, rev_in, n))
+    if (!room_used && rev_idle(ty, rev_in, n))          /* (devcpu2: its certificate tested here, rev_idle in the flash) */
         return;
     switch (ty) {
     case 1:
@@ -3278,10 +3278,15 @@ static uint32_t mc_tk[NTRK], mc_fx_tk;                  /* (and the buses': fx_r
 static uint32_t mc_pk[NTRK + 1u];                       /* (BYTE, CPU) the peaks: a part's (and [NTRK] the buses') dearest
                                                          * block, falling ~1/1000 a block (ABOUT: what makes PEAK) */
 #define MC_PEAK(k, d) (mc_pk[k] = (d) > mc_pk[k] ? (d) : mc_pk[k] - (mc_pk[k] >> 10))
+#ifndef CPU_LINES_PART
+#define CPU_LINES_PART(i, v) ((void)0)                   /* (tests/cpu_lines_test.c: a part's block marked, the lines model) */
+#endif
 static inline __attribute__((always_inline)) void mix_part_t(track_t *t, uint32_t n)   /* mix_part, timed */
 {
     uint32_t t0 = MC_TICKS(), i = (uint32_t)(t - trk) % NTRK, d;
+    CPU_LINES_PART(i, 1);
     mix_part(t, n);
+    CPU_LINES_PART(i, 2);
     d = MC_TICKS() - t0;
     mc_tk[i] = d > mc_tk[i] ? mc_tk[i] + ((d - mc_tk[i]) >> 1) : mc_tk[i] - ((mc_tk[i] - d) >> 3);   /* (up fast) */
     MC_PEAK(i, d);

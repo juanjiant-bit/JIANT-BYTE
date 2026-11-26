@@ -297,10 +297,13 @@ static void math_poll_ws(gq_work_t *w)
 #if !FELUCCA_DUAL_CORE
 /* (c1fault, the host) no main loop beside the tests' renders: what it does between two blocks (fvm_serve) at a
  * render's start, outside the audio's scope (FVM_AUDIO_SCOPE); the device's main loop runs meanwhile */
+#ifndef CPU_LINES_EX
+#define CPU_LINES_EX(v) ((void)0)                        /* (tests/cpu_lines_test.c: the host's main loop, not counted) */
+#endif
 static void fvm_host_serve(void)
 {
     static gq_work_t w;
-    if (!fvm_in_audio) fvm_serve(&w);
+    if (!fvm_in_audio) { CPU_LINES_EX(1); fvm_serve(&w); CPU_LINES_EX(2); }
 }
 #define FVM_HOST_SERVE() fvm_host_serve()
 #else

@@ -285,4 +285,12 @@ static __attribute__((noinline)) void live_q(uint32_t n)
                 lv.act &= (uint8_t)~bit;
         }
     }
+    if (lv.busy && !lv.act && !pa) {                    /* (devcpu2) every request served, nothing modified nor wanted:
+                                                         * the pass from here a no-op, so not run (live_reset's busy, a GEN
+                                                         * song's, held it on for good: the whole pass every block) */
+        for (i = 0; i < NTRK && lv.rs[i] == lv.rq[i] && !lv.pfo[i] && lv_neutral(&lv.want[i]) &&
+                    !memcmp(&lv.cur[i], &lv.want[i], sizeof lv.cur[i]); i++) {}
+        if (i == NTRK)
+            lv.busy = 0;
+    }
 }

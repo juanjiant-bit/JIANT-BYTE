@@ -196,9 +196,11 @@ def build_loader():
 # line (dly_lo and its helpers), the reverb models and their dispatch, the chorus's admission, the DIST's shapers; the
 # I-cache (32 KiB, shared by both cores and the UI) kept for the engines (Kirill's audit, LOOM-8)
 HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0",
-           "dly_lo", "dly_rate",
-           "rev_run", "rev_idle", "rev_room", "rev_spring", "rev_cloud",   # (as JIANT FM V10.7.56: rev_spring_side and rev_room_mod from flash, fx.c calls them through a register: the room)
-           "cho_admit", "dist_shape",   # (devcpu: SHIMMER and RESO from the flash, as ROOM's MOD / WIDE (LOAD LITE plays
+           "dly_rate",                  # (devcpu2: dly_lo, the delay past its full rate's TIME, in the flash: core 1's)
+           "rev_run", "rev_room", "rev_cloud",   # (devcpu2: rev_idle and SPRING in the flash, core 1's: rev_run tests the
+                                        # reverb's certificate first; their room the parts' filter and MATH's render)   # (as JIANT FM V10.7.56: rev_spring_side and rev_room_mod from flash, fx.c calls them through a register: the room)
+           "cho_admit",                 # (devcpu2: dist_shape back in the flash, DIST AMP's only, its room the
+                                        # leveler's) (devcpu: SHIMMER and RESO from the flash, as ROOM's MOD / WIDE (LOAD LITE plays
                                         # them as ROOM / SPRING), the SLICER's bus (its clock alone while off) and DIST
                                         # AMP's loop too: their room the engines'. CLOUD stays: the GEN songs')
            # (BYTE 0.16, CPU) the master chain, a block a call (master_run; was master_out, a sample a call): one copy,
@@ -208,7 +210,7 @@ HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0",
            # on the FM-1, for every 32 bytes it runs: what the device's time goes by, not the instructions), and the
            # parts' per-block code: the buses' (the chorus's LFO, the delay's wow, glide, tone), the matrix's, a part's
            # sides (drum_side_begin), the macros' master, the sequencer's per-block passes, the voices' count
-           "dly_wow_adv", "cho_lfo", "fx_glide", "dly_rev_set", "clay_off", "shift_step_pass", "pt_walk",
+           "dly_wow_adv", "cho_lfo", "fx_glide", "dly_rev_set", "shift_step_pass", "pt_walk",
            "mod_track_desc", "mod_end", "mod_voice_add", "drift_noise", "macro_master", "drum_side_begin",
            # (devcpu) the engines' small per-block code: MATH / FUNC (lofi_block, lofi_run), DRUM-W (dw_frame,
            # drum_amp), WAVE (wave_prog, wph_init)
@@ -234,7 +236,13 @@ HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0",
            "mod_begin", "mod_tsrc",
            # (devcpu2) a part's small per-block calls (its level and pan's gains, the FILTER's post, FUNC's tick and
            # voice, the cross-mod's env), the SLICER's on, MATH's sync
-           "mp_gains", "track_post", "fn_tick", "fn_voice", "xm_env", "slicer_on", "lofi_sync")
+           "mp_gains", "track_post", "fn_tick", "fn_voice", "xm_env", "slicer_on", "lofi_sync",
+           # (devcpu2) the leveler (every block, the master's), the matrix's KEYS shapes, DRUM-X's fall
+           # (each nearly whole, every block): in the room of dist_shape (DIST AMP's only) and clay_off (CLAY's)
+           "lev_block", "kx_shape", "dx_fall", "math_music_cost",
+           # (devcpu2) a part's FILTER (tf_run), MATH's BYTE / FLOAT voice (lofi_render), the LFO's wave, core 1's parts
+           # into the mix: in the room of the buses' rarer code above (core 1 has the time)
+           "tf_run", "lofi_render", "lfo_wave", "mc_join")
 # (engopt) fx_rest out (432 B: it runs where the buses have nothing to do, its CPU not wanted) and dly_wow_adv (154 B,
 # two sines a block): their room for the GRAIN delay's constants held in fx_buses (fx.c grk_set, gr_one)
 
@@ -850,6 +858,52 @@ SOFT_DOUBLE = ("__adddf3", "__subdf3", "__muldf3", "__divdf3", "__floatsidf", "_
                "__fixunsdfsi", "__extendsfdf2", "__truncdfsf2", "__eqdf2", "__nedf2", "__gtdf2", "__gedf2", "__ltdf2", "__ledf2")
 
 
+# (devcpu2) the device's functions as the lines model needs them (tests/cpu_lines_test.py, a host check): each one's
+# size, section (RAM code or the flash), whether its address is taken (*) or it calls through a register (!), and what it
+# calls directly (call / goto, annotated or not). Written by every build, the same from the same source
+AUDIO_MAP = SRC / "tools" / "audio_map.txt"
+
+
+def audio_map(syms, dis):
+    fa, size, sec = {}, {}, {}
+    for ln in syms.splitlines():
+        p = ln.split()
+        if len(p) >= 5 and " F " in ln and int(p[-2], 16):
+            fa[int(p[0], 16)] = p[-1]
+            size[p[-1]] = int(p[-2], 16)
+            sec[p[-1]] = p[-3].lstrip(".")
+    calls, taken, ind, cur = {}, set(), set(), None
+    for ln in dis.splitlines():
+        m = re.match(r"^([A-Za-z_][\w.]*):$", ln.rstrip())
+        if m:
+            cur = m.group(1)
+            continue
+        if cur is None:
+            continue
+        if re.search(r"\bcall\s+r\d", ln):
+            ind.add(cur)
+        for c in re.finditer(r"\bcall\b\s+-?\d+\s*<([\w.]+)\s*:", ln):
+            calls.setdefault(cur, set()).add(c.group(1).split("+")[0])
+        for c in re.finditer(r"=\s*-?\d+\s*<([\w.]+)\s*:\s*[0-9a-f]+\s*>", ln):
+            if "+" not in c.group(1):
+                taken.add(c.group(1))
+        m = re.match(r"^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2} )+\s+(?:call|goto)\s+(-?\d+)\s*$", ln)
+        if m and fa.get(int(m.group(1), 16) + int(m.group(2)), cur) != cur:
+            calls.setdefault(cur, set()).add(fa[int(m.group(1), 16) + int(m.group(2))])
+    img = (OUT / "felucca.bin").read_bytes() if (OUT / "felucca.bin").exists() else b""
+    for o in range(0, len(img) - 3, 4):             # (a function's address among the image's words: the engines' tables ..)
+        w = int.from_bytes(img[o:o + 4], "little")
+        if w in fa:
+            taken.add(fa[w])
+    out = ["# tools/build.py: the device's functions for tests/cpu_lines_test.py: name size section [*: address taken]"
+           " [!: calls through a register] callees"]
+    for n in sorted(size):
+        fl = ("*" if n in taken else "") + ("!" if n in ind else "")
+        cs = sorted(c for c in calls.get(n, ()) if c in size)
+        out.append(" ".join([n, str(size[n]), sec[n]] + ([fl] if fl else []) + cs))
+    AUDIO_MAP.write_text("\n".join(out) + "\n")
+
+
 def check(img, syms, dis, rt):
     errors, notes = [], []
     mul64 = mul64_near_loads(dis)       # (0.9.9-stab) the CPU fault of felucca-bsp docs/CPU.md: a note, the code may be fine
@@ -1028,6 +1082,7 @@ def main():
         ota = ldr.result()
     img, syms, dis, rt = build_app()
     errors, notes = check(img, syms, dis, rt)
+    audio_map(syms, dis)
     hal_err = mmio_check()
     errors += hal_err
     if not hal_err:

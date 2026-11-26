@@ -195,9 +195,20 @@ static __attribute__((noinline)) void pfx_sound(void)
 /* each block, before the events (fx.c mix_block). held: the effects held (PF_* bits) */
 static __attribute__((noinline)) void pfx_block(uint32_t n, uint32_t held)
 {
-    uint32_t k, b = beat_samples(), nw, sq = psq_block(n);   /* (BYTE) PUNCH SEQ's */
+    uint32_t k, b, nw, sq = psq_block(n);   /* (BYTE) PUNCH SEQ's */
     uint32_t caos = (held | sq) & PF_BIT(PF_RING), lmax = (held | sq) & PF_BIT(PF_LMAX);
     pfx_blk++;
+    if (!(held | sq) && !pfx_any) {                     /* (devcpu2) nothing held, nothing left: what the pass below does
+                                                         * then, alone (its lines of the flash not read every block) */
+        fl_alone = 0;
+        pfx_qon = 0;
+        pt_ops = 0;
+        pt_lpn = 0;
+        pfx_sound();
+        formula_punch = 0;
+        return;
+    }
+    b = beat_samples();
     if (caos) {                                         /* (JIANT BYTE) CAOS MAX: every formula part at CAOS 127 for this
                                                          * block (pfx_end: back) */
         for (k = 0; k < NTRK; k++) {
