@@ -18,7 +18,7 @@ the FM-1 measures them). The FM-1 runs a block in 1451 us.
 import bisect, collections, json, os, re, subprocess, sys, tempfile
 
 K_US, RHO, MHZ, BLOCK = 1.25, 0.77, 360.0, 64 / 44100 * 1e6
-LIMIT = {"101": 0.90}          # (the worst block, either core: the GEN song's; the target is 0.70)
+LIMIT = {"101": 0.85}
 NBLK = int(os.environ.get("CL_NBLK", "16"))
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAMDATA = {"SINE_Q", "ENGINES", "ENG_LIVE", "MOT_24", "LOFI_FDCY", "DIV_DEN", "DLY_REV_SET", "TRACK_FOLLOW", "PF_BK", "ID", "U"}
@@ -79,6 +79,7 @@ def run(exe, lk, scene, prefix, cost):
         elif ln.startswith("cfn="): callee = nmid(ln[4:].strip())
         elif ln.startswith("calls=") and cur and callee: callers[callee].add(cur)
     os.remove(cg)
+    json.dump({k: sorted(v) for k, v in callers.items()}, open(prefix + ".calls.json", "w"))
     return callers
 
 
@@ -122,6 +123,8 @@ class Model:
         memo[h] = []
         d = self.devof(h)
         cs = [g for g in CAL.get(h, ()) if g in X and g != h]
+        if not cs:                                       # (a caller whose lines this block began in another's: any)
+            cs = [g for g in CAL.get(h, ()) if g != h]
         r = []
         if not cs:
             r = [d] if d else []
@@ -168,7 +171,7 @@ def scene(exe, lk, M, out, sc):
     parts = [M.slot(pre + "p", 2 + k, CAL) for k in range(6)]
     fx = M.slot(pre + "p", 8, CAL)
     cost = ",".join(str(int(sum(us(r) for r in p) / max(1, len(p)))) for p in parts) + f",{int(sum(us(r) for r in fx) / max(1, len(fx)))}"
-    return pre, run(exe, lk, sc, pre, cost)
+    return pre, run(exe, lk, sc, pre, cost), cost
 
 
 def main():
@@ -180,7 +183,7 @@ def main():
     bad = 0
     with ThreadPoolExecutor(min(4, len(scenes))) as ex:
         done = list(ex.map(lambda sc: scene(exe, lk, M, out, sc), scenes))
-    for sc, (pre, CAL) in zip(scenes, done):
+    for sc, (pre, CAL, cost) in zip(scenes, done):
         row = []
         worst = 0.0
         for c in (0, 1):
@@ -195,8 +198,15 @@ def main():
         over = lim is not None and worst > lim
         bad += over
         print(f"cpu_lines: {sc} {NAMES.get(sc, ''):34s} " + "   ".join(row) + (f"  OVER {lim * 100:.0f} %" if over else ""))
+        if os.environ.get("CL_VERB"):
+            print(f"cpu_lines:     each part alone, its lines cold (us; the split's measure): {cost.replace(',', ' ')} (the last the buses)")
     print("cpu_lines: " + ("FAILED: a scene's worst block over its limit" if bad else
                            "every scene's worst block under its limit (mean / worst, a core each)"))
+    if not os.environ.get("CL_KEEP"):
+        import shutil
+        shutil.rmtree(out, ignore_errors=True)
+    else:
+        print("cpu_lines: the traces in", out)
     return 1 if bad else 0
 
 

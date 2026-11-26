@@ -210,7 +210,7 @@ HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0",
            # on the FM-1, for every 32 bytes it runs: what the device's time goes by, not the instructions), and the
            # parts' per-block code: the buses' (the chorus's LFO, the delay's wow, glide, tone), the matrix's, a part's
            # sides (drum_side_begin), the macros' master, the sequencer's per-block passes, the voices' count
-           "dly_wow_adv", "cho_lfo", "fx_glide", "dly_rev_set", "shift_step_pass", "pt_walk",
+           "dly_wow_adv", "cho_lfo", "dly_rev_set", "shift_step_pass", "pt_walk", "clay_off",
            "mod_track_desc", "mod_end", "mod_voice_add", "drift_noise", "macro_master", "drum_side_begin",
            # (devcpu) the engines' small per-block code: MATH / FUNC (lofi_block, lofi_run), DRUM-W (dw_frame,
            # drum_amp), WAVE (wave_prog, wph_init)
@@ -229,20 +229,23 @@ HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0",
            # in the room the USB resampler's halved table gave: the parts' count of voices,
            # WAVE's per-block frames and its render, the split, the buses' tone and ROOM MOD (CLOUD's), DRUM-W's
            # bus, MATH's time, the formulas' interpreter
-           "voice_limit_apply", "wave_block", "mc_split", "tone_set", "trackgen_ok",
+           "voice_limit_apply", "wave_block", "mc_split", "tone_set",
            "wave_render", "lofi_time", "wave_phw", "drum_bus", "rev_room_mod",
-           "fvm_exec", "wf_read", "hb_int", "hb_dec", "dly_rd_q", "gr_one", "dly_drive", "dly_band",
+           "fvm_exec", "wf_read", "dly_rd_q", "gr_one", "dly_drive", "dly_band",
            # (devcpu2) the matrix's block, every part's (its sources)
            "mod_begin", "mod_tsrc",
            # (devcpu2) a part's small per-block calls (its level and pan's gains, the FILTER's post, FUNC's tick and
            # voice, the cross-mod's env), the SLICER's on, MATH's sync
            "mp_gains", "track_post", "fn_tick", "fn_voice", "xm_env", "slicer_on", "lofi_sync",
            # (devcpu2) the leveler (every block, the master's), the matrix's KEYS shapes, DRUM-X's fall
-           # (each nearly whole, every block): in the room of dist_shape (DIST AMP's only) and clay_off (CLAY's)
+           # (each nearly whole, every block): in the room of dist_shape (DIST AMP's only), fx_glide (core 1's) and
+           # trackgen_ok
            "lev_block", "kx_shape", "dx_fall", "math_music_cost",
            # (devcpu2) a part's FILTER (tf_run), MATH's BYTE / FLOAT voice (lofi_render), the LFO's wave, core 1's parts
            # into the mix: in the room of the buses' rarer code above (core 1 has the time)
-           "tf_run", "lofi_render", "lfo_wave", "mc_join")
+           "tf_run", "lofi_render", "lfo_wave", "mc_join",
+           # (devcpu2) a kit's lane, FUNC's filter, a square root (the unison's), DRUM-X's 2^x
+           "drum_lane_of", "fn_coef", "isqrt32", "dx_pow2")
 # (engopt) fx_rest out (432 B: it runs where the buses have nothing to do, its CPU not wanted) and dly_wow_adv (154 B,
 # two sines a block): their room for the GRAIN delay's constants held in fx_buses (fx.c grk_set, gr_one)
 
@@ -887,9 +890,11 @@ def audio_map(syms, dis):
         for c in re.finditer(r"=\s*-?\d+\s*<([\w.]+)\s*:\s*[0-9a-f]+\s*>", ln):
             if "+" not in c.group(1):
                 taken.add(c.group(1))
-        m = re.match(r"^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2} )+\s+(?:call|goto)\s+(-?\d+)\s*$", ln)
-        if m and fa.get(int(m.group(1), 16) + int(m.group(2)), cur) != cur:
-            calls.setdefault(cur, set()).add(fa[int(m.group(1), 16) + int(m.group(2))])
+        m = re.match(r"^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)\s+(?:call|goto)\s+(-?\d+)\s*$", ln)
+        if m:                                       # (not annotated: the target, from the instruction's end)
+            to = int(m.group(1), 16) + len(m.group(2).split()) + int(m.group(3))
+            if fa.get(to, cur) != cur:
+                calls.setdefault(cur, set()).add(fa[to])
     img = (OUT / "felucca.bin").read_bytes() if (OUT / "felucca.bin").exists() else b""
     for o in range(0, len(img) - 3, 4):             # (a function's address among the image's words: the engines' tables ..)
         w = int.from_bytes(img[o:o + 4], "little")

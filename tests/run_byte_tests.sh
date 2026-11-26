@@ -28,6 +28,7 @@ mkdir -p "$OUT/fx_demo"                     # (byte-cpu-light) REVERB TYPE: ROOM
 echo "BYTE: reverb ok"
 if command -v valgrind > /dev/null 2>&1; then   # (cpu3) the owner's project: each core's block as the FM-1's time
     python3 tests/cpu3_test.py "$OUT/cpu3"
+    python3 tests/cpu_lines_test.py            # (devcpu2) the lines model: the GEN song's worst block, a core each
 else
     echo "BYTE: cpu3 timing skipped (no valgrind)"
 fi
