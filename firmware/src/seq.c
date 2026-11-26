@@ -921,17 +921,23 @@ static __attribute__((noinline)) uint32_t arp_grid_start(track_t *t, uint32_t n,
     if (ph < n) ev_at(n - ph);
     return 0;
 }
+static __attribute__((noinline)) void arp_step_on(track_t *t, uint32_t n);
 static void arp_step_do(track_t *t, uint32_t n)
 {
-    uint32_t period, cnt, list[64], len = 0, i, j, o;
-    int32_t hf;
-    uint8_t hb[16];
-    int32_t sw;
     if (!t->p[P_AMODE] || !t->nheld || t->p[P_AMODE] == AM_TRNS) {   /* (TRNS: no arpeggio) */
         if ((!t->nheld || t->p[P_AMODE] == AM_TRNS) && t->arp_note)
             arp_off(t);
         return;
     }
+    arp_step_on(t, n);
+}
+/* (devcpu) an ARP playing: out of mix_block's RAM code (it inlines arp_step_do), run while one plays */
+static __attribute__((noinline)) void arp_step_on(track_t *t, uint32_t n)
+{
+    uint32_t period, cnt, list[64], len = 0, i, j, o;
+    int32_t hf;
+    uint8_t hb[16];
+    int32_t sw;
     period = div_samples((uint32_t)t->p[P_ARATE]);
     sw = t->p[P_ASWING] * (int32_t)period / 250;
     t->arp_pos += n;
@@ -1848,14 +1854,19 @@ static __attribute__((noinline)) void kb_lat(uint32_t k)
 }
 #endif
 
+static __attribute__((noinline)) void keyboard_change(uint32_t cur, uint32_t ch);
 static void keyboard_block(void)
 {
-    uint32_t cur = fm1_in.notes & ~vk_hold, ch, k;   /* (V10.6z6: a press waiting for its strike, vel_kb.h: not yet) */
-    uint32_t lay, fx;
+    uint32_t cur = fm1_in.notes & ~vk_hold, ch;   /* (V10.6z6: a press waiting for its strike, vel_kb.h: not yet) */
     keys_strum(CTL);                              /* (0.6.81) the chords' strums */
     ch = cur ^ kb_prev;                           /* keys also sound while entering steps */
-    if (!ch)
-        return;
+    if (ch)
+        keyboard_change(cur, ch);
+}
+/* (devcpu) what a key's press or release does: out of mix_block's RAM code (it inlines keyboard_block), run a key */
+static __attribute__((noinline)) void keyboard_change(uint32_t cur, uint32_t ch)
+{
+    uint32_t k, lay, fx;
     if (kb_boot_hold) {                           /* #137: under the splash; their release is silent too */
         for (k = 0; k < 27u; k++)
             if ((ch & cur) >> k & 1u)
@@ -3470,22 +3481,17 @@ static __attribute__((noinline)) void panic_block(void)   /* (mo_block, before e
         midi_in_overflow = 0;
     }
 }
-static void events_block(uint32_t n)
+/* (devcpu) events_block's rare work out of mix_block's RAM code (it inlines events_block): the clock's source changed,
+ * the transport asked, a part's sound dropped (a load, a panic), the MIDI in, the external clock */
+static __attribute__((noinline)) void ev_clock_mode(uint32_t clock_mode)
 {
-    uint32_t i, pr, fo, kp, seq_n = n;
-    uint32_t clock_mode = (uint32_t)song.g[G_CLOCK];
-    blk_n = n ? n : 1u;                                /* (ctl64: ev_at) */
-    ev_off = 0;
-    voice_soft();                                   /* (codex/voices) the budget's soft measures, a block */
-    if (midi_clock.mode != clock_mode) {
-        seq_stop();
-        memset(&midi_clock, 0, sizeof midi_clock);
-        midi_clock.mode = (uint8_t)clock_mode;
-        midi_beat_samples = 0;
-    }
-    mo_block(n);                                    /* (0.6.72) MIDI OUT: its setting, the clock */
-    if (cin_left && !clock_mode)
-        cin_block(n);
+    seq_stop();
+    memset(&midi_clock, 0, sizeof midi_clock);
+    midi_clock.mode = (uint8_t)clock_mode;
+    midi_beat_samples = 0;
+}
+static __attribute__((noinline)) void ev_transport(uint32_t clock_mode)
+{
     if (transport_req == 1u) {
         if (clock_mode)
             midi_clock_transport(0xFAu, fm1_ms);
@@ -3506,6 +3512,76 @@ static void events_block(uint32_t n)
         }
         transport_req = 0;
     }
+}
+static __attribute__((noinline)) void ev_drop(track_t *t, uint32_t i, uint32_t kp, uint32_t fo)
+{
+    if (i < NPART)
+        dxo_n[i] = 0;                       /* (0.8.5) the held ratchets stop */
+    if (t->arp_note)                        /* (stuck notes) the arp's note ends here: carried onto the new
+                                             * engine below, nothing would ever end it (arp_forget) */
+        arp_silence(t);
+    {   /* (0.6.41) another engine: what is held sounds on in it (kept past the release, which forgets) */
+        uint8_t hn[4], hv[4];
+        uint32_t hc = t->eng_req != t->engine || ((kp>>i)&1u) ? xf_held(t, hn, hv) : 0u, h;
+        if (!hc)                            /* (stuck notes) carried: the MIDI notes keep their owners, their
+                                             * note-offs end them on the new engine (they hung) */
+            midi_forget_track(i);
+        trk_all_off(t);
+        for (h = 0; h < hc; h++) { t->xp_note[h] = hn[h]; t->xp_vel[h] = hv[h]; }
+        t->xp_n = (uint8_t)hc;
+    }
+    if ((fo >> i) & 1u)
+        trk_fade_out(t);                        /* (0.6.13: a sound load: on the old values, ~3 ms; voice.c) */
+    t->nheld = 0;
+    t->arp_phys = 0;
+    arp_forget(t);
+}
+static __attribute__((noinline)) void ev_midi_in(uint32_t clock_mode)
+{
+    while (mi_r != mi_w) {                            /* USB-MIDI (and TRS) in */
+        uint32_t at = mi_r % MQ, pkt = midi_in_q[at], status = (pkt >> 8) & 0xFFu;
+        uint32_t st = status & 0xF0u, ch = status & 0x0Fu;
+        uint32_t d1 = (pkt >> 16) & 0x7Fu, d2 = (pkt >> 24) & 0x7Fu;
+        uint32_t source = midi_in_source[at] ? midi_in_source[at] : 1u, ms = midi_in_ms[at];
+        mi_r++;
+        if (status >= 0xF8u) {
+            if (clock_mode == source) {
+                if (status == 0xF8u)
+                    midi_clock_pulse(ms);
+                else
+                    midi_clock_transport(status, ms);
+            }
+        } else
+            midi_event(st, ch, d1, d2);
+    }
+}
+static __attribute__((noinline)) uint32_t ev_ext_clock(void)
+{
+    uint32_t seq_n = 0;
+    if (song.playing) {
+        uint32_t last = midi_clock.have_pulse ? midi_clock.last_ms : midi_clock.start_ms;
+        if (fm1_ms - last > 500u) {
+            seq_stop();                         /* cable loss must not leave a running held note */
+            midi_clock.tempo_valid = 0;
+        } else
+            seq_n = midi_clock_advance(fm1_ms);
+    }
+    return seq_n;
+}
+static void events_block(uint32_t n)
+{
+    uint32_t i, pr, fo, kp, seq_n = n;
+    uint32_t clock_mode = (uint32_t)song.g[G_CLOCK];
+    blk_n = n ? n : 1u;                                /* (ctl64: ev_at) */
+    ev_off = 0;
+    voice_soft();                                   /* (codex/voices) the budget's soft measures, a block */
+    if (midi_clock.mode != clock_mode)
+        ev_clock_mode(clock_mode);
+    mo_block(n);                                    /* (0.6.72) MIDI OUT: its setting, the clock */
+    if (cin_left && !clock_mode)
+        cin_block(n);
+    if (transport_req)
+        ev_transport(clock_mode);
     if (midi_route != (uint8_t)song.g[G_ROUTE]) {     /* ROUT changed: CH1-6 lets go of channels 7..16 */
         midi_route = (uint8_t)song.g[G_ROUTE];
         if (!midi_route)
@@ -3527,28 +3603,8 @@ static void events_block(uint32_t n)
         }
         if (t->p[P_MUTE] && trk_drone(t))           /* (V10.7.33) DRONE muted: what it holds lets go (RELEASE) */
             drone_let(t, 255u);
-        if ((pr >> i) & 1u) {
-            if (i < NPART)
-                dxo_n[i] = 0;                       /* (0.8.5) the held ratchets stop */
-            if (t->arp_note)                        /* (stuck notes) the arp's note ends here: carried onto the new
-                                                     * engine below, nothing would ever end it (arp_forget) */
-                arp_silence(t);
-            {   /* (0.6.41) another engine: what is held sounds on in it (kept past the release, which forgets) */
-                uint8_t hn[4], hv[4];
-                uint32_t hc = t->eng_req != t->engine || ((kp>>i)&1u) ? xf_held(t, hn, hv) : 0u, h;
-                if (!hc)                            /* (stuck notes) carried: the MIDI notes keep their owners, their
-                                                     * note-offs end them on the new engine (they hung) */
-                    midi_forget_track(i);
-                trk_all_off(t);
-                for (h = 0; h < hc; h++) { t->xp_note[h] = hn[h]; t->xp_vel[h] = hv[h]; }
-                t->xp_n = (uint8_t)hc;
-            }
-            if ((fo >> i) & 1u)
-                trk_fade_out(t);                        /* (0.6.13: a sound load: on the old values, ~3 ms; voice.c) */
-            t->nheld = 0;
-            t->arp_phys = 0;
-            arp_forget(t);
-        }
+        if ((pr >> i) & 1u)
+            ev_drop(t, i, kp, fo);
         engine_block(t);                              /* engine switch: fade, then switch (voice.c) */
         /* ARP turned off, or HOLD released with no key down: drop the latched chord */
         if ((t->armp && !t->p[P_AMODE]) || (t->aholdp && !t->p[P_AHOLD] && !t->arp_phys)) {
@@ -3562,33 +3618,10 @@ static void events_block(uint32_t n)
         t->aholdp = t->p[P_AHOLD];
     }
     keyboard_block();
-    while (mi_r != mi_w) {                            /* USB-MIDI (and TRS) in */
-        uint32_t at = mi_r % MQ, pkt = midi_in_q[at], status = (pkt >> 8) & 0xFFu;
-        uint32_t st = status & 0xF0u, ch = status & 0x0Fu;
-        uint32_t d1 = (pkt >> 16) & 0x7Fu, d2 = (pkt >> 24) & 0x7Fu;
-        uint32_t source = midi_in_source[at] ? midi_in_source[at] : 1u, ms = midi_in_ms[at];
-        mi_r++;
-        if (status >= 0xF8u) {
-            if (clock_mode == source) {
-                if (status == 0xF8u)
-                    midi_clock_pulse(ms);
-                else
-                    midi_clock_transport(status, ms);
-            }
-        } else
-            midi_event(st, ch, d1, d2);
-    }
-    if (clock_mode) {
-        seq_n = 0;
-        if (song.playing) {
-            uint32_t last = midi_clock.have_pulse ? midi_clock.last_ms : midi_clock.start_ms;
-            if (fm1_ms - last > 500u) {
-                seq_stop();                         /* cable loss must not leave a running held note */
-                midi_clock.tempo_valid = 0;
-            } else
-                seq_n = midi_clock_advance(fm1_ms);
-        }
-    }
+    if (mi_r != mi_w)
+        ev_midi_in(clock_mode);
+    if (clock_mode)
+        seq_n = ev_ext_clock();
     func_clock_begin=lofi_sync(&i)*8u;
     chain_tick(seq_n);
     live_q(seq_n);                                  /* (p2) LIVE: what goes in now (seq_live.c; idle: a test) */

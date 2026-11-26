@@ -152,6 +152,9 @@ static uint32_t lofi_motion(int32_t m)
  * step a sample, Q8), *key (LK_FIJO: all of t the song's, qb / qr) */
 enum { LK_LIBRE, LK_ALTURA, LK_FIJO };
 typedef struct { uint32_t mul, sy, sb, sr, inc, key, qb, qr; } lofi_tm_t;
+#ifndef FM1_OPAQUE
+#define FM1_OPAQUE(v) ((void)(v))                    /* (the host: no reach to mind) */
+#endif
 static void lofi_time(const int16_t *p, lofi_tm_t *m)
 {
     int32_t kv = p[P_KEY];
@@ -588,12 +591,15 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
                                                          * MATH's, the FVM's states are v->s[6], v->s[7]) */
     uint32_t chip = (uint32_t)p[P_E0], qs = chip == CHIP_8BIT || chip == CHIP_FULL ? 0u : chip == CHIP_1BIT ? 15u : 12u;   /* (CHIP: the bits; FULL, USER's: none) */
     lofi_work_t *wk = &lofi_work[MC_CPU() & 1u];
+    void (*ltm)(const int16_t *, lofi_tm_t *) = lofi_time;
+    FM1_OPAQUE(ltm);                                    /* (devcpu: this render in the RAM code, lofi_time once a block
+                                                         * in the flash, out of its direct call's reach) */
     const fvm_prog_t *pg = lofi_prog(t, wk, 1, f);
     uint32_t T[LOFI_N], W[LOFI_N], vals[LOFI_N];
     uint32_t caos = (uint32_t)clamp(p[P_CAOS], 0, 127), qr, qb, key, qm = 0;
     int32_t fb0 = fb;
     fvm_env_t en = {{T, W, 0, 0, 0}, {0}, &v->s[6]};
-    lofi_time(p, &tmc);                                 /* (JIANT BYTE) TIME and MOTION */
+    ltm(p, &tmc);                                      /* (JIANT BYTE) TIME and MOTION */
     mul = tmc.mul; sy = tmc.sy; sb = tmc.sb; sr = tmc.sr; tinc = tmc.inc; key = tmc.key; qb = tmc.qb; qr = tmc.qr;
     xm_env(&en, pg);
     en.u[FU_NOTE] = v->note;

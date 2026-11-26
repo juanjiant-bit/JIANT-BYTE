@@ -341,7 +341,10 @@ static inline __attribute__((always_inline)) void track_dist_b(track_t *t, int32
         int32_t hp = t->dist_hp, l1 = t->dist_lp1, l2 = t->dist_lp2, g0 = g, k0 = k, nz = 0, na = 0;
         int32_t cl = 0, cb = 0;
         uint32_t r = 0;
+        int32_t (*shp)(track_t *, uint32_t, int32_t, int32_t, int32_t) = dist_shape;
         if (nz1) {
+            FM1_OPAQUE(shp);                            /* (devcpu: dist_noise in the flash, dist_shape in the RAM code
+                                                         * out of a direct call's reach) */
             nz = dist_nlp[ti]; na = (dnz_v[ti] * 325) >> 8; r = dist_rnd | 1u;
             cl = t->dist_cab_l; cb = t->dist_cab_b;
         }
@@ -355,7 +358,7 @@ static inline __attribute__((always_inline)) void track_dist_b(track_t *t, int32
                 k = clamp(k0 + ((nz * na) >> 8), 2500, 32767);
             }
             y = type == DT_SOFT && !nz1 ? softclip((((x >> 2) * g) >> 10) + 2400) - b0   /* (dist_noise: SOFT as */
-                                        : dist_shape(t, type, x, g, d);   /* dist_shape's default has it, the same) */
+                                        : shp(t, type, x, g, d);   /* dist_shape's default has it, the same) */
             l1 += mulq15(y - l1, k);                    /* two poles: tames the fizz */
             l2 += mulq15(l1 - l2, k);
             if (nz1 && type == DT_AMP) {                /* (dist_amp's cabinet) */
@@ -3229,7 +3232,10 @@ static void mix_part_m(track_t *t, uint32_t n);         /* (below) */
 #if FELUCCA_HOTRAM
 static void fx_run0(uint32_t n);                         /* (below) */
 #define fx_run fx_run0                                   /* (the tests' name for it) */
+static void mix_part_m0(track_t *t, uint32_t n);         /* (below; devcpu: core 1's parts too) */
+#define mix_part_c1 mix_part_m0
 #else
+#define mix_part_c1 mix_part_m
 static void fx_run(uint32_t n);                          /* (below) */
 #endif
 static __attribute__((noinline)) void mc_job(uint32_t a)  /* core 1: the buses (MC_FX), the parts of mask a & 0x3F, a >> 8
@@ -3245,7 +3251,8 @@ static __attribute__((noinline)) void mc_job(uint32_t a)  /* core 1: the buses (
     for (i = 0; i < NPART; i++)
         if ((a >> i) & 1u) {
             mc_cur = (int8_t)i;
-            mix_part_m(&trk[i], n);
+            mix_part_c1(&trk[i], n);                    /* (devcpu) the RAM copy, as the buses': one copy for both cores,
+                                                         * out of the I-cache (was a second, inlined in mc_job, in the flash) */
         }
     mc_cur = -1;
 }

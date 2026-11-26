@@ -218,6 +218,7 @@ static void chain_stop(void)                          /* (seq_stop) */
     scene_pfx = 0;                                    /* (a scene's punch-in effects end with the song) */
     chain.ended = chain.kept;                         /* (a quick chain keeps nothing: what plays stays) */
 }
+static __attribute__((noinline)) void chain_bar_end(uint32_t bar);
 static void chain_tick(uint32_t n)
 {
     uint32_t bar;
@@ -225,8 +226,12 @@ static void chain_tick(uint32_t n)
         return;
     bar = chain_bar();
     chain.bar_pos += n;
-    if (!bar || chain.bar_pos < bar)
-        return;
+    if (bar && chain.bar_pos >= bar)
+        chain_bar_end(bar);
+}
+/* (devcpu) a bar's end: out of mix_block's RAM code (it inlines chain_tick), run once a bar */
+static __attribute__((noinline)) void chain_bar_end(uint32_t bar)
+{
     chain.bar_pos -= bar;                             /* (a bar is longer than a block) */
     chain.carry = chain.bar_pos;
     srec_bar();

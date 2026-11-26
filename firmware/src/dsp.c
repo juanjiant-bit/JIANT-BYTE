@@ -18,11 +18,14 @@ static inline int32_t mulq16(int32_t a, uint32_t k)
 }
 static inline int32_t clamp(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : v > hi ? hi : v; }
 
-/* sine, linearly interpolated between the 1024 table points (plain lookup: THD -55 dB) */
+/* sine, linearly interpolated between the 1024 table points (plain lookup: THD -55 dB); (devcpu) the points from their
+ * first quarter (SINE_Q, in RAM: gen_tables.py), mirrored: the same values as the whole table's, bit for bit */
 static inline int32_t sine_i(uint32_t ph)
 {
-    uint32_t i = ph >> 22;
-    int32_t a = SINE[i], b = SINE[(i + 1u) & 1023u];
+    uint32_t i = ph >> 22, k = i & 255u, m = i & 256u ? 256u - k : k;
+    int32_t a = SINE_Q[m], b = SINE_Q[i & 256u ? m - 1u : m + 1u], s = -(int32_t)((i >> 9) & 1u);
+    a = (a ^ s) - s;
+    b = (b ^ s) - s;
     return a + (((b - a) * (int32_t)((ph >> 7) & 0x7FFFu)) >> 15);
 }
 #define osc_sine sine_i                                  /* (funcbank, flash: one copy, not a second) */

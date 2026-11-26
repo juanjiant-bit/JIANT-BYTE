@@ -195,13 +195,31 @@ def build_loader():
 # (0.9.9-beta4) and the buses' per-block code both cores run (fx.c fx_buses, from fx_run0 on either core): the delay's
 # line (dly_lo and its helpers), the reverb models and their dispatch, the chorus's admission, the DIST's shapers; the
 # I-cache (32 KiB, shared by both cores and the UI) kept for the engines (Kirill's audit, LOOM-8)
-HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0", "perf_begin", "perf_pre", "perf_block", "perf_master", "slicer_bus",
-           "dly_lo", "dly_grain", "dly_grain_adv", "dly_rate",
-           "rev_run", "rev_idle", "rev_room", "rev_spring", "rev_cloud", "rev_shimmer",   # (as JIANT FM V10.7.56: rev_spring_side and rev_room_mod from flash, fx.c calls them through a register: the room)
-           "rev_reso", "cho_admit", "dist_shape", "dist_amp",
+HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0",
+           "dly_lo", "dly_rate",
+           "rev_run", "rev_idle", "rev_room", "rev_spring", "rev_cloud",   # (as JIANT FM V10.7.56: rev_spring_side and rev_room_mod from flash, fx.c calls them through a register: the room)
+           "cho_admit", "dist_shape",   # (devcpu: SHIMMER and RESO from the flash, as ROOM's MOD / WIDE (LOAD LITE plays
+                                        # them as ROOM / SPRING), the SLICER's bus (its clock alone while off) and DIST
+                                        # AMP's loop too: their room the engines'. CLOUD stays: the GEN songs')
            # (BYTE 0.16, CPU) the master chain, a block a call (master_run; was master_out, a sample a call): one copy,
            # called from mix_block and perf_master (inlined in both, RAMTEXT overflowed by 672 B)
-           "master_run")
+           "master_run",
+           # (devcpu) the small helpers the audio runs every block, each nearly whole (a cache line of the flash, ~1 us
+           # on the FM-1, for every 32 bytes it runs: what the device's time goes by, not the instructions), and the
+           # parts' per-block code: the buses' (the chorus's LFO, the delay's wow, glide, tone), the matrix's, a part's
+           # sides (drum_side_begin), the macros' master, the sequencer's per-block passes, the voices' count
+           "dly_wow_adv", "cho_lfo", "fx_glide", "dly_rev_set", "clay_off", "shift_step_pass", "pt_walk",
+           "mod_track_desc", "mod_end", "mod_voice_add", "drift_noise", "macro_master", "drum_side_begin",
+           # (devcpu) the engines' small per-block code: MATH / FUNC (lofi_block, lofi_run), DRUM-W (dw_frame,
+           # drum_amp), WAVE (wave_prog, wph_init)
+           "lofi_block", "lofi_run", "dw_frame", "wave_prog", "wph_init", "nav_sec",
+           # (devcpu) a voice's block, every engine's (its envelopes, glide, pitch, the matrix's call, the render's)
+           "voice_block",
+           # (devcpu) MATH's FLOAT render (the GEN songs' MATH: ~1.6 KB of it every block it sounds; lofi_mut its
+           # VAR's, BYTE's too)
+           "lofi_float_render", "lofi_mut",
+           # (devcpu) an idle MATH part's every block: its formula looked up (lofi_block, compiled before the note)
+           "lofi_prog")
 # (engopt) fx_rest out (432 B: it runs where the buses have nothing to do, its CPU not wanted) and dly_wow_adv (154 B,
 # two sines a block): their room for the GRAIN delay's constants held in fx_buses (fx.c grk_set, gr_one)
 
