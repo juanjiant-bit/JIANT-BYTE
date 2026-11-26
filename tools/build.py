@@ -649,6 +649,7 @@ def build_app():
                 keep[at:at] = clocks
             compile_hot([])
             if not keep:
+                LAYOUT_LD.write_text("*(.text*)\n")   # (cpu3) a clean build/: the first probe link in the compiler's order
                 keep = order_after(map_inputs(link(probe=True)[0]))
             LAYOUT_LD.write_text("".join(f"*(.text.{n})\n" for n in keep) + "*(.text*)\n")
             # This preliminary link has not packed UI tables into the audio
