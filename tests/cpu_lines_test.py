@@ -19,7 +19,8 @@ the FM-1 measures them). The FM-1 runs a block in 1451 us.
 import bisect, collections, json, os, re, subprocess, sys, tempfile
 
 K_US, RHO, MHZ, BLOCK = 1.25, 0.77, 360.0, 64 / 44100 * 1e6
-LIMIT = {"101": 0.90}           # (a guard on this round's gain: 6892b2b6 read 119 %; the owner's 70 % not yet reached)
+LIMIT = {"101": 0.65}           # (devcpu3: a guard on the RAM code's gain, 101 reads 57 % (e35fb8ee: 85, 6892b2b6: 119);
+                                # the owner's 70 % a core reached)
 NBLK = int(os.environ.get("CL_NBLK", "16"))
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAMDATA = {"SINE_Q", "ENGINES", "ENG_LIVE", "MOT_24", "LOFI_FDCY", "DIV_DEN", "DLY_REV_SET", "TRACK_FOLLOW", "PF_BK", "ID", "U"}
