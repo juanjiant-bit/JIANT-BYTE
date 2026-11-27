@@ -1,9 +1,9 @@
 [
  {
-  "version": "BYTE v1.0-4050a72",
-  "file": "felucca-BYTE-v1.0-4050a72.fwsc",
+  "version": "BYTE v1.0-d0e9a63",
+  "file": "JIANT-B1T3-v1.0-d0e9a63.fwsc",
   "sha256": "b33e00b41ce3889b365d3f69998d387e05dc28db27fa26f6032100e0eba5a058",
-  "commit": "4050a728950ba74b5ed2fbd0becc8d9f6174b4bb"
+  "commit": "d0e9a6377eccb18819f5b23d7e0520f98a1ee851"
  },
  {
   "version": "BYTE v0.16-ab740af",
