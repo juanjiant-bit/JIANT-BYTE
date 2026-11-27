@@ -254,7 +254,7 @@ dly_line_clear 50 text
 dly_lo 1578 text dly_band dly_drive dly_grain dly_grain_adv dly_rd_q hb_dec hb_int
 dly_rate 502 hot_text dly_line_clear
 dly_rd_q 118 hot_text
-dly_rev_set 104 hot_text *
+dly_rev_set 104 hot_text
 dly_wow_adv 218 hot_text
 draw_act_column 86 text act_col act_ready
 draw_column 3730 text card_h card_line card_y cv_begin cv_blit cv_keycap cv_pset cv_rect cv_rrect cv_text_fit cv_text_in cv_text_on djf_cut face_has gauge_bar gauge_col heat_col heat_on ink_w kc_w knob_col large_kind ly_drawn lz_on roll_note roll_text str_cpy str_eq str_hash str_len text_w tsel_p ux_mix
@@ -1007,9 +1007,9 @@ lock_held 196 text cur_page grid_on key_black key_place live_rec_sel name_on tse
 lock_id 84 text lock_page_ok motion_param trk_engp tsel_p
 lock_page_ok 74 text motion_param
 lofi_block 56 hot_text * lofi_prog
-lofi_byte_render 1714 text * lofi_mut lofi_prog lofi_run lofi_time memset pt_time_x xm_env
-lofi_desc 142 hot_text * lofi_names
-lofi_float_render 1860 hot_text ! lofi_mut lofi_prog lofi_run memset pt_time_x xm_env
+lofi_byte_render 1876 text * lofi_mut lofi_prog lofi_run lofi_time memset pt_time_x xm_env
+lofi_desc 188 hot_text * lofi_names
+lofi_float_render 1930 hot_text ! lofi_mut lofi_prog lofi_run memset pt_time_x xm_env
 lofi_func_render 1696 hot_text * fn_color_blk fn_knob fn_rate fn_track func_arun func_run func_scl lofi_sync memset pt_beat_blk xm_env
 lofi_mut 126 hot_text
 lofi_names 82 text
@@ -1019,7 +1019,7 @@ lofi_render 840 hot_text *! func_act lofi_float_render memcpy
 lofi_run 120 hot_text !
 lofi_slot 42 hot_text
 lofi_sync 78 hot_text
-lofi_time 230 hot_text * lofi_sync
+lofi_time 334 hot_text * lofi_sync
 lowest_held 78 text
 lst_chip 208 text cv_clip_text cv_rect cv_rrect str_cpy str_len
 lv_neutral 44 text
@@ -1293,7 +1293,7 @@ panel_setup 568 text cv_begin cv_blit cv_text draw_text_box fm1_delay_ms fm1_enc
 panic_block 286 text memset midi_out_event_at midi_silence_track mo_flush_of mo_koff pfx_hush
 param_desc_of 70 text func_pdesc
 param_fit 56 text
-param_format 808 text desc_unit fmt_fix fmt_int name_of str_cpy
+param_format 840 text desc_unit fmt_fix fmt_int name_of str_cpy
 param_kept 52 text
 param_store_def 18 text param_desc_of
 param_turn 372 text enum_order enum_rank enum_skip name_of
@@ -1682,7 +1682,7 @@ track_defaults 26 text
 track_defaults_steps 108 text chain_busy motion_reset step_clear
 track_desc 380 text ! eng_idx func_pdesc
 track_filter 536 hot_text tf_run
-track_follow_peak 314 text *
+track_follow_peak 314 text
 track_post 220 hot_text fn_drive fn_pm fn_tick part_gain track_filter
 track_select 88 text page_flash
 track_step 48 text
