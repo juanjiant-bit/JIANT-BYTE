@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>JIANT BYTE</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="JIANT BYTE: a free, open bytebeat, floatbeat and funcbeat firmware for the M-VAVE FM-1, where every sound is a formula of time. Try it in the browser emulator, install it from the browser. Beta v0.14.">
+<meta name="description" content="JIANT BYTE: a free, open bytebeat, floatbeat and funcbeat firmware for the M-VAVE FM-1, where every sound is a formula of time. Try it in the browser emulator, install it from the browser. Version 1.0.">
 <meta property="og:title" content="JIANT BYTE">
-<meta property="og:description" content="Bytebeat, floatbeat and funcbeat firmware for the M-VAVE FM-1: four engines of formulas (FORM, DRUM-W, WAVE, MATH), built on JIANT FM. Beta, for testing.">
+<meta property="og:description" content="Bytebeat, floatbeat and funcbeat firmware for the M-VAVE FM-1: five engines of formulas (DRUM-W, WAVE, MATH, FUNC, HIVE), built on JIANT FM. Version 1.0.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=VT323&family=Chakra+Petch:wght@500;600&family=Inter+Tight:wght@400;500;600&display=swap">
 <style>
 /* Layout: a fixed field of the firmware's own creatures behind everything (canvas). First a cover that is mostly that
    field, the name at its foot; then the FM-1 drawn with its controls where they are and HOME live on its screen; then
-   the panels (HUD corners) read top to bottom: three steps, the four engines, the map, manual, coming next, support, FAQ.
+   the panels (HUD corners) read top to bottom: three steps, the five engines, the map, manual, coming next, support, FAQ.
    Text never sits on the moving field directly: a dimming veil rises behind the content as the page scrolls */
 :root{
   color-scheme:dark;
@@ -120,7 +120,7 @@ h2{font:400 clamp(24px,3.4vw,36px)/1.2 var(--display);letter-spacing:.01em;margi
 .step .btn{margin-top:auto;align-self:flex-start}
 .need{margin:14px 0 0;font:12px/1.5 var(--mono);color:var(--dim);background:rgba(5,4,9,.82);display:inline-block;padding:8px 12px}
 
-/* what's inside: the four engines as creatures, then six organs */
+/* what's inside: the five engines as creatures, then nine organs */
 .species{--bc:var(--violet);padding:20px 20px 14px;margin-bottom:14px}
 .species .k{font:500 10px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--violet);margin:0 0 6px}
 #zoo{display:block;width:100%;max-width:100%;height:auto;aspect-ratio:4/1.35}
@@ -253,7 +253,7 @@ h1 .fm{filter:none}
 <div class="wrap">
   <header class="top brk">
     <span><b>JIANT</b> / BYTE · M-VAVE FM-1</span>
-    <span class="live" data-i18n="live">beta · free · open source · GPL-3.0</span>
+    <span class="live" data-i18n="live">v1.0 · free · open source · GPL-3.0</span>
     <div class="lang" role="group" aria-label="Language">
       <button type="button" id="lang-en" data-lang="en" aria-pressed="true">EN</button>
       <button type="button" id="lang-es" data-lang="es" aria-pressed="false" lang="es">ES</button>
@@ -277,8 +277,8 @@ h1 .fm{filter:none}
         <a class="btn" href="https://juanjiant-bit.github.io/JIANT-BYTE/emu/" data-i18n="cta_emu">Try it in the browser</a>
         <a class="btn" href="https://juanjiant-bit.github.io/JIANT-BYTE/webapp/editor/" data-i18n="cta_editor">Open the editor</a>
       </div>
-      <p class="ver"><span data-i18n="ver">Current version:</span> <b id="ver">v0.16</b> · <span data-i18n="ver_st">beta, for testing</span></p>
-      <p class="warn" data-i18n="warn">Beta: try it in the browser first. On a real FM-1, back up with JIANT FM's editor before you install: JIANT BYTE keeps its projects apart from JIANT FM's.</p>
+      <p class="ver"><span data-i18n="ver">Current version:</span> <b id="ver">v1.0</b> · <span data-i18n="ver_st">the first release, 2026-11-27</span></p>
+      <p class="warn" data-i18n="warn">Try it in the browser first. On a real FM-1, back up with JIANT FM's editor before you install: JIANT BYTE keeps its projects apart from JIANT FM's.</p>
     </div>
     <figure class="device brk" style="margin:0">
       <canvas id="fm1" role="img" aria-label="Drawing of the M-VAVE FM-1: MASTER, SELECT, PRESETS and ALGORITHM knobs with OCT- and OCT+ on the left, a small square screen showing HOME with one creature per track, KNOB1 to KNOB4 over a grid of twelve buttons (FX, SEL, ENV, LFO, EDIT, GLO, HOME, SAVE, ARP, SEQ, PLAY/STOP, REC), and two rows of touch keys that light orange as a demo arpeggio plays"></canvas>
@@ -319,7 +319,7 @@ h1 .fm{filter:none}
         <span class="no">01</span>
         <h3 data-i18n="st1_h">Try it in the browser</h3>
         <p data-i18n="st1_p">The emulator runs the same code as the FM-1, with sound, on your computer or phone. Play it with the keyboard, the mouse or a touch screen: press Switch on.</p>
-        <ul><li data-i18n="st1_a">No FM-1 needed</li><li data-i18n="st1_b">Hear the four engines and the generator's songs</li></ul>
+        <ul><li data-i18n="st1_a">No FM-1 needed</li><li data-i18n="st1_b">Hear the five engines and the generator's songs</li></ul>
         <a class="btn" href="https://juanjiant-bit.github.io/JIANT-BYTE/emu/" data-i18n="st1_go">Open the emulator</a>
       </div>
       <div class="step brk">
@@ -332,8 +332,8 @@ h1 .fm{filter:none}
       <div class="step brk">
         <span class="no">03</span>
         <h3 data-i18n="st3_h">Edit and back up</h3>
-        <p data-i18n="st3_p">The web editor backs up and edits the FM-1's projects and sounds from the computer. It is still JIANT FM's editor: it is being adapted and does not know BYTE's engines yet.</p>
-        <ul><li data-i18n="st3_a">Back up every project with one click</li><li data-i18n="st3_b">BYTE's own engine pages: being adapted</li></ul>
+        <p data-i18n="st3_p">The web editor backs up and edits the FM-1's projects and sounds from the computer, BYTE's engines included. It also runs inside JIANT Studio, next to the FM-1's screen.</p>
+        <ul><li data-i18n="st3_a">Back up every project with one click</li><li data-i18n="st3_b">The pages of BYTE's five engines</li></ul>
         <a class="btn" href="https://juanjiant-bit.github.io/JIANT-BYTE/webapp/editor/" data-i18n="st3_go">Open the editor</a>
       </div>
     </div>
@@ -343,20 +343,22 @@ h1 .fm{filter:none}
   <section>
     <div class="head plate">
       <p class="eyebrow" data-i18n="i_eb">What's inside</p>
-      <h2 data-i18n="i_h2">Four engines, all formulas</h2>
+      <h2 data-i18n="i_h2">Five engines, all formulas</h2>
       <p class="intro" data-i18n="i_in">JIANT BYTE keeps JIANT FM's foundation (six tracks, the 64-step sequencer, songs, the effects, MIDI and USB) and replaces the sound with formulas, compiled on the instrument and run on both of the FM-1's cores. On HOME each formula becomes a being: a bytebeat a mirrored sprite, a floatbeat a phase portrait with wave tentacles.</p>
     </div>
     <div class="species brk">
-      <p class="k" data-i18n="zoo_k">The four engines, swelling with their sound</p>
-      <canvas id="zoo" role="img" aria-label="The four engines as creatures: FORM, DRUM-W, WAVE and MATH"></canvas>
+      <p class="k" data-i18n="zoo_k">The five engines, swelling with their sound</p>
+      <canvas id="zoo" role="img" aria-label="The five engines as creatures: FUNC, DRUM-W, WAVE, MATH and HIVE"></canvas>
     </div>
     <div class="organs">
-      <div class="org brk"><div class="hd"><span class="circ">1</span><span data-i18n="a_o">a part that plays itself</span></div><h3>FORM</h3><p data-i18n="a_p">A funcbeat part that plays itself: melody, bass and chords from formulas. 36 states, two at a time (A and B), and a MORPH by timbre between them, one formula bending the other. Chords by the scale's degrees, equations moving its DEFORM, RATE down to 4 bars a step, and DRUMS (808, 909, FLOAT, BIT) fused into the formula.</p></div>
+      <div class="org brk"><div class="hd"><span class="circ">1</span><span data-i18n="a_o">a part that plays itself</span></div><h3>FUNC</h3><p data-i18n="a_p">Small programs that play a whole part: 21 recipes (SONG, ACID, PSY, DSTEP, AMEN, AMBIENT, BANK …) with named knobs, or your own code. Played live from the keys: sections, fills and mutations that act while held, the keys' map on the screen; MOTION moves its stereo and timbre from the formula itself.</p></div>
       <div class="org brk"><div class="hd"><span class="circ">2</span><span data-i18n="b_o">the kit</span></div><h3>DRUM-W</h3><p data-i18n="b_p">Eight pads on wavetables of formulas: tables A and B, a STRUCT joining them (MIX, FM, RING, SYNC, FOLD), an envelope and an LFO moving the position. The kit's ATTACK, GAIN and MORPH, live.</p></div>
-      <div class="org brk"><div class="hd"><span class="circ">3</span><span data-i18n="c_o">wavetable</span></div><h3>WAVE</h3><p data-i18n="c_p">A parametric wavetable of formulas: two formulas A and B, POS sweeps between them, WARP bends the phase (sync, mirror, quantise, FM), three detuned voices and a sub.</p></div>
-      <div class="org brk"><div class="hd"><span class="circ">4</span><span data-i18n="d_o">formulas as voices</span></div><h3>MATH</h3><p data-i18n="d_p">BYTE: 48 bytebeats. FLOAT: 48 floatbeats. USER: your own text, or one the generator invents (SEED invents it, MUTA moves it). FUNC: the formula is the arrangement. CAOS takes any formula from as written to broken; TIME decides who owns the time.</p></div>
+      <div class="org brk"><div class="hd"><span class="circ">3</span><span data-i18n="c_o">wavetable</span></div><h3>WAVE</h3><p data-i18n="c_p">A wavetable of formulas: two formulas A and B, POS sweeps the frames they draw, WARP bends the phase or the spectrum (SMEAR, SKEW, SHEPARD), up to seven unison voices, WSEQ a sequence of frames, and a sub.</p></div>
+      <div class="org brk"><div class="hd"><span class="circ">4</span><span data-i18n="d_o">formulas as voices</span></div><h3>MATH</h3><p data-i18n="d_p">BYTE: 48 bytebeats. FLOAT: 48 floatbeats. USER: your own text, or one the generator invents (SEED invents it, MUTA moves it). CAOS takes any formula from as written to broken; TIME decides who owns the time, and with SYNC, LOOP cuts it in bars and beats.</p></div>
+      <div class="org brk"><div class="hd"><span class="circ">5</span><span data-i18n="h_o">strings that feed back</span></div><h3>HIVE</h3><p data-i18n="h_p">Four strings with feedback in two pairs: a drone that lives. FEEDBK keeps them sounding by themselves, CROSS makes them beat and howl, an echo blooms over them; a TOUCH plucks, bows or rains on them.</p></div>
+      <div class="org brk"><div class="hd"><span class="circ">H</span><span data-i18n="g_o">SCL › HARMONY</span></div><h3 data-i18n="g_h">The harmony</h3><p data-i18n="g_p">One chord progression every melodic track follows (the steps, the ARP, melodic EUCLID, FUNC, the drone), jazz ones among them, with EXTENS adding sevenths, ninths and beyond. The sequencer keeps exact time on one grid; RESYNC brings every track to bar one.</p></div>
       <div class="org brk"><div class="hd"><span class="circ">L</span><span data-i18n="e_o">HOME › LIFE</span></div><h3>LIFE</h3><p data-i18n="e_p">The formulas talk to each other: the tracks exchange numbers, waveform fragments and character with the other voices that sound, in both directions. The saved formulas stay intact; at 0, nothing changes.</p></div>
-      <div class="org brk"><div class="hd"><span class="circ">G</span><span data-i18n="f_o">HOME › GEN</span></div><h3 data-i18n="f_h">The generator</h3><p data-i18n="f_p">Writes a whole song idea from a genre (43, or EXPLORE, every rule broken), a seed and an energy: MATH and WAVE sounds chosen by musical role, DRUM-W for the drums. The same seed and settings give the same song.</p></div>
+      <div class="org brk"><div class="hd"><span class="circ">G</span><span data-i18n="f_o">HOME › GEN</span></div><h3 data-i18n="f_h">The generator</h3><p data-i18n="f_p">Writes a whole song idea from a genre (27, JAZZ among them, or EXPLORE, every rule broken), a seed and an energy, with a MOOD from CALM to DANCE; RADIO plays piece after piece. The same seed and settings give the same song.</p></div>
     </div>
   </section>
 
@@ -396,9 +398,9 @@ h1 .fm{filter:none}
     </div>
     <div class="docs">
       <a class="doc brk" href="https://github.com/juanjiant-bit/JIANT-BYTE/blob/byte-cpu-light/docs/MANUAL-BYTE.es.md" target="_blank" rel="noopener"><span class="t">ES</span><h3 data-i18n="m1_h">Manual (Spanish)</h3><p data-i18n="m1_p">Every page, layer and engine of JIANT BYTE. English coming.</p><span class="go">MANUAL-BYTE.es.md ↗</span></a>
-      <a class="doc brk" href="https://github.com/juanjiant-bit/JIANT-BYTE/blob/byte-cpu-light/docs/byte-v014.md" target="_blank" rel="noopener"><span class="t">v0.14</span><h3 data-i18n="m2_h">What changed in v0.14</h3><p data-i18n="m2_p">Light CPU and FORM 2, in Spanish.</p><span class="go">byte-v014.md ↗</span></a>
+      <a class="doc brk" href="https://github.com/juanjiant-bit/JIANT-BYTE#release-notes" target="_blank" rel="noopener"><span class="t">v1.0</span><h3 data-i18n="m2_h">What's new in v1.0</h3><p data-i18n="m2_p">The release notes: FUNC, HIVE, HARMONY, RADIO and the rest.</p><span class="go">README ↗</span></a>
       <a class="doc brk" href="https://juanjiant-bit.github.io/JIANT-BYTE/docs/cheatsheet-controls.pdf" target="_blank" rel="noopener"><span class="t">PDF</span><h3 data-i18n="m3_h">Controls cheat sheet</h3><p data-i18n="m3_p">Buttons, layers and combinations on one page.</p><span class="go">cheatsheet-controls.pdf ↗</span></a>
-      <a class="doc brk" href="https://juanjiant-bit.github.io/JIANT-BYTE/docs/cheatsheet-sound.pdf" target="_blank" rel="noopener"><span class="t">PDF</span><h3 data-i18n="m4_h">Sound cheat sheet</h3><p data-i18n="m4_p">The four engines, effects and modulation on one page.</p><span class="go">cheatsheet-sound.pdf ↗</span></a>
+      <a class="doc brk" href="https://juanjiant-bit.github.io/JIANT-BYTE/docs/cheatsheet-sound.pdf" target="_blank" rel="noopener"><span class="t">PDF</span><h3 data-i18n="m4_h">Sound cheat sheet</h3><p data-i18n="m4_p">Engines, effects and modulation on one page (from v0.14).</p><span class="go">cheatsheet-sound.pdf ↗</span></a>
     </div>
   </section>
 
@@ -412,17 +414,17 @@ h1 .fm{filter:none}
       <div class="term brk">
         <div class="hdr">----- JIANT BYTE ----- ROADMAP</div>
         <table>
-          <tr><td data-i18n="r1">FORM BEATS: kits by style, a 4th percussion lane, hat articulation, states by genre</td><td class="wip" data-i18n="r_next">NEXT</td></tr>
-          <tr><td data-i18n="r2">FORM in the generator: one shared harmony, FORM as a role, FORM → STEPS</td><td data-i18n="r_plan">PLANNED</td></tr>
-          <tr><td data-i18n="r3">The web editor for BYTE's engines</td><td data-i18n="r_wip">ADAPTING</td></tr>
+          <tr><td data-i18n="r1">The visual generator: the song's visual on the FM-1 and in JIANT Studio</td><td class="wip" data-i18n="r_next">NEXT</td></tr>
+          <tr><td data-i18n="r2">The cheat sheets and the navigation map for v1.0</td><td data-i18n="r_plan">PLANNED</td></tr>
+          <tr><td data-i18n="r3">More of BYTE in JIANT Studio's pages</td><td data-i18n="r_wip">IN PROGRESS</td></tr>
           <tr><td data-i18n="r4">The manual in English</td><td data-i18n="r_plan2">PLANNED</td></tr>
         </table>
         <p style="margin:14px 0 0">&gt; <span data-i18n="r_more">more ideas from the testers</span> <span class="cur"></span></p>
       </div>
       <div class="early brk">
-        <span class="k" data-i18n="e_k">Beta</span>
+        <span class="k" data-i18n="e_k">v1.0</span>
         <h3 data-i18n="e_h3">Test it and tell what you hear</h3>
-        <p data-i18n="e_p1">JIANT BYTE is in beta. What breaks, what crackles, what is missing on your FM-1: open an issue on GitHub and it goes into the next version.</p>
+        <p data-i18n="e_p1">JIANT BYTE 1.0 is out. What breaks, what crackles, what is missing on your FM-1: open an issue on GitHub and it goes into the next version.</p>
         <a class="btn hot" href="https://github.com/juanjiant-bit/JIANT-BYTE/issues" target="_blank" rel="noopener"><span class="sq"></span><span data-i18n="e_go">Report on GitHub</span></a>
       </div>
     </div>
@@ -457,7 +459,7 @@ h1 .fm{filter:none}
     </div>
     <div class="faq">
       <details class="brk"><summary data-i18n="q1">Is it JIANT FM?</summary><p data-i18n="a1">No: it is a different firmware, built on JIANT FM. Same panel, sequencer, songs and effects; the sound is formulas instead of JIANT FM's engines. Installing BYTE replaces the firmware on the FM-1; the installer can always take it back to the official V15.</p></details>
-      <details class="brk"><summary data-i18n="q2">Will I lose my sounds or projects?</summary><p data-i18n="a2">BYTE keeps its projects apart from JIANT FM's, but it is a beta: back up every project with JIANT FM's editor before you install. A project saved by a newer version may not open right in an older one.</p></details>
+      <details class="brk"><summary data-i18n="q2">Will I lose my sounds or projects?</summary><p data-i18n="a2">BYTE keeps its projects apart from JIANT FM's, but back up every project with JIANT FM's editor before you install. A project saved by a newer version may not open right in an older one.</p></details>
       <details class="brk"><summary data-i18n="q3">Can I go back to the official firmware?</summary><p data-i18n="a3">Yes. The installer has a button to return to the official V15 firmware (you choose the official FM-1.fwsc from M-VAVE). It saves a complete backup first.</p></details>
       <details class="brk"><summary data-i18n="q4">Which browser do I need?</summary><p data-i18n="a4">Chrome or Edge on a computer, for the installer and the editor: they talk to the FM-1 over USB. The emulator also works in other browsers and on phones.</p></details>
       <details class="brk"><summary data-i18n="q5">The installer doesn't find my FM-1.</summary><p data-i18n="a5">Use a USB cable that carries data (many cables only charge), connect it straight to the computer without a hub, and close other programs that use the FM-1 over MIDI.</p></details>
@@ -480,9 +482,10 @@ const TAU=Math.PI*2,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const H=[[0,208,255],[90,60,255],[181,48,230],[247,40,49],[255,121,0],[255,212,0],[255,255,255]];
 function heat(v,a){v=clamp(v,0,256);const k=Math.min(5,Math.floor(v*6/257)),m=(v*6-k*256)/256,p=H[k],q=H[k+1];const c=p.map((x,j)=>Math.round(x+(q[j]-x)*m));return a!==undefined&&a<1?`rgba(${c},${a})`:`rgb(${c})`;}
 const G={lar:[14,8,7,6,26,1,9],rad:[6,18,16,3,22,0,6],amo:[3,5,14,2,26,3,2],dia:[4,6,10,4,18,0,1],cil:[10,30,8,5,20,1,10],spo:[5,9,12,3,19,2,4],pol:[8,12,12,6,17,0,8],hyd:[3,7,15,3,21,4,5],drm:[12,0,10,3,18,0,6]};
-/* JIANT BYTE's four engines, each given one of the creature shapes (the subtitle, English and Spanish: what the engine is) */
-const SP=[['FORM',['plays itself','se toca sola'],G.hyd,{spikes:6,len:160,wob:90,lob:3,nuc:2,sep:120}],['DRUM-W',['8 pads · wavetables','8 pads · wavetables'],G.drm,{spikes:12,len:120,wob:60,lob:3,nuc:1}],
-  ['WAVE',['wavetable','wavetable'],G.pol,{spikes:14,len:110,wob:80,lob:6,nuc:3,sep:90}],['MATH',['formulas as voices','fórmulas como voces'],G.rad,{spikes:24,len:98,wob:66,lob:3,nuc:2,ripple:160}]];
+/* JIANT BYTE's five engines, each given one of the creature shapes (the subtitle, English and Spanish: what the engine is) */
+const SP=[['FUNC',['plays itself','se toca sola'],G.hyd,{spikes:6,len:160,wob:90,lob:3,nuc:2,sep:120}],['DRUM-W',['8 pads · wavetables','8 pads · wavetables'],G.drm,{spikes:12,len:120,wob:60,lob:3,nuc:1}],
+  ['WAVE',['wavetable','wavetable'],G.pol,{spikes:14,len:110,wob:80,lob:6,nuc:3,sep:90}],['MATH',['formulas as voices','fórmulas como voces'],G.rad,{spikes:24,len:98,wob:66,lob:3,nuc:2,ripple:160}],
+  ['HIVE',['strings that feed back','cuerdas realimentadas'],G.hyd,{spikes:8,len:140,wob:110,lob:4,nuc:4,sep:100}]];
 const gen=a=>({ax:a[4],tw:a[5],sh:a[6]});
 function iso(g,f,cx,cy,r,outer,t,nv){const pts=[];for(let i=0;i<=nv;i++){const th=(i%nv)/nv*TAU;const w=0.28*Math.sin(f.lob*th+t)+0.12*Math.sin((f.lob+2)*th-2*t);let rr=r+(r*f.wob/256)*w;
   if(outer){const c2=Math.sin(f.spikes*th/2+g.tw*3000/65536*TAU+Math.PI/2);rr+=(r*f.len/256)*(c2>0?Math.pow(c2,g.sh):0)*26/16;rr+=(r*(f.ripple||0)/256)*Math.sin(th*18+3*t)/14;}
@@ -532,7 +535,7 @@ const energy=(k,t)=>reduce?.35:Math.exp(-(((t/BEAT)*DIV[k%9]/4)%1)*5);
   const KN=[['MASTER',67,80],['SELECT',157,80],['PRESETS',67,168],['ALGORITHM',157,168],
     ['KNOB1',473,80],['KNOB2',568,80],['KNOB3',663,80],['KNOB4',758,80]];
   const BT=[['FX','SEL','ENV','LFO','EDIT','GLO'],['HOME','SAVE','ARP','SEQ','PLAY','REC']],BX=[485,538,590,643,696,749],BY=[172,224];
-  const HOME=[0,1,2,3,3,2];   /* the six tracks' engines: FORM, DRUM-W, WAVE, MATH, MATH, WAVE */
+  const HOME=[0,1,2,3,3,2];   /* the six tracks' engines: FUNC, DRUM-W, WAVE, MATH, MATH, WAVE */
   /* the 27 keys by semitone from F3: 16 below (white), 11 above at the black keys' places */
   const UP=['OP1','OP2','OP3','OP4','OP5','OP6','PIT','GLO','MONO','POLY',''],KEYS=[];
   for(let n=0,w=0,b=0;n<27;n++){if([1,3,6,8,10].includes((n+5)%12))KEYS.push({n,up:1,x:64+(w-.5)*47.6,lab:UP[b++]});else KEYS.push({n,up:0,x:64+(w++)*47.6});}
@@ -602,10 +605,10 @@ const energy=(k,t)=>reduce?.35:Math.exp(-(((t/BEAT)*DIV[k%9]/4)%1)*5);
   });
 })();
 
-/* the four engines in a row (two by two on narrow screens), each named */
+/* the five engines in a row (three and two on narrow screens), each named */
 (function(){
   const c=document.getElementById('zoo');let f=fit(c);addEventListener('resize',()=>{f=fit(c);});
-  loop(function(ms){const t=ms/1000,w=f.w,h=f.h,x=f.x,narrow=w<600,cols=narrow?2:4,rows=narrow?2:1,cw=w/cols,ch=h/rows;
+  loop(function(ms){const t=ms/1000,w=f.w,h=f.h,x=f.x,narrow=w<600,cols=narrow?3:5,rows=narrow?2:1,cw=w/cols,ch=h/rows;
     x.clearRect(0,0,w,h);
     SP.forEach((sp,k)=>{const col=k%cols,row=Math.floor(k/cols),cx=cw*(col+.5),cy=ch*row+ch*.42,r=Math.min(cw,ch)*.13;
       creature(x,sp,cx,cy,r,energy(k,t),t*.8+k,1);
@@ -620,27 +623,27 @@ const energy=(k,t)=>reduce?.35:Math.exp(-(((t/BEAT)*DIV[k%9]/4)%1)*5);
 /* languages: EN (the page's own text) and ES (Rioplatense); the browser's language at first, then the choice (when storage allows) */
 (function(){
   const ES={doc_title:'JIANT BYTE · fórmulas para el M-VAVE FM-1',
-    live:'beta · gratis · código abierto · GPL-3.0',kicker:'firmware de bytebeat, floatbeat y funcbeat para el M-VAVE FM-1',tag:'cada sonido es una fórmula del tiempo',down:'entrar a la fórmula',
+    live:'v1.0 · gratis · código abierto · GPL-3.0',kicker:'firmware de bytebeat, floatbeat y funcbeat para el M-VAVE FM-1',tag:'cada sonido es una fórmula del tiempo',down:'entrar a la fórmula',
     lede:'Un firmware gratis que convierte al FM-1 en un sintetizador de fórmulas: cada sonido, cada golpe, cada ser, cada punch-in y cada animación es una fórmula del tiempo. Una fórmula lee el tiempo t y devuelve una muestra: bytebeat en números enteros y bits, floatbeat en senos, fases y filtros. Cuatro motores, de lo más tonal y tocable a lo más salvaje, sobre las seis pistas, el secuenciador, las canciones y los efectos de JIANT FM, el firmware sobre el que está hecho.',
-    cta_studio:'Abrir JIANT Studio',cta_install:'Instalar en tu FM-1',cta_emu:'Probarlo en el navegador',cta_editor:'Abrir el editor',ver:'Versión actual:',ver_st:'beta, para probar',
-    warn:'Beta: probalo primero en el navegador. En un FM-1 real, hacé backup con el editor de JIANT FM antes de instalar: JIANT BYTE guarda sus proyectos aparte de los de JIANT FM.',
+    cta_studio:'Abrir JIANT Studio',cta_install:'Instalar en tu FM-1',cta_emu:'Probarlo en el navegador',cta_editor:'Abrir el editor',ver:'Versión actual:',ver_st:'la primera versión, 27-11-2026',
+    warn:'Probalo primero en el navegador. En un FM-1 real, hacé backup con el editor de JIANT FM antes de instalar: JIANT BYTE guarda sus proyectos aparte de los de JIANT FM.',
     dev_cap:'HOME: las seis pistas, cada una un ser de su fórmula',
     sd_eb:'JIANT Studio',sd_h2:'Todo en una sola página',sd_in:'Instalar, editar, ver la pantalla del FM-1 en grande, tocar el emulador, grabar stems y MIDI, guardar tus proyectos y backups, aprender cómo funciona cada motor y cada fórmula y rescatar un FM-1 brickeado: para JIANT BYTE y JIANT FM, en el navegador, en la compu o el celular.',
     sd_t1:'Instalar',sd_d1:'el firmware, seguro, con un backup primero',sd_t2:'Editor',sd_d2:'cada sonido y ajuste en pantalla',sd_t3:'Pantalla',sd_d3:'la pantalla del FM-1, completa en tu celular',sd_t4:'Emulador',sd_d4:'el firmware real de BYTE, para tocar, con MIDI',
     sd_t5:'Grabar',sd_d5:'master o stems, WAV y MIDI, como en un DAW',sd_t6:'Proyectos',sd_d6:'ranuras A–D y backups a mano',sd_t7:'Cómo funciona',sd_d7:'cada motor, fórmula, secuenciador y efecto, animado',sd_t8:'Rescate',sd_d8:'un RP2040 revive un FM-1 brickeado',sd_go:'Abrir JIANT Studio',
     s_eb:'Empezá acá',s_h2:'Tres pasos, sin programar',s_in:'Todo funciona en el navegador. No hace falta instalar ningún programa, y podés probar JIANT BYTE antes de tocar tu FM-1.',
-    st1_h:'Probalo en el navegador',st1_p:'El emulador corre el mismo código que el FM-1, con sonido, en tu compu o tu celular. Tocalo con el teclado, el mouse o la pantalla táctil: apretá Switch on.',st1_a:'No necesitás un FM-1',st1_b:'Escuchá los cuatro motores y las canciones del generador',st1_go:'Abrir el emulador',
+    st1_h:'Probalo en el navegador',st1_p:'El emulador corre el mismo código que el FM-1, con sonido, en tu compu o tu celular. Tocalo con el teclado, el mouse o la pantalla táctil: apretá Switch on.',st1_a:'No necesitás un FM-1',st1_b:'Escuchá los cinco motores y las canciones del generador',st1_go:'Abrir el emulador',
     st2_h:'Backup, después instalar',st2_p:'Primero hacé backup de tus proyectos con el editor de JIANT FM. Después abrí el instalador en Chrome o Edge, conectá el FM-1 con un cable USB de datos, apretá Instalar y esperá sin desenchufar.',st2_a:'BYTE guarda sus proyectos aparte de los de JIANT FM',st2_b:'El instalador te puede volver al firmware oficial V15',st2_go:'Abrir el instalador',
-    st3_h:'Editá y hacé backup',st3_p:'El editor web hace backup y edita los proyectos y sonidos del FM-1 desde la compu. Todavía es el editor de JIANT FM: se está adaptando y todavía no conoce los motores de BYTE.',st3_a:'Backup de todos tus proyectos con un clic',st3_b:'Las páginas de los motores de BYTE: en adaptación',st3_go:'Abrir el editor',
+    st3_h:'Editá y hacé backup',st3_p:'El editor web hace backup y edita los proyectos y sonidos del FM-1 desde la compu, con los motores de BYTE. También corre dentro de JIANT Studio, al lado de la pantalla del FM-1.',st3_a:'Backup de todos tus proyectos con un clic',st3_b:'Las páginas de los cinco motores de BYTE',st3_go:'Abrir el editor',
     need:'Necesitás: Chrome o Edge en una computadora (WebUSB y Web MIDI) · un cable USB que pase datos, no solo carga.',
-    i_eb:'Qué tiene adentro',i_h2:'Cuatro motores, todo fórmulas',i_in:'JIANT BYTE se queda con la base de JIANT FM (seis pistas, el secuenciador de 64 pasos, las canciones, los efectos, MIDI y USB) y reemplaza el sonido por fórmulas, compiladas en el instrumento y corridas en los dos núcleos del FM-1. En HOME cada fórmula se vuelve un ser: un bytebeat, un sprite espejado; un floatbeat, un retrato de fase con tentáculos de onda.',
-    zoo_k:'Los cuatro motores, hinchándose con su sonido',
-    a_o:'una parte que se toca sola',a_p:'Una parte funcbeat que se toca sola: melodía, bajo y acordes hechos de fórmulas. 36 estados, de a dos (A y B), y un MORPH por timbre entre ellos, una fórmula doblando a la otra. Acordes por grados de la escala, ecuaciones que mueven su DEFORM, RATE hasta 4 compases por paso, y DRUMS (808, 909, FLOAT, BIT) fundida en la fórmula.',
+    i_eb:'Qué tiene adentro',i_h2:'Cinco motores, todo fórmulas',i_in:'JIANT BYTE se queda con la base de JIANT FM (seis pistas, el secuenciador de 64 pasos, las canciones, los efectos, MIDI y USB) y reemplaza el sonido por fórmulas, compiladas en el instrumento y corridas en los dos núcleos del FM-1. En HOME cada fórmula se vuelve un ser: un bytebeat, un sprite espejado; un floatbeat, un retrato de fase con tentáculos de onda.',
+    zoo_k:'Los cinco motores, hinchándose con su sonido',
+    a_o:'una parte que se toca sola',a_p:'Programas chicos que tocan una parte entera: 21 recetas (SONG, ACID, PSY, DSTEP, AMEN, AMBIENT, BANK…) con perillas con nombre, o tu propio código. Se toca en vivo desde las teclas: secciones, fills y mutaciones que actúan mientras las mantenés, el mapa de teclas en pantalla; MOTION mueve su estéreo y su timbre desde la propia fórmula.',
     b_o:'la batería',b_p:'Ocho pads sobre wavetables de fórmulas: tablas A y B, un STRUCT que las une (MIX, FM, RING, SYNC, FOLD), una envolvente y un LFO que mueven la posición. ATTACK, GAIN y MORPH del kit, en vivo.',
-    c_o:'wavetable',c_p:'Un wavetable paramétrico de fórmulas: dos fórmulas A y B, POS barre entre ellas, WARP dobla la fase (sync, espejo, cuantizado, FM), tres voces desafinadas y un sub.',
-    d_o:'fórmulas como voces',d_p:'BYTE: 48 bytebeats. FLOAT: 48 floatbeats. USER: tu propio texto, o uno que inventa el generador (SEED lo inventa, MUTA lo mueve). FUNC: la fórmula es el arreglo. CAOS lleva cualquier fórmula de como está escrita a rota; TIME decide de quién es el tiempo.',
+    c_o:'wavetable',c_p:'Un wavetable de fórmulas: dos fórmulas A y B, POS recorre los cuadros que dibujan, WARP dobla la fase o el espectro (SMEAR, SKEW, SHEPARD), hasta siete voces de unísono, WSEQ una secuencia de cuadros, y un sub.',
+    d_o:'fórmulas como voces',d_p:'BYTE: 48 bytebeats. FLOAT: 48 floatbeats. USER: tu propio texto, o uno que inventa el generador (SEED lo inventa, MUTA lo mueve). CAOS lleva cualquier fórmula de como está escrita a rota; TIME decide de quién es el tiempo, y con SYNC, LOOP lo corta en compases y tiempos.',
     e_o:'HOME › LIFE',e_p:'Las fórmulas se hablan entre ellas: las pistas intercambian números, fragmentos de onda y carácter con las otras voces que suenan, en los dos sentidos. Las fórmulas guardadas quedan intactas; en 0 no cambia nada.',
-    f_o:'HOME › GEN',f_h:'El generador',f_p:'Escribe una idea de canción entera desde un género (43, o EXPLORE, rompiendo todas las reglas), una semilla y una energía: sonidos de MATH y WAVE elegidos por rol musical, DRUM-W para la batería. La misma semilla y los mismos ajustes dan la misma canción.',
+    f_o:'HOME › GEN',f_h:'El generador',f_p:'Escribe una idea de canción entera desde un género (27, JAZZ entre ellos, o EXPLORE, rompiendo todas las reglas), una semilla y una energía, con un MOOD de CALM a DANCE; RADIO toca una pieza detrás de otra. La misma semilla y los mismos ajustes dan la misma canción.',h_o:'cuerdas que se realimentan',h_p:'Cuatro cuerdas con realimentación, en dos pares: un drone que vive. FEEDBK las hace sonar solas, CROSS las hace batir y aullar, un eco florece encima; un TOUCH las pulsa, las frota o les llueve.',g_o:'SCL › HARMONY',g_h:'La armonía',g_p:'Una progresión de acordes que siguen todas las pistas melódicas (los pasos, el ARP, EUCLID melódico, FUNC, el drone), con progresiones de jazz, y EXTENS que suma séptimas, novenas y más. El secuenciador lleva el tiempo exacto en una sola grilla; RESYNC trae todas las pistas al compás uno.',
     nv_eb:'Orientarse',nv_h2:'Seis reglas, un mapa',nv_in:'Todas las secciones se manejan igual: aprendés seis reglas una vez y conocés todo el sinte. El mapa muestra los grupos y las páginas de cada botón en el orden en que los recorre SELECT.',nv_cap:'El mapa de navegación · hacé clic para verlo grande (SVG, con zoom)',
     nv1_h:'SELECT recorre las páginas',nv1_p:'Una cadena por sección, una página por paso; frena en la primera y en la última.',
     nv2_o:'botón',nv2_h:'El botón: entrar o saltar',nv2_p:'Desde otra sección, la página donde la dejaste. Adentro, la primera página del grupo siguiente, en ronda.',
@@ -650,16 +653,16 @@ const energy=(k,t)=>reduce?.35:Math.exp(-(((t/BEAT)*DIV[k%9]/4)%1)*5);
     nv6_o:'pantalla',nv6_h:'La pantalla dice dónde',nv6_p:'Arriba las pestañas son los grupos de la sección, un punto por página; abajo, SECCIÓN · GRUPO · página y n/N.',
     nat_k:'Una página sobre fórmulas',nat_h:'Bytebeat, floatbeat, funcbeat',nat_p:'Qué es cada uno, por qué suena como suena y dónde vive en JIANT BYTE: editá las fórmulas y tocalas en el navegador.',nat_go:'Tocar las fórmulas →',f_nat:'Fórmulas',
     m_eb:'Aprender',m_h2:'Manual y cheat sheets',m_in:'El manual explica cada página y cada perilla de BYTE; por ahora está en castellano, el de inglés está en camino. Las cheat sheets resumen los controles y las páginas de sonido en una hoja cada una, para tener al lado del FM-1.',
-    m1_h:'Manual (castellano)',m1_p:'Cada página, capa y motor de JIANT BYTE. En inglés, pronto.',m2_h:'Qué cambió en la v0.14',m2_p:'CPU liviana y FORM 2.',m3_h:'Cheat sheet de controles',m3_p:'Botones, capas y combinaciones en una página.',m4_h:'Cheat sheet de sonido',m4_p:'Los cuatro motores, efectos y modulación en una página.',
+    m1_h:'Manual (castellano)',m1_p:'Cada página, capa y motor de JIANT BYTE. En inglés, pronto.',m2_h:'Qué hay de nuevo en la v1.0',m2_p:'Las notas de la versión: FUNC, HIVE, HARMONY, RADIO y lo demás.',m3_h:'Cheat sheet de controles',m3_p:'Botones, capas y combinaciones en una página.',m4_h:'Cheat sheet de sonido',m4_p:'Motores, efectos y modulación en una página (de la v0.14).',
     n_eb:'Lo que viene',n_h2:'Los próximos pasos de BYTE',n_in:'Lo que se está construyendo ahora. Las fechas dependen de las pruebas en FM-1 reales.',
-    r1:'FORM BEATS: kits por estilo, una 4ª línea de percusión, articulación de hats, estados por género',r2:'FORM en el generador: una armonía compartida, FORM como rol, FORM → STEPS',r3:'El editor web para los motores de BYTE',r4:'El manual en inglés',
-    r_next:'LO PRÓXIMO',r_plan:'PLANEADO',r_wip:'EN ADAPTACIÓN',r_plan2:'PLANEADO',r_more:'más ideas de quienes lo prueban',
-    e_k:'Beta',e_h3:'Probalo y contá qué escuchás',e_p1:'JIANT BYTE está en beta. Lo que se rompe, lo que cruje, lo que falta en tu FM-1: abrí un issue en GitHub y entra en la próxima versión.',e_go:'Reportar en GitHub',
+    r1:'El generador visual: el visual de la canción en el FM-1 y en JIANT Studio',r2:'Las cheat sheets y el mapa de navegación de la v1.0',r3:'Más de BYTE en las páginas de JIANT Studio',r4:'El manual en inglés',
+    r_next:'LO PRÓXIMO',r_plan:'PLANEADO',r_wip:'EN CURSO',r_plan2:'PLANEADO',r_more:'más ideas de quienes lo prueban',
+    e_k:'v1.0',e_h3:'Probalo y contá qué escuchás',e_p1:'Salió JIANT BYTE 1.0. Lo que se rompe, lo que cruje, lo que falta en tu FM-1: abrí un issue en GitHub y entra en la próxima versión.',e_go:'Reportar en GitHub',
     sup_eb:'Apoyar',sup_h2:'JIANT BYTE es gratis. Si hace música con vos, invitame un café.',sup_in:'JIANT lo hace Juan Jiant, muralista y artista visual de Buenos Aires. Cada aporte paga horas de desarrollo y mantiene el firmware gratis para todos.',
     k_z:'global · usd',k_p:'Desde cualquier país, con tarjeta o PayPal. Único o mensual, con acceso anticipado a las versiones nuevas.',c_z:'argentina · ars',cf_p:'Desde Argentina, en pesos, con Mercado Pago o tarjeta.',
     q_h2:'Antes de instalar',
     q1:'¿Es JIANT FM?',a1:'No: es otro firmware, hecho sobre JIANT FM. El mismo panel, secuenciador, canciones y efectos; el sonido son fórmulas en lugar de los motores de JIANT FM. Instalar BYTE reemplaza el firmware del FM-1; el instalador siempre lo puede volver al oficial V15.',
-    q2:'¿Pierdo mis sonidos o proyectos?',a2:'BYTE guarda sus proyectos aparte de los de JIANT FM, pero es una beta: hacé backup de todos tus proyectos con el editor de JIANT FM antes de instalar. Un proyecto guardado por una versión más nueva puede no abrir bien en una más vieja.',
+    q2:'¿Pierdo mis sonidos o proyectos?',a2:'BYTE guarda sus proyectos aparte de los de JIANT FM, pero igual hacé backup de todos tus proyectos con el editor de JIANT FM antes de instalar. Un proyecto guardado por una versión más nueva puede no abrir bien en una más vieja.',
     q3:'¿Puedo volver al firmware oficial?',a3:'Sí. El instalador tiene un botón para volver al firmware oficial V15 (elegís el FM-1.fwsc oficial de M-VAVE). Antes guarda un backup completo.',
     q4:'¿Qué navegador necesito?',a4:'Chrome o Edge en una computadora, para el instalador y el editor: hablan con el FM-1 por USB. El emulador funciona también en otros navegadores y en celulares.',
     q5:'El instalador no encuentra mi FM-1.',a5:'Usá un cable USB que pase datos (muchos solo cargan), conectalo directo a la compu sin hub, y cerrá otros programas que usen el FM-1 por MIDI.',
