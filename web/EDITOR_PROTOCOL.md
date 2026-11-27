@@ -170,7 +170,7 @@ regenerated from `params.c` and compared.
 | 1.2 | V10.6z7 | `VEL` ops 4 and 5: the keys' velocity, calibration and pressure (below); MENU ids 27..30 (VELOCITY, VEL MIN, AFTERTOUCH, VEL LEARN); `INFO` tag `43 02 01 02` |
 | 1.3 | V10.7.22 | `INFO` tag `58 01 s`: the Bluetooth segment (below); `INFO` tag `43 02 01 03` |
 | 1.4 | JIANT BYTE v0.16 | `WATCH` bit 5 and the push `UI` (43): what the screen shows, for JIANT Studio's live guide (below; JIANT FM: the same number, bit and bytes); `INFO` tag `43 02 01 04` |
-| 1.5 | JIANT BYTE v0.16 (visgen) | `WATCH` bit 7 (a second byte, its bit 0) and the pushes `VIS_SONG` (98) and `VIS_TICK` (99): HOME > VIS's song and the music for JIANT Studio's visuals (below, `docs/VISGEN.md`); MENU id 33 SAVER, 34 PANEL; `INFO` tag `43 02 01 05` |
+| 1.5 | JIANT BYTE v0.16 (visgen) | `WATCH` bit 7 (a second byte, its bit 0) and the pushes `VIS_SONG` (98) and `VIS_TICK` (99): HOME > VIS's song and the music for JIANT Studio's visuals (below, `docs/VISGEN.md`); MENU id 33 SAVER, 34 PANEL; `INFO` tag `43 02 01 05`. JIANT BYTE v1.0 is built without the visual generator (`FELUCCA_VIS` 0): it reports 1.5, answers `WATCH`'s second byte 0 (VIS not taken), sends no `VIS_SONG` / `VIS_TICK` and offers no SAVER (PANEL is index 33) |
 
 ## 1.0: performance pushes (40-42)
 
