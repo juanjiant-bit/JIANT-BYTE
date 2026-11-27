@@ -20,8 +20,10 @@ MEMORY
     XIP    (rx)  : ORIGIN = 0x02000120, LENGTH = 0x8EA90   /* = tools/fm1pkg_make.py APP_SLOT (0.9.13: the region ends at 0x92FFE) */
     LOWBUF (rw)  : ORIGIN = 0x01C00000, LENGTH = 0x8000
     RAM    (rwx) : ORIGIN = 0x01C08000, LENGTH = 96K
-    POOL   (rw)  : ORIGIN = 0x01C20000, LENGTH = 0x4BDC0
-    RAMTEXT (rwx): ORIGIN = 0x01C6BDC0, LENGTH = 0xA240   /* (devcpu2: 7.5 KiB lower, the USB resampler's table halved: the
+    POOL   (rw)  : ORIGIN = 0x01C20000, LENGTH = 0x433C0
+    RAMTEXT (rwx): ORIGIN = 0x01C633C0, LENGTH = 0x12C40  /* (devcpu3: 34.5 KiB lower, the UI's canvas halved, gfx.c
+                                                           * CV_MAX: more of the sound from the flash, tools/build.py
+                                                           * HOT_LO) (devcpu2: 7.5 KiB lower, the USB resampler's table halved: the
                                                            * sound's per-block code from the flash) (BYTE 0.17: 1216 B up, then 256 B for FORM's keys, the sequencer out of the RAM code, the pool its FORM B programs) (0.6.97, 0.7.0: up 4 KiB each, the image grew: a call from here must
                                                            * reach its end; the user stack 4 KiB shorter each time, 15.75 KiB;
                                                            * 0.9.9-stab, as 0.9.12: 1 KiB lower, from the pool: the 320 MHz switch;
@@ -31,7 +33,7 @@ MEMORY
     NOINIT (rw)  : ORIGIN = 0x01C7C000, LENGTH = 0x3D50
     BTSEG  (rx)  : ORIGIN = 0x020E6000, LENGTH = 0x12000  /* (V10.12) flash 0xEA000..0xFBFFF (hal/fm1_flash.h FL_EXT_*): the
                                                            * Bluetooth segment, read in place through the plain XIP window */
-    PACKED (r)   : ORIGIN = 0x02200000, LENGTH = 0x10000  /* (V10.6z5) the load images of .ram_text, .c1_text, .hot_text,
+    PACKED (r)   : ORIGIN = 0x02200000, LENGTH = 0x20000  /* (V10.6z5) the load images of .ram_text, .c1_text, .hot_text,
                                                            * .data as linked, never in flash: tools/build.py packs them
                                                            * (LZ4) into the image after .text (_etext), main.c fm1_cstart
                                                            * unpacks them (src/boot_lz4.h). Past the probe link's larger XIP */
@@ -64,6 +66,7 @@ SECTIONS
      * same RAM code window (_rt_start .. _hot_end) */
     .hot_text : {
         _hot_start = .;
+        KEEP(*(.hot_text.lo.*))   /* (devcpu3, tools/build.py HOT_LO: the lowest, what was before stays where it was) */
         KEEP(*(.hot_text*))   /* (tools/build.py HOT_FNS: their sections renamed in the optimised IR) */
         . = ALIGN(4);
         _hot_end = .;

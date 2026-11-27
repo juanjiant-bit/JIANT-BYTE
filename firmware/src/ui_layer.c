@@ -1509,18 +1509,19 @@ static __attribute__((noinline)) void draw_layer(void)
                                      str_hash(11u, ly_card[2].v) * 5u + str_hash(13u, ly_card[3].v) * 7u : 0u);
     if (ui.force || sig != ui.layer_sig) {
         ui.layer_sig = sig;
-        cv_begin(240, graph_h(), T_BG);
-        cv_rrect(4, 0, 232, (int32_t)graph_h(), 6, T_SURF, T_BG);
-        cv_bg = T_SURF;
-        if (ui.lylv % 3u == 1u)                         /* KNOBS: the four as gauges */
-            layer_knobs(l);
-        else if (ui.lylv % 3u == 2u)                    /* STATE: what is on */
-            layer_state(l);
-        else if (l == LAYER_REC || l == LAYER_SAVE)     /* (V10.7.36) MAP: the keys that act, large */
-            ly_tiles(l);
-        else                                            /* MAP: the keyboard */
-            ly_piano(l);
-        cv_blit(0, graph_y());
+        CV_BANDS(240, graph_h(), T_BG) {                /* (devcpu3: in bands) */
+            cv_rrect(4, 0, 232, (int32_t)graph_h(), 6, T_SURF, T_BG);
+            cv_bg = T_SURF;
+            if (ui.lylv % 3u == 1u)                     /* KNOBS: the four as gauges */
+                layer_knobs(l);
+            else if (ui.lylv % 3u == 2u)                /* STATE: what is on */
+                layer_state(l);
+            else if (l == LAYER_REC || l == LAYER_SAVE) /* (V10.7.36) MAP: the keys that act, large */
+                ly_tiles(l);
+            else                                        /* MAP: the keyboard */
+                ly_piano(l);
+            cv_blit(0, graph_y());
+        }
     }
     draw_tabs();                                        /* (0.8.5: MAP . KNOBS . STATE, the breadcrumb) */
     draw_foot();

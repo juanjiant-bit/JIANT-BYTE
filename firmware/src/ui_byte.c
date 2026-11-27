@@ -226,6 +226,7 @@ static void hud_hil(uint32_t d, int32_t *x, int32_t *y)   /* d along a 16 x 16 H
     *x = X; *y = Y;
 }
 static uint8_t hud_pb[32];                              /* (each cell's top bit, the frame before: the flashes) */
+static uint8_t hud_pw[32] __attribute__((section(".pool")));   /* (devcpu3) .. as the frame's first band found them */
 static void hud_census(gq_work_t *w, int32_t x, int32_t y, uint32_t t0, uint16_t tc)
 {
     uint32_t tq[64], i, j, hd = anim_fr % 256u, mn = 255, mx = 0;
@@ -233,12 +234,14 @@ static void hud_census(gq_work_t *w, int32_t x, int32_t y, uint32_t t0, uint16_t
     int32_t cx, cy, px = 0, py = 0;
     char b[12];
     memset(w->st, 0, sizeof w->st);
+    if (!cv_band)
+        memcpy(hud_pw, hud_pb, sizeof hud_pw);
     for (i = 0; i < 256u; i += 64u) {
         for (j = 0; j < 64u; j++) tq[j] = (t0 + (i + j) * 8u) << 8;
         ub_run(w, tq, 64u, 0, v + i);
     }
     for (i = 0; i < 256u; i++) {
-        uint32_t q = v[i], hi = q >> 7, was = (hud_pb[i >> 3] >> (i & 7u)) & 1u;
+        uint32_t q = v[i], hi = q >> 7, was = (hud_pw[i >> 3] >> (i & 7u)) & 1u;
         hud_hil(i, &cx, &cy);
         cv_rect(x + cx * 6, y + cy * 6, 5, 5, hi != was ? T_TEXT : q < 24u ? T_SURF : vk_heat(24 + (int32_t)(q * q / 255u) * 231 / 255));
         hud_pb[i >> 3] = (uint8_t)((hud_pb[i >> 3] & ~(1u << (i & 7u))) | hi << (i & 7u));

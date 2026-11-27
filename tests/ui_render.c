@@ -164,11 +164,11 @@ static void al_flush(void)                      /* a canvas blitted or begun: de
 }
 static int32_t icon_cell(uint32_t *size, uint32_t id);
 static void hk_icon(int32_t x, int32_t y, uint32_t size, uint32_t id);   /* (after the icons: their cells' nibbles) */
-#define GFX_HOOK_ALIGN(x0, y0, x1, y1, mode, tag) hk_align(x0, (y0) + cv_oy, x1, (y1) + cv_oy, mode, tag)
+#define GFX_HOOK_ALIGN(x0, y0, x1, y1, mode, tag) (cv_band ? (void)0 : hk_align(x0, (y0) + cv_oy, x1, (y1) + cv_oy, mode, tag))
 #define AL_CAPC(f) (glyph_at((f), 'H') < 0 ? '0' : 'H')   /* (V, the figures' face: a figure) */
-#define GFX_HOOK_PEN(y, f) (al_n ? (al_cy0 = (y) + cv_oy + ag((f), glyph((f), AL_CAPC(f))).by - (f)->rise, al_cy1 = al_cy0 + ag((f), glyph((f), AL_CAPC(f))).bh) : 0)
-#define GFX_HOOK_ITEM(x0, y0, x1, y1) al_item(x0, (y0) + cv_oy, x1, (y1) + cv_oy, 1, "cushion")
-#define GFX_HOOK_ICON(x, y, size, id) hk_icon(x, (y) + cv_oy, size, id)
+#define GFX_HOOK_PEN(y, f) (al_n && !cv_band ? (al_cy0 = (y) + cv_oy + ag((f), glyph((f), AL_CAPC(f))).by - (f)->rise, al_cy1 = al_cy0 + ag((f), glyph((f), AL_CAPC(f))).bh) : 0)
+#define GFX_HOOK_ITEM(x0, y0, x1, y1) (cv_band ? (void)0 : al_item(x0, (y0) + cv_oy, x1, (y1) + cv_oy, 1, "cushion"))
+#define GFX_HOOK_ICON(x, y, size, id) (cv_band ? (void)0 : hk_icon(x, (y) + cv_oy, size, id))
 static char splash_seen[96];                    /* the splash scene: its texts as drawn, '|' between (draw) */
 static uint8_t in_splash;
 static void hk_text(int32_t x0, int32_t y0, int32_t x1, int32_t y1, const char *s, uint32_t flags)
@@ -217,18 +217,19 @@ static void rules_cover(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
             memcpy(rules[k++], rules[i], sizeof rules[i]);
     nrules = k;
 }
-#define GFX_HOOK_TEXT(x0, y0, x1, y1, s, flags) hk_text(x0, y0, x1, y1, s, flags)
+#define GFX_HOOK_TEXT(x0, y0, x1, y1, s, flags) (cv_band ? (void)0 : hk_text(x0, y0, x1, y1, s, flags))   /* (devcpu3: a strip
+                                                 * drawn in bands seen once, in its first: gfx.c cv_band) */
 #define GFX_HOOK_BLIT(x, y, r0) hk_blit(x, y, r0, cv_w, cv_h)
 #define GFX_HOOK_BEGIN() (npend = ncells = 0, al_flush())
-#define GFX_HOOK_CELL(x0, y0, x1, y1) hk_cell(x0, y0, x1, y1)
+#define GFX_HOOK_CELL(x0, y0, x1, y1) (cv_band ? (void)0 : hk_cell(x0, y0, x1, y1))
 #define GFX_HOOK_RULE(x, y, w, h) hk_rule(x, y, w, h)
 static uint32_t nink;                           /* GFX_HOOK_INK: inks drawn on their own colour */
 static void hk_ink(uint16_t ink, uint16_t bg);
-#define GFX_HOOK_INK(ink, bg) hk_ink(ink, bg)
-#define GFX_HOOK_PIXELS(n) (px_visited += (n))
+#define GFX_HOOK_INK(ink, bg) (cv_band ? (void)0 : hk_ink(ink, bg))
+#define GFX_HOOK_PIXELS(n) (cv_band ? (void)0 : (void)(px_visited += (n)))
 #define UI_FILL_HOOK(x, y, w, h) hk_fill(x, y, w, h)
 static void hk_overlay(int32_t x0, int32_t y0, int32_t x1, int32_t y1);
-#define GFX_HOOK_COVER(x0, y0, x1, y1) hk_overlay(x0, y0, x1, y1)
+#define GFX_HOOK_COVER(x0, y0, x1, y1) (cv_band ? (void)0 : hk_overlay(x0, y0, x1, y1))
 static void fm6_hook(int32_t k, int32_t x, int32_t y, int32_t r);
 #define VX_FM6_HOOK(k, x, y, r) fm6_hook(k, x, y, r)
 /* MENU > LARGE: the tall cards' values by the face they got (ui_draw.c LARGE_HOOK), the characters L lacked */

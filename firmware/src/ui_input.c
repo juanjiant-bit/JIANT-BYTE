@@ -2394,25 +2394,26 @@ static void dice_side(uint32_t now, int32_t x0)          /* one half of the pane
 }
 static void dice_panel(void)
 {
-    cv_begin(240, 148, T_BG);
-    cv_rect(4, 0, 232, 148, T_SURF);
-    cv_bg = T_SURF;
-    cv_rect(119, 8, 1, 132, T_LINE);
-    dice_side(0, 4);
-    cv_rect(117, 0, 6, 148, T_SURF);                    /* (BEFORE's tendrils kept on its side) */
-    cv_rect(119, 8, 1, 132, T_LINE);
-    dice_side(1, 124);
-    cv_rect(0, 0, 4, 148, T_BG);
-    cv_rect(236, 0, 4, 148, T_BG);
-    {   /* (0.8.9 COLORS: the panel's corners rounded, as the lens's) */
-        int32_t j, i;
-        for (j = 0; j < 4; j++)
-            for (i = 0; i < 4 - j - (j == 0); i++) {
-                cv_pset(4 + i, j, T_BG); cv_pset(235 - i, j, T_BG);
-                cv_pset(4 + i, 147 - j, T_BG); cv_pset(235 - i, 147 - j, T_BG);
-            }
+    CV_BANDS(240, 148, T_BG) {                          /* (devcpu3: in bands) */
+        cv_rect(4, 0, 232, 148, T_SURF);
+        cv_bg = T_SURF;
+        cv_rect(119, 8, 1, 132, T_LINE);
+        dice_side(0, 4);
+        cv_rect(117, 0, 6, 148, T_SURF);                    /* (BEFORE's tendrils kept on its side) */
+        cv_rect(119, 8, 1, 132, T_LINE);
+        dice_side(1, 124);
+        cv_rect(0, 0, 4, 148, T_BG);
+        cv_rect(236, 0, 4, 148, T_BG);
+        {   /* (0.8.9 COLORS: the panel's corners rounded, as the lens's) */
+            int32_t j, i;
+            for (j = 0; j < 4; j++)
+                for (i = 0; i < 4 - j - (j == 0); i++) {
+                    cv_pset(4 + i, j, T_BG); cv_pset(235 - i, j, T_BG);
+                    cv_pset(4 + i, 147 - j, T_BG); cv_pset(235 - i, 147 - j, T_BG);
+                }
+        }
+        cv_blit(0, LZ_CARD_Y);
     }
-    cv_blit(0, LZ_CARD_Y);
 }
 static void dk_keep(uint32_t kind)
 {

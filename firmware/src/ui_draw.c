@@ -1888,14 +1888,15 @@ static uint16_t sig_col(uint32_t i)                 /* the thermal scale along t
 static void splash_sig(uint32_t n)
 {
     uint32_t i;
-    cv_begin(240, SIG_H + 12, T_BG);
-    for (i = 0; i < SIG_N && i < n; i++) {             /* the pen (a rounded square, 5 px), solid as it writes */
-        int32_t x = (240 - SIG_W) / 2 + SIG_PTS[2u * i], y = 6 + (SIG_PTS[2u * i + 1u] & 127);
-        uint16_t c = i + 1u == n && n < SIG_N ? T_TEXT : sig_col(i);
-        cv_rect(x - 2, y - 1, 5, 3, c);
-        cv_rect(x - 1, y - 2, 3, 5, c);
+    CV_BANDS(240, SIG_H + 12, T_BG) {                   /* (devcpu3: in bands) */
+        for (i = 0; i < SIG_N && i < n; i++) {         /* the pen (a rounded square, 5 px), solid as it writes */
+            int32_t x = (240 - SIG_W) / 2 + SIG_PTS[2u * i], y = 6 + (SIG_PTS[2u * i + 1u] & 127);
+            uint16_t c = i + 1u == n && n < SIG_N ? T_TEXT : sig_col(i);
+            cv_rect(x - 2, y - 1, 5, 3, c);
+            cv_rect(x - 1, y - 2, 3, 5, c);
+        }
+        cv_blit(0, SPL_SY);
     }
-    cv_blit(0, SPL_SY);
 }
 #if FELUCCA_PIXEL
 /* (JIANT BYTE, the owner's ORBIT) the power-on: HOME's sphere assembled point by point as it turns, the six tracks'
@@ -1914,8 +1915,7 @@ static void spl_frame(uint32_t ms, uint32_t moving)
     int32_t y0, i, rr = R + 18, n = NP * spl_ease(0, 800, ms) >> 10;
     uint32_t ph = ms * 73u / 1000u * 159u;                 /* (a turn in ~5.6 s: 65536 a turn) */
     (void)moving;
-    for (y0 = 0; y0 < 240; y0 += 120) {
-        cv_begin(240, 120, T_BG);
+    for (y0 = 0; y0 < 240; y0 += 120) CV_BANDS(240, 120, T_BG) {   /* (devcpu3: each in two bands) */
         cv_oy = -y0;
         for (i = 0; i < NP; i++) {                       /* the sphere: a Fibonacci lattice, the near side bright */
             int32_t z = 1024 - (2 * i + 1) * 1024 / NP, rxy = (int32_t)form_isqrt((uint32_t)(1048576 - z * z));
@@ -2293,24 +2293,23 @@ static void draw_confirm(void)
         dlg_crumb("DICE", drum_track(TSEL) && pk == 0u ? "KIT" : PART[pk]);
         return;
     }
-    cv_begin(212, 140, T_BG);                         /* NOTICE: the card */
-    {
-    uint16_t cb = dlg_card(0, 0, 212, 140);
-    cv_text_on(12, 12 - AF_M_CAP_Y, &AF_M, "?", T_ACCENT, cb);
-    if (text_w(tf, a) > 196)
-        tf = &AF_S;
-    GFX_HOOK_ALIGN(0, 0, 212, 0, AL_H, "dialog question centred");
-    cv_text_in(0, 36, 212, tf, a, T_TEXT, cb);
-    if (b[0]) {
-        char f[32];
-        text_fit(f, sizeof f, b, &AF_S, 196);          /* a name: free text */
-        GFX_HOOK_ALIGN(0, 0, 212, 0, AL_H, "dialog detail centred");
-        cv_text_flags(ink_in(&AF_S, f, 212), 60, &AF_S, f, T_TEXT, cb, 8u | (f[str_len(f) - 1u] == ELLIPSIS));
+    CV_BANDS(212, 140, T_BG) {                        /* NOTICE: the card (devcpu3: in bands) */
+        uint16_t cb = dlg_card(0, 0, 212, 140);
+        cv_text_on(12, 12 - AF_M_CAP_Y, &AF_M, "?", T_ACCENT, cb);
+        if (text_w(tf, a) > 196)
+            tf = &AF_S;
+        GFX_HOOK_ALIGN(0, 0, 212, 0, AL_H, "dialog question centred");
+        cv_text_in(0, 36, 212, tf, a, T_TEXT, cb);
+        if (b[0]) {
+            char f[32];
+            text_fit(f, sizeof f, b, &AF_S, 196);          /* a name: free text */
+            GFX_HOOK_ALIGN(0, 0, 212, 0, AL_H, "dialog detail centred");
+            cv_text_flags(ink_in(&AF_S, f, 212), 60, &AF_S, f, T_TEXT, cb, 8u | (f[str_len(f) - 1u] == ELLIPSIS));
+        }
+        dlg_button(12, 92, 90, "OCT -", ui.confirm == CF_DICE_ALL ? "CANCEL" : "NO", 0, cb);
+        dlg_button(110, 92, 90, "OCT +", "YES", 1, cb);
+        cv_blit(14, 66);
     }
-    dlg_button(12, 92, 90, "OCT -", ui.confirm == CF_DICE_ALL ? "CANCEL" : "NO", 0, cb);
-    dlg_button(110, 92, 90, "OCT +", "YES", 1, cb);
-    }
-    cv_blit(14, 66);
     dlg_crumb("NOTICE", "CONFIRM");
 }
 

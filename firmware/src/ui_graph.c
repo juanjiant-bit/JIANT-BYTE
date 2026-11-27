@@ -1407,9 +1407,9 @@ static void knob_arc(int32_t x, int32_t y, int32_t r, const uint8_t *cov, const 
             for (m = 0; m < 4; m++) {                /* top right, bottom right, bottom left, top left */
                 int32_t s = m == 0 ? q : m == 1 ? 512 - q : m == 2 ? q - 512 : -q;
                 int32_t px = m < 2 ? x + r + i : x + r - 1 - i, py = (m == 0 || m == 3 ? y + r - 1 - j : y + r + j) + cv_oy;
-                if (s < -KA_END || s > KA_END || (uint32_t)px >= cv_w || (uint32_t)py >= cv_h)
-                    continue;
-                cv_px[(uint32_t)py * cv_w + (uint32_t)px] = (s >= lo && s <= hi ? rv : rt)[a];
+                uint16_t *d = s < -KA_END || s > KA_END ? 0 : cv_at(px, py);
+                if (d)
+                    *d = (s >= lo && s <= hi ? rv : rt)[a];
             }
         }
 }
@@ -1699,7 +1699,8 @@ static void scope_at(int32_t x0, int32_t pw, int32_t cy, int32_t a, uint16_t c)
     uint32_t w = scope_w, i, trig = 0;
     int32_t py = cy, x, peak = 1500;
     for (i = 0; i < SCOPE_N; i++) {
-        snap[i] = scope_buf[(w + i) & (SCOPE_N - 1u)];
+        if (!cv_band)                                /* (devcpu3: a panel's bands, one picture of the sound) */
+            snap[i] = scope_buf[(w + i) & (SCOPE_N - 1u)];
         if (snap[i] > peak)
             peak = snap[i];
         else if (-snap[i] > peak)
@@ -1809,7 +1810,8 @@ static __attribute__((noinline)) void panel_send(uint32_t y)
         cv_blit(0, y);
         return;
     }
-    dc_frame(ui.force);
+    if (!cv_band)                                    /* (devcpu3: a frame of cells, once for its bands) */
+        dc_frame(ui.force);
     cv_blit_cells(0, y);
 }
 static void hold_banner(void);
@@ -1841,153 +1843,154 @@ static void draw_graph(void)
         gr_ms = fm1_ms;
     }
     ui.graph_sig = sig;
-    cv_begin(240, graph_h(), T_BG);
-    surf = ux.surf;                                  /* no panel box in any skin: the picture on the background, as AIR's
-                                                      * (COLORS had a rounded SURF panel, 4 .. 236). What the panel's
-                                                      * inside clears and writes on T_SURF lands on the background */
-    ux.surf = ux.bg;
-    cv_bg = T_SURF;                                  /* (text drawn with cv_text lands on it) */
-    if (drift_on())
-        graph_drift();
-    cv_oy = GOY;                                     /* graphs on a 100 px scale */
-    if (strip_kind() != SK_NONE) {            /* MENU > LARGE: the strip */
-        uint32_t k = strip_kind();
-        cv_oy = k == SK_ADSR || k == SK_LFO ? 3 : 0;
-        graph_ht = LG_H_GRAPH - 6;
-        if (k == SK_SCOPE) {                         /* (V10.8, testers: LARGE hid the animations) HOME: the tracks'
-                                                      * creatures in a row, the scope only if none has one */
-            uint32_t n = home_scope() ? 0u : trk_live ? trk_live : 1u, i, w = 228u / (n ? n : 1u), any = 0;   /* (V10.7.24:
-                                                      * SCOPE the scope) */
-            vx_small = 1;
-            for (i = 0; i < n; i++)
-                any |= (uint32_t)vx_draw(&trk[i], 6 + (int32_t)(i * w), 2, (int32_t)w - 4, (int32_t)graph_ht - 4, -1);
-            vx_small = 0;
-            if (!any) graph_scope(c);
-        } else if (k == SK_ADSR) graph_adsr(t, c);
-        else if (k == SK_LFO) graph_lfo(t, c);
-        else {
-            int ok;
-            vx_small = 1;
-            ok = pg->fam == FAM_EDIT && vx_draw(t, 8, 2, 224, (int32_t)graph_ht - 4, -1);   /* (V10.8) EDIT: the creature */
-            vx_small = 0;
-            if (!ok) graph_title();
-        }
-        graph_ht = 100;
-    } else if (ui.confirm == CF_DICE_ALL) {          /* (0.8.5) GEN, HOME's lens's last level (gen.c) */
-        cv_oy = 0;
-        gen_panel();
-    } else if (ui.home) {
-        cv_oy = 0;
-        graph_home_lz();                             /* (0.8.5: HOME's lens; V10.7.24 MACROS / SCOPE; JIANT 0.5: the system's
-                                                      * beings, was the scope) */
-    } else if (pg->graph == GR_SCENE) {              /* (V10.25) SCL > SCENE: the six tracks' roles */
-        cv_oy = 0;
-        graph_scene();
-    } else if (pg->graph == GR_PUNCH) {              /* (BYTE) GLO > PUNCH SEQ: the four rows */
-        cv_oy = 0;
-        graph_psq();
-    } else if (pg->graph == GR_CLAY) {               /* (BYTE) SEQ > DRONE CLAY: the modulators' telemetry (ui_lzedit.c) */
-        cv_oy = 0;
-        graph_clay_lz(t);
-    } else if (pg->graph == GR_EUCLID) {             /* (V10.6) SEQ > EUCLID / MODES: the ring, the lanes or the notes */
-        cv_oy = 0;
-        graph_euclid(t);
-    } else if (pg->graph == GR_EVENTS) {             /* (V10.7.32) SEQ > LOCKS: the top row, the records (ui_events.c) */
-        cv_oy = 0;
-        graph_locks(t);
-    } else if (seq_roll_view(pg)) {                  /* (0.9.9-seq2b) every SEQ page: the roll (a kit: the grid), its marks */
-        cv_oy = 0;
-        if (drum_track(t))
-            graph_grid(t, c);
-        else
-            graph_roll(t, c);
-        seq_overlay(t, pg);
-    } else if (lz_on() && lz_fam() == LZ_SAVE) {     /* (0.8.5) SAVE's lens */
-        cv_oy = 0;
-        graph_save_lz(pg);
-    } else if (lz_on() && lz_fam() == LZ_FX) {       /* (0.8.5) FX's lens */
-        cv_oy = 0;
-        graph_fx_lz(t, pg);
-    } else if (lz_on() && lz_fam() == LZ_EDIT && (cv_oy = 0, graph_edit_lz(t, pg))) {   /* (0.8.5) EDIT's (ui_lzedit.c) */
-    } else if (lz_on() && lz_fam() == LZ_ENV && (cv_oy = 0, graph_env_lz(t, pg))) {     /* .. ENV's (ui_lzpage.c) */
-    } else if (lz_on() && lz_fam() == LZ_MOD && (cv_oy = 0, graph_mod_lz(t, pg))) {     /* .. LFO . MOD's */
-    } else if (lz_on() && lz_fam() == LZ_KEY && (cv_oy = 0, graph_key_lz(t, pg))) {     /* .. SCL . ARP's */
-    } else if (lz_on() && lz_fam() == LZ_GLO && pg->id[0] == G_TRKS) {               /* .. GLO's SYSTEM */
-        cv_oy = 0;
-        graph_system();
-    } else {
-        cv_oy = GOY;
-        switch (pg->graph) {
-        case GR_ADSR:
-            graph_adsr(t, c);
-            break;
-#if BYTE_DX_OLD
-        case GR_DXIMG:                               /* (0.6.58) KIT 3: the colony; STEREO: IMAGE */
-            if (DX_KIT3(pg)) {
-                cv_oy = 0;
-                graph_colony(t, -1);
-            } else
-                graph_dximg(t);
-            break;
-#endif
-        case GR_ROLL:
-        case GR_TRACKGEN:
-        case GR_CHANCE:
-        case GR_SHAPE:                               /* (0.6.85) STRETCH: the whole sequence, as the roll shows it */
+    CV_BANDS(240, graph_h(), T_BG) {                  /* (devcpu3) in bands: the panel's picture drawn for each */
+        surf = ux.surf;                                  /* no panel box in any skin: the picture on the background, as AIR's
+                                                          * (COLORS had a rounded SURF panel, 4 .. 236). What the panel's
+                                                          * inside clears and writes on T_SURF lands on the background */
+        ux.surf = ux.bg;
+        cv_bg = T_SURF;                                  /* (text drawn with cv_text lands on it) */
+        if (drift_on())
+            graph_drift();
+        cv_oy = GOY;                                     /* graphs on a 100 px scale */
+        if (strip_kind() != SK_NONE) {            /* MENU > LARGE: the strip */
+            uint32_t k = strip_kind();
+            cv_oy = k == SK_ADSR || k == SK_LFO ? 3 : 0;
+            graph_ht = LG_H_GRAPH - 6;
+            if (k == SK_SCOPE) {                         /* (V10.8, testers: LARGE hid the animations) HOME: the tracks'
+                                                          * creatures in a row, the scope only if none has one */
+                uint32_t n = home_scope() ? 0u : trk_live ? trk_live : 1u, i, w = 228u / (n ? n : 1u), any = 0;   /* (V10.7.24:
+                                                          * SCOPE the scope) */
+                vx_small = 1;
+                for (i = 0; i < n; i++)
+                    any |= (uint32_t)vx_draw(&trk[i], 6 + (int32_t)(i * w), 2, (int32_t)w - 4, (int32_t)graph_ht - 4, -1);
+                vx_small = 0;
+                if (!any) graph_scope(c);
+            } else if (k == SK_ADSR) graph_adsr(t, c);
+            else if (k == SK_LFO) graph_lfo(t, c);
+            else {
+                int ok;
+                vx_small = 1;
+                ok = pg->fam == FAM_EDIT && vx_draw(t, 8, 2, 224, (int32_t)graph_ht - 4, -1);   /* (V10.8) EDIT: the creature */
+                vx_small = 0;
+                if (!ok) graph_title();
+            }
+            graph_ht = 100;
+        } else if (ui.confirm == CF_DICE_ALL) {          /* (0.8.5) GEN, HOME's lens's last level (gen.c) */
+            cv_oy = 0;
+            gen_panel();
+        } else if (ui.home) {
+            cv_oy = 0;
+            graph_home_lz();                             /* (0.8.5: HOME's lens; V10.7.24 MACROS / SCOPE; JIANT 0.5: the system's
+                                                          * beings, was the scope) */
+        } else if (pg->graph == GR_SCENE) {              /* (V10.25) SCL > SCENE: the six tracks' roles */
+            cv_oy = 0;
+            graph_scene();
+        } else if (pg->graph == GR_PUNCH) {              /* (BYTE) GLO > PUNCH SEQ: the four rows */
+            cv_oy = 0;
+            graph_psq();
+        } else if (pg->graph == GR_CLAY) {               /* (BYTE) SEQ > DRONE CLAY: the modulators' telemetry (ui_lzedit.c) */
+            cv_oy = 0;
+            graph_clay_lz(t);
+        } else if (pg->graph == GR_EUCLID) {             /* (V10.6) SEQ > EUCLID / MODES: the ring, the lanes or the notes */
+            cv_oy = 0;
+            graph_euclid(t);
+        } else if (pg->graph == GR_EVENTS) {             /* (V10.7.32) SEQ > LOCKS: the top row, the records (ui_events.c) */
+            cv_oy = 0;
+            graph_locks(t);
+        } else if (seq_roll_view(pg)) {                  /* (0.9.9-seq2b) every SEQ page: the roll (a kit: the grid), its marks */
             cv_oy = 0;
             if (drum_track(t))
                 graph_grid(t, c);
             else
                 graph_roll(t, c);
-            break;
-        case GR_PATS:
+            seq_overlay(t, pg);
+        } else if (lz_on() && lz_fam() == LZ_SAVE) {     /* (0.8.5) SAVE's lens */
             cv_oy = 0;
-            graph_pats();
-            break;
-        case GR_FMOP:                                /* (0.6.10) FM6's operators: (0.9.6) the colony (ui_engvis.c), the operator */
-        case GR_FMOP2:                               /* picked lit */
-            /* (JIANT BYTE: FM6 retired, its pages never open) */
-            break;
-        case GR_FMENV:                               /* .. its envelope, its bicho riding it */
-            /* (JIANT BYTE: FM6 retired) */
-            break;
-        case GR_DXSND:                               /* EDIT > SOUND: the kit's lanes, the sound edited singled out */
+            graph_save_lz(pg);
+        } else if (lz_on() && lz_fam() == LZ_FX) {       /* (0.8.5) FX's lens */
             cv_oy = 0;
-            if (dx_pagen(pg) >= 20u || !BYTE_DX_OLD)        /* (DRUM-W) its own pages (KIT LFO: in no chain) */
-                dw_panel2(dx_pagen(pg));
-            else if (pg->title[0] == 'S' || pg->title[0] == 'P' || pg->title[0] == 'A')   /* (0.9.4) PITCH AMP (SOUND 1..4): the drum kit, the sound edited lit (ui_engvis.c) */
-                vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));
-            else
-                graph_colony(t, dx_ui_lane);
-            break;
-
-        default:
-            if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_DRUM) {   /* (0.8.5: WHEEL's and FM6's EDIT 1
-                                                      * and 2 their beings, as every synth's: EDIT's lens, SOUND) */
-                cv_oy = 0;
-                if (pg->id[0] == P_E0)               /* (0.9.4) KIT: the kit's beings (ui_engvis.c); KIT 2 the colony */
-                    vx_kit_page(t, -1);
-                else
+            graph_fx_lz(t, pg);
+        } else if (lz_on() && lz_fam() == LZ_EDIT && (cv_oy = 0, graph_edit_lz(t, pg))) {   /* (0.8.5) EDIT's (ui_lzedit.c) */
+        } else if (lz_on() && lz_fam() == LZ_ENV && (cv_oy = 0, graph_env_lz(t, pg))) {     /* .. ENV's (ui_lzpage.c) */
+        } else if (lz_on() && lz_fam() == LZ_MOD && (cv_oy = 0, graph_mod_lz(t, pg))) {     /* .. LFO . MOD's */
+        } else if (lz_on() && lz_fam() == LZ_KEY && (cv_oy = 0, graph_key_lz(t, pg))) {     /* .. SCL . ARP's */
+        } else if (lz_on() && lz_fam() == LZ_GLO && pg->id[0] == G_TRKS) {               /* .. GLO's SYSTEM */
+            cv_oy = 0;
+            graph_system();
+        } else {
+            cv_oy = GOY;
+            switch (pg->graph) {
+            case GR_ADSR:
+                graph_adsr(t, c);
+                break;
+    #if BYTE_DX_OLD
+            case GR_DXIMG:                               /* (0.6.58) KIT 3: the colony; STEREO: IMAGE */
+                if (DX_KIT3(pg)) {
+                    cv_oy = 0;
                     graph_colony(t, -1);
-            }
-            else if (pg->scope == SC_ENGINE) { cv_oy = 0; graph_being(t); }   /* (JIANT 0.5: the being, was the scope) */
-            else {                                   /* the FX, DEST, VOICE, GLOBAL pages: their graphs (else the scope) */
+                } else
+                    graph_dximg(t);
+                break;
+    #endif
+            case GR_ROLL:
+            case GR_TRACKGEN:
+            case GR_CHANCE:
+            case GR_SHAPE:                               /* (0.6.85) STRETCH: the whole sequence, as the roll shows it */
                 cv_oy = 0;
-                if (!graph_tech(t, pg))
-                    graph_scope(c);
+                if (drum_track(t))
+                    graph_grid(t, c);
+                else
+                    graph_roll(t, c);
+                break;
+            case GR_PATS:
+                cv_oy = 0;
+                graph_pats();
+                break;
+            case GR_FMOP:                                /* (0.6.10) FM6's operators: (0.9.6) the colony (ui_engvis.c), the operator */
+            case GR_FMOP2:                               /* picked lit */
+                /* (JIANT BYTE: FM6 retired, its pages never open) */
+                break;
+            case GR_FMENV:                               /* .. its envelope, its bicho riding it */
+                /* (JIANT BYTE: FM6 retired) */
+                break;
+            case GR_DXSND:                               /* EDIT > SOUND: the kit's lanes, the sound edited singled out */
+                cv_oy = 0;
+                if (dx_pagen(pg) >= 20u || !BYTE_DX_OLD)        /* (DRUM-W) its own pages (KIT LFO: in no chain) */
+                    dw_panel2(dx_pagen(pg));
+                else if (pg->title[0] == 'S' || pg->title[0] == 'P' || pg->title[0] == 'A')   /* (0.9.4) PITCH AMP (SOUND 1..4): the drum kit, the sound edited lit (ui_engvis.c) */
+                    vx_kit_page(t, (int32_t)(dx_ui_lane & 7u));
+                else
+                    graph_colony(t, dx_ui_lane);
+                break;
+
+            default:
+                if (pg->scope == SC_ENGINE && trk_eng(t) == ENGI_DRUM) {   /* (0.8.5: WHEEL's and FM6's EDIT 1
+                                                          * and 2 their beings, as every synth's: EDIT's lens, SOUND) */
+                    cv_oy = 0;
+                    if (pg->id[0] == P_E0)               /* (0.9.4) KIT: the kit's beings (ui_engvis.c); KIT 2 the colony */
+                        vx_kit_page(t, -1);
+                    else
+                        graph_colony(t, -1);
+                }
+                else if (pg->scope == SC_ENGINE) { cv_oy = 0; graph_being(t); }   /* (JIANT 0.5: the being, was the scope) */
+                else {                                   /* the FX, DEST, VOICE, GLOBAL pages: their graphs (else the scope) */
+                    cv_oy = 0;
+                    if (!graph_tech(t, pg))
+                        graph_scope(c);
+                }
+                break;
             }
-            break;
         }
+        cv_oy = 0;
+        ux.surf = surf;
+        hold_banner();                                   /* (BYTE, as JIANT FM V10.8.9) a key held: what it plays, large */
+        if (toast_on())                                  /* (0.9.5) a toast: a small pill near the panel's foot, over the page,
+                                                          * which goes on drawing and moving behind it (0.8.5 .. 0.9.4: the
+                                                          * panel cleared, the message boxed alone in it) */
+            toast_pill();
+        else
+            toast_at[0] = toast_at[2] = 0;
+        panel_send(graph_y());
     }
-    cv_oy = 0;
-    ux.surf = surf;
-    hold_banner();                                   /* (BYTE, as JIANT FM V10.8.9) a key held: what it plays, large */
-    if (toast_on())                                  /* (0.9.5) a toast: a small pill near the panel's foot, over the page,
-                                                      * which goes on drawing and moving behind it (0.8.5 .. 0.9.4: the
-                                                      * panel cleared, the message boxed alone in it) */
-        toast_pill();
-    else
-        toast_at[0] = toast_at[2] = 0;
-    panel_send(graph_y());
 }
 

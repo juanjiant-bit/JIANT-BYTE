@@ -24,10 +24,8 @@ static inline void og_plot(int32_t x, int32_t y, uint16_t c, int32_t a)
 {
     uint16_t *p, o;
     uint32_t r, g, b;
-    y += cv_oy;
-    if (a <= 0 || (uint32_t)x >= cv_w || (uint32_t)y >= cv_h)
+    if (a <= 0 || !(p = cv_at(x, y + cv_oy)))         /* (devcpu3: the band's) */
         return;
-    p = &cv_px[(uint32_t)y * cv_w + (uint32_t)x];
     if (a >= 256) {
         *p = swap16(c);
         return;

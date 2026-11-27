@@ -203,9 +203,9 @@ static __attribute__((noinline)) const char *about_cores(void)
     fmt_frac(b + str_len(b), load_rl, (int32_t)load_diag.rl);
     return b;
 }
-/* (0.6.17) the audio's load since power-on (voice.c load_diag): to tell what happened when it clicked. (V10.13) In the
- * segment (bt.c BTAPP_FN): without it ABOUT goes on with the CPU lines */
-BTAPP_FN static int32_t about_load(int32_t y, int draw)
+/* (0.6.17) the audio's load since power-on (voice.c load_diag): to tell what happened when it clicked. (V10.13 .. devcpu2:
+ * in the segment, bt.c BTAPP_FN; devcpu3: in the image, the segment full: the pool's new addresses grew its code) */
+static int32_t about_load(int32_t y, int draw)
 {
     char b[40];
     y = menu_text("AUDIO LOAD", y, T_THEME, draw);
@@ -597,8 +597,7 @@ static __attribute__((noinline)) void draw_menu(void)
         int32_t scroll = ui.menu_scroll, max = menu_scroll_max();
         int32_t thumb = MENU_DOC_H * MENU_DOC_H / (max + MENU_DOC_H);
         if (thumb < 12) thumb = 12;
-        for (pass = 0; pass < 2u; pass++) {
-            cv_begin(240, pass ? MENU_DOC_H - 124u : 124u, T_BG);
+        for (pass = 0; pass < 2u; pass++) CV_BANDS(240, pass ? MENU_DOC_H - 124u : 124u, T_BG) {   /* (devcpu3: each in bands) */
             cv_oy = pass ? -124 : 0;
             cv_scroll = 1;
             menu_document(-scroll, 1);
@@ -630,14 +629,15 @@ static __attribute__((noinline)) void draw_menu(void)
     }
     draw_tabs();
     menu_cards();
-    cv_begin(240, LZ_GRAPH_H, T_BG);
-    cv_rect(4, 0, 232, LZ_GRAPH_H, T_SURF);
-    cv_bg = T_SURF;
-    if (ui.menu == 3)
-        bt_prox_white();            /* (V10.14) */
-    else
-        menu_panel();
-    cv_blit(0, menu_py());
+    CV_BANDS(240, LZ_GRAPH_H, T_BG) {                  /* (devcpu3: in bands) */
+        cv_rect(4, 0, 232, LZ_GRAPH_H, T_SURF);
+        cv_bg = T_SURF;
+        if (ui.menu == 3)
+            bt_prox_white();            /* (V10.14) */
+        else
+            menu_panel();
+        cv_blit(0, menu_py());
+    }
     draw_foot();
 }
 static void enc_drop(void)                             /* knob turns nobody takes */

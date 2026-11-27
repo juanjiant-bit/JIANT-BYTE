@@ -135,7 +135,8 @@ static uint64_t ui_sent_px;                              /* (0.9.0) pixels sent 
 static uint32_t ut_card_bad, ut_card_txt;
 static char ut_card_what[48];
 #ifndef GFX_HOOK_TEXT
-#define GFX_HOOK_TEXT(x0, y0, x1, y1, s, flags) ut_text(x0, x1, s, flags)
+#define GFX_HOOK_TEXT(x0, y0, x1, y1, s, flags) (cv_band ? (void)0 : ut_text(x0, x1, s, flags))   /* (devcpu3: a strip's
+                                                 * drawing seen once, its first band) */
 #define GFX_HOOK_BLIT(x, y, r0) ((void)0)
 #define GFX_HOOK_BEGIN() ((void)0)
 #define GFX_HOOK_PIXELS(n) ((void)0)

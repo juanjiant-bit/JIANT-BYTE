@@ -39,7 +39,7 @@ import size_fns  # noqa: E402
 APP_XIP = 0x02000120                # app.bin offset 0 in the XIP map; the SPL jumps here
 APP_SLOT = fm1pkg_make.APP_SLOT
 LOADER_LOAD = 0x01C0A800
-POOL_END = 0x01C6BDC0            # (devcpu2: 7.5 KiB lower, usb.c rs_tab halved) (JIANT 0.6.78) app.ld: POOL's end, RAMTEXT's start (0.6.97, 0.7.0: up 4 KiB each; 0.9.9-beta4: 9 KiB lower;
+POOL_END = 0x01C633C0            # (devcpu3: 34.5 KiB lower, gfx.c's canvas halved) (devcpu2: 7.5 KiB lower, usb.c rs_tab halved) (JIANT 0.6.78) app.ld: POOL's end, RAMTEXT's start (0.6.97, 0.7.0: up 4 KiB each; 0.9.9-beta4: 9 KiB lower;
                                  # 0.9.9-stab: 1 KiB lower, the 320 MHz switch's RAM code)
 RAMTEXT_END = 0x01C76000         # .. RAMTEXT's end (the user stack's guard band)
 LOADER_NAME = b"usb_hid_ota.bin"    # the file name the SPL looks for
@@ -246,6 +246,30 @@ HOT_FNS = ("mix_block", "mix_part_m0", "fx_run0",
            "tf_run", "lofi_render", "lfo_wave", "mc_join",
            # (devcpu2) a kit's lane, FUNC's filter, a square root (the unison's), DRUM-X's 2^x
            "drum_lane_of", "fn_coef", "isqrt32", "dx_pow2")
+# (devcpu3) more of the sound's per-block code in RAM, in the room the UI's halved canvas gave (gfx.c CV_MAX, app.ld
+# RAMTEXT 34.5 KiB lower): placed first in .hot_text (app.ld .hot_text.lo.*), the lowest of the RAM code, so what was
+# there stays where it was (a call reaches +-4 MiB: the flash's end is past what RAMTEXT's bottom reaches)
+HOT_LO = (
+    # the sequencer's step (a step's block: its notes started) and its per-block passes, core 0's
+    "seq_step", "trk_note_on", "seq_tick_body", "seq_lane_rat", "seq_due", "seq_time",
+    "shift_prepare_pass", "shift_ahead",
+    # core 0's fixed work a block: the macros, the master's begin, the performance layer, the LIFE master, the duck,
+    # PUNCH SEQ, FUGUE, the clips, the motion, the audio input's follower
+    "mac_tick", "master_begin", "perf_begin", "pfx_block", "pfx_sound", "pfx_end", "life_master", "life_swim",
+    "duck_block", "psq_block", "fugue_tick", "clip_block", "mo_block", "ain_follow",
+    # a part's per-block code, every engine's: its voices' half, the soft limit, the matrix's voice, the FILTER, the
+    # pan, the gain
+    "voice_half", "voice_soft", "mod_voice", "track_filter", "autopan", "part_gain",
+    # DRUM-W (the owner's T2): its kit's render, body, modulators, envelopes, mix, sides, amp; DRUM-X's FX
+    "drum_render", "dw_body", "dw_mods", "drum_env", "drum_mix", "drum_side_of", "drum_amp", "dx_run_fx", "kx_block",
+    # FUNC (the owner's T1): its render, its block, its descriptors and acts; the formulas' block interpreter
+    "lofi_func_render", "fvm_func_block", "func_act", "func_desc", "func_mod", "func_scl", "fn_track", "fn_color_blk",
+    "fl_run", "lofi_desc", "fvm_blk_op", "fvm_op2", "fvm_want",
+    # WAVE's part (the GEN songs' WAVE parts on core 0)
+    "wave_part")
+HOT_FNS = HOT_FNS + HOT_LO + (     # (devcpu3) with the RAM code before (in reach of the flash's end: seq_anchor, HIVE):
+    "step_samples",                     # a step's samples (the sequencer's clock)
+    "lofi_slot", "wf_comp")             # an idle part's every block: MATH's slot, WAVE's frame (eng_idx: the segment calls it)
 # (engopt) fx_rest out (432 B: it runs where the buses have nothing to do, its CPU not wanted) and dly_wow_adv (154 B,
 # two sines a block): their room for the GRAIN delay's constants held in fx_buses (fx.c grk_set, gr_one)
 
@@ -356,7 +380,7 @@ def hot_sections(ir):
     def put(m):
         nonlocal found
         found += 1
-        return f'{m.group(1)} section ".hot_text.{m.group(2)}" {{'
+        return f'{m.group(1)} section ".hot_text.{"lo." if m.group(2) in HOT_LO else ""}{m.group(2)}" {{'
     ir = re.sub(r"^(define [^\n]*?@(" + "|".join(HOT_FNS) + r")\([^\n]*?)\s*\{$", put, ir, flags=re.M)
     return ir, found
 
@@ -977,10 +1001,12 @@ def check(img, syms, dis, rt):
             continue
         if sect in (".ram_text", ".c1_text", ".hot_text"):
             mm = re.search(r"\bcall\b[^<]*<([\w.]+)\s*:\s*([0-9a-f]+)\s*>", ln)
-            if mm and int(mm.group(2), 16) >= APP_XIP:
-                targets.append((int(mm.group(2), 16), mm.group(1)))
-    far = max(targets) if targets else (APP_XIP, "-")
-    reach = sym("_rt_start") + 0x400000 - far[0]
+            at = LINE.match(ln)
+            if mm and at and int(mm.group(2), 16) >= APP_XIP:   # (devcpu3: each call's reach from its own address,
+                # the RAM code no longer all within reach of the farthest callee from its bottom)
+                targets.append((int(mm.group(2), 16) - int(at.group(1), 16), mm.group(1)))
+    far = max(targets) if targets else (APP_XIP - sym("_rt_start"), "-")
+    reach = 0x400000 - far[0]
     ramcode = sym("_hot_end") - sym("_rt_start")
     notes.append(f"RAM code {ramcode} B of {RAMTEXT_END - sym('_rt_start')}; {len(targets)} calls into the image, the farthest "
                  f"{far[1]} with {reach} B of reach to spare (the image's end: {sym('_rt_start') + 0x400000 - sym('_etext')} B)")

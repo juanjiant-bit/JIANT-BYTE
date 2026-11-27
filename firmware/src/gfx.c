@@ -79,10 +79,15 @@ typedef struct { uint16_t off; uint8_t w; const char *label; } kc_t;
 #define AL_CELLS 32u                               /* the next cells (cv_rrect), not ink: a row of keys, a fill */
 #define AL_N(n) ((uint32_t)(n) << 8)
 
-#define CV_MAX (240u * 150u)      /* the graph strip: 240 x 150 (0.8.5: a lens page's panel, 140; was 124; 0.8.9 HUD's HOME:
-                                   * its middle, 150) */
+#define CV_MAX (240u * 76u)       /* (devcpu3) the canvas: 240 x 76, half the strip it was (240 x 150: 0.8.5 a lens page's
+                                   * panel, 140; 0.8.9 HUD's HOME: its middle, 150), its 35.5 KiB the RAM code's. A taller
+                                   * strip is drawn in bands (cv_bands, cv_band_begin: its drawing done again for each,
+                                   * each band sent as it is done), its rows cut at a multiple of 4 (the cells' rows) */
 static uint16_t cv_px[CV_MAX] __attribute__((section(".pool"), aligned(4)));
-static uint32_t cv_w, cv_h;
+static uint32_t cv_w, cv_h;      /* the strip (its rows: what the drawing lays out in) */
+static int32_t cv_by;            /* (devcpu3) the band in cv_px: the strip's rows cv_by .. cv_by + cv_bh - 1 */
+static uint32_t cv_bh;
+static uint8_t cv_band;          /* .. which (the host's hooks: band 0 only, the strip's drawing seen once) */
 static uint16_t cv_bg;           /* what cv_begin cleared the canvas to */
 static uint8_t cv_scroll;        /* 1: drawing a scrolled view (its text may run past the canvas) */
 static int32_t cv_oy;            /* y offset for graph drawing */
@@ -168,23 +173,52 @@ static int palette_stored_ok(uint32_t v) { return v < 20u || v - UI_PAL_TAG < si
 static inline uint16_t swap16(uint32_t c) { return (uint16_t)(((c >> 8) & 0xFFu) | ((c & 0xFFu) << 8)); }
 
 /* ------------------------------------------------------------ canvas --- */
-static void cv_begin(uint32_t w, uint32_t h, uint16_t bg)
+static uint32_t cv_band_rows(uint32_t w, uint32_t h)   /* (devcpu3) a band's rows: the strip in as few as fit, even */
 {
-    uint32_t i, n;
+    uint32_t cap = CV_MAX / w, nb, r;
+    if (h <= cap)
+        return h;
+    nb = (h + cap - 1u) / cap;
+    r = (h + nb - 1u) / nb;
+    r = (r + 3u) & ~3u;                                 /* (a cell's rows: gfx.c DC_CH) */
+    return r <= cap ? r : cap;
+}
+static uint32_t cv_bands(uint32_t w, uint32_t h)
+{
+    uint32_t r = cv_band_rows(w, h);
+    return (h + r - 1u) / r;
+}
+/* band k of a strip w x h: cleared to bg, the drawing's rows cv_by .. (a strip in one band: cv_begin) */
+static void cv_band_begin(uint32_t w, uint32_t h, uint16_t bg, uint32_t k)
+{
+    uint32_t i, n, r = cv_band_rows(w, h);
     uint16_t s = swap16(bg);
-    if (w * h > CV_MAX)
-        h = CV_MAX / w;
     lcd_sync();                     /* the last blit may still read cv_px */
-    GFX_HOOK_BEGIN();
+    cv_band = (uint8_t)k;
+    if (!k)
+        GFX_HOOK_BEGIN();
     cv_w = w;
     cv_h = h;
+    cv_by = (int32_t)(k * r);
+    cv_bh = h - k * r < r ? h - k * r : r;
     cv_cy0 = 0;
     cv_cy1 = (int16_t)h;
     cv_bg = bg;
-    cv_ntxt = 0;
-    n = w * h;
+    cv_ntxt = 0;                    /* (each band notes the strip's texts again: the same) */
+    n = w * cv_bh;
     for (i = 0; i < n; i++)
         cv_px[i] = s;
+}
+static void cv_begin(uint32_t w, uint32_t h, uint16_t bg) { cv_band_begin(w, h, bg, 0u); }
+/* a strip drawn band by band: for each, the drawing's code (it runs once a band: what it draws the same each time)
+ * and its blit */
+#define CV_BANDS(w, h, bg) for (uint32_t cv_k_ = 0, cv_n_ = cv_bands((w), (h)); cv_k_ < cv_n_ && \
+                                (cv_band_begin((w), (h), (bg), cv_k_), 1); cv_k_++)
+/* a pixel's place in cv_px: the strip's row y in the band (else 0) */
+static inline uint16_t *cv_at(int32_t x, int32_t y)
+{
+    y -= cv_by;
+    return (uint32_t)x < cv_w && (uint32_t)y < cv_bh ? &cv_px[(uint32_t)y * cv_w + (uint32_t)x] : 0;
 }
 
 /* (0.9.5) holes in the screen: while a dialog's box is up over a live page (ui_draw.c ui_draw_page), what the page sends
@@ -256,10 +290,13 @@ static uint8_t dc_stale;          /* (0.9.0) a strip went to the panel outside c
 static __attribute__((noinline)) void dc_touch(uint32_t x, uint32_t y);
 static void cv_blit(uint32_t x, uint32_t y)
 {
-    GFX_HOOK_BLIT(x, y, 0u);
-    GFX_HOOK_SENT(cv_w * cv_h);
-    dc_touch(x, y);
-    lcd_blit(x, y, cv_w, cv_h, cv_px);
+    if (!cv_band)
+        GFX_HOOK_BLIT(x, y, 0u);
+    GFX_HOOK_SENT(cv_w * cv_bh);
+    dc_touch(x, y + (uint32_t)cv_by);
+    lcd_blit(x, y + (uint32_t)cv_by, cv_w, cv_bh, cv_px);
+    if ((uint32_t)cv_by + cv_bh >= cv_h)
+        cv_band = 0;                /* (the strip's last band sent: what follows draws as before) */
 }
 
 
@@ -298,10 +335,12 @@ static void lcd_blit_stride(uint32_t x, uint32_t y, uint32_t w, uint32_t h, cons
  * of cells (COLORS' panel is one: ui_graph.c draw_graph; the header's, the cards' and the footer's rows leave it be) */
 static __attribute__((noinline)) void dc_touch(uint32_t x, uint32_t y)
 {
+    uint32_t i;
     (void)x;                                    /* (HUD's HOME: its strips the whole screen, any blit over one; COLORS: the
-                                                 * panel the one strip) */
-    if (dc_n > 1u || (dc_n && (int32_t)y < dc_st[0].y + dc_st[0].h && dc_st[0].y < (int32_t)(y + cv_h)))
-        dc_stale = 1;
+                                                 * panel the one strip; devcpu3: its bands, a strip each) */
+    for (i = 0; i < dc_n; i++)
+        if ((int32_t)y < dc_st[i].y + dc_st[i].h && dc_st[i].y < (int32_t)(y + cv_bh))
+            dc_stale = 1;
 }
 static void dc_frame(int all)           /* a frame of cells begins; all: every cell sent (the strips found again) */
 {
@@ -321,7 +360,7 @@ static void dc_send(uint32_t x, uint32_t y, uint32_t sx, uint32_t sy, uint32_t w
 static uint32_t dc_cell(uint32_t cx, uint32_t cy)     /* the hash of canvas cell cx, cy */
 {
     uint32_t x0 = cx * DC_CW, y0 = cy * DC_CH, w = cv_w - x0 < DC_CW ? cv_w - x0 : DC_CW;
-    uint32_t h = cv_h - y0 < DC_CH ? cv_h - y0 : DC_CH, r, k, hs = 2166136261u;
+    uint32_t h = cv_bh - y0 < DC_CH ? cv_bh - y0 : DC_CH, r, k, hs = 2166136261u;
     for (r = 0; r < h; r++) {
         const uint16_t *p = cv_px + (y0 + r) * cv_w + x0;
         for (k = 0; k < w; k++)
@@ -331,30 +370,35 @@ static uint32_t dc_cell(uint32_t cx, uint32_t cy)     /* the hash of canvas cell
 }
 static __attribute__((noinline)) void cv_blit_cells(uint32_t x, uint32_t y)   /* (snd7: out of the recorded code) */
 {
-    uint32_t i, ncx = (cv_w + DC_CW - 1u) / DC_CW, ncy = (cv_h + DC_CH - 1u) / DC_CH, cx, cy, base, roll;
+    uint32_t i, ncx = (cv_w + DC_CW - 1u) / DC_CW, ncy = (cv_bh + DC_CH - 1u) / DC_CH, cx, cy, base, roll;
     uint16_t *hp;
-    GFX_HOOK_BLIT(x, y, 0u);                            /* (the screen shows the whole strip after it) */
+    uint32_t band = cv_band;
+    if (!band)
+        GFX_HOOK_BLIT(x, y, 0u);                        /* (the screen shows the whole strip after it) */
+    y += (uint32_t)cv_by;                               /* (devcpu3) a band: a strip of its own */
+    if ((uint32_t)cv_by + cv_bh >= cv_h)
+        cv_band = 0;                                    /* (its last: what follows draws as before) */
     for (i = 0; i < dc_n; i++)
-        if (dc_st[i].x == (int16_t)x && dc_st[i].y == (int16_t)y && dc_st[i].w == (int16_t)cv_w && dc_st[i].h == (int16_t)cv_h)
+        if (dc_st[i].x == (int16_t)x && dc_st[i].y == (int16_t)y && dc_st[i].w == (int16_t)cv_w && dc_st[i].h == (int16_t)cv_bh)
             break;
     if (i == dc_n) {                                    /* a strip not seen since the last full frame: its cells, all sent */
         base = dc_n ? dc_st[dc_n - 1u].base + dc_st[dc_n - 1u].n : 0u;
         if (dc_n == DC_STRIPS || base + ncx * ncy > DC_USE) {
-            GFX_HOOK_SENT(cv_w * cv_h);
+            GFX_HOOK_SENT(cv_w * cv_bh);
             dc_stale = 1;                               /* (no room: sent whole, the next frame all) */
-            lcd_blit(x, y, cv_w, cv_h, cv_px);
+            lcd_blit(x, y, cv_w, cv_bh, cv_px);
             return;
         }
-        dc_st[i].x = (int16_t)x; dc_st[i].y = (int16_t)y; dc_st[i].w = (int16_t)cv_w; dc_st[i].h = (int16_t)cv_h;
+        dc_st[i].x = (int16_t)x; dc_st[i].y = (int16_t)y; dc_st[i].w = (int16_t)cv_w; dc_st[i].h = (int16_t)cv_bh;
         dc_st[i].base = (uint16_t)base;
         dc_st[i].n = (uint16_t)(ncx * ncy);
         dc_n++;
     } else if (!dc_all) {
         hp = dc_hash + dc_st[i].base;
         roll = ncx * ncy / 128u + 1u;
-        base = (++dc_roll * roll) % (ncx * ncy);
+        base = ((band ? dc_roll : ++dc_roll) * roll) % (ncx * ncy);   /* (a strip's bands: one turn a frame) */
         for (cy = 0; cy < ncy; cy++) {                  /* each row of cells: its runs of changed cells, a window each */
-            uint32_t y0 = cy * DC_CH, h = cv_h - y0 < DC_CH ? cv_h - y0 : DC_CH, run = 0xFFFFu;
+            uint32_t y0 = cy * DC_CH, h = cv_bh - y0 < DC_CH ? cv_bh - y0 : DC_CH, run = 0xFFFFu;
             for (cx = 0; cx <= ncx; cx++) {
                 uint32_t ch = 0;
                 if (cx < ncx) {
@@ -383,29 +427,29 @@ static __attribute__((noinline)) void cv_blit_cells(uint32_t x, uint32_t y)   /*
             uint32_t hs = dc_cell(cx, cy);
             hp[cy * ncx + cx] = (uint16_t)(hs ^ hs >> 16);
         }
-    dc_send(x, y, 0u, 0u, cv_w, cv_h);
+    dc_send(x, y, 0u, 0u, cv_w, cv_bh);
 }
 
 static inline void cv_pset(int32_t x, int32_t y, uint16_t c)
 {
-    y += cv_oy;
-    if ((uint32_t)x < cv_w && (uint32_t)y < cv_h)
-        cv_px[(uint32_t)y * cv_w + (uint32_t)x] = swap16(c);
+    uint16_t *p = cv_at(x, y + cv_oy);
+    if (p)
+        *p = swap16(c);
 }
 
 static void cv_rect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
 {
-    int32_t x1 = x + w, y1 = y + h + cv_oy, i;
+    int32_t x1 = x + w, y1 = y + h + cv_oy - cv_by, i;
     uint16_t sc = swap16(c);
-    y += cv_oy;                             /* clipped once, then filled row by row */
+    y += cv_oy - cv_by;                     /* clipped once (to the band), then filled row by row */
     if (x < 0)
         x = 0;
     if (y < 0)
         y = 0;
     if (x1 > (int32_t)cv_w)
         x1 = (int32_t)cv_w;
-    if (y1 > (int32_t)cv_h)
-        y1 = (int32_t)cv_h;
+    if (y1 > (int32_t)cv_bh)
+        y1 = (int32_t)cv_bh;
     for (; y < y1; y++)
         for (i = x; i < x1; i++)
             cv_px[(uint32_t)y * cv_w + (uint32_t)i] = sc;
@@ -425,6 +469,8 @@ static void cv_line(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c)
     int32_t dx = x1 > x0 ? x1 - x0 : x0 - x1, sx = x0 < x1 ? 1 : -1;
     int32_t dy = y1 > y0 ? y0 - y1 : y1 - y0, sy = y0 < y1 ? 1 : -1;
     int32_t err = dx + dy, guard = 2000;
+    if ((y0 > y1 ? y0 : y1) + cv_oy < cv_by || (y0 < y1 ? y0 : y1) + cv_oy >= cv_by + (int32_t)cv_bh)
+        return;                             /* (devcpu3) none of it in the band */
     while (guard--) {                       /* bounded: a line is never longer than 480 px */
         int32_t e2 = 2 * err;               /* both tests use the same error value */
         cv_pset(x0, y0, c);
@@ -466,6 +512,8 @@ static void cv_rrect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t r, uint
 {
     int32_t i, j;
     GFX_HOOK_CELL(x, y + cv_oy, x + w, y + h + cv_oy);   /* (the lint: what is drawn on it stays inside it) */
+    if (y + h + cv_oy <= cv_by || y + cv_oy >= cv_by + (int32_t)cv_bh)
+        return;                                  /* (devcpu3) none of it in the band */
     if (r < 0) r = -r;                           /* (-r: as r; it was "rounded in LINE too", a keycap-like cushion) */
     if (r > w / 2) r = w / 2;
     if (r > h / 2) r = h / 2;
@@ -497,8 +545,8 @@ static void cv_rrect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t r, uint
             if (cv_halo && under == ux.bg && a < 16u) {   /* (the corners on what is there) */
                 for (q = 0; q < 4u; q++) {
                     int32_t px_ = q & 1u ? x + w - 1 - i : x + i, py = (q & 2u ? y + h - 1 - j : y + j) + cv_oy;
-                    if ((uint32_t)px_ < cv_w && (uint32_t)py < cv_h && a) {
-                        uint16_t *d = &cv_px[(uint32_t)py * cv_w + (uint32_t)px_];
+                    uint16_t *d = cv_at(px_, py);
+                    if (d && a) {
                         *d = swap16(ux_mix(swap16(*d), c, (int32_t)(a * 100u / 16u)));
                     }
                 }
@@ -559,14 +607,18 @@ static void cv_alpha(int32_t x, int32_t y, uint32_t w, uint32_t h, const uint8_t
 {
     uint32_t k = 0, gx, gy;
     y += cv_oy;
+    if (y >= cv_by + (int32_t)cv_bh || y + (int32_t)h <= cv_by) {   /* (devcpu3) outside the band */
+        GFX_HOOK_PIXELS(w * h);
+        return;
+    }
     for (gy = 0; gy < h; gy++) {
         int32_t py = y + (int32_t)gy;
         uint16_t *row;
-        if (py < cv_cy0 || py >= cv_cy1) {
+        if (py < cv_cy0 || py >= cv_cy1 || (uint32_t)(py - cv_by) >= cv_bh) {
             k += w;
             continue;
         }
-        row = cv_px + (uint32_t)py * cv_w;
+        row = cv_px + (uint32_t)(py - cv_by) * cv_w;
         for (gx = 0; gx < w; gx++, k++) {
             uint32_t v = (d[k >> 1] >> ((k & 1u) ? 0 : 4)) & 15u;
             int32_t px = x + (int32_t)gx;
@@ -610,11 +662,19 @@ static void cv_alpha_hc(int32_t x, int32_t y, uint32_t w, uint32_t h, const uint
 {
     const uint16_t *lut = hc_lut(hc);
     uint32_t gy, v = 0, run = 0, acc = 0, nb = 0;
+    int32_t lo = cv_cy0 > cv_by ? cv_cy0 : cv_by, hi = cv_cy1 < cv_by + (int32_t)cv_bh ? cv_cy1 : cv_by + (int32_t)cv_bh;
     y += cv_oy;
+    if (!cv_turn && (y >= hi || y + (int32_t)h <= lo)) {   /* (devcpu3) none of its rows in the clip, the band: not decoded */
+        GFX_HOOK_PIXELS(w * h);
+        return;
+    }
     for (gy = 0; gy < h; gy++) {
         int32_t py = y + (int32_t)gy;
-        uint16_t *row = py < cv_cy0 || py >= cv_cy1 ? 0 : cv_px + (uint32_t)py * cv_w;
+        uint16_t *row = py < cv_cy0 || py >= cv_cy1 || (uint32_t)(py - cv_by) >= cv_bh ? 0 :
+                        cv_px + (uint32_t)(py - cv_by) * cv_w;
         uint32_t gx = 0;
+        if (!cv_turn && py >= hi)                    /* (the rest below it) */
+            break;
         while (gx < w) {
             uint32_t n;
             if (!run) {                              /* the next symbol */
@@ -648,8 +708,9 @@ static void cv_alpha_hc(int32_t x, int32_t y, uint32_t w, uint32_t h, const uint
                 uint32_t k;
                 for (k = 0; k < n; k++) {
                     int32_t px = x + (int32_t)gy, py = y - (int32_t)(gx + k);
-                    if ((uint32_t)px < cv_w && py >= cv_cy0 && py < cv_cy1)
-                        cv_px[(uint32_t)py * cv_w + (uint32_t)px] = rv[v];
+                    uint16_t *q = py >= cv_cy0 && py < cv_cy1 ? cv_at(px, py) : 0;
+                    if (q)
+                        *q = rv[v];
                 }
             } else if (v && row) {
                 int32_t px = cv_flip ? x + (int32_t)(w - 1u - gx) : x + (int32_t)gx, dx = cv_flip ? -1 : 1;

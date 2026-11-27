@@ -370,12 +370,11 @@ static void nm_draw_field(void)
     nm_card(3, "OCT +", nm_formula() ? "APPLY" : nm.kind == NK_USER_SAVE || nm.kind == NK_PROJ_SAVE || nm.kind == NK_SONG_SAVE ? "SAVE" : "WRITE",
             T_ACCENT);                                 /* (WRITE: the new name; SET: the lyric) */
 }
-static __attribute__((noinline)) void nm_draw_panel(void)
+static void nm_panel_band(void)        /* (devcpu3: a band of it; nm_draw_panel) */
 {
     static const char *const FN[5] = {"F#", "G#", "A#", "C#", "D#"};
     uint32_t i, empty = nm.len == 0u, w0 = nm.cur > NM_LEN - 1u ? nm.cur - (NM_LEN - 1u) : 0u;   /* (a lyric: the window) */
     char b[24];
-    cv_begin(240, LZ_GRAPH_H, T_BG);
     cv_rect(4, 0, 232, LZ_GRAPH_H, T_SURF);
     cv_bg = T_SURF;
     if (nm_formula()) {
@@ -399,7 +398,7 @@ static __attribute__((noinline)) void nm_draw_panel(void)
         }
         cv_text(10, 117 - AF_X_CAP_Y, &AF_X, "F# <  G# SPACE  A# >  C# DEL", T_TEXT);
         cv_text(10, 130 - AF_X_CAP_Y, &AF_X, "D# abc / OPS    OCT+ APPLY", T_THEME);
-        cv_blit(0, LZ_GRAPH_Y); return;
+        return;
     }
     nm_title(b);
     cv_text(10, 6 - AF_X_CAP_Y, &AF_X, b, T_THEME);
@@ -457,7 +456,13 @@ static __attribute__((noinline)) void nm_draw_panel(void)
         cv_text_in(x, y + 16 - AF_X_CAP_Y, 42, &AF_X, i == NB_LEFT ? "<" : i == NB_RIGHT ? ">" : i == NB_SPACE ? "SPACE" :
                    i == NB_DEL ? "DEL" : nm_mode_name((nm.num + 1u) % nm_modes()), T_INK, T_KEY);
     }
-    cv_blit(0, LZ_GRAPH_Y);
+}
+static __attribute__((noinline)) void nm_draw_panel(void)
+{
+    CV_BANDS(240, LZ_GRAPH_H, T_BG) {
+        nm_panel_band();
+        cv_blit(0, LZ_GRAPH_Y);
+    }
 }
 static void nm_draw_foot(void)
 {

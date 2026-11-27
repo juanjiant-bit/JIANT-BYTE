@@ -453,12 +453,13 @@ static VX_SEG void vx_lofi(const track_t *t, const int32_t *A, int32_t en_home)
     f.cx = (A[0] * 2 + A[2]) * 8 - ((32 * f.s) >> 8);
     f.cy = (A[1] * 2 + A[3]) * 8;
     vxs.kc = 1;
-    for (i = 0; i < 256; i++) {                          /* the last 256 samples out (the scope's): their peak */
+    for (i = 0; !cv_band && i < 256; i++) {              /* the last 256 samples out (the scope's): their peak (devcpu3:
+                                                          * a panel's first band; the others draw what it took) */
         int32_t v = scope_buf[(w0 + (uint32_t)i) & (SCOPE_N - 1u)];
         v = v < 0 ? -v : v;
         pk = v > pk ? v : pk;
     }
-    for (i = 0, j = (4096 << 15) / pk; i < 256; i++)
+    for (i = 0, j = (4096 << 15) / pk; !cv_band && i < 256; i++)
         vxs.wv[i] = (int16_t)((scope_buf[(w0 + (uint32_t)i) & (SCOPE_N - 1u)] * j) >> 15);
 #define VH(i) vxs.wv[i]
     byte = (uint32_t)(VH(255) / 32 + 128) & 255u;       /* the byte now: BYTE's held sample, else the output's level */
