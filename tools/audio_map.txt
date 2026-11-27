@@ -387,7 +387,7 @@ ed_uip_state 172 text ed_b ed_uip_str nav_page_name nav_sec
 ed_uip_str 84 text ed_b
 ed_v 40 text ed_b
 ed_val 30 text tsel_p
-ed_vis_push 388 text chain_busy ed_b ed_begin ed_room ed_send seq_counting vis_chord vis_hits vis_mask vis_sec vis_song
+ed_vis_push 442 text chain_busy ed_b ed_begin ed_room ed_send seq_counting vis_chord vis_hits vis_mask vis_sec vis_song vis_tsig
 edit_first 40 text nav_ch nv_page page_first
 edit_param 4018 text accel act_cols bt_hw_seg chain_busy comp_knob confirm_open cur_page cursor_set dx_knob eu_anchor eu_every eu_gen eu_kit eu_of ev_knob ev_len excite_turn fit_span fit_ui_edit focus_knob knob_cap lfo_fade_restart load_put memset micro_edit mo_knob mod_dst_offer mod_src_turn motion_djf_set ndg_end ndg_note page_desc param_turn part_row pl_at pl_engine pl_turn psq_knob rp_apply save_level save_on sc_put scene_capture settings_save shape_apply song_end_row song_idx_touch step_edit str_cpy tl_order tl_shift tl_take track_select trackgen_knob_bt tsel_p ui_message undo_mark
 edit_recallable 12 text project_recall_slot
@@ -508,7 +508,7 @@ fm1_irq_off 4 text
 fm1_irq_on 6 text
 fm1_lcd_wait 48 text
 fm1_led_dim_level 40 text
-fm1_main 9012 text ! autosave_poll autosave_sig bg_sin boot_splash bt_get bt_hw_seg bt_prox_tick bt_set bt_start chain_defaults chain_valid cpu_clock cpu_lost cv_band_begin cv_bands cv_blit cv_rect cv_text_in dbg_boot dlg_on draw_confirm draw_text_box ed_service eng_idx fav_rows_new favorite_set fl_far fm1__sr_bits fm1_adc_read fm1_delay_ms fm1_enter_uboot fm1_guard_enable fm1_guard_lock_top fm1_led_dim_level fm1_mc_barred fm1_mc_hold fm1_wdt_feed hint_tick home_vis irq_save lcd_cmd lcd_data lcd_fill lcd_power lcd_spin life_defaults ly_drawn macro_dice master_poll memcpy memset name_on ota_crc16 ota_erase ota_fread ota_jl_enc ota_memeq ota_prog ota_rd16 ota_rd32 ota_read ota_reply_identity ota_show ota_take ota_unstage ota_wr16 ota_wr32 palette_to_stored panel_init panel_setup power_sound_of proj_bound proj_fetch proj_import project_restore_runtime psq_clear scr_fill scr_get scr_holes scr_wake scr_wake_now seg_missing seq_counting settings_import settings_init settings_poll settings_save song_index_load song_mode_restore song_poll song_retired spl_frame st_load steps_sig str_cpy str_nth track_defaults track_defaults_steps uh_task ui_draw_body ui_input ui_leds ui_message ui_timers up_bank_check up_used usb_detach usb_serial_apply usb_start vc_io vd_apply vd_num vis_card vis_chord vis_col vis_hits vis_layer vis_mask vis_recipe vis_sec vis_song voice_limits_default vph
+fm1_main 9038 text ! autosave_poll autosave_sig bg_sin boot_splash bt_get bt_hw_seg bt_prox_tick bt_set bt_start chain_defaults chain_valid cpu_clock cpu_lost cv_band_begin cv_bands cv_blit cv_rect cv_text_in dbg_boot dlg_on draw_confirm draw_text_box ed_service eng_idx fav_rows_new favorite_set fl_far fm1__sr_bits fm1_adc_read fm1_delay_ms fm1_enter_uboot fm1_guard_enable fm1_guard_lock_top fm1_led_dim_level fm1_mc_barred fm1_mc_hold fm1_wdt_feed hint_tick home_vis irq_save lcd_cmd lcd_data lcd_fill lcd_power lcd_spin life_defaults ly_drawn macro_dice master_poll memcpy memset name_on ota_crc16 ota_erase ota_fread ota_jl_enc ota_memeq ota_prog ota_rd16 ota_rd32 ota_read ota_reply_identity ota_show ota_take ota_unstage ota_wr16 ota_wr32 palette_to_stored panel_init panel_setup power_sound_of proj_bound proj_fetch proj_import project_restore_runtime psq_clear scr_fill scr_get scr_holes scr_wake scr_wake_now seg_missing seq_counting settings_import settings_init settings_poll settings_save song_index_load song_mode_restore song_poll song_retired spl_frame st_load steps_sig str_cpy str_nth track_defaults track_defaults_steps uh_task ui_draw_body ui_input ui_leds ui_message ui_timers up_bank_check up_used usb_detach usb_serial_apply usb_start vc_io vd_apply vd_num vis_card vis_chord vis_col vis_hits vis_layer vis_mask vis_recipe vis_sec vis_song vis_tsig voice_limits_default vph
 fm1_mc_barred 28 text
 fm1_mc_hold 120 text
 fm1_mc_park 96 text fm1_mc_hold
@@ -1809,7 +1809,7 @@ vel_take 74 text
 vel_tick 56 text vel_take
 vh_always 102 text
 vis_bits 112 text trk_eng
-vis_car 526 text bg_sin vph
+vis_car 524 text bg_sin vph
 vis_card 70 text fmt_int str_nth
 vis_chord 270 text hm_now scale_mask vis_trk
 vis_col 78 text ux_mix
@@ -1826,6 +1826,7 @@ vis_rect 126 text * vis_line
 vis_sec 58 text
 vis_song 96 text
 vis_trk 86 text tsel_p vis_bits
+vis_tsig 76 text
 voice_begin 276 text drum_note_lane voice_start
 voice_block 2098 hot_text ! drift_noise fn_voice mod_voice mul64 voice_half
 voice_cap 34 text voice_cap0

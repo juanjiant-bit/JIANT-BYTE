@@ -269,19 +269,21 @@ static __attribute__((noinline)) int ed_ui_push(uint32_t *n)
     return 1;
 }
 
-static struct { uint32_t sig, ms; } ed_vis __attribute__((section(".pool")));
+static struct { uint32_t sig, ms; uint8_t h; } ed_vis __attribute__((section(".pool")));   /* (h: the hits since the
+                                                         * last VIS_TICK: vis_state's every look, gathered) */
 static __attribute__((noinline)) int ed_vis_push(uint32_t *n)   /* (visgen) VIS_SONG, VIS_TICK; 0: no room */
 {
     int32_t o[21];
     uint32_t i, k, h = 2166136261u, song;
     vis_state(o);
+    o[16] = ed_vis.h |= (uint8_t)o[16];
     for (i = 0; i < 10u; i++) h = (h ^ (uint32_t)o[i]) * 16777619u;
     song = h != ed_vis.sig;
     if (!song && !(o[20] && fm1_ms - ed_vis.ms >= 40u))
         return 1;
     if (!ed_room())
         return 0;
-    if (song) ed_vis.sig = h; else ed_vis.ms = fm1_ms;
+    if (song) ed_vis.sig = h; else ed_vis.ms = fm1_ms, ed_vis.h = 0;
     ed_begin(song ? ED_VIS_SONG : ED_VIS_TICK);
     for (i = song ? 0u : 10u; i < (song ? 10u : 20u); i++)   /* vis_state's fields in order, 7 bits a byte: VIS_SONG's seed 3
                                                          * bytes, recipe 2, mask 2, the rest 1 (0x5565B: 2 bits a field) */

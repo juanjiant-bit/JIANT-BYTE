@@ -231,7 +231,8 @@ ask again with one byte. Asking for it anew sends `VIS_SONG` first. The recipe S
   VIS's KNOB 3: 0 AUTO, 1 THERM, 2 HUD, 3 TRACKS, 4 ICE, 5 AMBER), `mix`, `deform`, `react` (KNOB 1, 2, 4: 0..100).
   Sent when any of them changes (the device looks every ~5 ms).
 - **VIS_TICK** (99), 10 bytes: `level1..level6` (T1..T6 0..127), `hits` (since the last tick: bit 0 KICK, 1 SNARE,
-  2 HAT, 3 PERC: DRUM-W's lanes BD; SD CP; CH OH; TM RS CB), `root` (the chord playing, 0..11, C 0: SCL > HARMONY's,
+  2 HAT, 3 PERC: DRUM-W's lanes BD; SD CP; CH OH; TM RS CB; 4 TIMBRE: a part's engine, preset or filter CUT (a quarter
+  of its range) changed), `root` (the chord playing, 0..11, C 0: SCL > HARMONY's,
   else the key's), `quality` (0 MAJ, 1 MIN, 2 DIM, 3 AUG, 4 SUS), `step` (0..63). 25 a second (every 40 ms) while
   playing; none stopped.
 

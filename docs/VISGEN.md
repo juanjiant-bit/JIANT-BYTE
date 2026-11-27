@@ -149,7 +149,7 @@ between 8 generations, deterministically:
   palette (PALETTE AUTO: so a cut may turn the colours).
 - A new section: `pos = 0` (a reshuffle: another odd step through the 8). A **kick** (VIS_TICK hits bit 0; the device
   also takes the loudest part's level jumping by 40 of 256 between two frames): `pos += 1`. A **snare** (hits bit 1),
-  or a **timbre change** (a part's engine, preset, or its filter CUT crossing a quarter of its range): `pos += 3`. Both
+  or a **timbre change** (hits bit 4: a part's engine, preset, or its filter CUT crossing a quarter of its range): `pos += 3`. Both
   in one frame: `+4`. A cut at most every 150 ms (a section's always).
 - MIX and REACT start at the song's own recipe's (j = 0) whenever the song or its recipe byte changes; DEFORM 50.
 
@@ -209,7 +209,7 @@ WATCH (22) takes an optional second byte: its bit 0 is WATCH **bit 7, VIS** (Sys
 | byte | field |
 |---:|---|
 | 0..5 | level T1..T6 (0..127) |
-| 6 | hits since the last tick: bit 0 KICK, 1 SNARE, 2 HAT, 3 PERC (DRUM-W's lanes: BD; SD CP; CH OH; TM RS CB) |
+| 6 | hits since the last tick: bit 0 KICK, 1 SNARE, 2 HAT, 3 PERC (DRUM-W's lanes: BD; SD CP; CH OH; TM RS CB), 4 TIMBRE (a timbre change, below) |
 | 7 | chord root (0..11, C = 0; SCL > HARMONY's chord playing, else the key) |
 | 8 | quality: 0 MAJ, 1 MIN, 2 DIM, 3 AUG, 4 SUS |
 | 9 | step (0..63) |
@@ -220,6 +220,7 @@ JIANT FM uses 95..97 (PROJ_*); 98 and 99 are free in both firmwares.
 
 `web/emu/felucca_web.c` `web_vis_info()` returns a pointer to 21 `int32_t`: VIS_SONG's fields then VIS_TICK's, then
 `playing`: `seed, recipe, genre, energy, engines, section, palette, mix, deform, react, level[6], hits, root, quality,
-step, playing` (hits accumulate between two reads). The page asks it with the worklet message `{type: "vis"}`;
+step, playing` (hits accumulate between two reads, bit 4 a timbre change since the last read; from the first read on
+every part's level is followed, however far apart the reads). The page asks it with the worklet message `{type: "vis"}`;
 `window.jiantEmu.vis()` resolves to `{seed, recipe, genre, energy, engines, section, palette, mix, deform, react,
 levels, hits, root, quality, step, playing}`.

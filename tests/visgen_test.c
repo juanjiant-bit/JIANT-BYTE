@@ -252,6 +252,23 @@ static void web_levels(void)
         for (k = 0; k < 6u; k++) mx = (uint32_t)o[10 + k] > mx ? (uint32_t)o[10 + k] : mx;
     }
     check("web_vis_info: the levels move off the VIS page, LIFE off", mx >= 16u && mx < 128u);
+    for (i = 0, mx = 0; i < 6u; i++) {                  /* (Studio's: a read a second, far past vis_fol's 0.37 s) */
+        run_ms(1000);
+        o = web_vis_info();
+        for (k = 0; k < 6u; k++) mx = (uint32_t)o[10 + k] > mx ? (uint32_t)o[10 + k] : mx;
+    }
+    check("web_vis_info: the levels read once a second, not 0", mx >= 8u && mx < 128u);
+    {   /* hits bit 4: a timbre change (a part's preset, its CUT a quarter of its range) once, the next read none */
+        int32_t h0, h1, h2;
+        run_ms(40);
+        h0 = web_vis_info()[16];
+        trk[0].p[P_FCUT] = (int16_t)((trk[0].p[P_FCUT] + 64) & 127);
+        run_ms(1);
+        h1 = web_vis_info()[16];
+        run_ms(1);
+        h2 = web_vis_info()[16];
+        check("web_vis_info: hits bit 4 on a timbre change, once", !(h0 & 16) && (h1 & 16) && !(h2 & 16));
+    }
 }
 int main(void)
 {

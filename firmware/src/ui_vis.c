@@ -20,7 +20,7 @@
 #define VIS_HEAT ((uint8_t *)(dc_hash + DC_USE - 800u))   /* 1600 B: 40 x 40 cells */
 static struct {
     vis_recipe_t r;                                /* the set's recipe drawn (worked out on a cut: the BT segment's) */
-    uint32_t key;                                  /* the set's inputs */
+    uint32_t key, tst;                             /* the set's inputs; Studio's timbre signature (hits bit 4) */
     uint32_t t, last, ct, tim;                     /* (from here on cleared with the set) now (ms); the last cut; the
                                                     * timbre's signature */
     int32_t kick, snr, bass, lvl, plvl, sc, rot, zp, mix, react, scan, hg, a1;   /* 0..256 (sc Q10; rot a turn 65536) */
@@ -122,15 +122,26 @@ static void vis_hits(void)                              /* DRUM-W's lanes struck
     vg.hacc |= (uint8_t)h;
     vg.hst |= (uint8_t)h;
 }
-/* JIANT Studio's state (docs/VISGEN.md): VIS_SONG's fields, VIS_TICK's, playing (21); the hits since the last call */
+/* the timbre's signature: each part's engine, preset and filter CUT (a quarter of its range) */
+static uint32_t vis_tsig(void)
+{
+    uint32_t i, st = 0;
+    for (i = 0; i < trk_live && i < NTRK; i++)
+        st = st * 31u + trk[i].eng_req * 7u + trk[i].preset + ((uint32_t)trk[i].p[P_FCUT] >> 5) * 131u;
+    return st;
+}
+/* JIANT Studio's state (docs/VISGEN.md): VIS_SONG's fields, VIS_TICK's, playing (21); the hits since the last call
+ * (bit 4: the timbre changed since then) */
 static void vis_state(int32_t *o)
 {
-    uint32_t s[4], i;
+    uint32_t s[4], i, st = vis_tsig();
     vis_song(s);
     o[0] = (int32_t)s[0]; o[1] = (int32_t)s[3]; o[2] = (int32_t)s[1]; o[3] = (int32_t)s[2]; o[4] = (int32_t)vis_mask();
     o[5] = (int32_t)vis_sec(); o[6] = vis_k[2]; o[7] = vis_k[0]; o[8] = vis_k[1]; o[9] = vis_k[3];
     for (i = 0; i < 6u; i++) o[10u + i] = i < NTRK ? clamp(track_env[i] >> 8, 0, 127) : 0;
     vis_hits();
+    if (vg.tst && st != vg.tst) vg.hst |= 16u;          /* (the first look: none) */
+    vg.tst = st;
     o[16] = vg.hst; vg.hst = 0;
     (void)vis_chord();
     o[17] = vg.root; o[18] = vg.q; o[19] = (int32_t)(trk[0].seq_idx & 63u);
@@ -321,12 +332,12 @@ static void vis_frame(void)
     }
     vg.last = vg.t = now;
     vis_fol = 255;                                      /* (every part's level followed while shown: mod.c) */
-    for (i = 0, e = 0, k = 0; i < trk_live && i < NTRK; i++) {   /* the levels: the loudest, the mean; the timbre */
+    for (i = 0, e = 0, k = 0; i < trk_live && i < NTRK; i++) {   /* the levels: the loudest, the mean */
         int32_t l = clamp(track_env[i] >> 7, 0, 256);
         e = (uint32_t)l > e ? (uint32_t)l : e;
         k += (uint32_t)l;
-        st = st * 31u + trk[i].eng_req * 7u + trk[i].preset + ((uint32_t)trk[i].p[P_FCUT] >> 5) * 131u;
     }
+    st = vis_tsig();                                    /* the timbre */
     vg.lvl = (int32_t)e; vg.bass = (int32_t)(k / (trk_live ? trk_live : 1u));
     vis_hits();
     hit = vg.hacc & 3u;
