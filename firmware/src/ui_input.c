@@ -3373,8 +3373,7 @@ static void ui_input_frame(void)
             trk_knob(k, s);
 #if FELUCCA_VIS
         } else if (home_vis()) {                        /* (visgen) HOME > VIS: MIX DEFORM PALETTE REACT */
-            vis_k[k & 3u] = (uint8_t)clamp(vis_k[k & 3u] + ((k & 3u) == 2u ? s : accel(EN_K1 + k, s, 100)), 0, (k & 3u) == 2u ? VP_N - 1 : 100);
-            vis_ov = (fm1_ms & ~15u) | (k & 3u);         /* (its card over the full-screen visual a moment) */
+            vis_knob(k, s);
 #endif
         } else if (ui.home) {                           /* (V10.7.24) HOME's SCOPE: the mix's four */
             home_knob(k, s);

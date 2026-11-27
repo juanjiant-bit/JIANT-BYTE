@@ -1346,11 +1346,7 @@ static void draw_columns(void)
     }
 #if FELUCCA_VIS
     if (home_vis()) {                                   /* (visgen) HOME > VIS: MIX DEFORM PALETTE REACT (ui_vis.c) */
-        for (c = 0; c < 4u; c++) {
-            const char *v = vis_card(c, val);
-            draw_column(c, str_nth(VIS_KN, c), v, c == 2u ? "" : "%", VAL(c), c == 2u ? vis_k[2] * 200 : vis_k[c] * 10,
-                        c == 2u ? ICON_CUTOFF : ICON_MOD);
-        }
+        vis_cols(val);
         return;
     }
 #endif
@@ -2366,18 +2362,9 @@ static void ui_draw(void)
     if (!scr_frame())                                   /* MENU > SCREEN OFF: dark (or waking), nothing drawn */
         return;
 #if FELUCCA_VIS
-    if (scrn.st == SCR_VIS || (home_vis() && !ui.menu && !dlg_on() && !name_on() && !ly_drawn() && !counting && !ui.uboot &&
-                               !ui.segbox)) {           /* (visgen) MENU > SAVER, HOME > VIS: the visual, the whole screen */
-        vis_saver();
+    if (vis_screen(counting)) {                         /* (visgen) MENU > SAVER, HOME > VIS: the visual, the whole screen */
         ui_timers();                                    /* (a toast meanwhile: its time runs, unseen) */
-        vis_ov |= 8u;                                   /* (a static of its own here would move the merged globals the
-                                                         * timer ISR reads: its code another) */
         return;
-    }
-    if (vis_ov & 8u) {                                  /* (back from it: the page drawn whole) */
-        vis_ov &= ~8u;
-        ui.force = 1;
-        ui.head_sig = ui.graph_sig = ui.foot_sig = ~0u;
     }
 #endif
     anim_st.non = 1;                                     /* (codex/anim: the lens's entries worked out once, ui_lens.c) */

@@ -11,13 +11,12 @@ snares cut between them ("Cuts" below). Same seed, same visual.
 
 The approved mock-up is [`visgen-mock.html`](visgen-mock.html) (route A: built from BYTE's own drawings).
 
-**Not in the release build.** The device's visual (HOME > VIS, MENU > SAVER, the USB pushes below and the web
-emulator's `web_vis_info`) is built only with `FELUCCA_VIS=1` (`firmware/src/core.h`, 0 by default): on the FM-1 it
-made the CPU spike again (its ~6-7 KB of drawing every UI frame against the audio code in the shared I-cache, and
-every part's level followed in the audio path), so the release leaves it out and the audio path is as before it. The
-recipe below, its vectors and this spec stay, for JIANT Studio and for a later build. Without it: no VIS tab, no
-SAVER row, WATCH's VIS bit answered 0 (not available), no VIS_SONG / VIS_TICK; a song's `V` `S` block is still loaded
-and saved as it was.
+**VIS lite, in the release.** The first device visual (every page picture of the recipe drawn through a point map, a
+third layer, mirror copies, heat cells, grain; every part's level followed in the audio path) made the FM-1's CPU
+spike, and was taken out (`FELUCCA_VIS` 0). It is back as **VIS lite** (`FELUCCA_VIS` 1, the default,
+`firmware/src/core.h`; 0 still leaves it out: no VIS tab, no SAVER row, WATCH's VIS bit answered 0, no VIS_SONG /
+VIS_TICK, a song's `V` `S` block loaded and saved as ever): the same recipes, ids, vectors and cuts, drawn simply and
+cheaply, and costing nothing when they are not on the screen ("The device" and "Zero cost" below).
 
 Where it lives on the device: **HOME > VIS** (KNOB 1 MIX, 2 DEFORM, 3 PALETTE, 4 REACT; OCT+ another recipe for the same
 song, OCT- the song's own) and **MENU > DISPLAY > SAVER** (OFF / 1 / 3 / 5 / 10 MIN, 3 the default): the visual on the
@@ -26,35 +25,36 @@ whole screen after that long with no input; the first press, key or turn only br
 JIANT Studio draws the same visuals from (1) BYTE over USB (the VIS_SONG and VIS_TICK pushes below), (2) the web
 emulator (`window.jiantEmu.vis()`), (3) any MIDI device (Studio fills the same state itself). The **recipe** is the part
 that must be identical everywhere: it is a small pure function, `firmware/src/vis_recipe.c` `vis_recipe()`, specified
-here exactly, with test vectors. How each ingredient is drawn is each renderer's own (the device draws its pages' real
-pictures).
+here exactly, with test vectors. How each ingredient is drawn is each renderer's own (the device: each ingredient's
+clean shape, below; Studio may draw the pages' real pictures).
 
 ## Ids (fixed for good)
 
 **Ingredients** (`VI_*`):
 
-| id | name | the device's drawing | can be skeleton | in the pool |
-|---:|---|---|:---:|---|
-| 0 | LIFE | HOME > LIFE's sphere and satellites (`ui_lzhome.c` `graph_eco`) | yes | always |
-| 1 | KEY | SCL > SCALE's sphere with the scale (`ui_lzpage.c` `graph_key`) | yes | always |
-| 2 | HARMONY | SCL > HARMONY's chord cards (`graph_harm`) | | always |
-| 3 | LFO | LFO's satellite and wave (`ui_graph.c` `graph_lfo`) | yes | always |
-| 4 | SPLASH | the power-on signature (the device: LIFE's beings for it, the signature's table left out of the image) | | always |
-| 5 | RADAR | DRUM-W's PLAY radar (`ui_dx.c` `dw_play_panel`) | yes | DRUM-W |
-| 6 | ORBIT | WAVE's phase orbit (`ui_byte.c` `hud_wave`) | yes | WAVE |
-| 7 | CLAY | DRONE CLAY's traces (`ui_lzedit.c` `graph_clay_lz`) | yes | CLAY |
-| 8 | TUNNEL | FX > DELAY's tunnel (`ui_lzfx.c` `fxg_delay`) | yes | FX |
-| 9 | CHORUS | FX > CHORUS's sines and orbit (`fxg_chorus`) | yes | FX |
-| 10 | HIVE | HIVE's strings (`ui_engvis.c` `vx_hive`) | yes | HIVE |
-| 11 | FUNC | FUNC's score lanes (`ui_byte.c` `hud_func`) | | FUNC |
-| 12 | MATH | MATH's being (`ui_byte.c` `ub_draw`, small) | yes | MATH |
+| id | name | the page it comes from | the device's shape (VIS lite, `ui_vis.c` `VIS_SHP`) | can be skeleton | its carrier (VIS lite) | in the pool |
+|---:|---|---|---|:---:|---|---|
+| 0 | LIFE | HOME > LIFE's sphere and satellites (`ui_lzhome.c` `graph_eco`) | a ring, two satellites going round | yes | sphere | always |
+| 1 | KEY | SCL > SCALE's sphere with the scale (`ui_lzpage.c` `graph_key`) | the scale's 7-gon in a ring, a small ring | yes | sphere (slower) | always |
+| 2 | HARMONY | SCL > HARMONY's chord cards (`graph_harm`) | the chord's triangle in a ring, a small ring | | | always |
+| 3 | LFO | LFO's satellite and wave (`ui_graph.c` `graph_lfo`) | a wave across, a satellite | yes | wave (slow) | always |
+| 4 | SPLASH | the power-on signature | two Lissajous stars (3:2, 2:3) | | | always |
+| 5 | RADAR | DRUM-W's PLAY radar (`ui_dx.c` `dw_play_panel`) | two rings, the sweep turning | yes | polar (turning) | DRUM-W |
+| 6 | ORBIT | WAVE's phase orbit (`ui_byte.c` `hud_wave`) | the recipe's Lissajous | yes | swung along the Lissajous | WAVE |
+| 7 | CLAY | DRONE CLAY's traces (`ui_lzedit.c` `graph_clay_lz`) | three coarse traces | yes | wave (in steps) | CLAY |
+| 8 | TUNNEL | FX > DELAY's tunnel (`ui_lzfx.c` `fxg_delay`) | three squares turning | yes | polar (into the depth) | FX |
+| 9 | CHORUS | FX > CHORUS's sines and orbit (`fxg_chorus`) | two waves, a small ring | yes | wave (fast) | FX |
+| 10 | HIVE | HIVE's strings (`ui_engvis.c` `vx_hive`) | three strings, up | yes | wave (quick) | HIVE |
+| 11 | FUNC | FUNC's score lanes (`ui_byte.c` `hud_func`) | three lanes of steps | | | FUNC |
+| 12 | MATH | MATH's being (`ui_byte.c` `ub_draw`, small) | a ring and its eye in a square | yes | flat | MATH |
 
 255 = none.
 
 **Deformations** (`VD_*`): 0 TWIST, 1 FOLD, 2 MIRROR, 3 POLAR, 4 MELT, 5 SCAN.
 
 **Blends** (`VB_*`): 0 THERM (thermal pulse: content and skeleton as heat cells), 1 SUM (colour sum: every layer a wire
-in colour), 2 MIX (thermal + wire: the content heat, the others wires).
+in colour), 2 MIX (thermal + wire: the content heat, the others wires). (The device's VIS lite draws every blend as wires, and no
+layer over: "The device" below.)
 
 **Palettes** (`VP_*`): 0 AUTO (K3 only: the recipe's), 1 THERM, 2 HUD, 3 TRACKS, 4 ICE, 5 AMBER. On the device the
 names are ASCII: `AUTO THERM HUD TRACKS ICE AMBER`.
@@ -173,37 +173,48 @@ between 8 generations, deterministically:
 - The song's identity for the recipe (`V` `S`: seed, genre, energy, rec) is set by GEN when it makes a piece; a song
   GEN did not make: seed from its tempo and its first part's key and length, genre 27, energy 50. The engine mask is read from the parts as they
   are.
-- Drawing: each ingredient is its page's own picture drawn through a point map (`gfx.c` `cv_vmap`: lines and dots,
-  small boxes and rules as lines, big boxes as their outlines; text, cards and icons are left out): the source box
-  normalised to -1..1, the skeleton's carrier (a sphere, polar, a Lissajous, a tunnel ring, or the flat bent by a wave:
-  CHORUS's, LFO's, HIVE's, CLAY's in steps; MATH's cells) mixed in by MIX; a cut or a section changes the layers at
-  once (the zoom pulsing over it) and its deformations' amounts glide to the new ones (~150 ms); the point
-  deformations TWIST FOLD POLAR MELT and SCAN (bands of 3 rows shifted, on a snare), MIRROR drawing it again mirrored.
-  Depth: a grain behind everything (every other row, dim dots of the palette's low end, as dense as REACT and the
-  sound), the heat cells over it, then the wires in two passes, the dim and the faint (the skeleton, a sphere's back)
-  first, the bright last: a dim figure never sits on a bright one. Every wire is seen: its colour from the palette's
-  upper half (the chord turning it there), its strength 70..100 % (the dimmest at least ~35 % of white); a wire that
-  would be fainter than a quarter is left out, not drawn dark; a heat cell shows only once warm, from mid-palette up.
-  The camera: a zoom breathing (0.8x..1.2x) and
-  pulsing (a kick, the bass, each cut), a turn drifting (its way the recipe's j; a kick throws it on), the centre
-  drifting a little. Heat cells
-  of 6 px with memory in the display cache's spare hashes (no new RAM); a heat layer is drawn faint as a wire over its
-  cells too. One deformation field moves every layer together. Reacting (some ideas from JIANT FM's V10.8.59
-  visuals): a kick pulses the scale and the twist and eases back, a snare shifts bands (a glitch, as SCAN), the bass
-  and the level heat and swell, a chord change turns the colours, a section (A..D, or every 8 bars of a loop) has its
-  own piece of the recipe; the saver changes section every 30 s besides. The parts' levels (VIS_TICK's, the visual's)
-  are followed while VIS is shown or read (USB, `web_vis_info`), LIFE off too.
-- **At rest and with the sound.** What moves with the music moves only as much as the music sounds: the device follows
-  one amount, the sound (0..1: the loudest part's level doubled, or a kick), held while it sounds and let go linearly
-  in ~0.7 s. Silent (stopped, or nothing sounding): the recipe's skeleton and content as they are, no deformation
-  (TWIST FOLD MIRROR POLAR MELT at 0, so no SCAN bands either), no layer over, no heat (a heat layer drawn as its wire,
-  full), no grain; only the skeleton's own turning (a sphere, the radar, the Lissajous) and the camera's slow breath,
-  turn and drift move it, smoothly: a still form turning. As the sound comes in, the deformations' amounts (each its
-  recipe amount x DEFORM x the sound), the layer over (its strength x the sound), the heat, the grain, the zoom pulses
-  (a kick, the bass, each cut x the sound) come in with it, REACT setting the most; when it stops they ease back. The
-  recipe and the cuts are unchanged by this (a renderer's choice: Studio should do the same with its levels and hits).
+- **Drawing (VIS lite).** One recipe draws ONE thing: its content's clean shape (the table above: 1 to 3 strokes, each
+  one curve of 2 to 64 corners, a polygon's edges cut in pieces) on ONE carrier, its skeleton's (a sphere turning, polar
+  round the turn, swung along the Lissajous, or the flat bent by a wave; MATH's and none: flat), MIX of it. No layer
+  over (the recipe's `over` is not drawn), no second copy for MIRROR, no heat cells, no grain. At most ONE deformation,
+  the section's first (`def[s][0]`), and only while it sounds (its amount x DEFORM x the sound, gliding): TWIST (the
+  middle turned more, rippled), FOLD (back at +-k), MIRROR (the left half bent onto the right's, drawn once), POLAR
+  (rings turning), MELT (each column of 3 px dropping its own), SCAN (on a snare, bands of 16 rows thrown aside). A
+  sphere's far side is not drawn. **At most `VIS_SEG` = 200 segments a frame** (counted and capped as the points are
+  worked out; the shapes ask 30 to 100), each a 2 px line in one colour of the palette's upper half (the chord, the
+  stroke and the recipe drawn turning it there), every colour at least ~40 % luminance (a darker stop is lifted toward
+  white; `tests/visgen_test.c` checks every pixel at 35 %). The camera: a zoom breathing (0.85x..1.15x) and pulsing (a
+  kick, the level, each cut x REACT; at most ~+20 %), a turn drifting (its way the recipe's j; a kick throws it on), the
+  centre drifting a little. The cuts (above) and the saver's 30 s scenes as ever.
+- **At rest and with the sound.** The device follows one amount, the sound (0..1: the loudest part's level doubled, or a
+  kick), held while it sounds and let go in ~0.7 s. Silent: the content's shape on its carrier as it is, no deformation,
+  no pulse; only the carrier's turn (a sphere, the radar), the strokes' own slow turn or travel and the camera's breath,
+  turn and drift move it: a still form turning. With the sound: the deformation, the zoom pulses, the shapes swelling
+  (up to +25 %) and the carrier's wave growing come in with it, REACT setting the most; when it stops they ease back.
+- **Its pace.** Drawn every 2nd UI frame (~30 a second; the frames between cost a few instructions), the points worked
+  out once a frame (in 1.6 KB of the display cache's hashes, free while the visual fills the screen: the page after it
+  is drawn whole) and each of the 4 bands drawing their lines. The audio's load (the guard's own measure, `voice.c`
+  `load_avg_q8`, `load_rl`) thins it: past 50 % every 4th UI frame and fewer segments (200 down to 0 at 70 %), past 70 %
+  or with the guard on not drawn at all (the last frame stays); the audio always wins. `tests/vis_cost_test.py` checks a
+  VIS frame against every other page (the heaviest GEN song playing: instructions and the device code it runs; a VIS
+  frame ~40 % of the heaviest page's instructions, ~7 % of its code).
 - The recipe's code is in the Bluetooth segment (as JIANT FM's `vis_fig`): without the segment the visual draws the
   recipe of all zeros (LIFE on LIFE).
+
+## Zero cost (the device's rules, for Studio too)
+
+- Nothing of VIS runs unless the visual is on the screen (HOME > VIS with nothing over it, or MENU > SAVER's) or JIANT
+  Studio watches it (WATCH bit 7, or the emulator's `web_vis_info` asked). Off the screen and unwatched: no frame, no
+  level read, no polling (`tests/visgen_test.c` checks it: the song playing on another page, the visual's clocks still).
+- Nothing of it is in the audio path. The parts' levels are their own peaks (`fx.c` `t->peak`: what the audio has
+  always kept for the pages' meters), read and cleared by VIS when it looks (`ui_vis.c` `vis_levels`, at most every
+  8 ms), a quick fall (~0.25 s) its own; the hits are DRUM-W's lanes as the UI sees them. The audio code is the same
+  with VIS on and off: every audio function's size (`tools/audio_map.txt`) and the RAM code's place; the VIS code is
+  placed past the sound (`tools/build.py` `vis_fns`); `tests/cpu_lines_test.py` scene 1101 (101 with HOME > VIS drawn
+  between the blocks) must read the same lines as 101 and sound bit-exact.
+- Studio's pushes: VIS_SONG / VIS_TICK only while WATCH bit 7 is set, the device looking 25 times a second (not each
+  5 ms pass of the editor). While Studio watches and another page shows the parts' meters, both read the same peaks:
+  a meter may miss a peak VIS read first (only then).
 
 ## USB (editor protocol 1.5)
 
@@ -240,7 +251,7 @@ JIANT FM uses 95..97 (PROJ_*); 98 and 99 are free in both firmwares.
 
 `web/emu/felucca_web.c` `web_vis_info()` returns a pointer to 21 `int32_t`: VIS_SONG's fields then VIS_TICK's, then
 `playing`: `seed, recipe, genre, energy, engines, section, palette, mix, deform, react, level[6], hits, root, quality,
-step, playing` (hits accumulate between two reads, bit 4 a timbre change since the last read; from the first read on
-every part's level is followed, however far apart the reads). The page asks it with the worklet message `{type: "vis"}`;
+step, playing` (hits accumulate between two reads, bit 4 a timbre change since the last read; the levels are the parts'
+peaks since the last read, however far apart the reads: nothing followed in the audio path). The page asks it with the worklet message `{type: "vis"}`;
 `window.jiantEmu.vis()` resolves to `{seed, recipe, genre, energy, engines, section, palette, mix, deform, react,
 levels, hits, root, quality, step, playing}`.

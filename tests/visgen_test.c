@@ -8,9 +8,13 @@
  *   - the saver: after SAVER's minutes with no input, the whole screen; the first key brings the page back and plays no
  *     note (swallowed); SAVER OFF never;
  *   - the project keeps the song's VIS ('V' 'S'): packed, cleared, unpacked; VIS_SONG / VIS_TICK's state (vis_state);
- *   - the emulator's web_vis_info() (JIANT Studio's jiantEmu.vis()) off the VIS page, LIFE off: playing after PLAY, the parts' levels moving (followed while VIS is read: mod.c vis_fol). */
+ *   - the emulator's web_vis_info() (JIANT Studio's jiantEmu.vis()) off the VIS page, LIFE off: playing after PLAY, the
+ *     parts' levels moving (the parts' own peaks, read when asked: nothing in the audio path);
+ *   - (VIS lite) zero cost off the screen: playing on another page, no Studio, nothing of VIS runs; on it: at most
+ *     VIS_SEG segments a frame, every colour drawn at least 35 % luminance, a frame every 2nd UI frame, none past the
+ *     audio's load (70 %) or with the guard on. */
 #define FELUCCA_WEB_EDITOR 1
-#define FELUCCA_VIS 1                                   /* (the visual is out of the default build: core.h) */
+#define FELUCCA_VIS 1                                   /* (the default since VIS lite; core.h) */
 #include "../web/emu/felucca_web.c"
 #include <assert.h>
 #include <sys/wait.h>
@@ -253,7 +257,7 @@ static void web_levels(void)
         for (k = 0; k < 6u; k++) mx = (uint32_t)o[10 + k] > mx ? (uint32_t)o[10 + k] : mx;
     }
     check("web_vis_info: the levels move off the VIS page, LIFE off", mx >= 16u && mx < 128u);
-    for (i = 0, mx = 0; i < 6u; i++) {                  /* (Studio's: a read a second, far past vis_fol's 0.37 s) */
+    for (i = 0, mx = 0; i < 6u; i++) {                  /* (Studio's: a read a second; the peaks held since) */
         run_ms(1000);
         o = web_vis_info();
         for (k = 0; k < 6u; k++) mx = (uint32_t)o[10 + k] > mx ? (uint32_t)o[10 + k] : mx;
@@ -271,6 +275,57 @@ static void web_levels(void)
         check("web_vis_info: hits bit 4 on a timbre change, once", !(h0 & 16) && (h1 & 16) && !(h2 & 16));
     }
 }
+/* (VIS lite) nothing of VIS runs off the screen without Studio: the visual's clocks (its frame, its levels' look, its
+ * last time shown) still while the song plays on MACROS */
+static void zero_cost(void)
+{
+    uint32_t t = vg.t, l = vg.lms, s = vg.seen, i;
+    web_play(1);
+    nav_go(SEC_HOME, HE_MACROS, 0);
+    ui.force = 1;
+    for (i = 0; i < 2000u; i++) run_ms(1);
+    check("off the screen, no Studio: nothing of VIS ran (2 s playing on MACROS)", song.playing && t == vg.t && l == vg.lms &&
+          s == vg.seen);
+}
+static int lum_ok(void)                                 /* every pixel drawn: at least 35 % luminance */
+{
+    uint32_t i, n = 0;
+    for (i = 0; i < 240u * 240u; i++) {
+        uint16_t v = (uint16_t)(web_fb[i] >> 8 | web_fb[i] << 8);
+        uint32_t r = (v >> 11) * 255u / 31u, g = ((v >> 5) & 63u) * 255u / 63u, b = (v & 31u) * 255u / 31u;
+        if (v && r * 299u + g * 587u + b * 114u < 350u * 255u) n++;
+    }
+    return !n;
+}
+static void lite(void)
+{
+    uint32_t i, f0, d = 0, t, smax = 0, smin = ~0u, lum = 1;
+    nav_go(SEC_HOME, HE_VIS, 0);
+    ui.force = 1;
+    run_ms(1600);                                       /* (no card over it) */
+    f0 = ui.frame;
+    for (i = 0; i < 3000u; i++) {
+        t = vg.t;
+        run_ms(1);
+        if (t != vg.t) {
+            d++;
+            smax = vg.ns > smax ? vg.ns : smax;
+            smin = vg.ns < smin ? vg.ns : smin;
+            lum &= lum_ok();
+        }
+    }
+    printf("  VIS lite: %u of %u UI frames drawn, %u .. %u segments a frame\n", d, ui.frame - f0, smin, smax);
+    check("VIS lite: a frame every 2nd UI frame", d && d * 2u <= ui.frame - f0 + 2u);
+    check("VIS lite: at most VIS_SEG segments a frame, some drawn", smax <= VIS_SEG && smin >= 8u);
+    check("VIS lite: every colour drawn at least 35 % luminance", lum);
+    vg.seen = fm1_ms; ui.frame &= ~1u; t = vg.t;
+    load_avg_q8 = 72u << 8; fm1_ms++; vis_saver();
+    i = t == vg.t;
+    load_avg_q8 = 0; load_rl = 1; vg.seen = fm1_ms; fm1_ms++; vis_saver();
+    i &= t == vg.t;
+    load_rl = 0; vg.seen = fm1_ms; fm1_ms++; vis_saver();
+    check("VIS lite: not drawn past 70 % of the audio's load or with the guard on (drawn again after)", i && t != vg.t);
+}
 int main(void)
 {
     web_nor_erase();
@@ -282,9 +337,11 @@ int main(void)
     run_ms(200);
     check("GEN: the piece's VIS (seed, genre, energy; recipe 0)",
           (vis_id[0] | vis_id[1] << 8) == 421 && vis_id[2] == 5 && vis_id[3] == 70 && vis_id[4] == 0);
+    zero_cost();
     web_levels();
     web_play(1);
     run_ms(2000);
+    lite();
     frames();
     usb_pushes();
     fullscreen();

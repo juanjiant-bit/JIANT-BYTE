@@ -15,7 +15,9 @@ section, what it calls) say where each host function's code is on the FM-1: its 
 function's own). A first pass gives each part's cost, the second plays the device's split with it (fx.c mc_split, as
 the FM-1 measures them). The FM-1 runs a block in 1451 us.
    python3 tests/cpu_lines_test.py [SCENE ...]      (run_byte_tests.sh: 101, the heaviest GEN song with CLOUD, the delay
-                                                      and the chorus; fails past LIMIT on either core, its worst block)"""
+                                                      and the chorus; fails past LIMIT on either core, its worst block;
+                                                      1101: 101 with HOME > VIS drawn between the blocks, which must
+                                                      read the same and sound the same; CL_DEFS: -D flags)"""
 import bisect, collections, json, os, re, subprocess, sys, tempfile
 
 K_US, RHO, MHZ, BLOCK = 1.25, 0.77, 360.0, 64 / 44100 * 1e6
@@ -27,7 +29,8 @@ RAMDATA = {"SINE_Q", "ENGINES", "ENG_LIVE", "MOT_24", "LOFI_FDCY", "DIV_DEN", "D
 HOSTMAP = {"mix_part": "mix_part_m0", "mix_part_m": "mix_part_m0", "fx_run": "fx_run0", "events_block": "mix_block"}
 NAMES = {"101": "GEN s123 + CLOUD, delay, chorus", "102": "GEN EXPLORE s7 DANCE", "103": "GEN genre 7 s42",
          "104": "GEN HIP HOP s2024 DANCE", "105": "GEN EXPLORE s999", "0f": "the owner's project, 4 parts",
-         "200": "  its parts idle", "300": "  its parts asleep"}
+         "200": "  its parts idle", "300": "  its parts asleep",
+         "1101": "  101 with HOME > VIS on the screen"}
 
 
 def sh(*a, **k):
@@ -37,7 +40,7 @@ def sh(*a, **k):
 def build(out):
     exe, lk = os.path.join(out, "cpu_lines"), os.path.join(out, "cpu_lines_lk")
     cc = os.environ.get("CC", "cc")
-    r = sh(cc, "-std=gnu99", "-O2", "-fno-inline", "-no-pie", "-fno-pie", "-w", "-Ibuild/gen", "-Ifirmware/src", "-Itests",
+    r = sh(cc, "-std=gnu99", "-O2", "-fno-inline", *os.environ.get("CL_DEFS", "").split(), "-no-pie", "-fno-pie", "-w", "-Ibuild/gen", "-Ifirmware/src", "-Itests",
            "-o", exe, "tests/cpu_lines_test.c", "-lm", cwd=ROOT)
     if r.returncode:
         sys.exit("cpu_lines: the build failed\n" + r.stderr[-3000:])
@@ -178,18 +181,20 @@ def scene(exe, lk, M, out, sc):
 
 def main():
     from concurrent.futures import ThreadPoolExecutor
-    scenes = sys.argv[1:] or ["101"]
+    scenes = sys.argv[1:] or ["101", "1101"]
     out = tempfile.mkdtemp(prefix="cpu_lines_")
     exe, lk = build(out)
     M = Model(exe)
     bad = 0
     with ThreadPoolExecutor(min(4, len(scenes))) as ex:
         done = list(ex.map(lambda sc: scene(exe, lk, M, out, sc), scenes))
+    model = {}
     for sc, (pre, CAL, cost) in zip(scenes, done):
         row = []
         worst = 0.0
         for c in (0, 1):
             rows = M.slot(pre, c, CAL)
+            model[sc, c] = rows
             n = len(rows) or 1
             u = [us(r) for r in rows]
             lines = [r[0] + r[1] for r in rows]
@@ -202,7 +207,22 @@ def main():
         print(f"cpu_lines: {sc} {NAMES.get(sc, ''):34s} " + "   ".join(row) + (f"  OVER {lim * 100:.0f} %" if over else ""))
         if os.environ.get("CL_VERB"):
             print(f"cpu_lines:     each part alone, its lines cold (us; the split's measure): {cost.replace(',', ' ')} (the last the buses)")
-    print("cpu_lines: " + ("FAILED: a scene's worst block over its limit" if bad else
+    for sc in scenes:                                # (VIS lite) 1xxx: scene xxx with HOME > VIS on the screen, the UI
+        if len(sc) == 4 and sc[0] == "1" and sc[1:] in scenes:   # drawn between the blocks: the audio cores' model and the
+            base = sc[1:]                            # sound the same as without it (the UI's own cost: vis_cost_test.py)
+            hs = [re.search(r"hash (\w+)", sh(exe, s_, str(NBLK)).stdout) for s_ in (base, sc)]
+            same = all(len(model[sc, c]) == len(model[base, c]) and   # (the lines exactly; the instructions within a
+                       all(x[:2] == y[:2] and abs(x[2] - y[2]) <= y[2] // 1000 for x, y in zip(model[sc, c], model[base, c]))
+                       for c in (0, 1)) and hs[0] and hs[1] and hs[0][1] == hs[1][1]   # thousandth: the parts' peaks
+                                                 # start where VIS last read them, fx.c's max, a few instructions)
+            bad += not same
+            if not same:
+                for c in (0, 1):
+                    for k, (x, y) in enumerate(zip(model[base, c], model[sc, c])):
+                        if x != y: print(f"cpu_lines:   core {c} block {k}: {x} / {y}")
+            print(f"cpu_lines: {sc} the audio cores' lines with HOME > VIS drawn " +
+                  ("the same as without it (instructions within 0.1 %), the sound bit-exact" if same else "DIFFER from scene " + base))
+    print("cpu_lines: " + ("FAILED: a scene's worst block over its limit, or VIS changed the audio's" if bad else
                            "every scene's worst block under its limit (mean / worst, a core each)"))
     if not os.environ.get("CL_KEEP"):
         import shutil

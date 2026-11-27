@@ -44,12 +44,6 @@ static inline void og_plot(int32_t x, int32_t y, uint16_t c, int32_t a)
 static void og_line_a(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c, int32_t a)
 {
     int32_t dx = x1 - x0, dy = y1 - y0, adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy, t, g, p, e, f;
-#if FELUCCA_VIS
-    if (cv_vmap) {                                       /* (visgen) HOME > VIS: through its map (gfx.c) */
-        cv_vmap->line(x0 >> 4, y0 >> 4, x1 >> 4, y1 >> 4, c);
-        return;
-    }
-#endif
     if (adx >= ady) {                                    /* along x: y in Q8, two pixels per column */
         if (x0 > x1) { t = x0; x0 = x1; x1 = t; t = y0; y0 = y1; y1 = t; }
         g = adx ? ((y1 - y0) << 8) / (x1 - x0) : 0;      /* dy / dx, Q8 */

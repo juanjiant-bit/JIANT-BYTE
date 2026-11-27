@@ -418,7 +418,7 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 | 19 UP_STORE | slot, name | slot, rc. Stores the current sound: engine, parameters, the first 16 sequencer steps as the pattern (TIE steps → flag 4) |
 | 20 UP_LOAD | slot | slot, rc (0 ok, 1 empty/invalid). Applies its sound (not its pattern; the steps stay) |
 | 21 UP_ERASE | slot | slot, rc |
-| 22 WATCH | on (0/1; v4: 3 = also `TRACK_CHANGED`; 1.0: bit 2 `TRANSPORT`, bit 3 `PUNCH`, bit 4 `MUTATE`; 1.4: bit 5 `UI`; 1.5: a second byte, bit 0 `VIS`, WATCH bit 7) | the bits it took: on (bit 0), bit 1 (v4 firmware), bits 2..4 (1.0 firmware; older answers 3 or 1), bit 5 (1.4 firmware); with a second byte asked, a second byte (bit 0: VIS taken, 1.5; 0 from a build without VIS, `FELUCCA_VIS` 0, the default). While on, the device pushes cmds 23, 24, 26 (and 32 with bit 1, 40 / 41 / 42 with bits 2 / 3 / 4, 43 with bit 5, 98 / 99 with bit 7) |
+| 22 WATCH | on (0/1; v4: 3 = also `TRACK_CHANGED`; 1.0: bit 2 `TRANSPORT`, bit 3 `PUNCH`, bit 4 `MUTATE`; 1.4: bit 5 `UI`; 1.5: a second byte, bit 0 `VIS`, WATCH bit 7) | the bits it took: on (bit 0), bit 1 (v4 firmware), bits 2..4 (1.0 firmware; older answers 3 or 1), bit 5 (1.4 firmware); with a second byte asked, a second byte (bit 0: VIS taken, 1.5; 0 from a build without VIS, `FELUCCA_VIS` 0; 1 the default since VIS lite). While on, the device pushes cmds 23, 24, 26 (and 32 with bit 1, 40 / 41 / 42 with bits 2 / 3 / 4, 43 with bit 5, 98 / 99 with bit 7) |
 | 23 CHANGED (push) | — | scope, id, v14 |
 | 24 RELOAD (push) | — | engine, preset, then (v3) the selected track |
 | 25 PING | — | 0 |
@@ -1099,7 +1099,7 @@ expression keys' in id 90: 127 − (gates | pressure 0..7 << 2), 96..127 (pressu
 JIANT FM V10.8.56's): 0 OFF, 1 "1 MIN", 2 "3 MIN" (the default), 3 "5 MIN", 4 "10 MIN": HOME > VIS's visual on the
 whole screen after that long without panel input, before SCREEN OFF's dark; the first press, key or turn only brings
 the page back.
-Index 34 (33 in a build without VIS, `FELUCCA_VIS` 0, the default: no SAVER row there), id 34 **PANEL** (DISPLAY; count 35, 34 without VIS; the id as JIANT FM V10.8.63's): 0 AUTO (the default), 1 A, 2 B: the
+Index 34 (33 in a build without VIS, `FELUCCA_VIS` 0: no SAVER row there; VIS is in the default build), id 34 **PANEL** (DISPLAY; count 35, 34 without VIS; the id as JIANT FM V10.8.63's): 0 AUTO (the default), 1 A, 2 B: the
 display's set-up, applied at once. A is the panel set-up of before; B adds the ST7789V's porch, power, VCOM and gamma
 registers and INVOFF, for the other 1.3" IPS panel some units sold from late 2026 carry (flash 0xB36014: AUTO picks B
 on those). OCT- + SAVE held at power-on starts with A.

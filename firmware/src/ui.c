@@ -468,6 +468,9 @@ static void vis_saver(void);
 static void vis_oct(int up);
 static void vis_gen_set(uint32_t seed, uint32_t genre, uint32_t energy);
 static const char *vis_card(uint32_t c, char *b);
+static int vis_screen(uint32_t counting);
+static void vis_cols(char *val);
+static void vis_knob(uint32_t k, int32_t s);
 #endif
 static struct {
     uint8_t st;                  /* SCR_*: SCR_WAKE asked, SCR_SLPOUT sent, SCR_SHOW the frame that redraws */
