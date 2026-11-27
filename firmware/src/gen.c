@@ -1800,9 +1800,10 @@ static __attribute__((noinline)) void gen_kit(track_t *t)
             }
         }
     t->p[P_E0] = (int16_t)grr(40, 88);                  /* MORPH */
-    t->p[P_E2] = (int16_t)clamp(70 + k->tone - (gp.seed % 3u ? 13 : 25), 0, 127);   /* (V10.7.29, the owner: every throw's
-                                                         * TONE ~10 % down by hand, "or even 20 in some cases": 13 under, a
-                                                         * seed's third 25) */
+    dw_ktone = (int8_t)(clamp(70 + k->tone - (gp.seed % 3u ? 13 : 25), 0, 127) - 64);   /* (V10.7.29, the owner: every
+                                                         * throw's TONE ~10 % down by hand, "or even 20 in some cases": 13
+                                                         * under, a seed's third 25; FEEDBK: the kit's TONE, was WAVE) */
+    t->p[P_E2] = 0;                                     /* (FEEDBK: clean) */
     t->p[P_E3] = (int16_t)clamp(54 + k->decy, 0, 127);   /* (the owner: "too long": 10 shorter) */
     t->p[P_E4] = (int16_t)clamp(64 + k->nois, 0, 127);
     t->p[P_E7] = (int16_t)clamp(k->drv / 3 + (gs.g->spec & GSP_HEAVY ? grr(10, 20) : 0), 0, 127);   /* (gen2: the kit's

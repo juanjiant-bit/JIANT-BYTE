@@ -36,11 +36,18 @@ static uint32_t mid_hash(uint32_t md)                   /* 8 seeds of EXPLORE, R
 #endif
         gen_make();
         for (k = 0; k < NTRK; k++) {
+            int16_t fb = trk[k].p[P_E2];
+#ifndef GEN_BASE
+            if (trk[k].eng_req == ENGI_DRUM)              /* (FEEDBK: the kit's TONE, dw_ktone, what GEN set as WAVE before;
+                                                         * its FEEDBK 0: hashed as the WAVE it was, every piece as recorded) */
+                trk[k].p[P_E2] = (int16_t)(dw_ktone + 64 + fb);
+#endif
             h = (h ^ trk[k].eng_req ^ (uint32_t)trk[k].preset << 8) * 16777619u;
             for (i = 0; i < sizeof trk[k].p + sizeof trk[k].step; i++)
                 if (k != gs.trk_of[RL_BASS] || i / sizeof trk[k].p[0] != P_LEVEL)   /* (the bass's LEVEL the owner's "WAVE
                                                          * basses far too loud" moved: every other value as it was) */
                     h = (h ^ (i < sizeof trk[k].p ? ((const uint8_t *)trk[k].p)[i] : ((const uint8_t *)trk[k].step)[i - sizeof trk[k].p])) * 16777619u;
+            trk[k].p[P_E2] = fb;
         }
         for (i = 0; i < sizeof song.g; i++) h = (h ^ ((const uint8_t *)song.g)[i]) * 16777619u;
         for (i = 0; i < sizeof dx_kit; i++) h = (h ^ ((const uint8_t *)dx_kit)[i]) * 16777619u;

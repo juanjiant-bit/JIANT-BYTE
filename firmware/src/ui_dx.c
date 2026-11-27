@@ -240,7 +240,7 @@ static void dw_panel(void)
 }
 
 /* ---- (DRUM-W, its own UI) eight pages, four knobs each, the pad by its key or KNOB 1:
- *   PLAY   WAVE MORPH DECAY STRIKE (the kit, to play)     BODY   PAD PITCH SWEEP DECAY
+ *   PLAY   FEEDBK MORPH DECAY STRIKE (the kit, to play)   BODY   PAD PITCH SWEEP DECAY
  *   WAVE   PAD TABLE A POS TABLE B                        NOISE  PAD NOISE CUTOFF TYPE
  *   SHAPE  PAD STRUCT AMOUNT RATIO                        COLOR  ATTACK FOLD GAIN CUTOFF (the kit's)
  *   MOVE   PAD ENV DECAY LFO                              MIX    PAD LEVEL STEREO METAL
@@ -309,7 +309,7 @@ static void dw_cards(uint32_t pn)
     char val[12], ln[8];
     uint32_t sd = (pn == DWP_BODY || pn == DWP_NOISE);
     if (pn == DWP_PLAY || pn == DWP_COLOR) {
-        static const char *const LP[4] = {"WAVE", "MORPH", "DECAY", "STRIKE"}, *const LC[4] = {"ATTACK", "FOLD", "GAIN", "CUTOFF"};
+        static const char *const LP[4] = {"FEEDBK", "MORPH", "DECAY", "STRIKE"}, *const LC[4] = {"ATTACK", "FOLD", "GAIN", "CUTOFF"};
         static const uint8_t PL[4] = {P_E2, P_E0, P_E3, P_E5}, CO[4] = {P_E1, P_E6, P_E7, P_FCUT};
         uint32_t c;
         for (c = 0; c < 4u; c++) {

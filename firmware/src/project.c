@@ -152,6 +152,9 @@ typedef struct {
     uint8_t vis[5];                            /* (visgen) HOME > VIS's song (ui_vis.c vis_id): GEN's seed (2), its genre + 1
                                                 * (0: not GEN's), energy, the recipe byte (OCT+): 'V' 'S' after 'F' 'X',
                                                 * when set (absent: 0) */
+    int8_t dwt;                                /* (FEEDBK) the DRUM-W kit's TONE (drumx_voice.c dw_ktone, -64..63): 'D' 'B'
+                                                * after 'V' 'S', always; absent (a project of before, its EDIT 3 WAVE):
+                                                * its DRUM part's WAVE - 64, that part's EDIT 3 (FEEDBK) 0 */
     uint32_t sum;
 } project_t;
 /* Serialized FUN7 keeps the retained cache's exact extent. Params are biased
@@ -653,6 +656,7 @@ static uint32_t proj_packed_size(const project_t *q)
     if (q->g[G_HPROG]) n += 6u;                         /* (BYTE) SCL > HARMONY */
     if (proj_fx_any(q)) n += 2u + sizeof q->fxr;        /* (func-rate) */
     if (q->vis[2] | q->vis[4]) n += 2u + sizeof q->vis; /* (visgen) */
+    n += 3u;                                            /* (FEEDBK) the kit's TONE: 'D' 'B' */
     if (q->dx_hands >> 4)                               /* (snd1) the kit's GLUE, when on */
         n += 3u;
     if (q->g[G_DDRV])                                   /* (snd2) the delay's DRIVE, when on */
@@ -959,6 +963,8 @@ static int proj_pack(project_store_t *out, const project_t *q)
         memcpy(b + pos, q->vis, sizeof q->vis);
         pos += sizeof q->vis;
     }
+    b[pos++] = 'D'; b[pos++] = 'B'; b[pos++] = (uint8_t)(clamp(q->dwt, -64, 63) + 64);   /* (FEEDBK) the kit's TONE, after
+                                                         * them, always (an older firmware stops before it) */
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
     for (i = 0; i < 4u; i++)
@@ -1040,7 +1046,8 @@ static int proj_pack_vb(project_store_t *out, const project_t *q)
 /* a FUNC store (3840 bytes) -> q; 0 = not one (its hash, a value out of range, a length past its room) */
 static int proj_unpack_c(project_t *q, const uint8_t *b)
 {
-    uint32_t pos = 68u, t, i, size, sum, np = b[66], nt = b[67], room = PROJC_PFX_OFF, glue = 0;
+    uint32_t pos = 68u, t, i, size, sum, np = b[66], nt = b[67], room = PROJC_PFX_OFF, glue = 0, dbf = 0;
+    int32_t owave = -1;                                 /* (FEEDBK) a DRUM part's EDIT 3 as stored (-1: none) */
     memcpy(&size, b + 4, 4); memcpy(&sum, b + PROJ_STORE_SIZE - 4u, 4);
     if (size != PROJ_STORE_SIZE || sum != proj_hash(b, PROJ_STORE_SIZE - 4u) || np < 8u || np > P_COUNT || !nt || nt > NTRK)
         return 0;
@@ -1077,6 +1084,8 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
             values[i] = (int16_t)b[pos++] - 64;
         }
         params_by_count(q->t[t].p, values, np, def);
+        if (e == ENGI_DRUM && owave < 0)                /* (FEEDBK) WAVE, were it a project of before (64 unstored) */
+            owave = (b[map + (nc + 2u) / 8u] >> ((nc + 2u) & 7u)) & 1u ? clamp(q->t[t].p[P_E2], 0, 127) : 64;
         if (b[65] != PROJ_VEL_MARK && b[65] != PROJ_DT_MARK && e != ENGI_DIGITAL)   /* (V10.7.6) a FUNC of before VEL: its slot was MUTATE's */
             q->t[t].p[P_TVEL] = 127;                    /* config (127 - cfg), VEL 100 % (PROJ_VEL_MARK) */
         if (pos + 8u > room) return 0;
@@ -1390,6 +1399,17 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
             memcpy(q->vis, b + pos + 2u, sizeof q->vis);
             pos += 2u + sizeof q->vis;
         }
+        if (pos + 3u <= room && b[pos] == 'D' && b[pos + 1u] == 'B') {   /* (FEEDBK) the kit's TONE */
+            q->dwt = (int8_t)((b[pos + 2u] & 127u) - 64u);
+            dbf = 1;
+            pos += 3u;
+        }
+    }
+    if (!dbf) {                                         /* (FEEDBK) a project of before: its DRUM part's WAVE the kit's
+                                                         * TONE (every pad where it was, the noise as bright), FEEDBK 0 */
+        q->dwt = (int8_t)(owave >= 0 ? owave - 64 : DW_KTONE_DEF);
+        for (t = 0; t < nt; t++)
+            if (q->t[t].engine == ENGI_DRUM) q->t[t].p[P_E2] = 0;
     }
     for (i = 0; i < 8u; i++) if (q->dx_form[i] == DX_USER && !q->dx_text[i][0]) q->dx_form[i] = 0;
     if (b[65] != PROJ_DT_MARK)                          /* (V10.7.33) DIST TYPE CRUSH: CRUSH */
@@ -1608,6 +1628,7 @@ static void project_capture(project_t *p)
     memcpy(p->dx_snd, dx_snd, sizeof p->dx_snd);        /* (0.6.48) */
     memcpy(p->dx_lay, dx_lay, sizeof p->dx_lay);        /* (0.6.49) */
     memcpy(p->dw, dw_kit, sizeof p->dw);                /* (DRUM-W) */
+    p->dwt = dw_ktone;                                  /* (FEEDBK) its TONE */
     memcpy(p->dx_text, dx_text, sizeof p->dx_text);
     memcpy(p->dx_fmod, dx_fmod, sizeof p->dx_fmod);
     memcpy(p->dx_form, dx_form, sizeof p->dx_form);     /* (JIANT BYTE) */
@@ -1772,6 +1793,7 @@ static void sound_put(project_t *p, uint32_t k)
         memcpy(dx_snd, p->dx_snd, sizeof dx_snd);
         memcpy(dx_lay, p->dx_lay, sizeof dx_lay);
         memcpy(dw_kit, p->dw, sizeof dw_kit);
+        dw_ktone = (int8_t)clamp(p->dwt, -64, 63);
         memcpy(dx_text, p->dx_text, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
         memcpy(dx_fmod, p->dx_fmod, sizeof dx_fmod);
         memcpy(dx_form, p->dx_form, sizeof dx_form);
@@ -1846,6 +1868,7 @@ static int project_restore_runtime(const project_t *input)
     memcpy(dx_snd, p->dx_snd, sizeof dx_snd);           /* (0.6.48: its SENDs) */
     memcpy(dx_lay, p->dx_lay, sizeof dx_lay);           /* (0.6.49: its LAYERs) */
     memcpy(dw_kit, p->dw, sizeof dw_kit);               /* (DRUM-W) */
+    dw_ktone = (int8_t)clamp(p->dwt, -64, 63);          /* (FEEDBK) its TONE */
     memcpy(dx_text, p->dx_text, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
     memcpy(dx_fmod, p->dx_fmod, sizeof dx_fmod);
     memcpy(dx_form, p->dx_form, sizeof dx_form);        /* (JIANT BYTE: its formula lanes) */
@@ -2007,6 +2030,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     memset(dx_snd, 0, sizeof dx_snd);
     memcpy(dx_lay, DX_LAY_DEF, sizeof dx_lay);
     memcpy(dw_kit, DW_DEF, sizeof dw_kit);
+    dw_ktone = DW_KTONE_DEF;
     memset(dx_text, 0, sizeof dx_text); memset(dx_fid, 0, sizeof dx_fid);
     memset(dx_fmod, 0, sizeof dx_fmod);
     memcpy(dx_form, DX_FORM_DEF, sizeof dx_form);       /* (JIANT BYTE) every lane its floatbeat */
