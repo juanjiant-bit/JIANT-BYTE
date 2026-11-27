@@ -269,6 +269,7 @@ static __attribute__((noinline)) int ed_ui_push(uint32_t *n)
     return 1;
 }
 
+#if FELUCCA_VIS
 static struct { uint32_t sig, ms; uint8_t h; } ed_vis __attribute__((section(".pool")));   /* (h: the hits since the
                                                          * last VIS_TICK: vis_state's every look, gathered) */
 static __attribute__((noinline)) int ed_vis_push(uint32_t *n)   /* (visgen) VIS_SONG, VIS_TICK; 0: no room */
@@ -292,6 +293,7 @@ static __attribute__((noinline)) int ed_vis_push(uint32_t *n)   /* (visgen) VIS_
     (*n)++;
     return 1;
 }
+#endif
 /* (1.0) WATCH bits 2..4: the transport (on PLAY / STOP and each beat while playing), the punch-in effects running (held,
  * latched, a scene's) and each EUCLID MUTATE. 0: no room in the SysEx ring (the rest waits) */
 static __attribute__((noinline)) int ed_perf(uint32_t *n)
@@ -333,7 +335,11 @@ static __attribute__((noinline)) int ed_perf(uint32_t *n)
             ed_send();
             (*n)++;
         }
+#if FELUCCA_VIS
     return (!(ed_w.ext & 8u) || ed_ui_push(n)) && (!(ed_w.ext & 16u) || ed_vis_push(n));
+#else
+    return !(ed_w.ext & 8u) || ed_ui_push(n);
+#endif
 }
 
 static void ed_sync(void)                                /* main loop */
@@ -842,10 +848,12 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         keep = ed_w.on && ed_w.resets == usb.resets && (a[0] & 1u);   /* already watching: the changes not yet */
         ed_w.on = a[0] & 1u;                                          /* pushed stay pending (INFO 53 01 bit 0) */
         ed_w.v4 = (uint8_t)(ed_w.on && (a[0] & 2u));     /* v4: also TRACK_CHANGED; the reply says it is known */
-        i = ed_w.on ? ((a[0] >> 2) & 15u) | (na > 1u && (a[1] & 1u) ? 16u : 0u) : 0u;   /* (1.0) bits 2..4: TRANSPORT,
+        i = ed_w.on ? ((a[0] >> 2) & 15u) | (FELUCCA_VIS && na > 1u && (a[1] & 1u) ? 16u : 0u) : 0u;   /* (1.0) bits 2..4: TRANSPORT,
                                                           * PUNCH, MUTATE; (1.4) 5: UI; (1.5) 7 (a[1] bit 0): VIS */
+#if FELUCCA_VIS
         if ((i & 16u) && !(keep && (ed_w.ext & 16u)))
             ed_vis.sig = 0;                              /* (VIS newly asked for: VIS_SONG first) */
+#endif
         if ((i & 8u) && !(keep && (ed_w.ext & 8u))) {    /* UI newly asked for: the screen as it is goes out first */
             ed_w.ui_sig = ~ed_w.ui_sig;
             ed_w.ui_due = 0;

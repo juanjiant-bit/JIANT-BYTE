@@ -1344,6 +1344,7 @@ static void draw_columns(void)
         }
         return;
     }
+#if FELUCCA_VIS
     if (home_vis()) {                                   /* (visgen) HOME > VIS: MIX DEFORM PALETTE REACT (ui_vis.c) */
         for (c = 0; c < 4u; c++) {
             const char *v = vis_card(c, val);
@@ -1352,6 +1353,7 @@ static void draw_columns(void)
         }
         return;
     }
+#endif
     if (home_tracks()) {                                /* (V10.7.34) HOME > TRACKS: the track (KNOB 1), its LEVEL PAN REV */
         const track_t *t = TSEL;
         val[0] = 'T'; val[1] = (char)('1' + song.sel % NTRK); val[2] = 0;
@@ -2363,6 +2365,7 @@ static void ui_draw(void)
     }
     if (!scr_frame())                                   /* MENU > SCREEN OFF: dark (or waking), nothing drawn */
         return;
+#if FELUCCA_VIS
     if (scrn.st == SCR_VIS || (home_vis() && !ui.menu && !dlg_on() && !name_on() && !ly_drawn() && !counting && !ui.uboot &&
                                !ui.segbox)) {           /* (visgen) MENU > SAVER, HOME > VIS: the visual, the whole screen */
         vis_saver();
@@ -2376,6 +2379,7 @@ static void ui_draw(void)
         ui.force = 1;
         ui.head_sig = ui.graph_sig = ui.foot_sig = ~0u;
     }
+#endif
     anim_st.non = 1;                                     /* (codex/anim: the lens's entries worked out once, ui_lens.c) */
     anim_st.nkey = 0;
     ui_draw_page(counting);

@@ -256,8 +256,10 @@ static uint32_t mns_clk;         /* (0.7.8) NOISE's clock: audio blocks (macro_m
 static int16_t track_env[NTRK];
 static volatile int16_t track_pk[NTRK];
 static uint8_t track_follow_mask;
+#if FELUCCA_VIS
 static volatile uint8_t vis_fol;                      /* (visgen) blocks left of every part's level followed for VIS (ui_vis.c:
                                                          * HOME > VIS, the saver, Studio's reads), LIFE's way */
+#endif
 static int32_t follow_step(int32_t env, int32_t peak)
 {
     return env + (peak > env ? (peak - env + 1) >> 1 : -((env - peak + 31) >> 5));

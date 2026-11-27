@@ -10,6 +10,7 @@
  *   - the project keeps the song's VIS ('V' 'S'): packed, cleared, unpacked; VIS_SONG / VIS_TICK's state (vis_state);
  *   - the emulator's web_vis_info() (JIANT Studio's jiantEmu.vis()) off the VIS page, LIFE off: playing after PLAY, the parts' levels moving (followed while VIS is read: mod.c vis_fol). */
 #define FELUCCA_WEB_EDITOR 1
+#define FELUCCA_VIS 1                                   /* (the visual is out of the default build: core.h) */
 #include "../web/emu/felucca_web.c"
 #include <assert.h>
 #include <sys/wait.h>

@@ -446,26 +446,29 @@ static const uint8_t SCR_DEC[8] = {0, 2, 1, 0, 3, 0, 0, 4};   /* .. and back (3:
 #define SCR_EAT_MS 300u
 static const uint8_t SCR_MIN[5] = {0, 5, 15, 30, 60};  /* NEVER, minutes */
 enum { SCR_ON, SCR_OFF, SCR_WAKE, SCR_SLPOUT, SCR_SHOW, SCR_VIS };   /* (visgen) SCR_VIS: the screensaver drawn */
+#define lcd_pnl (favorites.factory[15][15])   /* MENU > DISPLAY > PANEL (lcd.c lcd_panel): bits 0-1, 0 AUTO (every older
+                                                 * record: INPUT's favourites 120..127, unused), 1 A, 2 B */
+static uint8_t vis_id[5] __attribute__((section(".pool")));  /* (visgen) HOME > VIS's song: seed (2), genre + 1 (0: not
+                                                         * GEN's), energy, the recipe byte (project.c 'V' 'S': kept as
+                                                         * loaded, FELUCCA_VIS 0 too) */
+#if FELUCCA_VIS
 /* (visgen, as JIANT FM V10.8.56) MENU > DISPLAY > SAVER: after this long with no panel input HOME > VIS's visual, the
  * whole screen, moving with the music (ui_vis.c vis_saver), before SCREEN OFF's dark if that comes later; the first
  * press, key or turn only brings the page back (swallowed as SCREEN OFF's wake). OFF 1 3 5 10 MIN, 3 the default: bits
  * 4-6 of a byte the teaching hints' counts once used (their small counts left 0 there: 3 MIN), stored ^ 2 */
 #define vis_scr (favorites.factory[15][12])
-#define lcd_pnl (favorites.factory[15][15])   /* MENU > DISPLAY > PANEL (lcd.c lcd_panel): bits 0-1, 0 AUTO (every older
-                                                 * record: INPUT's favourites 120..127, unused), 1 A, 2 B */
 static const uint8_t VIS_MIN[8] = {0, 1, 3, 5, 10, 3, 3, 3};
 #include "vis_recipe.c"                                 /* (visgen) the recipe; HOME > VIS: ui_vis.c (ui_input.c) */
 static uint8_t vis_k[4] __attribute__((section(".pool")));   /* HOME > VIS's MIX DEFORM PALETTE REACT (not saved) */
 static uint32_t vis_ov __attribute__((section(".pool")));   /* (full screen) the card shown over it: which (bits 0-2: a
                                                          * knob, 4 RECIPE), since when (ms, bits 4 on); bit 3: drawn */
-static uint8_t vis_id[5] __attribute__((section(".pool")));  /* .. the song's: seed (2), genre + 1 (0: not GEN's), energy,
-                                                         * the recipe byte (project.c 'V' 'S') */
 static const char VIS_KN[] = "MIX\0DEFORM\0PALETTE\0REACT\0RECIPE";
 static const char VIS_PN[] = "AUTO\0THERM\0HUD\0TRACKS\0ICE\0AMBER";
 static void vis_saver(void);
 static void vis_oct(int up);
 static void vis_gen_set(uint32_t seed, uint32_t genre, uint32_t energy);
 static const char *vis_card(uint32_t c, char *b);
+#endif
 static struct {
     uint8_t st;                  /* SCR_*: SCR_WAKE asked, SCR_SLPOUT sent, SCR_SHOW the frame that redraws */
     uint8_t eat;                 /* the wake gesture: panel input swallowed (ui_input) */
@@ -486,10 +489,12 @@ static void scr_wake(void)
 {
     if (scrn.st == SCR_OFF)
         scrn.st = SCR_WAKE;
+#if FELUCCA_VIS
     if (scrn.st == SCR_VIS) {                          /* (visgen) the saver: the page back at once */
         scrn.st = SCR_ON;
         ui.force = 1;
     }
+#endif
     scrn.eat = 1;
 }
 static void scr_wake_now(void)                         /* main.c: the crash screen, UPDATE, UBOOT */
@@ -531,7 +536,10 @@ static int scr_input(uint32_t pressed, uint32_t notes)
 /* ui_draw, every frame: 1 = draw it */
 static int scr_frame(void)
 {
-    uint32_t lim = SCR_MIN[scr_get()] * 60000u, vl = VIS_MIN[((vis_scr >> 4) ^ 2u) & 7u] * 60000u;
+    uint32_t lim = SCR_MIN[scr_get()] * 60000u;
+#if FELUCCA_VIS
+    uint32_t vl = VIS_MIN[((vis_scr >> 4) ^ 2u) & 7u] * 60000u;
+#endif
     int32_t el = (int32_t)(fm1_ms - scrn.idle);       /* (signed: robust to a wrap) */
     if (ui.confirm || ui.uboot || seq_counting()) {    /* (never dark under these) */
         scrn.idle = fm1_ms;
@@ -541,12 +549,14 @@ static int scr_frame(void)
     }
     switch (scrn.st) {
     case SCR_ON:
+#if FELUCCA_VIS
     case SCR_VIS:
         if (scrn.st == SCR_ON && vl && el >= (int32_t)vl && (!lim || vl < lim) && !ui.menu) {   /* (visgen) the saver */
             scrn.st = SCR_VIS;
             scrn.eat = 1;
             kb_asleep = 1;
         }
+#endif
         if (!lim || el < (int32_t)lim)
             return 1;
         lcd_power(0);

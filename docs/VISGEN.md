@@ -11,6 +11,14 @@ snares cut between them ("Cuts" below). Same seed, same visual.
 
 The approved mock-up is [`visgen-mock.html`](visgen-mock.html) (route A: built from BYTE's own drawings).
 
+**Not in the release build.** The device's visual (HOME > VIS, MENU > SAVER, the USB pushes below and the web
+emulator's `web_vis_info`) is built only with `FELUCCA_VIS=1` (`firmware/src/core.h`, 0 by default): on the FM-1 it
+made the CPU spike again (its ~6-7 KB of drawing every UI frame against the audio code in the shared I-cache, and
+every part's level followed in the audio path), so the release leaves it out and the audio path is as before it. The
+recipe below, its vectors and this spec stay, for JIANT Studio and for a later build. Without it: no VIS tab, no
+SAVER row, WATCH's VIS bit answered 0 (not available), no VIS_SONG / VIS_TICK; a song's `V` `S` block is still loaded
+and saved as it was.
+
 Where it lives on the device: **HOME > VIS** (KNOB 1 MIX, 2 DEFORM, 3 PALETTE, 4 REACT; OCT+ another recipe for the same
 song, OCT- the song's own) and **MENU > DISPLAY > SAVER** (OFF / 1 / 3 / 5 / 10 MIN, 3 the default): the visual on the
 whole screen after that long with no input; the first press, key or turn only brings the page back.

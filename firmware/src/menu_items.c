@@ -7,7 +7,11 @@
  * controls (HOLD: the layer threshold, KNOB ACCEL, FX LATCH, BPM LOCK; 1.2: SCALE LEDS, the keys), the sound (SPEAKER EQ: FLAT LOWCUT BASS+,
  * USB LEVEL; 1.1: CLICK, CLICK LEVEL, COUNT-IN), USB SERIAL, RESTORE LAST (1.2), then CALIBRATION (the setup screen: HARDWARE CALIBRATION) and ABOUT, the two rows with no
  * value (MI_VALUES: the rows before them hold one). 1.0.5: in four tabs (MI_TAB). */
-enum { MI_COLOR, MI_SCOPE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF, MI_SAVER, MI_HELP, MI_PRSCR, MI_LCD, MI_HOLD, MI_ACCEL, MI_LATCH, MI_BPMLOCK, MI_SCLLED, MI_MIDIOUT,
+enum { MI_COLOR, MI_SCOPE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF,
+#if FELUCCA_VIS
+       MI_SAVER,                                       /* (visgen; FELUCCA_VIS 0: no SAVER row) */
+#endif
+       MI_HELP, MI_PRSCR, MI_LCD, MI_HOLD, MI_ACCEL, MI_LATCH, MI_BPMLOCK, MI_SCLLED, MI_MIDIOUT,
        MI_MIDIMAP, MI_LEARN, MI_VEL, MI_VELMIN, MI_AT, MI_VLEARN, MI_LOWCUT, MI_USB,
        MI_CLICK, MI_CLKLVL, MI_COUNTIN, MI_TRACKS, MI_LOAD, MI_OCTBEND, MI_SERIAL, MI_RESTORE, MI_CPU, MI_CLOCK, MI_BT, MI_PANEL, MI_ABOUT, MI_COUNT };   /* (1.1: the
                                                                                              * metronome's rows in AUDIO; 1.2: RESTORE LAST in
@@ -15,7 +19,12 @@ enum { MI_COLOR, MI_SCOPE, MI_LARGE, MI_ANIM, MI_LEDS, MI_SCROFF, MI_SAVER, MI_H
                                                                                              * CLOCK in SYSTEM; codex/coherence: INIT SYSTEM gone,
                                                                                              * SAVE > TOOLS > CLEAR PROJECT the one place) */
 #define MI_VALUES MI_PANEL
-static const char MI_NAME[] = "COLOR\0SCOPE\0LARGE\0ANIM\0LEDS\0SCREEN OFF\0SAVER\0HELP\0PRESETS\0PANEL\0HOLD\0KNOB ACCEL\0FX LATCH\0BPM LOCK\0SCALE LEDS\0MIDI OUT\0MIDI MAP\0LEARN\0VELOCITY\0VEL MIN\0AFTERTOUCH\0VEL LEARN\0SPEAKER EQ\0USB LEVEL\0CLICK\0CLICK LEVEL\0COUNT-IN\0TRACKS\0CPU LOAD\0OCT BEND\0USB\0RESTORE LAST\0CPU CORES\0CPU CLOCK\0BLUETOOTH\0CALIBRATION\0ABOUT";   /* (str_nth: a text each, no pointer each) */
+#if FELUCCA_VIS
+#define MI_SAVER_NAME "SAVER\0"
+#else
+#define MI_SAVER_NAME ""
+#endif
+static const char MI_NAME[] = "COLOR\0SCOPE\0LARGE\0ANIM\0LEDS\0SCREEN OFF\0" MI_SAVER_NAME "HELP\0PRESETS\0PANEL\0HOLD\0KNOB ACCEL\0FX LATCH\0BPM LOCK\0SCALE LEDS\0MIDI OUT\0MIDI MAP\0LEARN\0VELOCITY\0VEL MIN\0AFTERTOUCH\0VEL LEARN\0SPEAKER EQ\0USB LEVEL\0CLICK\0CLICK LEVEL\0COUNT-IN\0TRACKS\0CPU LOAD\0OCT BEND\0USB\0RESTORE LAST\0CPU CORES\0CPU CLOCK\0BLUETOOTH\0CALIBRATION\0ABOUT";   /* (str_nth: a text each, no pointer each) */
 /* 1.0.5: the MENU's tabs (ui_menu.c: ALGORITHM steps between them, PRESETS among one tab's rows; the editor gets a
  * row's tab after its MENU_DESC reply). A tab's rows follow each other in MI order (tests/ui_test.c checks it); at
  * most MTAB_ROWS each (the page does not scroll: ui_menu.c fits them). A new row joins a tab here, a new tab is
@@ -30,7 +39,9 @@ static const uint8_t MI_TAB[MI_COUNT] = {
     MTAB_DISPLAY,                                                           /* ANIM */
     MTAB_DISPLAY,                                                           /* LEDS */
     MTAB_DISPLAY,                                                           /* SCREEN OFF (1.1.5) */
+#if FELUCCA_VIS
     MTAB_DISPLAY,                                                           /* SAVER (visgen: HOME > VIS, the whole screen) */
+#endif
     MTAB_DISPLAY,                                                           /* HELP (JIANT FM V10.7.60: a knob's meaning in the header) */
     MTAB_DISPLAY,                                                           /* PRESETS (JIANT FM V10.7.81: SCROLL, or the PRESETS menu) */
     MTAB_DISPLAY,                                                           /* PANEL (JIANT FM V10.8.63: AUTO A B, lcd.c) */
@@ -110,7 +121,11 @@ static const char *const COUNTIN_N[3] = {"OFF", "1 BAR", "2 BARS"};
 /* 1.1.5: SCREEN OFF (ui.c scr_*: the screen dark after this long without panel input; NEVER the default since 1.1.5.1) */
 static const char SCROFF_N[] = "NEVER\0""5 MIN\0""15 MIN\0""30 MIN\0""60 MIN";   /* (str_nth: a text each, no pointer each) */
 /* (visgen, as JIANT FM V10.8.56) SAVER: HOME > VIS's visual after this long without panel input (ui.c vis_scr) */
+#if FELUCCA_VIS
 static const char SAVER_N[] = "OFF\0""1 MIN\0""3 MIN\0""5 MIN\0""10 MIN";
+#else
+#define MI_SAVER MI_SCROFF                             /* (no SAVER row: menu_n's test folds into SCREEN OFF's) */
+#endif
 /* (JIANT 0.6.72) MIDI OUT over USB (ui.c midi_out_mode, seq.c MO_*): the keys; and the clock + START / STOP; and every
  * note the FM-1 plays; nothing */
 static const char MIDIOUT_N[] = "KEYS\0CLOCK\0ALL\0OFF";   /* (str_nth: a text each, no pointer each) */
@@ -197,7 +212,9 @@ static uint32_t menu_get(uint32_t row)
     case MI_SERIAL: return usb_host_want ? 5u : usb_out == 3u ? 4u : usb_out == 2u ? 3u : usb_out ? 2u : (ui_prefs & PREF_SERIAL_OFF) ? 1u : 0u;
     case MI_HOLD: return settings_hold % 4u;
     case MI_SCROFF: return scr_get();
+#if FELUCCA_VIS
     case MI_SAVER: return ((vis_scr >> 4) ^ 2u) % 5u;
+#endif
     case MI_LCD: return lcd_pnl % 3u;
     case MI_CLICK: case MI_CLKLVL: case MI_COUNTIN: return rp_get(row - MI_CLICK);
     case MI_LOAD: return load_get();
@@ -243,7 +260,9 @@ static const char *menu_vname(uint32_t row, uint32_t v)
     case MI_CLOCK: return CPU_N[1][v & 1u];
     case MI_BT: return bt_vname(v);
     case MI_SCROFF: return str_nth(SCROFF_N, v % 5u);
+#if FELUCCA_VIS
     case MI_SAVER: return str_nth(SAVER_N, v % 5u);
+#endif
     case MI_LCD: return str_nth("AUTO\0A\0B", v % 3u);
     case MI_LEDS: return LEDS_NAME[LEDS_MENU[v % LEDS_COUNT]];
     }
@@ -295,7 +314,9 @@ static void menu_put(uint32_t row, uint32_t v)
         break;
     case MI_HOLD: settings_hold = (uint8_t)v; break;
     case MI_SCROFF: scr_put(v); break;                 /* (read every frame: ui.c scr_frame) */
+#if FELUCCA_VIS
     case MI_SAVER: vis_scr = (uint8_t)((vis_scr & 0x8Fu) | ((v % 5u) ^ 2u) << 4); scrn.idle = fm1_ms; break;
+#endif
     case MI_LEDS: settings_leds = LEDS_MENU[v]; break;
     case MI_LCD: lcd_pnl = (uint8_t)((lcd_pnl & ~3u) | v % 3u); lcd_panel(v % 3u); ui.force = 1; break;   /* (the panel
                                                          * again at once, redrawn: lcd.c) */

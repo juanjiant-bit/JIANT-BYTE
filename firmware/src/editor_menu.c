@@ -31,9 +31,11 @@ static const uint8_t ED_MENU[][2] = {
                                                         * the device's own gesture, is not offered) */
     {MI_OCTBEND, 26},                                  /* (V10.6z4) OCT BEND OFF / 1 .. 12 ST, a row of AUDIO */
     {MI_VEL, 27}, {MI_VELMIN, 28}, {MI_AT, 29}, {MI_VLEARN, 30}, {MI_HELP, 31}, {MI_PRSCR, 32},
+#if FELUCCA_VIS
     {MI_SAVER, 33},                                    /* (visgen) SAVER OFF / 1 / 3 / 5 / 10 MIN, a row of DISPLAY (33 as JIANT
                                                         * FM V10.8.56's) */   /* (V10.6z6) VELOCITY, VEL MIN, AFTERTOUCH, VEL LEARN,
                                                         * rows of CONTROL (vel.c) */
+#endif
     {MI_LCD, 34},                                      /* PANEL AUTO / A / B, a row of DISPLAY (34 as JIANT FM V10.8.63's) */
 };
 #define ED_MENU_N NELEM(ED_MENU)

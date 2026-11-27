@@ -183,7 +183,8 @@ static void lcd_init(void)
     lcd_cmd(0x29);
 }
 static uint8_t flash_ok;                         /* (storage_hw.c: 2, the late-2026 part 0xB36014: project.c persist_boot) */
-static uint8_t lcd_b;                            /* B's registers sent since A's */
+#define lcd_b (lcd_small[63])                   /* B's registers sent since A's (a byte the transfers never use: no
+                                                 * new global, the merged ones the audio code reads stay where they were) */
 /* the panel MENU > DISPLAY > PANEL m wants (0 AUTO: B on flash 0xB36014; 1 A; 2 B), at once (main.c: at power-on,
  * unless OCT- + SAVE are held; menu_items.c: changed); the UI redraws it all after A's reset */
 static void lcd_panel(uint32_t m)

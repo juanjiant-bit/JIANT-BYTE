@@ -3002,9 +3002,9 @@ static int test_menu_tabs(void)
     hold(B_HOME);
     frame();
     ok = ui.menu == 1 && ui.mlv == 1u && lz_on() && lz_fam() == LZ_MENU && lz_tabs() == 4u && lz_tab_lit(0) &&
-         lz_crumb_is("MENU \xB7 DISPLAY \xB7 COLOR") && lz_count_is("1/34");
+         lz_crumb_is("MENU \xB7 DISPLAY \xB7 COLOR") && lz_count_is(FELUCCA_VIS ? "1/34" : "1/33");
     turn(EN_SELECT, 1); frame();
-    ok &= ui.mlv == 1u && lz_tab_lit(0) && lz_crumb_is("MENU \xB7 DISPLAY \xB7 SCOPE") && lz_count_is("2/34");
+    ok &= ui.mlv == 1u && lz_tab_lit(0) && lz_crumb_is("MENU \xB7 DISPLAY \xB7 SCOPE") && lz_count_is(FELUCCA_VIS ? "2/34" : "2/33");
     turn(EN_ALGO, 1); frame();
     ok &= menu_tab() == MTAB_CONTROL && lz_tab_lit(1) && lz_crumb_is("MENU \xB7 CONTROL \xB7 HOLD");
     turn(EN_SELECT, 2); frame();
@@ -3013,7 +3013,7 @@ static int test_menu_tabs(void)
     ok &= (fx_latch & 1u) != 0u;
     turn(EN_K3, -1); frame();
     menu_close();
-    bad += check("0.9.2 MENU: four tabs (the row's lit), MENU . TAB . ROW and n/34 (STYLE retired; codex/coherence: INIT SYSTEM gone; 0.9.7: SCOPE; 0.9.9-stab: CPU CLOCK; p1: CPU CORES, MIDI MAP, LEARN; V10.12: BLUETOOTH; V10.6z4: OCT BEND; V10.6z6: the keys' four; V10.7.23: SKIN retired; visgen: SAVER; PANEL); ALGORITHM the tab, any knob the value", ok && MI_COUNT == 35u);
+    bad += check("0.9.2 MENU: four tabs (the row's lit), MENU . TAB . ROW and n/34 (STYLE retired; codex/coherence: INIT SYSTEM gone; 0.9.7: SCOPE; 0.9.9-stab: CPU CLOCK; p1: CPU CORES, MIDI MAP, LEARN; V10.12: BLUETOOTH; V10.6z4: OCT BEND; V10.6z6: the keys' four; V10.7.23: SKIN retired; visgen: SAVER; PANEL); ALGORITHM the tab, any knob the value", ok && MI_COUNT == 34u + FELUCCA_VIS);
     /* (JIANT FM V10.8.63's) MENU > DISPLAY > PANEL: AUTO (0, older settings) A B in engine 15's byte 15 bits 0-1, lcd.c
      * told at once; AUTO itself B only on the 0xB36014 part (lcd.c lcd_panel, not here) */
     {

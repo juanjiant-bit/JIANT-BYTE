@@ -3153,12 +3153,16 @@ BTAPP_FN static void gen_make(void)
         gs.gi = NGENRE;
         gx_genre(&gmut);
         g = gs.g = &gmut;
+#if FELUCCA_VIS
         vis_gen_set(gp.seed, NGENRE, gp.energy);        /* (visgen) HOME > VIS: the piece's recipe, EXPLORE's */
+#endif
     } else {
         gs.gi = dice_force_style >= 0 ? (uint32_t)dice_force_style % NGENRE : gp.genre ? (gp.genre - 1u) % NGENRE : gmood_pick();
         g = gs.g = &GENRE[gs.gi];
         gmut = *g;
+#if FELUCCA_VIS
         vis_gen_set(gp.seed, gs.gi, gp.energy);         /* (visgen) HOME > VIS: the piece's recipe */
+#endif
         if (!gp.genre && dice_force_style < 0 && gch(15)) {   /* (0.6.95) RANDOM: a mutant, the drums of one genre, the bass
                                                              * of another, the rest from either; a name of its own: "EBM+JAZZ"
                                                              * (V10.6m: 15 %, was 45: a collage, not a genre) */

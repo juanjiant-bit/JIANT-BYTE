@@ -133,6 +133,10 @@ static inline const char *desc_unit(const param_desc_t *d)   /* F_INT_CT .. F_RE
                          * graph_stage, graph_env_tracks): out of ENV's chain and the image. Nothing stored: ENV, ENV DEST
                          * and ENV 2 edit the same envelope */
 #endif
+#ifndef FELUCCA_VIS
+#define FELUCCA_VIS 0   /* (visgen) HOME > VIS, MENU > SAVER's visual and Studio's VIS pushes (ui_vis.c, docs/VISGEN.md):
+                         * out of the release (the owner: the CPU spiked again on the FM-1 with it); 1 builds it */
+#endif
 #ifndef FELUCCA_LIFE
 #define FELUCCA_LIFE 1  /* (V10.7.33, the owner) HOME > LIFE, a page before MACROS (ui_lens.c CE_HOME, HE_*); (V10.7.34) built:
                          * ui_lzhome.c graph_life, the sound's in life.c */
