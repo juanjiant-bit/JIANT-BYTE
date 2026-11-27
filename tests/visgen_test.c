@@ -11,7 +11,7 @@
  *   - the emulator's web_vis_info() (JIANT Studio's jiantEmu.vis()) off the VIS page, LIFE off: playing after PLAY, the
  *     parts' levels moving (the parts' own peaks, read when asked: nothing in the audio path);
  *   - (VIS lite) zero cost off the screen: playing on another page, no Studio, nothing of VIS runs; on it: at most
- *     VIS_SEG segments a frame, every colour drawn at least 35 % luminance, a frame every 2nd UI frame, none past the
+ *     VIS_SEG segments a frame, the shape bright, nothing under 8 % luminance, a frame every 2nd UI frame, none past the
  *     audio's load (70 %) or with the guard on. */
 #define FELUCCA_WEB_EDITOR 1
 #define FELUCCA_VIS 1                                   /* (the default since VIS lite; core.h) */
@@ -287,15 +287,18 @@ static void zero_cost(void)
     check("off the screen, no Studio: nothing of VIS ran (2 s playing on MACROS)", song.playing && t == vg.t && l == vg.lms &&
           s == vg.seen);
 }
-static int lum_ok(void)                                 /* every pixel drawn: at least 35 % luminance */
+static int lum_ok(void)                                 /* (VIS mid) the shape bright (some pixels at least 35 % luminance),
+                                                         * every pixel drawn at least faintly visible (8 %: the grain, the
+                                                         * far side behind) */
 {
-    uint32_t i, n = 0;
+    uint32_t i, n = 0, hi = 0;
     for (i = 0; i < 240u * 240u; i++) {
         uint16_t v = (uint16_t)(web_fb[i] >> 8 | web_fb[i] << 8);
-        uint32_t r = (v >> 11) * 255u / 31u, g = ((v >> 5) & 63u) * 255u / 63u, b = (v & 31u) * 255u / 31u;
-        if (v && r * 299u + g * 587u + b * 114u < 350u * 255u) n++;
+        uint32_t r = (v >> 11) * 255u / 31u, g = ((v >> 5) & 63u) * 255u / 63u, b = (v & 31u) * 255u / 31u, l = r * 299u + g * 587u + b * 114u;
+        if (v && l < 80u * 255u) n++;
+        hi += l >= 350u * 255u;
     }
-    return !n;
+    return !n && hi > 500u;
 }
 static void lite(void)
 {
@@ -314,10 +317,10 @@ static void lite(void)
             lum &= lum_ok();
         }
     }
-    printf("  VIS lite: %u of %u UI frames drawn, %u .. %u segments a frame\n", d, ui.frame - f0, smin, smax);
+    printf("  VIS: %u of %u UI frames drawn, %u .. %u segments a frame\n", d, ui.frame - f0, smin, smax);
     check("VIS lite: a frame every 2nd UI frame", d && d * 2u <= ui.frame - f0 + 2u);
     check("VIS lite: at most VIS_SEG segments a frame, some drawn", smax <= VIS_SEG && smin >= 8u);
-    check("VIS lite: every colour drawn at least 35 % luminance", lum);
+    check("VIS mid: the shape bright (35 % luminance), nothing drawn under 8 %", lum);
     vg.seen = fm1_ms; ui.frame &= ~1u; t = vg.t;
     load_avg_q8 = 72u << 8; fm1_ms++; vis_saver();
     i = t == vg.t;

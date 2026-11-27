@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
-/* (VIS lite) the UI's cost a frame, page by page, under valgrind's callgrind (tests/vis_cost_test.py): the heaviest GEN
+/* (VIS lite, VIS mid) the UI's cost a frame, page by page, under valgrind's callgrind (tests/vis_cost_test.py): the heaviest GEN
  * song playing (cpu_lines' scene 101: EXPLORE s123, CLOUD, the delay and the chorus), every page of every section (EDIT's
  * for each part), HOME > VIS and MENU > SAVER's visual: WARM frames drawn, then FRAMES collected (ui_draw only: the
  * audio between them is not), their counts dumped at "PAGE <name>" (VIS: "VIS <frames drawn>", its every 2nd frame).

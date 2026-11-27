@@ -1,24 +1,25 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
-/* (visgen; VIS lite, the owner: "something simpler that works and doesn't spend CPU", "visuals must cost ZERO when they
- * are not on screen") HOME > VIS and MENU > SAVER: the song's visual, the whole screen (HOME > VIS: a knob turned, OCT+,
+/* (visgen; VIS mid: between the first VIS, too heavy, and VIS lite, too simple; "visuals must cost ZERO when they are
+ * not on screen") HOME > VIS and MENU > SAVER: the song's visual, the whole screen (HOME > VIS: a knob turned, OCT+,
  * its card a moment over it). The song's SET of 8 recipes (vis_recipe.c: the recipe byte and the 7 after it): a kick
- * cuts to the next, a snare (or a timbre change) jumps, a section reshuffles (docs/VISGEN.md "Cuts"). The recipe drawn
- * says which ingredient (its content) is drawn as its own clean shape (VIS_SHP: rings, satellites, waves, polygons,
- * Lissajous; 1 to 3 strokes) on the skeleton's carrier (a sphere, polar, the orbit, a wave: MIX of it), at most one
- * deformation (only while it sounds), the camera turning and zooming. No layer over, no mirror drawn twice, no heat, no
- * grain. At most VIS_SEG segments a frame, 2 px, in colours of at least ~40 % luminance.
- * The cost: nothing of it runs unless the visual is on the screen (vis_saver, ui_draw.c) or Studio watches it (WATCH
- * bit 7: vis_state, editor.c, 25 looks a second); nothing in the audio path (the parts' levels: their own peaks, fx.c
- * t->peak, read here). Drawn every 2nd UI frame, the points worked out once a frame (in 1.6 KB of the display cache's
+ * cuts to the next, a snare (or a timbre change) jumps, a section reshuffles (docs/VISGEN.md "Cuts"). Two ingredients a
+ * scene: the skeleton's grid behind (6 rows, 8 columns on its carrier: a sphere's parallels and meridians, polar's rings
+ * and spokes, a swung or waved grid; dimmer) and the content's clean shape over it (VIS_SHP: rings, satellites, waves,
+ * polygons, Lissajous; 1 to 3 strokes, bright) on the same carrier (MIX of it). A sphere's far side dimmer (depth). At
+ * rest: still, turning; with the sound up to two deformations (the first the level's, the second the kicks'). A light
+ * grain behind; a glitch (rows torn aside) only on a snare. At most VIS_SEG segments a frame (~300..400), 2 px (the
+ * skeleton's 1 px). The cost: nothing of it runs unless the visual is on the screen (vis_saver, ui_draw.c) or Studio
+ * watches it (WATCH bit 7: vis_state, editor.c, 25 looks a second); nothing in the audio path (the parts' levels: their
+ * own peaks, fx.c t->peak, read here). Drawn every 2nd UI frame, the points worked out once a frame (in 3.6 KB of the display cache's
  * hashes, free while the visual fills the screen: the page after it drawn whole), each band drawing their lines; the
  * audio's load (the guard's, voice.c load_avg_q8 load_rl) thins it: past 50 % fewer segments and frames, past 70 % or
  * the guard on: not drawn at all (the last frame stays). Included by ui_input.c */
 #define VABS(v) ((v) < 0 ? -(v) : (v))
 #define VNI __attribute__((noinline))                  /* (each its own function: smaller; tools/build.py places them past the sound) */
-#define VIS_SEG 200u                                    /* the most segments a frame */
-#define VIS_NPT 400u                                    /* the points stored: x, y (VIS_UP: a break, y its colour) */
-#define VIS_PT ((int16_t *)(dc_hash + DC_USE - 800u))
+#define VIS_SEG 400u                                    /* the most segments a frame */
+#define VIS_NPT 900u                                    /* the points stored: x, y (VIS_UP: a break, y its colour) */
+#define VIS_PT ((int16_t *)dc_hash)
 #define VIS_UP (-32768)
 static struct {
     vis_recipe_t r;                                /* the set's recipe drawn (worked out on a cut: the BT segment's) */
@@ -27,11 +28,13 @@ static struct {
     int16_t lv[NTRK];                              /* each part's level (0..256: its peak, a quick fall) */
     uint32_t t, ct, tim;                           /* (from here on cleared with the set) now (ms); the last cut; the
                                                     * timbre's signature */
-    int32_t kick, snr, lvl, plvl, sc, rot, zp, mix, react, en, def, cx, cy, R;   /* 0..256 (sc Q10; rot a turn 65536;
-                                                    * en: the sound, held ~0.7 s; def: the deformation now) */
-    uint16_t np, ns, cap, col;                     /* the points stored, the segments, their cap; the stroke's colour */
-    uint8_t ri, rr, pos, sec, chord, root, q, hacc, hst, dwp, pal, dk, sk, pen;   /* (hacc: the frame's hits; hst:
-                                                    * Studio's; dk: the deformation; sk: the carrier's skeleton) */
+    int32_t kick, snr, lvl, plvl, sc, rot, zp, mix, react, en, def[2], cx, cy, R;   /* 0..256 (sc Q10; rot a turn
+                                                    * 65536; en: the sound, held ~0.7 s; def: the deformations now) */
+    uint16_t np, ns, cap, col, fcol, gcol;         /* the points stored, the segments, their cap; the stroke's colour,
+                                                    * its far side's (dimmer: behind); the grain's */
+    uint8_t ri, rr, pos, sec, chord, root, q, hacc, hst, dwp, pal, dk[2], sk, pen, far, thin;   /* (hacc: the frame's
+                                                    * hits; hst: Studio's; dk: the deformations; sk: the skeleton; far:
+                                                    * the stroke's side now, 2 none yet; thin: 1 px, the skeleton's) */
 } vg __attribute__((section(".pool")));
 /* the five palettes' ramps (docs/VISGEN.md VP_*: THERM HUD TRACKS ICE AMBER), four stops each */
 static const uint16_t VIS_RAMP[5][4] = {
@@ -231,42 +234,52 @@ static VNI void vis_car(uint32_t sk, int32_t u, int32_t v, int32_t *o)
     }
     o[0] = x; o[1] = y; o[2] = z;
 }
-/* a point of the shape onto the screen, stored (the far side of a sphere: a break); the segments counted and capped */
+/* a point onto the screen, stored: the near side in the stroke's colour, the far side (a sphere's back) in its dim one
+ * (a break, the point before again); the segments counted and capped. Up to two deformations, each its own amount */
 static VNI void vis_put(int32_t u, int32_t v)
 {
-    int32_t n[3], f[3], k, a = vg.rot, d = vg.def, X, Y;
+    int32_t n[3], f[3], k, a = vg.rot, d, X, Y;
+    uint32_t j;
     int16_t *p = VIS_PT + 2u * vg.np;
-    if (vg.np >= VIS_NPT || (vg.pen && vg.ns >= vg.cap))
+    if (vg.np + 3u >= VIS_NPT || (vg.pen && vg.ns >= vg.cap))
         return;
     n[0] = u; n[1] = v; n[2] = 1024;
     vis_car(vg.sk, u, v, f);                            /* the carrier, MIX of it */
     for (k = 0; k < 3; k++) n[k] += (f[k] - n[k]) * vg.mix >> 8;
-    if (d > 12) {                                       /* the one deformation, with the sound */
-        if (vg.dk == VD_FOLD) {                         /* back at +-k */
-            k = 1126 - (874 * (d > 256 ? 256 : d) >> 8);
+    for (j = 0; j < 2u; j++) {                          /* the deformations, with the sound (none at rest) */
+        d = vg.def[j] > 256 ? 256 : vg.def[j];
+        if (d <= 12) continue;
+        if (vg.dk[j] == VD_FOLD) {                      /* back at +-k */
+            k = 1126 - (874 * d >> 8);
             n[0] = n[0] > k ? 2 * k - n[0] : n[0] < -k ? -2 * k - n[0] : n[0];
-        } else if (vg.dk == VD_MIRROR)                  /* the left half the right's (drawn once) */
-            n[0] += (VABS(n[0]) - n[0]) * (d > 256 ? 256 : d) >> 8;
-        else if (vg.dk == VD_TWIST || vg.dk == VD_POLAR) {   /* the middle turned more, rippled; rings turning */
+        } else if (vg.dk[j] == VD_MIRROR)               /* the left half the right's (drawn once) */
+            n[0] += (VABS(n[0]) - n[0]) * d >> 8;
+        else if (vg.dk[j] == VD_TWIST || vg.dk[j] == VD_POLAR) {   /* the middle turned more, rippled; rings turning */
             int32_t r = VABS(n[0]), q = VABS(n[1]);     /* (the radius, near enough: the larger and half the other) */
             r = r > q ? r + q / 2 : q + r / 2;
-            a += vg.dk == VD_TWIST ? (d * (r < 1024 ? 1024 - r : 0) >> 8) * (vsin(vph(62u)) >> 8) >> 5
-                                   : d * vsin((uint32_t)(r * 92) - vph(334u)) >> 13;
+            a += vg.dk[j] == VD_TWIST ? (d * (r < 1024 ? 1024 - r : 0) >> 8) * (vsin(vph(62u)) >> 8) >> 5
+                                      : d * vsin((uint32_t)(r * 92) - vph(334u)) >> 13;
         }
     }
     k = vsin((uint32_t)a + 0x4000u);                    /* (the camera's turn and zoom) */
     a = vsin((uint32_t)a);
     X = vg.cx + (((n[0] * k - n[1] * a) >> 15) * vg.R >> 10);
     Y = vg.cy - (((n[0] * a + n[1] * k) >> 15) * vg.R >> 10);
-    if (d > 12 && vg.dk == VD_MELT)                     /* each column of 3 drops its own */
-        Y += ((int32_t)((uint32_t)(X >> 2) * 2654435761u >> 27) + 5) * d * 154 >> 16;
-    if (d > 12 && vg.dk == VD_SCAN && vg.snr > 12) {    /* a snare: bands of 16 rows shifted aside */
-        uint32_t b = (uint32_t)(Y + 320) >> 4;
-        X += (vg.snr * d >> 11) * (int32_t)(((b * 7u) ^ (trk[0].seq_idx * 11u)) & 3u) * (b & 1u ? 1 : -1);
+    for (j = 0; j < 2u; j++) {
+        d = vg.def[j] > 256 ? 256 : vg.def[j];
+        if (d > 12 && vg.dk[j] == VD_MELT)              /* each column of 3 drops its own */
+            Y += ((int32_t)((uint32_t)(X >> 2) * 2654435761u >> 27) + 5) * d * 154 >> 16;
+        if (d > 12 && vg.dk[j] == VD_SCAN && vg.snr > 12) {   /* a snare: bands of 16 rows shifted aside */
+            uint32_t b = (uint32_t)(Y + 320) >> 4;
+            X += (vg.snr * d >> 11) * (int32_t)(((b * 7u) ^ (trk[0].seq_idx * 11u)) & 3u) * (b & 1u ? 1 : -1);
+        }
     }
-    if (n[2] < 460) {                                   /* (the far side: not drawn) */
-        if (vg.pen) { p[0] = VIS_UP; p[1] = (int16_t)vg.col; vg.np++; vg.pen = 0; }
-        return;
+    k = n[2] < 460;                                     /* (the far side: dim, behind) */
+    if (k != vg.far) {
+        vg.far = (uint8_t)k;
+        p[0] = (int16_t)(VIS_UP + vg.thin); p[1] = (int16_t)(k ? vg.fcol : vg.col);
+        if (vg.pen) { p[2] = p[-2]; p[3] = p[-1]; p += 2; vg.np++; }
+        p += 2; vg.np++;
     }
     p[0] = (int16_t)clamp(X, -120, 360); p[1] = (int16_t)clamp(Y, -120, 360);
     vg.np++;
@@ -332,11 +345,15 @@ static VNI void vis_frame(uint32_t fresh, uint32_t cap)
     vg.mix = vis_k[0] * 655 >> 8;                       /* (0..100 to 0..256) */
     vg.react = vis_k[3] * 655 >> 8;
     vg.pal = (uint8_t)(((vis_k[2] ? vis_k[2] : R->pal) + 4u) % 5u);
-    i = R->def[vg.sec][0];                              /* the deformation (the first: one at a time), gliding to its
-                                                         * amount x DEFORM x the sound (at rest none) */
-    k = i < VD_N ? (uint32_t)(R->amt[vg.sec][0] * vis_k[1] * 13 >> 8) * (uint32_t)vg.en >> 8 : 0u;
-    if (i != vg.dk) vg.dk = (uint8_t)i, vg.def = 0;
-    vg.def += ((int32_t)k - vg.def) >> 2;
+    for (e = 0; e < 2u; e++) {                          /* the deformations (two at most), each gliding to its amount
+                                                         * x DEFORM x the sound: the first the level, the second the
+                                                         * kicks (at rest none) */
+        uint32_t dr = e ? (uint32_t)(vg.kick > vg.en / 2 ? vg.kick : vg.en / 2) : (uint32_t)vg.en;
+        i = R->def[vg.sec][e];
+        k = i < VD_N ? (uint32_t)(R->amt[vg.sec][e] * vis_k[1] * 13 >> 8) * dr >> 8 : 0u;
+        if (i != vg.dk[e]) vg.dk[e] = (uint8_t)i, vg.def[e] = 0;
+        vg.def[e] += ((int32_t)k - vg.def[e]) >> 2;
+    }
     vg.zp = vg.zp * 215 >> 8;
     /* the camera: a zoom breathing and pulsing (a cut, a kick, the level), a turn drifting (a kick throws it on), a drift */
     vg.sc = 1024 + (vsin(vph(11u)) * 154 >> 15) + (vg.react * (vg.kick * 80 + vg.lvl * 60 + vg.zp * 80) >> 16);
@@ -345,15 +362,29 @@ static VNI void vis_frame(uint32_t fresh, uint32_t cap)
     vg.cx = 120 + (vsin(vph(13u)) * 12 >> 15);
     vg.cy = 120 + (vsin(vph(17u) + 0x4000u) * 8 >> 15);
     vg.np = vg.ns = 0;
+    vg.cap = (uint16_t)(cap * 5u / 8u);
+    k = vis_col(128u + ((vg.chord * 37u + vg.ri * 71u) & 31u));
+    vg.col = ux_mix(k, 0, 40);                          /* the skeleton behind: its grid on the full carrier, dimmer */
+    vg.fcol = ux_mix(k, 0, 74);
+    vg.gcol = ux_mix(k, 0, 62);
+    u = vg.mix; vg.mix = 256; vg.thin = 1;
+    for (i = 0; i < 14u; i++) {                         /* 6 rows (a sphere's parallels, polar's rings), 8 columns (its
+                                                         * meridians, spokes) */
+        int32_t c = i < 6u ? (int32_t)i * 330 - 825 : (int32_t)(i - 6u) * 256 - 896;
+        vg.pen = 0; vg.far = 2;
+        for (k = 0; k <= 16u; k++)
+            i < 6u ? vis_put((int32_t)k * 128 - 1024, c) : vis_put(c, (int32_t)k * 128 - 1024);
+    }
+    vg.mix = u; vg.thin = 0;
     vg.cap = (uint16_t)cap;
-    for (i = 0; i < 3u; i++) {                          /* the content's strokes, each its colour */
+    for (i = 0; i < 3u; i++) {                          /* the content's strokes over it, each its colour */
         const uint8_t *S = VIS_SHP[R->content % VI_N][i];
-        uint32_t n = S[0] & 127u, b = n < 12u ? 32u / n : 1u, j;
-        if (!n || vg.np + 1u >= VIS_NPT)
+        uint32_t n = S[0] & 127u, b = n < 12u ? 48u / n : 2u, j;
+        if (!n)
             continue;
-        vg.col = vis_col(160u + ((i * 61u + vg.chord * 53u + vg.ri * 29u) % 96u));
-        VIS_PT[2u * vg.np] = VIS_UP; VIS_PT[2u * vg.np + 1u] = (int16_t)vg.col;
-        vg.np++; vg.pen = 0;
+        vg.col = vis_col(192u + ((i * 61u + vg.chord * 53u + vg.ri * 29u) & 63u));
+        vg.fcol = ux_mix(vg.col, 0, 55);
+        vg.pen = 0; vg.far = 2;
         for (k = 0, u = v = 0; k <= n; k++) {          /* (a polygon's edge in pieces: bent by the carrier as a curve) */
             int32_t o[2];
             vis_shape(S, k, o);
@@ -375,7 +406,7 @@ static const char *vis_card(uint32_t c, char *b)        /* HOME > VIS's cards' v
 static VNI void vis_saver(void)
 {
     uint32_t c, now = fm1_ms, on = scrn.st != SCR_VIS && now - (vis_ov & ~15u) < 1300u, i, L = load_avg_q8 >> 8;
-    uint32_t fresh = now - vg.seen > 250u, cap = L < 50u ? VIS_SEG : L < 70u ? (70u - L) * 10u : 0u;
+    uint32_t fresh = now - vg.seen > 250u, cap = L < 50u ? VIS_SEG : L < 70u ? (70u - L) * 20u : 0u;
     char b[8];
     vg.seen = now;
     if (!fresh && ((ui.frame & (L < 50u ? 1u : 3u)) || load_rl || !cap))
@@ -384,17 +415,36 @@ static VNI void vis_saver(void)
     CV_BANDS(240, 240, 0) {
         const int16_t *p = VIS_PT;
         uint16_t col = 0;
+        uint32_t y, h, w = 0;
         if (!cv_band)
             vis_frame(fresh, cap ? cap : VIS_SEG / 4u);
+        for (y = 0; y < cv_bh; y++) {                   /* a light grain behind: a dot a row, anywhere */
+            h = ((uint32_t)cv_by + y) * 2654435761u ^ vg.t * 40503u;
+            h ^= h >> 15; h *= 0x2C1B3C6Du;
+            cv_px[y * cv_w + (h >> 8) % 240u] = swap16(vg.gcol);
+        }
         for (i = 0, c = 0; i < vg.np; i++, p += 2) {    /* (a break: the colour; else a line from the point before) */
-            if (p[0] == VIS_UP)
-                col = (uint16_t)p[1], c = 0;
+            if (p[0] <= VIS_UP + 1)                     /* (VIS_UP + 1: 1 px, the skeleton behind) */
+                col = (uint16_t)p[1], c = 0, w = p[0] == VIS_UP;
             else if (c++) {                             /* (2 px: a second line beside it) */
                 int32_t h = VABS(p[0] - p[-2]) > VABS(p[1] - p[-1]);
                 cv_line(p[-2], p[-1], p[0], p[1], col);
-                cv_line(p[-2] + !h, p[-1] + h, p[0] + !h, p[1] + h, col);
+                if (w)
+                    cv_line(p[-2] + !h, p[-1] + h, p[0] + !h, p[1] + h, col);
             }
         }
+        if (vg.snr > 120)                               /* a snare: a glitch, a few bands of 4 rows torn aside */
+            for (y = 0; y < cv_bh; y++) {
+                uint16_t *r = cv_px + y * cv_w;
+                int32_t d;
+                h = (((uint32_t)cv_by + y) >> 2) * 0x9E3779B1u ^ vg.ct * 0x85EBCA6Bu;
+                h ^= h >> 13;
+                if (h & 7u) continue;
+                d = (int32_t)((h >> 8) & 31u) - 16;
+                d = d * vg.snr >> 8;
+                if (d > 0) memmove(r + d, r, (240u - (uint32_t)d) * 2u);
+                else if (d < 0) memmove(r, r - d, (240u + (uint32_t)d) * 2u);
+            }
         if (on) {
             cv_text_in(0, 10, 240, &AF_S, str_nth(VIS_KN, vis_ov & 7u), T_THEME, 0);
             cv_text_in(0, 28, 240, &AF_L, vis_card(vis_ov & 7u, b), T_TEXT, 0);

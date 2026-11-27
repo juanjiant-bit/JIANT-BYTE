@@ -173,31 +173,37 @@ between 8 generations, deterministically:
 - The song's identity for the recipe (`V` `S`: seed, genre, energy, rec) is set by GEN when it makes a piece; a song
   GEN did not make: seed from its tempo and its first part's key and length, genre 27, energy 50. The engine mask is read from the parts as they
   are.
-- **Drawing (VIS lite).** One recipe draws ONE thing: its content's clean shape (the table above: 1 to 3 strokes, each
-  one curve of 2 to 64 corners, a polygon's edges cut in pieces) on ONE carrier, its skeleton's (a sphere turning, polar
-  round the turn, swung along the Lissajous, or the flat bent by a wave; MATH's and none: flat), MIX of it. No layer
-  over (the recipe's `over` is not drawn), no second copy for MIRROR, no heat cells, no grain. At most ONE deformation,
-  the section's first (`def[s][0]`), and only while it sounds (its amount x DEFORM x the sound, gliding): TWIST (the
-  middle turned more, rippled), FOLD (back at +-k), MIRROR (the left half bent onto the right's, drawn once), POLAR
-  (rings turning), MELT (each column of 3 px dropping its own), SCAN (on a snare, bands of 16 rows thrown aside). A
-  sphere's far side is not drawn. **At most `VIS_SEG` = 200 segments a frame** (counted and capped as the points are
-  worked out; the shapes ask 30 to 100), each a 2 px line in one colour of the palette's upper half (the chord, the
-  stroke and the recipe drawn turning it there), every colour at least ~40 % luminance (a darker stop is lifted toward
-  white; `tests/visgen_test.c` checks every pixel at 35 %). The camera: a zoom breathing (0.85x..1.15x) and pulsing (a
-  kick, the level, each cut x REACT; at most ~+20 %), a turn drifting (its way the recipe's j; a kick throws it on), the
-  centre drifting a little. The cuts (above) and the saver's 30 s scenes as ever.
+- **Drawing (VIS mid).** VIS lite (one shape, ~40..100 segments) read as too simple; the first VIS was too heavy. VIS
+  mid draws TWO ingredients a scene, so the fusions are back (DRUM-W's radar over LIFE's sphere): the **skeleton**
+  behind, as a grid on its own carrier (6 rows and 8 columns of 16 segments: a sphere's parallels and meridians, polar's
+  rings and spokes, the Lissajous-swung grid, the grid bent by a wave; MATH's and none: a flat grid), 1 px, dimmer (its
+  palette colour at ~60 %); and the **content** over it, its clean shape (the table above: 1 to 3 strokes, each one
+  curve of 2 to 64 corners, a polygon's edges cut in pieces) on the same carrier, MIX of it, 2 px, bright. A sphere's
+  far side is drawn dimmer (behind: depth). The recipe's `over` is not drawn, no second copy for MIRROR, no heat cells.
+  Up to TWO deformations, the section's (`def[s][0]` and `def[s][1]`), only while it sounds (each its amount x DEFORM x
+  its drive, gliding; the first driven by the sound, the second by the kicks): TWIST (the middle turned more, rippled),
+  FOLD (back at +-k), MIRROR (the left half bent onto the right's, drawn once), POLAR (rings turning), MELT (each column
+  of 3 px dropping its own), SCAN (on a snare, bands of 16 rows thrown aside). A light grain behind (a dim dot a row,
+  moving); a glitch (a few bands of 4 rows torn aside, ~3 frames) only on a snare. **At most `VIS_SEG` = 400 segments a
+  frame** (counted and capped as the points are worked out: the skeleton at most 5/8 of the cap, ~224; the content
+  ~60..176; ~310..400 drawn). The bright colours are the palette's upper half (the chord, the stroke and the recipe
+  turning them there), each at least ~40 % luminance (a darker stop lifted toward white); the dim ones (skeleton, far
+  side, grain) its colours darkened, never under ~8 % (`tests/visgen_test.c` checks the shape bright and nothing drawn
+  under 8 %). The camera: a zoom breathing (0.85x..1.15x) and pulsing (a kick, the level, each cut x REACT; at most
+  ~+20 %), a turn drifting (its way the recipe's j; a kick throws it on), the centre drifting a little. The cuts
+  (above) and the saver's 30 s scenes as ever.
 - **At rest and with the sound.** The device follows one amount, the sound (0..1: the loudest part's level doubled, or a
   kick), held while it sounds and let go in ~0.7 s. Silent: the content's shape on its carrier as it is, no deformation,
   no pulse; only the carrier's turn (a sphere, the radar), the strokes' own slow turn or travel and the camera's breath,
   turn and drift move it: a still form turning. With the sound: the deformation, the zoom pulses, the shapes swelling
   (up to +25 %) and the carrier's wave growing come in with it, REACT setting the most; when it stops they ease back.
 - **Its pace.** Drawn every 2nd UI frame (~30 a second; the frames between cost a few instructions), the points worked
-  out once a frame (in 1.6 KB of the display cache's hashes, free while the visual fills the screen: the page after it
+  out once a frame (in 3.6 KB of the display cache's hashes, free while the visual fills the screen: the page after it
   is drawn whole) and each of the 4 bands drawing their lines. The audio's load (the guard's own measure, `voice.c`
-  `load_avg_q8`, `load_rl`) thins it: past 50 % every 4th UI frame and fewer segments (200 down to 0 at 70 %), past 70 %
+  `load_avg_q8`, `load_rl`) thins it: past 50 % every 4th UI frame and fewer segments (400 down to 0 at 70 %), past 70 %
   or with the guard on not drawn at all (the last frame stays); the audio always wins. `tests/vis_cost_test.py` checks a
   VIS frame against every other page (the heaviest GEN song playing: instructions and the device code it runs; a VIS
-  frame ~40 % of the heaviest page's instructions, ~7 % of its code).
+  frame (VIS mid) ~75..85 % of the heaviest page's instructions, ~7 % of its code).
 - The recipe's code is in the Bluetooth segment (as JIANT FM's `vis_fig`): without the segment the visual draws the
   recipe of all zeros (LIFE on LIFE).
 
