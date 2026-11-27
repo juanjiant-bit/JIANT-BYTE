@@ -12,7 +12,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-SAFE = re.compile(r"felucca-[A-Za-z0-9.-]+\.fwsc")
+SAFE = re.compile(r"(?:felucca|JIANT-B1T3)-[A-Za-z0-9.-]+\.fwsc")
 
 
 def get(url):

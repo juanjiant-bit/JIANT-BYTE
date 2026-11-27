@@ -33,7 +33,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 BLOCKS, BLK, KEEP = 20, 0x30, 0x2F
 KEEP_OLD = 5
-SAFE = re.compile(r"felucca-[A-Za-z0-9.-]+\.fwsc")
+SAFE = re.compile(r"(?:felucca|JIANT-B1T3)-[A-Za-z0-9.-]+\.fwsc")   # (v1.0, the owner: JIANT-B1T3-v1.0-<sha>; older felucca-* kept)
 
 
 def strip_module(src):
@@ -87,7 +87,7 @@ def main(pkg, version, out, prev=None):
     lib = strip_module((HERE / "fm1pkg.js").read_text(encoding="utf-8")) + "\n" + \
         strip_module((HERE / "fm1ota.js").read_text(encoding="utf-8")) + "\n" + \
         strip_module((HERE / "fm1backup.js").read_text(encoding="utf-8"))
-    name = f"felucca-{re.sub(r'[^A-Za-z0-9.-]', '-', version)}.fwsc"
+    name = f"JIANT-B1T3-{re.sub(r'^BYTE-', '', re.sub(r'[^A-Za-z0-9.-]', '-', version))}.fwsc"
     old = earlier(Path(prev), version, product) if prev else []
     versions = [{"version": version, "file": name, "sha256": hashlib.sha256(raw).hexdigest(),
                  "commit": os.environ.get("SOURCE_COMMIT", "")}] + [
@@ -101,7 +101,7 @@ def main(pkg, version, out, prev=None):
     inst, ed, fw = out / "webapp" / "installer", out / "webapp" / "editor", out / "firmware"
     for d in (inst, ed, fw):
         d.mkdir(parents=True, exist_ok=True)
-    for f in fw.glob("felucca-*.fwsc"):            # the current package and the earlier ones kept, nothing else
+    for f in [*fw.glob("felucca-*.fwsc"), *fw.glob("JIANT-B1T3-*.fwsc")]:   # the current package and the earlier ones kept
         f.unlink()
     (inst / "index.html").write_text(html, encoding="utf-8")
     shutil.copy(pkg, fw / name)
