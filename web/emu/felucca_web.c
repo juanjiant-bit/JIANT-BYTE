@@ -541,6 +541,13 @@ EXPORT int32_t *web_gen_info(void)
     o[7] = song.playing || chain_busy() || seq_counting();
     return o;
 }
+/* (visgen) JIANT Studio's VIS: VIS_SONG's fields, VIS_TICK's, playing (docs/VISGEN.md; ui_vis.c vis_state) */
+EXPORT int32_t *web_vis_info(void)
+{
+    static int32_t o[21];
+    vis_state(o);
+    return o;
+}
 EXPORT const char *web_gen_genre(uint32_t i) { return i < NGENRE ? GENRE[i].name : 0; }
 /* 0 RADIO OFF / ON (arg); 1 the next piece now (RADIO on: its advance, a new seed and on playing; else OCT+ on GEN);
  * 2 GENRE = arg (-1 EXPLORE, -2 RANDOM, else the genre's index); 3 MOOD = arg (-50..50); 4 PLAY (arg 1) / STOP (0) */

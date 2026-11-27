@@ -38,7 +38,7 @@ pictures).
 | 9 | CHORUS | FX > CHORUS's sines and orbit (`fxg_chorus`) | yes | FX |
 | 10 | HIVE | HIVE's strings (`ui_engvis.c` `vx_hive`) | yes | HIVE |
 | 11 | FUNC | FUNC's score lanes (`ui_byte.c` `hud_func`) | | FUNC |
-| 12 | MATH | MATH's being (`ui_byte.c` `ub_being_at`) | yes | MATH |
+| 12 | MATH | MATH's being (`ui_byte.c` `ub_draw`, small) | yes | MATH |
 
 255 = none.
 
@@ -146,14 +146,21 @@ HEAVY      3    0   1               2    0     0      0    2    2        AMBER T
 - **MENU > DISPLAY > SAVER**: OFF 1 3 5 10 MIN (3 the default; editor id 33), engine 15's byte 12 bits 4-6 stored ^ 2
   (as JIANT FM V10.8.56). The whole screen, the page's recipe, in 4 bands of 60 rows.
 - The song's identity for the recipe (`V` `S`: seed, genre, energy, rec) is set by GEN when it makes a piece; a song
-  GEN did not make: seed from its name and tempo, genre 27, energy 50. The engine mask is read from the parts as they
+  GEN did not make: seed from its tempo and its first part's key and length, genre 27, energy 50. The engine mask is read from the parts as they
   are.
-- Drawing: each ingredient is its page's own picture drawn through a point map (`gfx.c` `cv_vmap`: lines, small
-  boxes as points, big boxes as their outlines; text is left out): the source box normalised to -1..1, the skeleton's
-  carrier (sphere, polar, Lissajous, tunnel, or a displacement: sines, LFO, strings, steps, cells) mixed in by MIX, the
-  section morph, the point deformations (TWIST FOLD POLAR MELT), MIRROR drawing it again mirrored, SCAN shifting rows
-  of 3. Heat cells of 6 px with memory in the display cache's spare hashes (no new RAM). Reacting: kick pulses the
-  scale and the twist, the bass and level heat and swell, a chord change turns the colours, a section morphs.
+- Drawing: each ingredient is its page's own picture drawn through a point map (`gfx.c` `cv_vmap`: lines and dots,
+  small boxes and rules as lines, big boxes as their outlines; text, cards and icons are left out): the source box
+  normalised to -1..1, the skeleton's carrier (a sphere, polar, a Lissajous, a tunnel ring, or the flat bent by a wave:
+  CHORUS's, LFO's, HIVE's, CLAY's in steps; MATH's cells) mixed in by MIX; a section's change morphs through the flat
+  (the old skeleton out, the new one in, 1.4 s) and its deformations' amounts from the old to the new; the point
+  deformations TWIST FOLD POLAR MELT and SCAN (bands of 3 rows shifted), MIRROR drawing it again mirrored. Heat cells
+  of 6 px with memory in the display cache's spare hashes (no new RAM); a heat layer is drawn faint as a wire over its
+  cells too. One deformation field moves every layer together. Reacting (some ideas from JIANT FM's V10.8.59
+  visuals): a kick pulses the scale and the twist and eases back, a snare shifts bands (a glitch, as SCAN), the bass
+  and the level heat and swell, a chord change turns the colours, a section (A..D, or every 8 bars of a loop) morphs
+  to its own recipe; the saver changes section every 30 s besides.
+- The recipe's code is in the Bluetooth segment (as JIANT FM's `vis_fig`): without the segment the visual draws the
+  recipe of all zeros (LIFE on LIFE).
 
 ## USB (editor protocol 1.5)
 

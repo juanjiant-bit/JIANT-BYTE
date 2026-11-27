@@ -170,6 +170,7 @@ regenerated from `params.c` and compared.
 | 1.2 | V10.6z7 | `VEL` ops 4 and 5: the keys' velocity, calibration and pressure (below); MENU ids 27..30 (VELOCITY, VEL MIN, AFTERTOUCH, VEL LEARN); `INFO` tag `43 02 01 02` |
 | 1.3 | V10.7.22 | `INFO` tag `58 01 s`: the Bluetooth segment (below); `INFO` tag `43 02 01 03` |
 | 1.4 | JIANT BYTE v0.16 | `WATCH` bit 5 and the push `UI` (43): what the screen shows, for JIANT Studio's live guide (below; JIANT FM: the same number, bit and bytes); `INFO` tag `43 02 01 04` |
+| 1.5 | JIANT BYTE v0.16 (visgen) | `WATCH` bit 7 (a second byte, its bit 0) and the pushes `VIS_SONG` (98) and `VIS_TICK` (99): HOME > VIS's song and the music for JIANT Studio's visuals (below, `docs/VISGEN.md`); MENU id 33 SAVER; `INFO` tag `43 02 01 05` |
 
 ## 1.0: performance pushes (40-42)
 
@@ -215,6 +216,24 @@ bit and bytes (its section, page and layer names are its own).
   half-empty SysEx ring), and a change waits for the UI's next frame, so the new page's cards are drawn and one push
   says the state as it is then, at most one a UI frame. A page change and the button that made it come as one push
   (its `button`: the last of them, e.g. SEQ let go). A knob turned (a value) pushes nothing here (`CHANGED` says it).
+
+## 1.5: the VIS pushes (98, 99)
+
+Asked for with `WATCH` bit 7: `WATCH` takes a second byte, its bit 0 (a SysEx data byte has no bit 7). The reply then
+has a second byte too: bit 0 set when the firmware took it (1.5); older firmware refuses a two-byte `WATCH` (no reply):
+ask again with one byte. Asking for it anew sends `VIS_SONG` first. The recipe Studio draws from these is
+`docs/VISGEN.md`'s (the same pure function as the device's, with test vectors); 98 and 99 are free in JIANT FM too
+(it uses 95..97).
+
+- **VIS_SONG** (98), 14 bytes: `seed0 seed1 seed2` (21 bits, 7 a byte, LSB first), `rec0 rec1` (the recipe byte: bits
+  0-6, bit 7), `genre` (0..26 `gen_tables.c` GENRE, 27 none), `energy` (0..100), `mask0 mask1` (the engine mask: bits
+  0-6, bit 7; 0 WAVE, 1 MATH, 2 FUNC, 3 BANK, 4 DRUM-W, 5 HIVE, 6 CLAY, 7 FX), `section` (0..3, A..D), `palette` (HOME >
+  VIS's KNOB 3: 0 AUTO, 1 THERM, 2 HUD, 3 TRACKS, 4 ICE, 5 AMBER), `mix`, `deform`, `react` (KNOB 1, 2, 4: 0..100).
+  Sent when any of them changes (the device looks every ~5 ms).
+- **VIS_TICK** (99), 10 bytes: `level1..level6` (T1..T6 0..127), `hits` (since the last tick: bit 0 KICK, 1 SNARE,
+  2 HAT, 3 PERC: DRUM-W's lanes BD; SD CP; CH OH; TM RS CB), `root` (the chord playing, 0..11, C 0: SCL > HARMONY's,
+  else the key's), `quality` (0 MAJ, 1 MIN, 2 DIM, 3 AUG, 4 SUS), `step` (0..63). 25 a second (every 40 ms) while
+  playing; none stopped.
 
 ## 1.1: the velocity diagnostic (81)
 
@@ -398,7 +417,7 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 | 19 UP_STORE | slot, name | slot, rc. Stores the current sound: engine, parameters, the first 16 sequencer steps as the pattern (TIE steps → flag 4) |
 | 20 UP_LOAD | slot | slot, rc (0 ok, 1 empty/invalid). Applies its sound (not its pattern; the steps stay) |
 | 21 UP_ERASE | slot | slot, rc |
-| 22 WATCH | on (0/1; v4: 3 = also `TRACK_CHANGED`; 1.0: bit 2 `TRANSPORT`, bit 3 `PUNCH`, bit 4 `MUTATE`; 1.4: bit 5 `UI`) | the bits it took: on (bit 0), bit 1 (v4 firmware), bits 2..4 (1.0 firmware; older answers 3 or 1), bit 5 (1.4 firmware). While on, the device pushes cmds 23, 24, 26 (and 32 with bit 1, 40 / 41 / 42 with bits 2 / 3 / 4, 43 with bit 5) |
+| 22 WATCH | on (0/1; v4: 3 = also `TRACK_CHANGED`; 1.0: bit 2 `TRANSPORT`, bit 3 `PUNCH`, bit 4 `MUTATE`; 1.4: bit 5 `UI`; 1.5: a second byte, bit 0 `VIS`, WATCH bit 7) | the bits it took: on (bit 0), bit 1 (v4 firmware), bits 2..4 (1.0 firmware; older answers 3 or 1), bit 5 (1.4 firmware); with a second byte asked, a second byte (bit 0: VIS taken, 1.5). While on, the device pushes cmds 23, 24, 26 (and 32 with bit 1, 40 / 41 / 42 with bits 2 / 3 / 4, 43 with bit 5, 98 / 99 with bit 7) |
 | 23 CHANGED (push) | — | scope, id, v14 |
 | 24 RELOAD (push) | — | engine, preset, then (v3) the selected track |
 | 25 PING | — | 0 |
@@ -421,6 +440,8 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 | 40 TRANSPORT (push) | — | playing (0/1), beat of the bar (0..3), bar lo, bar hi (the bars since PLAY, 14 bits): on PLAY / STOP and each beat while playing (only while `WATCH` was sent with bit 2) |
 | 41 PUNCH (push) | — | the effects running, 4 × 7 bits LSB first (the bit numbers in "1.0: performance pushes"), then their tracks (0 ALL; V10.7.36 always 0): on every change (only with `WATCH` bit 3) |
 | 42 MUTATE (push) | — | track, its MUTATE count (7 bits, wrapping): a EUCLID MUTATE of that track (only with `WATCH` bit 4) |
+| 98 VIS_SONG (push, 1.5) | — | HOME > VIS's song and knobs, 14 bytes ("1.5: the VIS pushes"; only with `WATCH` bit 7) |
+| 99 VIS_TICK (push, 1.5) | — | the levels, the hits, the chord, the step, 10 bytes, 25 a second while playing (only with `WATCH` bit 7) |
 | 43 UI (push, 1.4) | — | section, page (ASCII, 0-terminated), layer, button (+ 64 let go, 127 none), KNOB 1..4's labels (ASCII, 0-terminated each): the page, the held layer or a button changed, at most one a UI frame (only with `WATCH` bit 5; "1.4: the UI push") |
 
 | cmd (v7) | Request args | Reply args |
@@ -1073,6 +1094,10 @@ V10.6z6 (protocol 1.2) appends index 27..30, the keys' velocity and pressure (CO
 (0 OFF, 1 LOW, 2 MID, 3 HIGH; MID the default), 30 **VEL LEARN** (0 ON, 1 OFF, 2 RESET: setting RESET puts the
 calibration's seeds back, then it learns as ON). A synth track's recording of the keys' pressure joins the
 expression keys' in id 90: 127 − (gates | pressure 0..7 << 2), 96..127 (pressure p plays as p × 18).
+(visgen, 1.5) index 33, id 33 **SAVER** (DISPLAY; count 34; the id as
+JIANT FM V10.8.56's): 0 OFF, 1 "1 MIN", 2 "3 MIN" (the default), 3 "5 MIN", 4 "10 MIN": HOME > VIS's visual on the
+whole screen after that long without panel input, before SCREEN OFF's dark; the first press, key or turn only brings
+the page back.
 
 The device's AUDIO tab shows SPEAKER EQ, USB LEVEL, CLICK, CLICK LEVEL, COUNT-IN (index 9, 10, 12, 13, 14).
 CLICK: the metronome while the transport runs: OFF, REC (while a track is armed), ON (always); CLICK LEVEL its

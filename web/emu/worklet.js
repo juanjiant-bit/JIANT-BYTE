@@ -108,6 +108,14 @@ class Felucca extends AudioWorkletProcessor {
         if (out.length) this.port.postMessage({ type: "sysex", msgs: out });
       }
       else if (m.type === "visible") this.period = m.on ? 1 / 30 : 1 / 4;
+      else if (m.type === "vis") {                 // (visgen) JIANT Studio's VIS: the song's recipe inputs, the music now
+        if (!ex.web_vis_info) { this.port.postMessage({ type: "vis", id: m.id, error: "This engine has no VIS." }); return; }
+        const o = new Int32Array(ex.memory.buffer, ex.web_vis_info(), 21);
+        const info = { seed: o[0], recipe: o[1], genre: o[2], energy: o[3], engines: o[4], section: o[5], palette: o[6],
+          mix: o[7], deform: o[8], react: o[9], levels: Array.from(o.subarray(10, 16)), hits: o[16], root: o[17],
+          quality: o[18], step: o[19], playing: o[20] };
+        this.port.postMessage({ type: "vis", id: m.id, info });
+      }
       else if (m.type === "gen") {                 // (studio) the RADIO page: a command (cmd a number), then the state
         if (!ex.web_gen_info) { this.port.postMessage({ type: "gen", id: m.id, error: "This engine has no GEN for the page." }); return; }
         if (typeof m.cmd === "number") ex.web_gen_cmd(m.cmd >>> 0, m.arg | 0);

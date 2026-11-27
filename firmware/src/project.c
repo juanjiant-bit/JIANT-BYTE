@@ -149,6 +149,9 @@ typedef struct {
                                                 * block after the 'F' 'P's, when not all 0 (absent: 0, still) */
     int8_t fxr[NTRK][5];                       /* (func-rate) their RATE, B LEVEL TONE OCT RATE (fp_kp[6..10]): one 'F' 'X'
                                                 * block after 'F' 'M', when not all 0 (absent: 0, as before) */
+    uint8_t vis[5];                            /* (visgen) HOME > VIS's song (ui_vis.c vis_id): GEN's seed (2), its genre + 1
+                                                * (0: not GEN's), energy, the recipe byte (OCT+): 'V' 'S' after 'F' 'X',
+                                                * when set (absent: 0) */
     uint32_t sum;
 } project_t;
 /* Serialized FUN7 keeps the retained cache's exact extent. Params are biased
@@ -649,6 +652,7 @@ static uint32_t proj_packed_size(const project_t *q)
     if (proj_fm_any(q)) n += 2u + sizeof q->fmo;        /* (funcmotion) */
     if (q->g[G_HPROG]) n += 6u;                         /* (BYTE) SCL > HARMONY */
     if (proj_fx_any(q)) n += 2u + sizeof q->fxr;        /* (func-rate) */
+    if (q->vis[2] | q->vis[4]) n += 2u + sizeof q->vis; /* (visgen) */
     if (q->dx_hands >> 4)                               /* (snd1) the kit's GLUE, when on */
         n += 3u;
     if (q->g[G_DDRV])                                   /* (snd2) the delay's DRIVE, when on */
@@ -949,6 +953,11 @@ static int proj_pack(project_store_t *out, const project_t *q)
         b[pos++] = 'F'; b[pos++] = 'X';
         memcpy(b + pos, q->fxr, sizeof q->fxr);
         pos += sizeof q->fxr;
+    }
+    if (q->vis[2] | q->vis[4]) {                        /* (visgen) HOME > VIS's song, after it */
+        b[pos++] = 'V'; b[pos++] = 'S';
+        memcpy(b + pos, q->vis, sizeof q->vis);
+        pos += sizeof q->vis;
     }
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
@@ -1329,6 +1338,7 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
     memset(q->fbl, 64, sizeof q->fbl);
     memset(q->fmo, 0, sizeof q->fmo);
     memset(q->fxr, 0, sizeof q->fxr);
+    memset(q->vis, 0, sizeof q->vis);
     memcpy(q->psq, PROJ_PSQ_DEF, PSQ_BYTES);            /* (BYTE) PUNCH SEQ: empty, unless its block follows */
     if (pos + 2u <= room && b[pos]=='V' && b[pos+1u]=='L') {
         if (pos + 2u + NTRK > room) return 0;
@@ -1375,6 +1385,10 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         if (pos + 2u + sizeof q->fxr <= room && b[pos] == 'F' && b[pos + 1u] == 'X') {   /* (func-rate) */
             memcpy(q->fxr, b + pos + 2u, sizeof q->fxr);
             pos += 2u + sizeof q->fxr;
+        }
+        if (pos + 2u + sizeof q->vis <= room && b[pos] == 'V' && b[pos + 1u] == 'S') {   /* (visgen) */
+            memcpy(q->vis, b + pos + 2u, sizeof q->vis);
+            pos += 2u + sizeof q->vis;
         }
     }
     for (i = 0; i < 8u; i++) if (q->dx_form[i] == DX_USER && !q->dx_text[i][0]) q->dx_form[i] = 0;
@@ -1576,6 +1590,7 @@ static void project_capture(project_t *p)
         memset(p->fm6[i], 0, sizeof p->fm6[i]);         /* (BYTE: FM6 removed, the format's block empty) */
     }
     p->motion = motion;
+    memcpy(p->vis, vis_id, sizeof p->vis);              /* (visgen) */
     memcpy(p->dx, dx_kit, sizeof p->dx);
     p->dx_mute = dx_mute;
     memcpy(p->dx_mot, dx_mot, sizeof p->dx_mot);
@@ -1900,6 +1915,7 @@ static int project_restore_runtime(const project_t *input)
         for (uint32_t j = 0; j < 5u; j++)              /* (func-rate) in range (FUNC_PX) */
             fp_kp[k][FK_RATE + j] = (int16_t)clamp(p->fxr[k][j], FUNC_PX[11u + j].min, FUNC_PX[11u + j].max);
         if (trk[k].eng_req == ENGI_FUNC && !(p->fpx[k] & 128u)) func_neutral(&trk[k]);
+        if (!k) memcpy(vis_id, p->vis, sizeof vis_id);   /* (visgen) */
         if (p->t[k].engine == ENGI_FORM)                /* (a FORM part: its modulators as stored, below WAVE) */
             clay_from_form(k, p->t[k].p);
         clay_dn[k] = clay_nn[k] = 0;
@@ -2281,6 +2297,7 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, cru_v, sizeof cru_v);                 /* (V10.7.33) CRUSH */
     h = as_mix(h, &cho_mix, sizeof cho_mix);            /* (FM V10.8.36) CHORUS MIX */
     h = as_mix(h, life_v, sizeof life_v);               /* (V10.7.34) LIFE */
+    h = as_mix(h, vis_id, sizeof vis_id);               /* (visgen) HOME > VIS's song */
     return as_mix(h, proj_name, sizeof proj_name);
 }
 

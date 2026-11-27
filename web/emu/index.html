@@ -554,6 +554,15 @@ window.jiantEmu = {
     genWait.set(id, { res, rej });
     node.port.postMessage({ type: "gen", id, cmd: typeof cmd === "number" ? cmd : null, arg: arg | 0, genres: !!genres });
   }),
+  /* (visgen) JIANT Studio's VIS (docs/VISGEN.md): a promise of { seed, recipe, genre (27 none), energy, engines (mask),
+     section (0..3), palette (K3: 0 AUTO), mix, deform, react, levels [T1..T6 0..127], hits (bits KICK SNARE HAT PERC
+     since the last call), root, quality, step, playing } */
+  vis: () => new Promise((res, rej) => {
+    if (!node) { rej(new Error("emulator off")); return; }
+    const id = ++genId;
+    genWait.set(id, { res, rej });
+    node.port.postMessage({ type: "vis", id });
+  }),
 };
 
 // ------------------------------------------------------------------ switching on
@@ -591,6 +600,10 @@ async function switchOn() {
         }
         else if (m.type === "sysex") sysexListeners.forEach((f) => m.msgs.forEach(f));
         else if (m.type === "tap-chunk") tapListeners.forEach((f) => f(m));
+        else if (m.type === "vis") {
+          const w = genWait.get(m.id);
+          if (w) { genWait.delete(m.id); if (m.error) w.rej(new Error(m.error)); else w.res(m.info); }
+        }
         else if (m.type === "gen") {
           const w = genWait.get(m.id);
           if (w) { genWait.delete(m.id); if (m.error) w.rej(new Error(m.error)); else w.res({ info: m.info, genres: m.genres }); }

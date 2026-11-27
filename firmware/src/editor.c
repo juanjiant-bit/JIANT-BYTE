@@ -21,12 +21,16 @@ enum { ED_INFO = 1, ED_GET, ED_SET, ED_DUMP, ED_DESC, ED_STEP_GET, ED_STEP_SET, 
        ED_LYRIC,                                                                /* (JIANT 0.8.5) VOICE's lyric */
        ED_TRANSPORT, ED_PUNCH, ED_MUTATE,                                       /* (1.0) pushes: WATCH bits 2..4 */
        ED_UI,                                                                   /* (1.4) push: WATCH bit 5 (as JIANT FM's) */
-       ED_MOTION = 64, ED_BACKUP_LIST, ED_BACKUP_GET, ED_BACKUP_PUT };                              /* v6: song chain */
+       ED_MOTION = 64, ED_BACKUP_LIST, ED_BACKUP_GET, ED_BACKUP_PUT };
+/* (visgen, 1.5) WATCH bit 7 (its second byte's bit 0): VIS's pushes for JIANT Studio (docs/VISGEN.md): VIS_SONG, the
+ * recipe's inputs and the knobs, when first watched and on a change; VIS_TICK, the levels, the hits, the chord, the
+ * step, 25 a second while playing (98, 99: free in JIANT FM too) */
+enum { ED_VIS_SONG = 98, ED_VIS_TICK };                              /* v6: song chain */
 /* (V10.6z3) the protocol's version, INFO's tag 43 02 major minor: 1.0 the stability contract (web/EDITOR_PROTOCOL.md
  * "Stability contract"): from it on only additive changes; a minor for each addition, a major never (a break) */
 #define ED_PROTO_MAJOR 1u
-#define ED_PROTO_MINOR 4u   /* (V10.6z5) 1.1: VEL (81); (V10.6z6) 1.2: VEL ops 4, 5 (the keys' velocity); 1.3: INFO's 'X';
-                             * 1.4: the UI push (43, WATCH bit 5) */
+#define ED_PROTO_MINOR 5u   /* (V10.6z5) 1.1: VEL (81); (V10.6z6) 1.2: VEL ops 4, 5 (the keys' velocity); 1.3: INFO's 'X';
+                             * 1.4: the UI push (43, WATCH bit 5); 1.5: VIS_SONG, VIS_TICK (98, 99: WATCH bit 7) */
 enum { ED_VM_READ = 80 };   /* (V10.10) read-only: 256 B of the stock VM (0xE7000 + 256 x a[0], a[0] < 48: the radio's
                               * RF trims and BT address, web/btcheck.html); reply: a[0], then 256 x (hi nibble, lo nibble) */
 /* (V10.6z5, 1.1) the velocity diagnostic (vel_diag.c, web/vel.html): op 0 status, 1 on (drive 0..4), 2 off, 3 the next
@@ -265,6 +269,29 @@ static __attribute__((noinline)) int ed_ui_push(uint32_t *n)
     return 1;
 }
 
+static struct { uint32_t sig, ms; } ed_vis __attribute__((section(".pool")));
+static __attribute__((noinline)) int ed_vis_push(uint32_t *n)   /* (visgen) VIS_SONG, VIS_TICK; 0: no room */
+{
+    static const uint8_t B[24] = {0, 7, 14, 16, 23, 32, 48, 64, 71, 80, 96, 112, 128, 144,   /* vis_state's field << 4 | the
+                                                         * shift: VIS_SONG's seed (3), recipe (2), genre, energy, mask (2),
+                                                         * section, palette, MIX, DEFORM, REACT; VIS_TICK's ten */
+                                  160, 176, 192, 208, 224, 240, 0, 16, 32, 48};
+    int32_t o[21];
+    uint32_t i, h = 2166136261u, song;
+    vis_state(o);
+    for (i = 0; i < 10u; i++) h = (h ^ (uint32_t)o[i]) * 16777619u;
+    song = h != ed_vis.sig;
+    if (!song && !(o[20] && fm1_ms - ed_vis.ms >= 40u))
+        return 1;
+    if (!ed_room())
+        return 0;
+    if (song) ed_vis.sig = h; else ed_vis.ms = fm1_ms;
+    ed_begin(song ? ED_VIS_SONG : ED_VIS_TICK);
+    for (i = song ? 0u : 14u; i < (song ? 14u : 24u); i++) ed_b((uint32_t)o[(B[i] >> 4) + (i >= 20u ? 16u : 0u)] >> (B[i] & 15u));
+    ed_send();
+    (*n)++;
+    return 1;
+}
 /* (1.0) WATCH bits 2..4: the transport (on PLAY / STOP and each beat while playing), the punch-in effects running (held,
  * latched, a scene's) and each EUCLID MUTATE. 0: no room in the SysEx ring (the rest waits) */
 static __attribute__((noinline)) int ed_perf(uint32_t *n)
@@ -306,7 +333,7 @@ static __attribute__((noinline)) int ed_perf(uint32_t *n)
             ed_send();
             (*n)++;
         }
-    return !(ed_w.ext & 8u) || ed_ui_push(n);
+    return (!(ed_w.ext & 8u) || ed_ui_push(n)) && (!(ed_w.ext & 16u) || ed_vis_push(n));
 }
 
 static void ed_sync(void)                                /* main loop */
@@ -500,8 +527,10 @@ static __attribute__((noinline)) int ed_args_ok(uint32_t cmd, const uint8_t *a, 
     case ED_STEP_GET:
         return n == 1u || (n == 2u && a[1] == 1u);         /* (0.8.5: 1, the lanes' modes too) */
     case ED_NAMES:
-    case ED_UP_GET: case ED_UP_LOAD: case ED_UP_ERASE: case ED_WATCH: case ED_TRACK_DUMP: case ED_MENU_DESC:
+    case ED_UP_GET: case ED_UP_LOAD: case ED_UP_ERASE: case ED_TRACK_DUMP: case ED_MENU_DESC:
         return n == 1u;
+    case ED_WATCH:
+        return n == 1u || n == 2u;                     /* (1.5) its second byte: bit 0 VIS (WATCH bit 7) */
     case ED_MENU_SET:
         return n == 3u;
     case ED_STEP_SET:
@@ -813,7 +842,10 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         keep = ed_w.on && ed_w.resets == usb.resets && (a[0] & 1u);   /* already watching: the changes not yet */
         ed_w.on = a[0] & 1u;                                          /* pushed stay pending (INFO 53 01 bit 0) */
         ed_w.v4 = (uint8_t)(ed_w.on && (a[0] & 2u));     /* v4: also TRACK_CHANGED; the reply says it is known */
-        i = ed_w.on ? (a[0] >> 2) & 15u : 0u;            /* (1.0) bits 2..4: TRANSPORT, PUNCH, MUTATE; (1.4) 5: UI */
+        i = ed_w.on ? ((a[0] >> 2) & 15u) | (na > 1u && (a[1] & 1u) ? 16u : 0u) : 0u;   /* (1.0) bits 2..4: TRANSPORT,
+                                                          * PUNCH, MUTATE; (1.4) 5: UI; (1.5) 7 (a[1] bit 0): VIS */
+        if ((i & 16u) && !(keep && (ed_w.ext & 16u)))
+            ed_vis.sig = 0;                              /* (VIS newly asked for: VIS_SONG first) */
         if ((i & 8u) && !(keep && (ed_w.ext & 8u))) {    /* UI newly asked for: the screen as it is goes out first */
             ed_w.ui_sig = ~ed_w.ui_sig;
             ed_w.ui_due = 0;
@@ -834,7 +866,9 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         else if (keep && ed_w.v4 && !v4was)
             for (i = 0; i < ED_NT; i++)                    /* TRACK_CHANGED newly asked for: from the mix as it is */
                 ed_w.tv[i] = trk[i / 3u].p[ED_TIDS[i % 3u]];
-        ed_b(ed_w.on | ed_w.v4 << 1 | ed_w.ext << 2);
+        ed_b(ed_w.on | ed_w.v4 << 1 | (ed_w.ext & 15u) << 2);
+        if (na > 1u)
+            ed_b(ed_w.ext >> 4);                         /* (1.5) bit 7, VIS, as known */
         break;
     }
     case ED_PING:

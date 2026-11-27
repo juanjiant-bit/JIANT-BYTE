@@ -1099,7 +1099,7 @@ static __attribute__((noinline)) uint32_t graph_signature(void)
         return h ^ gen_draw_sig() ^ (strip_kind() == SK_SCOPE ? anim_fr / 2u * 2654435761u : 0u);
     if (ui.home)                                     /* the beings: every other frame (0.9.9-beta4: of the animation's, anim_fr:
                                                       * held, or ANIM OFF, the band is not drawn again) */
-        return h ^ (home_tracks() ? tracks_sig() : anim_fr / 2u) ^ home_level() * 104729u ^ (ui.hot_t ? ui.hot_col + 1u : 0u) * 7919u;   /* (V10.7.24:
+        return h ^ (home_tracks() ? tracks_sig() : home_vis() ? anim_fr * 2654435761u : anim_fr / 2u) ^ home_level() * 104729u ^ (ui.hot_t ? ui.hot_col + 1u : 0u) * 7919u;   /* (V10.7.24:
                                                       * MACROS' route line with the knob turned) */
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u + ui.page * 1291u;
     if (strip_kind() == SK_TITLE)                    /* MENU > LARGE: the page's title (its engine, its number); (V10.8) an
@@ -1806,7 +1806,7 @@ static __attribute__((noinline)) void graph_psq(void)
  * and the cells' hashes would be work taken from the sound) */
 static __attribute__((noinline)) void panel_send(uint32_t y)
 {
-    if (ui_hold) {
+    if (ui_hold || home_vis()) {                     /* (visgen: VIS moves everywhere; its heat in the cells' hashes) */
         cv_blit(0, y);
         return;
     }

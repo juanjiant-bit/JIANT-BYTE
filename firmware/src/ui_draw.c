@@ -1344,6 +1344,14 @@ static void draw_columns(void)
         }
         return;
     }
+    if (home_vis()) {                                   /* (visgen) HOME > VIS: MIX DEFORM PALETTE REACT (ui_vis.c) */
+        for (c = 0; c < 4u; c++) {
+            const char *v = vis_card(c, val);
+            draw_column(c, str_nth(VIS_KN, c), v, c == 2u ? "" : "%", VAL(c), c == 2u ? vis_k[2] * 200 : vis_k[c] * 10,
+                        c == 2u ? ICON_CUTOFF : ICON_MOD);
+        }
+        return;
+    }
     if (home_tracks()) {                                /* (V10.7.34) HOME > TRACKS: the track (KNOB 1), its LEVEL PAN REV */
         const track_t *t = TSEL;
         val[0] = 'T'; val[1] = (char)('1' + song.sel % NTRK); val[2] = 0;
@@ -1885,16 +1893,20 @@ static uint16_t sig_col(uint32_t i)                 /* the thermal scale along t
 {
     return heat_col(24 + (int32_t)(i * 220u / SIG_N));
 }
-static void splash_sig(uint32_t n)
+static void sig_pen(uint32_t n)                     /* (visgen: HOME > VIS's SPLASH too, ui_vis.c) */
 {
     uint32_t i;
+    for (i = 0; i < SIG_N && i < n; i++) {             /* the pen (a rounded square, 5 px), solid as it writes */
+        int32_t x = (240 - SIG_W) / 2 + SIG_PTS[2u * i], y = 6 + (SIG_PTS[2u * i + 1u] & 127);
+        uint16_t c = i + 1u == n && n < SIG_N ? T_TEXT : sig_col(i);
+        cv_rect(x - 2, y - 1, 5, 3, c);
+        cv_rect(x - 1, y - 2, 3, 5, c);
+    }
+}
+static void splash_sig(uint32_t n)
+{
     CV_BANDS(240, SIG_H + 12, T_BG) {                   /* (devcpu3: in bands) */
-        for (i = 0; i < SIG_N && i < n; i++) {         /* the pen (a rounded square, 5 px), solid as it writes */
-            int32_t x = (240 - SIG_W) / 2 + SIG_PTS[2u * i], y = 6 + (SIG_PTS[2u * i + 1u] & 127);
-            uint16_t c = i + 1u == n && n < SIG_N ? T_TEXT : sig_col(i);
-            cv_rect(x - 2, y - 1, 5, 3, c);
-            cv_rect(x - 1, y - 2, 3, 5, c);
-        }
+        sig_pen(n);
         cv_blit(0, SPL_SY);
     }
 }
@@ -2346,6 +2358,10 @@ static void ui_draw(void)
     }
     if (!scr_frame())                                   /* MENU > SCREEN OFF: dark (or waking), nothing drawn */
         return;
+    if (scrn.st == SCR_VIS) {                           /* (visgen) MENU > SAVER: HOME > VIS's visual, the whole screen */
+        vis_saver();
+        return;
+    }
     anim_st.non = 1;                                     /* (codex/anim: the lens's entries worked out once, ui_lens.c) */
     anim_st.nkey = 0;
     ui_draw_page(counting);

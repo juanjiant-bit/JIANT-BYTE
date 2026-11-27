@@ -3223,6 +3223,10 @@ static void ui_input_frame(void)
                                                          * / MELODY: a new variation, the one before */
                 break;
             }
+            if (home_vis() && !ui.menu && !fm1_in.notes) {   /* (visgen) HOME > VIS: OCT+ another recipe, OCT- the song's */
+                vis_oct(b == B_OCTUP);
+                break;
+            }
             oct_key(b, both);                           /* (V10.6z4: a note held, the expression keys) */
             break;
         }
@@ -3365,6 +3369,8 @@ static void ui_input_frame(void)
             life_v[k & 3u] = (int16_t)clamp(life_v[k & 3u] + accel(EN_K1 + k, s, 100), 0, 100);
         } else if (home_tracks()) {                     /* (V10.7.34) HOME > TRACKS: the track, its LEVEL PAN REV */
             trk_knob(k, s);
+        } else if (home_vis()) {                        /* (visgen) HOME > VIS: MIX DEFORM PALETTE REACT */
+            vis_k[k & 3u] = (uint8_t)clamp(vis_k[k & 3u] + ((k & 3u) == 2u ? s : accel(EN_K1 + k, s, 100)), 0, (k & 3u) == 2u ? VP_N - 1 : 100);
         } else if (ui.home) {                           /* (V10.7.24) HOME's SCOPE: the mix's four */
             home_knob(k, s);
         } else {
@@ -3464,6 +3470,7 @@ timeout:
 }
 
 #include "ui_dx.c"                                  /* EDIT > SOUND / SOUND 2: the DRUM-X kit */
+#include "ui_vis.c"                                 /* (visgen) HOME > VIS, MENU > SAVER: the song's visual */
 
 
 

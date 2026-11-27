@@ -296,7 +296,7 @@ static void ob_sphere(int32_t bot, uint32_t still)
 {
     uint32_t i, k;
     int32_t x, y, px = 0, py = 0, f, pf = 0;
-    ob_cx = 82; ob_cy = bot / 2 + 8; ob_r = bot * 2 / 5;
+    ob_cx = 82; ob_cy = bot / 2 + 9; ob_r = bot * 23 / 50;   /* (visgen, the owner: larger, the panel's height) */
     ob_rot = still ? 0u : anim_fr * 90u;
     for (k = 0; k < 5u; k++)                            /* the latitudes: -60 .. 60 */
         for (i = 0; i <= 24u; i++) {
@@ -510,7 +510,9 @@ static __attribute__((noinline)) void graph_tracks(void)
  * graph_scope, as hot as it is loud); (V10.7.34) LIFE graph_eco's, TRACKS its lanes */
 static void graph_home_lz(void)
 {
-    if (home_level() == 1u)
+    if (home_vis())
+        vis_panel();                                    /* (visgen) VIS: the song's visual (ui_vis.c) */
+    else if (home_level() == 1u)
         graph_scope(ACC);
     else if (home_level() == 4u)
         graph_tracks();

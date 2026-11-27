@@ -7,6 +7,11 @@
  * (palette), how much they melt (MIX), how much the music moves it (REACT); then sections B, C, D each change one piece
  * (the skeleton, a deformation, or the layer over). JIANT Studio reimplements it in JS: docs/VISGEN.md is its spec, its
  * test vectors made by tests/visgen_test.c from this code. Every number unsigned 32-bit (JS: >>> 0, Math.imul) */
+#ifndef BTAPP_FN
+#define BTAPP_FN
+#define BTAPP_RO
+#endif
+/* (the device: the recipe's code in the Bluetooth segment, as JIANT FM's vis_fig: the image's room) */
 enum { VI_LIFE, VI_KEY, VI_HARMONY, VI_LFO, VI_SPLASH, VI_RADAR, VI_ORBIT, VI_CLAY, VI_TUNNEL, VI_CHORUS, VI_HIVE,
        VI_FUNC, VI_MATH, VI_N, VI_NONE = 255 };
 enum { VD_TWIST, VD_FOLD, VD_MIRROR, VD_POLAR, VD_MELT, VD_SCAN, VD_N };
@@ -53,7 +58,7 @@ static uint32_t vr_pick(const uint32_t *w, uint32_t n)              /* an index 
     return VI_NONE;
 }
 /* mask: VE_* bits; rec: the recipe byte */
-static void vis_recipe(vis_recipe_t *R, uint32_t seed, uint32_t genre, uint32_t energy, uint32_t mask, uint32_t rec)
+BTAPP_FN static void vis_recipe(vis_recipe_t *R, uint32_t seed, uint32_t genre, uint32_t energy, uint32_t mask, uint32_t rec)
 {
     uint32_t i, k, s, h = 2166136261u, pool[VI_N], sk[VI_N], ov[VI_N], w[VD_N], fam, nd;
     const uint32_t in[5] = {seed & 0x1FFFFFu, genre, energy, mask & 255u, rec & 255u};
