@@ -7,7 +7,8 @@
  *     as the first time, pixel for pixel; another seed's not; the knobs' MIX REACT follow the recipe;
  *   - the saver: after SAVER's minutes with no input, the whole screen; the first key brings the page back and plays no
  *     note (swallowed); SAVER OFF never;
- *   - the project keeps the song's VIS ('V' 'S'): packed, cleared, unpacked; VIS_SONG / VIS_TICK's state (vis_state). */
+ *   - the project keeps the song's VIS ('V' 'S'): packed, cleared, unpacked; VIS_SONG / VIS_TICK's state (vis_state);
+ *   - the emulator's web_vis_info() (JIANT Studio's jiantEmu.vis()) off the VIS page, LIFE off: playing after PLAY, the parts' levels moving (followed while VIS is read: mod.c vis_fol). */
 #define FELUCCA_WEB_EDITOR 1
 #include "../web/emu/felucca_web.c"
 #include <assert.h>
@@ -123,7 +124,11 @@ static void frames(void)
     check("HOME > VIS: its page", home_vis() && !strcmp(nav_page_name(), "VIS"));
     vis_set(4242, 0);
     run_ms(100);
-    check("the knobs: MIX and REACT the recipe's, DEFORM 50", vis_k[0] == vg.r.mix && vis_k[3] == vg.r.react && vis_k[1] == 50);
+    {
+        vis_recipe_t r0;                                /* (the song's own recipe, the set's first) */
+        vis_recipe(&r0, 4242, 4, 70, vis_mask(), 0);
+        check("the knobs: MIX and REACT the song's recipe's, DEFORM 50", vis_k[0] == r0.mix && vis_k[3] == r0.react && vis_k[1] == 50);
+    }
     a = branch(4242, 0, 4242, 0);
     b = branch(4242, 1, 4242, 0);                       /* (OCT+ first, then back to the song's own) */
     c = branch(4242, 0, 4242, 1);
@@ -132,10 +137,35 @@ static void frames(void)
     check("OCT+'s recipe: other frames", a != c);
     check("another seed: other frames", a != d);
 }
+/* HOME > VIS: the whole screen (no header, tabs, cards, footer); a knob turned: its card a moment; away: the page whole */
+static void fullscreen(void)
+{
+    uint32_t a, b, c;
+    nav_go(SEC_HOME, HE_VIS, 0);
+    ui.force = 1;
+    run_ms(1600);
+    a = fb_hash(0, 84);
+    run_ms(200);
+    check("HOME > VIS: the visual over the whole screen (the header's, tabs', cards' rows moving)", a != fb_hash(0, 84));
+    c = vis_k[0];
+    web_enc(EN_K1, 3);                                  /* MIX turned: its card */
+    run_ms(60);
+    b = fb_hash(0, 60);
+    check(".. a knob turned: MIX up, its card shown over it", vis_k[0] > c && (vis_ov & 7u) == 0u && fm1_ms - (vis_ov & ~15u) < 1300u);
+    run_ms(1500);
+    check(".. and gone after a moment", fm1_ms - (vis_ov & ~15u) >= 1300u);
+    nav_go(SEC_HOME, HE_MACROS, 0);
+    run_ms(200);
+    c = fb_hash(0, 34);
+    nav_go(SEC_HOME, HE_MACROS, 0);
+    ui.force = 1;
+    run_ms(200);
+    check(".. away (MACROS): the page drawn whole again", c == fb_hash(0, 34) && b != c);
+}
 static void saver(void)
 {
     uint32_t page, sv, i;
-    nav_go(SEC_HOME, HE_VIS, 0);
+    nav_go(SEC_HOME, HE_MACROS, 0);
     ui.force = 1;
     menu_put(MI_SAVER, 1);                              /* 1 MIN */
     check("MENU > SAVER: 1 MIN", menu_get(MI_SAVER) == 1u && !strcmp(menu_vname(MI_SAVER, 1), "1 MIN"));
@@ -204,6 +234,25 @@ static void usb_pushes(void)
     check("USB: VIS_SONG (98) first, its fields as vis_state's", song == 1u);
     check("USB: VIS_TICK (99) ~25 a second while playing", tick >= 8u && tick <= 11u);
 }
+static void web_levels(void)
+{
+    uint32_t i, k, mx = 0;
+    int32_t *o;
+    web_play(0);
+    run_ms(300);
+    nav_go(SEC_HOME, HE_MACROS, 0);
+    life_v[LIFE_AMT] = 0;
+    web_gen_cmd(4, 1);                                  /* (Studio's gen(4, 1): PLAY, taken by the next UI pass) */
+    run_ms(30);
+    o = web_vis_info();
+    check("web_vis_info: playing after PLAY, as web_gen_info", o[20] == web_gen_info()[7] && o[20]);
+    for (i = 0; i < 40u; i++) {
+        run_ms(40);
+        o = web_vis_info();
+        for (k = 0; k < 6u; k++) mx = (uint32_t)o[10 + k] > mx ? (uint32_t)o[10 + k] : mx;
+    }
+    check("web_vis_info: the levels move off the VIS page, LIFE off", mx >= 16u && mx < 128u);
+}
 int main(void)
 {
     web_nor_erase();
@@ -215,10 +264,12 @@ int main(void)
     run_ms(200);
     check("GEN: the piece's VIS (seed, genre, energy; recipe 0)",
           (vis_id[0] | vis_id[1] << 8) == 421 && vis_id[2] == 5 && vis_id[3] == 70 && vis_id[4] == 0);
+    web_levels();
     web_play(1);
     run_ms(2000);
     frames();
     usb_pushes();
+    fullscreen();
     saver();
     project();
     printf("visgen: %s\n", nfail ? "FAILED" : "all ok");

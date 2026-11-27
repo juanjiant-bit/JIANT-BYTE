@@ -272,12 +272,8 @@ static __attribute__((noinline)) int ed_ui_push(uint32_t *n)
 static struct { uint32_t sig, ms; } ed_vis __attribute__((section(".pool")));
 static __attribute__((noinline)) int ed_vis_push(uint32_t *n)   /* (visgen) VIS_SONG, VIS_TICK; 0: no room */
 {
-    static const uint8_t B[24] = {0, 7, 14, 16, 23, 32, 48, 64, 71, 80, 96, 112, 128, 144,   /* vis_state's field << 4 | the
-                                                         * shift: VIS_SONG's seed (3), recipe (2), genre, energy, mask (2),
-                                                         * section, palette, MIX, DEFORM, REACT; VIS_TICK's ten */
-                                  160, 176, 192, 208, 224, 240, 0, 16, 32, 48};
     int32_t o[21];
-    uint32_t i, h = 2166136261u, song;
+    uint32_t i, k, h = 2166136261u, song;
     vis_state(o);
     for (i = 0; i < 10u; i++) h = (h ^ (uint32_t)o[i]) * 16777619u;
     song = h != ed_vis.sig;
@@ -287,7 +283,9 @@ static __attribute__((noinline)) int ed_vis_push(uint32_t *n)   /* (visgen) VIS_
         return 0;
     if (song) ed_vis.sig = h; else ed_vis.ms = fm1_ms;
     ed_begin(song ? ED_VIS_SONG : ED_VIS_TICK);
-    for (i = song ? 0u : 14u; i < (song ? 14u : 24u); i++) ed_b((uint32_t)o[(B[i] >> 4) + (i >= 20u ? 16u : 0u)] >> (B[i] & 15u));
+    for (i = song ? 0u : 10u; i < (song ? 10u : 20u); i++)   /* vis_state's fields in order, 7 bits a byte: VIS_SONG's seed 3
+                                                         * bytes, recipe 2, mask 2, the rest 1 (0x5565B: 2 bits a field) */
+        for (k = song ? 0x5565Bu >> 2u * i & 3u : 1u, h = (uint32_t)o[i]; k--; h >>= 7) ed_b(h);
     ed_send();
     (*n)++;
     return 1;

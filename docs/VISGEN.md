@@ -6,7 +6,8 @@ energy and the engines the song plays; the recipe picks 2 or 3 **ingredients** a
 **content**, another the **skeleton** it is drawn on (DRUM-W's radar folded onto LIFE's sphere, the DELAY's tunnel on
 Lissajous frames, CLAY's traces rolled round KEY's sphere), sometimes a third layer goes **over**, one or two
 **deformations** bend it, and everything **reacts**: a drum hit pulses, the bass heats and swells, each chord change
-turns the colours, each section changes one piece of the recipe with a morph (1.4 s). Same seed, same visual.
+turns the colours, each section changes one piece of the recipe; the song has a set of 8 recipes and its kicks and
+snares cut between them ("Cuts" below). Same seed, same visual.
 
 The approved mock-up is [`visgen-mock.html`](visgen-mock.html) (route A: built from BYTE's own drawings).
 
@@ -30,7 +31,7 @@ pictures).
 | 1 | KEY | SCL > SCALE's sphere with the scale (`ui_lzpage.c` `graph_key`) | yes | always |
 | 2 | HARMONY | SCL > HARMONY's chord cards (`graph_harm`) | | always |
 | 3 | LFO | LFO's satellite and wave (`ui_graph.c` `graph_lfo`) | yes | always |
-| 4 | SPLASH | the power-on signature (`ui_draw.c` `sig_pen`) | | always |
+| 4 | SPLASH | the power-on signature (the device: LIFE's beings for it, the signature's table left out of the image) | | always |
 | 5 | RADAR | DRUM-W's PLAY radar (`ui_dx.c` `dw_play_panel`) | yes | DRUM-W |
 | 6 | ORBIT | WAVE's phase orbit (`ui_byte.c` `hud_wave`) | yes | WAVE |
 | 7 | CLAY | DRONE CLAY's traces (`ui_lzedit.c` `graph_clay_lz`) | yes | CLAY |
@@ -137,11 +138,27 @@ HEAVY      3    0   1               2    0     0      0    2    2        AMBER T
 | 600 | 11 | 72 | 0x5B | 2 | KEY | 3 | 2 | 0 | 4 | 93 | 87 | 5 | MATH - FOLD 88 MELT 90 | MATH - MELT 90 SCAN 91 | MATH RADAR MELT 90 SCAN 91 | MATH ORBIT MELT 90 SCAN 91 |
 | 31337 | 24 | 55 | 0x31 | 0 | RADAR | 2 | 1 | 1 | 1 | 71 | 77 | 5 | HIVE ORBIT MIRROR 71 | LFO ORBIT MIRROR 71 | HIVE ORBIT MIRROR 71 | HIVE KEY MIRROR 71 |
 
+## Cuts: the song's set of 8
+
+The visual is not one recipe but the song's **set**: the recipes of the recipe bytes `rec + j` (j = 0..7, `& 255`;
+`vis_recipe` itself unchanged, its vectors above). Which one is drawn moves with the music, like an editor cutting
+between 8 generations, deterministically:
+
+- `pos` (0..255) and the section `sec` (0..3, as VIS_SONG's byte 9; the saver adds one every 30 s): the recipe drawn is
+  `j = (pos * (2 * sec + 1) + sec) & 7`, and of it section `sec`'s skeleton, over, deformations; its content, blend,
+  palette (PALETTE AUTO: so a cut may turn the colours).
+- A new section: `pos = 0` (a reshuffle: another odd step through the 8). A **kick** (VIS_TICK hits bit 0; the device
+  also takes the loudest part's level jumping by 40 of 256 between two frames): `pos += 1`. A **snare** (hits bit 1),
+  or a **timbre change** (a part's engine, preset, or its filter CUT crossing a quarter of its range): `pos += 3`. Both
+  in one frame: `+4`. A cut at most every 150 ms (a section's always).
+- MIX and REACT start at the song's own recipe's (j = 0) whenever the song or its recipe byte changes; DEFORM 50.
+
 ## The device
 
-- **HOME > VIS**, a tab after TRACKS: the four cards (MIX, DEFORM, PALETTE, REACT) and the visual in the panel
-  (240 x 140). MIX and REACT start at the recipe's whenever the recipe changes; DEFORM 50; PALETTE AUTO. They are not
-  saved. OCT+ another recipe (the recipe byte + 1, saved with the song: FUNC's block `V` `S`, an older song 0), OCT-
+- **HOME > VIS**, a tab after TRACKS: the visual on the whole screen (240 x 240: no header, tabs, cards or footer);
+  the knobs MIX, DEFORM, PALETTE, REACT: a knob turned shows its name and value over the visual for 1.3 s (OCT+ /
+  OCT-: RECIPE n); any page button leaves as ever. MIX and REACT start at the song's recipe's whenever the recipe
+  changes; DEFORM 50; PALETTE AUTO. They are not saved. OCT+ another recipe (the recipe byte + 1, saved with the song: FUNC's block `V` `S`, an older song 0), OCT-
   back to 0.
 - **MENU > DISPLAY > SAVER**: OFF 1 3 5 10 MIN (3 the default; editor id 33), engine 15's byte 12 bits 4-6 stored ^ 2
   (as JIANT FM V10.8.56). The whole screen, the page's recipe, in 4 bands of 60 rows.
@@ -151,14 +168,20 @@ HEAVY      3    0   1               2    0     0      0    2    2        AMBER T
 - Drawing: each ingredient is its page's own picture drawn through a point map (`gfx.c` `cv_vmap`: lines and dots,
   small boxes and rules as lines, big boxes as their outlines; text, cards and icons are left out): the source box
   normalised to -1..1, the skeleton's carrier (a sphere, polar, a Lissajous, a tunnel ring, or the flat bent by a wave:
-  CHORUS's, LFO's, HIVE's, CLAY's in steps; MATH's cells) mixed in by MIX; a section's change morphs through the flat
-  (the old skeleton out, the new one in, 1.4 s) and its deformations' amounts from the old to the new; the point
-  deformations TWIST FOLD POLAR MELT and SCAN (bands of 3 rows shifted), MIRROR drawing it again mirrored. Heat cells
+  CHORUS's, LFO's, HIVE's, CLAY's in steps; MATH's cells) mixed in by MIX; a cut or a section changes the layers at
+  once (the zoom pulsing over it) and its deformations' amounts glide to the new ones (~150 ms); the point
+  deformations TWIST FOLD POLAR MELT and SCAN (bands of 3 rows shifted, on a snare), MIRROR drawing it again mirrored.
+  Depth: a grain behind everything (every other row, dim dots of the palette's low end, as dense as REACT and the
+  level), the heat cells over it, then the wires in two passes, the dark and the faint (the skeleton, a sphere's back)
+  first, the bright last: a dark figure never sits on a bright one. The camera: a zoom breathing (0.8x..1.2x) and
+  pulsing (a kick, the bass, each cut), a turn drifting (its way the recipe's j; a kick throws it on), the centre
+  drifting a little. Heat cells
   of 6 px with memory in the display cache's spare hashes (no new RAM); a heat layer is drawn faint as a wire over its
   cells too. One deformation field moves every layer together. Reacting (some ideas from JIANT FM's V10.8.59
   visuals): a kick pulses the scale and the twist and eases back, a snare shifts bands (a glitch, as SCAN), the bass
-  and the level heat and swell, a chord change turns the colours, a section (A..D, or every 8 bars of a loop) morphs
-  to its own recipe; the saver changes section every 30 s besides.
+  and the level heat and swell, a chord change turns the colours, a section (A..D, or every 8 bars of a loop) has its
+  own piece of the recipe; the saver changes section every 30 s besides. The parts' levels (VIS_TICK's, the visual's)
+  are followed while VIS is shown or read (USB, `web_vis_info`), LIFE off too.
 - The recipe's code is in the Bluetooth segment (as JIANT FM's `vis_fig`): without the segment the visual draws the
   recipe of all zeros (LIFE on LIFE).
 

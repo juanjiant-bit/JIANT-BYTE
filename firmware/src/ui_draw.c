@@ -2326,9 +2326,8 @@ static void draw_confirm(void)
 }
 
 
-/* (0.8.5) the end of a lens screen drawn outside the page path (GEN): the second message, the timers, the footer and the
- * tabs */
-static void lz_frame_end(void)
+/* a frame's timers: the second message (ui_notices) after the first, the BPM's and the knob's highlights */
+static __attribute__((noinline)) void ui_timers(void)
 {
     if (ui.msg_t && !--ui.msg_t && ui.msg2[0]) {
         str_cpy(ui.msg, ui.msg2, sizeof ui.msg);
@@ -2339,6 +2338,12 @@ static void lz_frame_end(void)
         ui.bpm_t--;
     if (ui.hot_t)
         ui.hot_t--;
+}
+/* (0.8.5) the end of a lens screen drawn outside the page path (GEN): the second message, the timers, the footer and the
+ * tabs */
+static void lz_frame_end(void)
+{
+    ui_timers();
     if (pf_on)
         page_flash_draw();
     if (!pf_on)
@@ -2358,9 +2363,18 @@ static void ui_draw(void)
     }
     if (!scr_frame())                                   /* MENU > SCREEN OFF: dark (or waking), nothing drawn */
         return;
-    if (scrn.st == SCR_VIS) {                           /* (visgen) MENU > SAVER: HOME > VIS's visual, the whole screen */
+    if (scrn.st == SCR_VIS || (home_vis() && !ui.menu && !dlg_on() && !name_on() && !ly_drawn() && !counting && !ui.uboot &&
+                               !ui.segbox)) {           /* (visgen) MENU > SAVER, HOME > VIS: the visual, the whole screen */
         vis_saver();
+        ui_timers();                                    /* (a toast meanwhile: its time runs, unseen) */
+        vis_ov |= 8u;                                   /* (a static of its own here would move the merged globals the
+                                                         * timer ISR reads: its code another) */
         return;
+    }
+    if (vis_ov & 8u) {                                  /* (back from it: the page drawn whole) */
+        vis_ov &= ~8u;
+        ui.force = 1;
+        ui.head_sig = ui.graph_sig = ui.foot_sig = ~0u;
     }
     anim_st.non = 1;                                     /* (codex/anim: the lens's entries worked out once, ui_lens.c) */
     anim_st.nkey = 0;
@@ -2453,15 +2467,7 @@ static void ui_draw_body(uint32_t counting)
         draw_layer();
         if (hm)
             ui.layer = 0;
-        if (ui.msg_t && !--ui.msg_t && ui.msg2[0]) {
-            str_cpy(ui.msg, ui.msg2, sizeof ui.msg);
-            ui.msg2[0] = 0;
-            ui.msg_t = 60;
-        }
-        if (ui.hot_t)
-            ui.hot_t--;
-        if (ui.bpm_t)
-            ui.bpm_t--;
+        ui_timers();
         ui.force = 0;
         return;
     }
@@ -2501,15 +2507,7 @@ static void ui_draw_body(uint32_t counting)
         else
             ui.graph_sig = ~0u;
     }
-    if (ui.msg_t && !--ui.msg_t && ui.msg2[0]) {     /* the second message (ui_notices) */
-        str_cpy(ui.msg, ui.msg2, sizeof ui.msg);
-        ui.msg2[0] = 0;
-        ui.msg_t = 60;
-    }
-    if (ui.bpm_t)
-        ui.bpm_t--;
-    if (ui.hot_t)
-        ui.hot_t--;
+    ui_timers();                                        /* (the second message: ui_notices) */
     felucca_dbg.stage = 6;
     if (pf_on)                                          /* (0.6.61) the page's name for a moment; (0.6.64) over the
                                                          * footer, which says the same: the header, the cards and

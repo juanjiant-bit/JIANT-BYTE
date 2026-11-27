@@ -49,7 +49,7 @@ int main(void){
         else if(!strcmp(cmd,"fpp")) { int t,k,v; sscanf(a,"%d %d %d",&t,&k,&v); if(k==5) fp_kp[t][0]=(int16_t)v; else trk[t].p[FUNC_PID[k%5]]=(int16_t)v; math_poll(); }
         else if(!strcmp(cmd,"visrec")) { vis_id[4]=(uint8_t)atoi(a); if(!vis_id[2]) vis_id[2]=VIS_GENRES+1u; ui.force=1; }
         else if(!strcmp(cmd,"saver")) { scrn.st = atoi(a) ? SCR_VIS : SCR_ON; ui.force = 1; }
-        else if(!strcmp(cmd,"visinfo")) { vis_recipe_t *r=&vg.r; fprintf(stderr,"vis content %u skel %u %u %u %u over %u %u %u %u blend %u pal %u def %u/%u %u/%u\n",r->content,r->skel[0],r->skel[1],r->skel[2],r->skel[3],r->over[0],r->over[1],r->over[2],r->over[3],r->blend,r->pal,r->def[0][0],r->amt[0][0],r->def[0][1],r->amt[0][1]); }
+        else if(!strcmp(cmd,"visinfo")) { vis_recipe_t *r=&vg.r; fprintf(stderr,"set %u sec %u ",vg.ri,vg.sec); fprintf(stderr,"vis content %u skel %u %u %u %u over %u %u %u %u blend %u pal %u def %u/%u %u/%u\n",r->content,r->skel[0],r->skel[1],r->skel[2],r->skel[3],r->over[0],r->over[1],r->over[2],r->over[3],r->blend,r->pal,r->def[0][0],r->amt[0][0],r->def[0][1],r->amt[0][1]); }
         else if(!strcmp(cmd,"genres")) { for(unsigned g=0;g<NGENRE;g++) fprintf(stderr,"%u %s\n",g+1,GENRE[g].name); }
         else fprintf(stderr,"? %s\n",cmd);
     }

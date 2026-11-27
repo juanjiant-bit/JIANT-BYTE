@@ -254,17 +254,17 @@ dly_line_clear 50 text
 dly_lo 1578 text dly_band dly_drive dly_grain dly_grain_adv dly_rd_q hb_dec hb_int
 dly_rate 502 hot_text dly_line_clear
 dly_rd_q 118 hot_text
-dly_rev_set 104 hot_text
+dly_rev_set 104 hot_text *
 dly_wow_adv 218 hot_text
 draw_act_column 86 text act_col act_ready
 draw_column 3730 text card_h card_line card_y cv_begin cv_blit cv_keycap cv_pset cv_rect cv_rrect cv_text_fit cv_text_in cv_text_on djf_cut face_has gauge_bar gauge_col heat_col heat_on ink_w kc_w knob_col large_kind ly_drawn lz_on roll_note roll_text str_cpy str_eq str_hash str_len text_w tsel_p ux_mix
-draw_columns 9372 text act_cols act_ready bt_get bt_hw_seg bt_vname card_mot_of comp_columns cur_page djf_cut draw_act_column draw_column drum_lane_name drum_note_lane dw_side dw_type_ix dx_pagen empty_column enum_rank ev_fix ev_id_ok ev_name ev_row ev_rows fit_span fmt_fix fmt_frac fmt_int focus_k focus_slot gauge_column graph_project_used grid_hit_of home_life home_macros home_tracks home_vis hot_gauge_column hot_text_column hot_unit_column lock_held lock_id macro_card macro_routes memset mod_dst_name mod_dst_scope motion_base_value motion_enabled motion_lock_count motion_lock_get note_len note_name page_desc param_format pf_column pl_at preset_at ratio_d row_var save_level shp_k shp_rep song_end_row st_micro step_accents_of step_lanes_of step_on str_cpy str_len str_nth text_column track_desc trackgen_cards_bt trk_level tsel_p unit_column up_slot_label up_used val_col
+draw_columns 9414 text act_cols act_ready bt_get bt_hw_seg bt_vname card_mot_of comp_columns cur_page djf_cut draw_act_column draw_column drum_lane_name drum_note_lane dw_side dw_type_ix dx_pagen empty_column enum_rank ev_fix ev_id_ok ev_name ev_row ev_rows fit_span fmt_fix fmt_frac fmt_int focus_k focus_slot gauge_column graph_project_used grid_hit_of home_life home_macros home_tracks home_vis hot_gauge_column hot_text_column hot_unit_column lock_held lock_id macro_card macro_routes memset mod_dst_name mod_dst_scope motion_base_value motion_enabled motion_lock_count motion_lock_get note_len note_name page_desc param_format pf_column pl_at preset_at ratio_d row_var save_level shp_k shp_rep song_end_row st_micro step_accents_of step_lanes_of step_on str_cpy str_len str_nth text_column track_desc trackgen_cards_bt trk_level tsel_p unit_column up_slot_label up_used val_col vis_card
 draw_confirm 1644 text cv_band_begin cv_bands cv_begin cv_blit cv_pset cv_rect cv_rrect cv_text_flags cv_text_in cv_text_on dice_side dlg_button dlg_card dlg_crumb dlg_tabs fmt_int graph_project_used ink_in pat_label pat_pick project_name scr_fill str_cpy str_len text_fit text_w tsel_p up_name up_slot_label
 draw_countin 598 text cv_begin cv_blit cv_key_hint cv_rrect cv_text_in draw_text_box fill_around kh_ink lcd_sync str_cpy
 draw_crumbs 1052 text act_cols cv_clip_text cv_rect cv_text_fit cv_text_on cv_text_r fmt_frac fmt_int foot_crumbs foot_hint foot_strip gen_on help_find home_level lz_fam lz_on nav_groups nav_sec str_cpy str_len text_w
 draw_foot 560 text act_cols act_ready black_held cv_begin cv_blit cv_key_row draw_crumbs foot_crumbs foot_h foot_hint foot_ph foot_strip foot_y gen_on grid_on lz_on memcpy page_title steps_hash str_cpy str_hash tsel_p
 draw_frame 158 text card_h card_y foot_y graph_h graph_y scr_fill
-draw_graph 14556 text being_lines bg_outline bt_hw_seg card_line clip_dash cur_page cv_band_begin cv_bands cv_clip_text cv_frame cv_line cv_line_t cv_pset cv_rect cv_rrect cv_text cv_text_fit cv_text_flags cv_text_in cv_text_on cv_text_r div_samples draw_tracks drum_kit_of drum_lane_abbr dw_frame dw_frame_now dw_mod_box dw_play_panel dw_side dw_wave_line dx_lane_muted dx_pagen dx_pow2 dx_tau ed_cap ed_resp enum_rank ev_fix ev_id_ok ev_name ev_row ev_rows face_has fmt_int focus_k focus_slot gen_board gen_on gen_panel_bt gen_radio graph_adsr graph_being_at graph_chord graph_clay_lz graph_eco graph_euclid graph_fx_lz graph_grid graph_h graph_harm graph_key graph_lfo graph_lfodest graph_lz_presets graph_lz_tools graph_proj graph_project_used graph_psq graph_roll graph_scope graph_signature graph_sound graph_sound_lz graph_system graph_tl graph_tracks graph_y heat_col hold_banner_key home_level home_vis hud_tag ink_in lfo_cap lz_fam lz_on lz_sec mod_dst_name motion_base_value motion_enabled motion_lock_count note_col og_node page_desc page_title panel_send param_format ratio_d roll_view save_level scn_notes sec_col seq_overlay seq_roll_view sine_i softclip song_bars str_cpy str_len str_nth strip_kind tech_levels_white tech_ports text_fit text_w tk toast_clear toast_on track_desc trk_eng trk_engp trk_nvoice tsel_p ub_kit ux_mix vis_draw vx_draw
+draw_graph 14518 text being_lines bg_outline bt_hw_seg card_line clip_dash cur_page cv_band_begin cv_bands cv_clip_text cv_frame cv_line cv_line_t cv_pset cv_rect cv_rrect cv_text cv_text_fit cv_text_flags cv_text_in cv_text_on cv_text_r div_samples draw_tracks drum_kit_of drum_lane_abbr dw_frame dw_frame_now dw_mod_box dw_play_panel dw_side dw_wave_line dx_lane_muted dx_pagen dx_pow2 dx_tau ed_cap ed_resp enum_rank ev_fix ev_id_ok ev_name ev_row ev_rows face_has fmt_int focus_k focus_slot gen_board gen_on gen_panel_bt gen_radio graph_adsr graph_being_at graph_chord graph_clay_lz graph_eco graph_euclid graph_fx_lz graph_grid graph_h graph_harm graph_key graph_lfo graph_lfodest graph_lz_presets graph_lz_tools graph_proj graph_project_used graph_psq graph_roll graph_scope graph_signature graph_sound graph_sound_lz graph_system graph_tl graph_tracks graph_y heat_col hold_banner_key home_level home_vis hud_tag ink_in lfo_cap lz_fam lz_on lz_sec mod_dst_name motion_base_value motion_enabled motion_lock_count note_col og_node page_desc page_title panel_send param_format ratio_d roll_view save_level scn_notes sec_col seq_overlay seq_roll_view sine_i softclip song_bars str_cpy str_len str_nth strip_kind tech_levels_white tech_ports text_fit text_w tk toast_clear toast_on track_desc trk_eng trk_engp trk_nvoice tsel_p ub_kit ux_mix vx_draw
 draw_head 2148 text batt_shown cur_page cv_begin cv_blit cv_frame cv_rect cv_rrect cv_text cv_text_fit cv_text_in fmt_int graph_project_used head_load head_msg ly_drawn project_cur_name roll_note roll_text seq_counting song_pg str_cpy str_hash str_len text_ink text_w trk_engp tsel_p
 draw_layer 1572 text chain_busy cv_band_begin cv_bands cv_blit cv_rrect cv_text_in draw_foot draw_tabs glo_drums graph_h graph_y knob_col layer_cards layer_open layer_state ly_tiles lz_arc perf_avail pk_board preset_favorite project_recall_slot rec_clearable snd_id str_cpy str_hash str_len text_w tsel_p
 draw_menu 1434 text bt_hw_rxdiag bt_hw_status bt_prox_white card_h card_y cv_band_begin cv_bands cv_begin cv_blit cv_key_row cv_rect cv_rrect draw_foot draw_head draw_tabs fill_around fmt_frac foot_h foot_y gauge_column menu_document menu_get menu_n menu_panel menu_scroll_max menu_set menu_short menu_tab menu_val mtab_first mtab_rows text_column text_w
@@ -387,7 +387,7 @@ ed_uip_state 172 text ed_b ed_uip_str nav_page_name nav_sec
 ed_uip_str 84 text ed_b
 ed_v 40 text ed_b
 ed_val 30 text tsel_p
-ed_vis_push 360 text ed_b ed_begin ed_room ed_send vis_chord vis_hits vis_mask vis_sec vis_song
+ed_vis_push 388 text chain_busy ed_b ed_begin ed_room ed_send seq_counting vis_chord vis_hits vis_mask vis_sec vis_song
 edit_first 40 text nav_ch nv_page page_first
 edit_param 4018 text accel act_cols bt_hw_seg chain_busy comp_knob confirm_open cur_page cursor_set dx_knob eu_anchor eu_every eu_gen eu_kit eu_of ev_knob ev_len excite_turn fit_span fit_ui_edit focus_knob knob_cap lfo_fade_restart load_put memset micro_edit mo_knob mod_dst_offer mod_src_turn motion_djf_set ndg_end ndg_note page_desc param_turn part_row pl_at pl_engine pl_turn psq_knob rp_apply save_level save_on sc_put scene_capture settings_save shape_apply song_end_row song_idx_touch step_edit str_cpy tl_order tl_shift tl_take track_select trackgen_knob_bt tsel_p ui_message undo_mark
 edit_recallable 12 text project_recall_slot
@@ -508,7 +508,7 @@ fm1_irq_off 4 text
 fm1_irq_on 6 text
 fm1_lcd_wait 48 text
 fm1_led_dim_level 40 text
-fm1_main 7338 text ! autosave_poll autosave_sig boot_splash bt_get bt_hw_seg bt_prox_tick bt_set bt_start chain_defaults chain_valid cpu_clock cpu_lost cv_band_begin cv_bands cv_blit dbg_boot dlg_on draw_confirm draw_text_box ed_service eng_idx fav_rows_new favorite_set fl_far fm1__sr_bits fm1_adc_read fm1_delay_ms fm1_enter_uboot fm1_guard_enable fm1_guard_lock_top fm1_led_dim_level fm1_mc_barred fm1_mc_hold fm1_wdt_feed hint_tick irq_save lcd_cmd lcd_data lcd_fill lcd_power lcd_spin life_defaults macro_dice master_poll memcpy memset name_on ota_crc16 ota_erase ota_fread ota_jl_enc ota_memeq ota_prog ota_rd16 ota_rd32 ota_read ota_reply_identity ota_show ota_take ota_unstage ota_wr16 ota_wr32 palette_to_stored panel_init panel_setup power_sound_of proj_bound proj_fetch proj_import project_restore_runtime psq_clear scr_fill scr_get scr_holes scr_wake scr_wake_now seg_missing seq_counting settings_import settings_init settings_poll settings_save song_index_load song_mode_restore song_poll song_retired spl_frame st_load steps_sig str_cpy str_nth track_defaults track_defaults_steps uh_task ui_draw_body ui_input ui_leds ui_message up_bank_check up_used usb_detach usb_serial_apply usb_start vc_io vd_apply vd_num vis_draw voice_limits_default
+fm1_main 9012 text ! autosave_poll autosave_sig bg_sin boot_splash bt_get bt_hw_seg bt_prox_tick bt_set bt_start chain_defaults chain_valid cpu_clock cpu_lost cv_band_begin cv_bands cv_blit cv_rect cv_text_in dbg_boot dlg_on draw_confirm draw_text_box ed_service eng_idx fav_rows_new favorite_set fl_far fm1__sr_bits fm1_adc_read fm1_delay_ms fm1_enter_uboot fm1_guard_enable fm1_guard_lock_top fm1_led_dim_level fm1_mc_barred fm1_mc_hold fm1_wdt_feed hint_tick home_vis irq_save lcd_cmd lcd_data lcd_fill lcd_power lcd_spin life_defaults ly_drawn macro_dice master_poll memcpy memset name_on ota_crc16 ota_erase ota_fread ota_jl_enc ota_memeq ota_prog ota_rd16 ota_rd32 ota_read ota_reply_identity ota_show ota_take ota_unstage ota_wr16 ota_wr32 palette_to_stored panel_init panel_setup power_sound_of proj_bound proj_fetch proj_import project_restore_runtime psq_clear scr_fill scr_get scr_holes scr_wake scr_wake_now seg_missing seq_counting settings_import settings_init settings_poll settings_save song_index_load song_mode_restore song_poll song_retired spl_frame st_load steps_sig str_cpy str_nth track_defaults track_defaults_steps uh_task ui_draw_body ui_input ui_leds ui_message ui_timers up_bank_check up_used usb_detach usb_serial_apply usb_start vc_io vd_apply vd_num vis_card vis_chord vis_col vis_hits vis_layer vis_mask vis_recipe vis_sec vis_song voice_limits_default vph
 fm1_mc_barred 28 text
 fm1_mc_hold 120 text
 fm1_mc_park 96 text fm1_mc_hold
@@ -795,7 +795,7 @@ graph_project_used 270 text as_mix project_name
 graph_psq 556 text cv_rect cv_text graph_h hud_tag str_cpy str_len str_nth text_w
 graph_roll 2096 text bar_cells comp_col cur_page cv_frame cv_rect cv_text_r fmt_int lens_strip lz_comp_mark memcpy motion_lock_steps pr_bars pr_follow_bar pr_geom pr_head_col pr_head_step pr_heads pr_held pr_lit pr_row_y pr_src scale_mask st_micro step_ratchet str_cpy text_w
 graph_scope 36 text
-graph_signature 4668 text bg_energy comp_slot comp_view cur_page ev_row ev_rows fx_level fx_mod_of fx_on gen_sig graph_project_used hm_now hm_shift home_level home_tracks home_vis lens_on lib_scan motion_enabled motion_lock_steps nav_lv pd_cur pd_on pr_follow pr_follow_bar pr_head_step pr_held roll_view save_level save_on seq_roll_view seq_src snd_dirty steps_hash steps_sig str_hash strip_kind toast_on trk_eng tsel_p
+graph_signature 4650 text bg_energy comp_slot comp_view cur_page ev_row ev_rows fx_level fx_mod_of fx_on gen_sig graph_project_used hm_now hm_shift home_level home_tracks lens_on lib_scan motion_enabled motion_lock_steps nav_lv pd_cur pd_on pr_follow pr_follow_bar pr_head_step pr_held roll_view save_level save_on seq_roll_view seq_src snd_dirty steps_hash steps_sig str_hash strip_kind toast_on trk_eng tsel_p
 graph_sound 524 text being_lines bg_energy bg_excite bg_feat cv_clip_text cv_frame cv_rect cv_text_fit cv_text_in heat_col lz_mini_being sound_name text_w trk_eng trk_engp tsel_p up_engine up_name up_slot_label up_used
 graph_sound_lz 234 text cv_rect cv_text_on graph_being_at scope_at trk_engp vx_draw
 graph_system 686 text cur_page cv_line_t cv_rect cv_text_in cv_text_r ed_cap fmt_int page_desc param_format str_cpy str_eq str_len
@@ -916,7 +916,7 @@ kc_w 22 text
 kern 78 text glyph_at
 key_black 28 text
 key_next 312 text drum_oct_note dxo_on midi_local_held mo_key mo_kon
-key_off 158 text * clay_kb drum_oct_note dxo_off input_off midi_local_held mo_koff
+key_off 158 text clay_kb drum_oct_note dxo_off input_off midi_local_held mo_koff
 key_place 46 text key_black
 keyboard_change 864 text ! chord_build_mode clay_kb kb_lat kb_map key_next key_place perf_key perf_press rec_note rec_on
 keys_mode 38 text ckeys_on grid_on name_on psq_on skeys_on
@@ -967,7 +967,7 @@ life_ctx 152 text *
 life_def 20 text
 life_defaults 28 text life_def
 life_formula_block 1448 text * dx_lane_muted memcpy memset
-life_master 256 hot_text life_swim
+life_master 280 hot_text life_swim
 life_noise 4 text
 life_src 72 text
 life_swim 190 hot_text life_noise
@@ -1288,7 +1288,7 @@ palette_to_stored 18 text
 panel_btn_of 28 text
 panel_enc 44 text fm1_enc_take
 panel_init 174 text memcpy
-panel_send 108 text home_vis
+panel_send 100 text
 panel_setup 568 text cv_begin cv_blit cv_text draw_text_box fm1_delay_ms fm1_enc_take fm1_input_edges fm1_wdt_feed memcpy scr_fill setup_show str_nth text_w ui_message
 panic_block 286 text memset midi_out_event_at midi_silence_track mo_flush_of mo_koff pfx_hush
 param_desc_of 70 text func_pdesc
@@ -1398,7 +1398,7 @@ proj_mf_tracks 54 text
 proj_name_get 56 text
 proj_obj 28 text
 proj_ok 78 text chain_valid motion_valid proj_sum
-proj_pack 3138 text chain_valid dx_kit_ok fit_valid memcpy memset motion_valid proj_clay_rec proj_djf_events proj_eq proj_fg_used proj_fm_any proj_fx_any proj_hash proj_lyr_len proj_mf_tracks proj_name_get proj_packed_size proj_pdef proj_psq_used proj_sc_used proj_split_ok proj_step_empty proj_step_x proj_tp proj_xm step_ratchet str_len
+proj_pack 3134 text chain_valid dx_kit_ok fit_valid memcpy memset motion_valid proj_clay_rec proj_djf_events proj_eq proj_fg_used proj_fm_any proj_fx_any proj_hash proj_lyr_len proj_mf_tracks proj_name_get proj_packed_size proj_pdef proj_psq_used proj_sc_used proj_split_ok proj_step_empty proj_step_x proj_tp proj_xm step_ratchet str_len
 proj_packed_size 740 text proj_bits proj_clay_rec proj_djf_events proj_eq proj_fg_used proj_fm_any proj_fx_any proj_lyr_len proj_mf_tracks proj_pdef proj_psq_used proj_sc_used proj_step_empty proj_step_x proj_tp proj_xm str_len
 proj_pdef 4 text
 proj_phys_gone 160 text eng_gone proj_sum
@@ -1492,7 +1492,7 @@ scale_mask 32 text
 scale_snap 52 text scale_mask
 scale_steps 112 text scale_mask scale_snap
 scene_capture 90 text
-scene_key 676 text * input_off input_on kb_map midi_local_held mo_key mo_koff mo_kon rec_note rec_on scn_notes
+scene_key 676 text input_off input_on kb_map midi_local_held mo_key mo_koff mo_kon rec_note rec_on scn_notes
 scn_notes 284 text chord_build_mode
 scope_at 256 text cv_rect scope_lod scope_seg
 scope_lod 110 text scope_seg
@@ -1682,7 +1682,7 @@ track_defaults 26 text
 track_defaults_steps 108 text chain_busy motion_reset step_clear
 track_desc 380 text ! eng_idx func_pdesc
 track_filter 536 hot_text tf_run
-track_follow_peak 314 text
+track_follow_peak 314 text *
 track_post 220 hot_text fn_drive fn_pm fn_tick part_gain track_filter
 track_select 88 text page_flash
 track_step 48 text
@@ -1741,12 +1741,13 @@ uh_session_end 42 bt
 uh_start_ep 198 bt sie_wr
 uh_task 458 bt uh_connect uh_host_up uh_hub_port_probe uh_hub_status uh_session_end uh_start_ep uh_wait
 uh_wait 40 bt fm1_wdt_feed
-ui_draw_body 1606 text as_mix bt_hw_seg cursor_fix cv_begin cv_blit cv_key_hint cv_keycap cv_text dlg_on dlg_tabs draw_columns draw_confirm draw_countin draw_foot draw_frame draw_graph draw_head draw_layer draw_menu draw_tabs draw_text_box edit_first fill_around fmt_int gen_cards_bt graph_h graph_y kh_ink lcd_sync ly_drawn lz_on name_on nm_card nm_draw_panel nm_formula nm_len_max page_entered page_flash_draw page_visible scr_fill seg_screen str_cpy str_len tabs_paint transport_busy
+ui_draw_body 1406 text as_mix bt_hw_seg cursor_fix cv_begin cv_blit cv_key_hint cv_keycap cv_text dlg_on dlg_tabs draw_columns draw_confirm draw_countin draw_foot draw_frame draw_graph draw_head draw_layer draw_menu draw_tabs draw_text_box edit_first fill_around fmt_int gen_cards_bt graph_h graph_y kh_ink lcd_sync ly_drawn lz_on name_on nm_card nm_draw_panel nm_formula nm_len_max page_entered page_flash_draw page_visible scr_fill seg_screen str_cpy str_len tabs_paint transport_busy ui_timers
 ui_input 658 text beat_samples chain_busy clay_card_text cur_page eu_mutate gen_tick memcpy memset str_cpy tsel_p ui_input_frame ui_message ui_say
-ui_input_frame 16460 text accel act_col act_cols act_do act_ready apply_preset apply_preset_to black_held bt_cal_tick bt_prox_input bt_prox_ok btn_hold btn_used chain_busy chain_defaults chain_goto chain_play_ui chord_peek ckeys_on clip_launch comp_legacy comp_migrate confirm_open cp_copy cp_held cur_page cursor_fix cursor_set dlg_on drum_elsewhere edit_param enc_drop eng_gone ent_commit ent_message eu_oct fk_walk fm1_input_edges fmt_int func_form fvm_compile fvm_prog_init fvm_run gen_amt_turn gen_genre_next gen_on gen_page gen_press go_home grid_acc grid_hit grid_on home_knob home_life home_macros home_tracks home_vis init_sound_of kb_map key_black key_place keys_mode knob_cap knob_meaning kx_frame layer_allowed layer_held layer_key layer_let_go layer_open layer_opened layer_play layer_set_open layer_tap live_rec_sel load_begin load_end load_grid16 load_pat16 lock_held lock_id ly_avail ly_bit ly_down ly_page lyr_set macro_dice macro_turn math_poll memcpy memset menu_close menu_put menu_scroll_max menu_set menu_step menu_tab ml_poll mod_full mom_knob mom_poll motion_base_value motion_capture motion_clear motion_desc motion_lock_get motion_set_lock motion_thin_id mtab_first mtab_rows name_close name_on name_open nav_button nav_go nav_key nav_mem nav_put nav_sec nav_select nm_black nm_commit nm_do nm_formula nm_group nm_insert oct_key open_family page_desc page_first page_go page_tap panel_btn_of panel_enc panel_setup param_turn part_dice part_row pat_label pat_pick pl_at pl_close pl_engine preset_all_at_in preset_all_pos preset_at preset_go preset_pos proj_err proj_import proj_name_get proj_obj proj_pack project_recall_slot project_recall_sound project_save_as psq_clear psq_on rec_clear_auto rec_first rec_set rec_tap row_copy rp_apply rp_get sc_beat sc_dice scr_wake sec_of_fam section_jump section_store seq_counting seq_is_empty set_engine set_engine_of settings_save skeys_on song_draft_begin song_erase_parts song_idx_touch song_save_as song_select sound_put st_save step_accents_of step_lanes_of steps_sig str_cpy str_eq str_len str_nth system_init text_w tl_keys track_defaults_steps track_desc track_select track_step transport_busy trk_base4 trk_engp tsel_p ui_message ui_say undo_mark up_grid up_has_pat up_load up_name up_pat_nth up_rec up_ui up_ui_named up_values usb_serial_apply
+ui_input_frame 16414 text accel act_col act_cols act_do act_ready apply_preset apply_preset_to black_held bt_cal_tick bt_prox_input bt_prox_ok btn_hold btn_used chain_busy chain_defaults chain_goto chain_play_ui chord_peek ckeys_on clip_launch comp_legacy comp_migrate confirm_open cp_copy cp_held cur_page cursor_fix cursor_set dlg_on drum_elsewhere edit_param enc_drop eng_gone ent_commit ent_message eu_oct fk_walk fm1_input_edges fmt_int func_form fvm_compile fvm_prog_init fvm_run gen_amt_turn gen_genre_next gen_on gen_page gen_press go_home grid_acc grid_hit grid_on home_knob home_life home_macros home_tracks home_vis init_sound_of kb_map key_black key_place keys_mode knob_cap knob_meaning kx_frame layer_allowed layer_held layer_key layer_let_go layer_open layer_opened layer_play layer_set_open layer_tap live_rec_sel load_begin load_end load_grid16 load_pat16 lock_held lock_id ly_avail ly_bit ly_down ly_page lyr_set macro_dice macro_turn math_poll memcpy memset menu_close menu_put menu_scroll_max menu_set menu_step menu_tab ml_poll mod_full mom_knob mom_poll motion_base_value motion_capture motion_clear motion_desc motion_lock_get motion_set_lock motion_thin_id mtab_first mtab_rows name_close name_on name_open nav_button nav_go nav_key nav_mem nav_put nav_sec nav_select nm_black nm_commit nm_do nm_formula nm_group nm_insert oct_key open_family page_desc page_first page_go page_tap panel_btn_of panel_enc panel_setup param_turn part_dice part_row pat_label pat_pick pl_at pl_close pl_engine preset_all_at_in preset_all_pos preset_at preset_go preset_pos proj_err proj_import proj_name_get proj_obj proj_pack project_recall_slot project_recall_sound project_save_as psq_clear psq_on rec_clear_auto rec_first rec_set rec_tap row_copy rp_apply rp_get sc_beat sc_dice scr_wake sec_of_fam section_jump section_store seq_counting seq_is_empty set_engine set_engine_of settings_save skeys_on song_draft_begin song_erase_parts song_idx_touch song_save_as song_select sound_put st_save step_accents_of step_lanes_of steps_sig str_cpy str_eq str_len str_nth system_init text_w tl_keys track_defaults_steps track_desc track_select track_step transport_busy trk_base4 trk_engp tsel_p ui_message ui_say undo_mark up_grid up_has_pat up_load up_name up_pat_nth up_rec up_ui up_ui_named up_values usb_serial_apply
 ui_leds 3872 text ! act_cols act_ready beat_samples black_held bt_prox_ok chain_busy click_beat_len cur_page dx_lane_muted edit_recallable eng_idx fm1_led_dim_level glo_sounding grid_on kb_map key_black key_place layer_btn layer_set_open led_put menu_get menu_step midi_note_held motion_count name_on nm_black perf_avail perf_key project_used rec_clearable rp_get scale_mask seq_counting seq_src step_accents_of step_lanes_of tl_cell tsel_p
 ui_message 10 text
 ui_say 90 text str_cpy str_len
+ui_timers 84 text str_cpy
 uin_ep_config 50 text sie_wr
 uin_mix 242 text
 uin_rx 90 text sie_rd sie_wr uin_take
@@ -1807,23 +1808,23 @@ vel_row 22 text
 vel_take 74 text
 vel_tick 56 text vel_take
 vh_always 102 text
-vis_add 52 text
-vis_bits 142 text trk_eng
-vis_car 568 text vph vsin
-vis_chord 290 text scale_mask vis_trk
-vis_col 92 text ux_mix
-vis_draw 1278 text bt_hw_seg cv_rect memset vis_add vis_chord vis_col vis_hits vis_layer vis_mask vis_recipe vis_sec vis_song
+vis_bits 112 text trk_eng
+vis_car 526 text bg_sin vph
+vis_card 70 text fmt_int str_nth
+vis_chord 270 text hm_now scale_mask vis_trk
+vis_col 78 text ux_mix
+vis_fold 38 text
 vis_gen_set 36 text
-vis_hits 96 text
-vis_layer 430 text ! bt_hw_seg cv_rect dw_play_panel graph_clay_lz graph_eco graph_harm graph_key graph_lfo heat_col vis_trk vx_draw
-vis_line 592 text * cv_line ux_mix vis_col vis_lum vis_pt
+vis_hits 92 text
+vis_layer 334 text ! bt_hw_seg dw_play_panel graph_clay_lz graph_eco graph_harm graph_key graph_lfo vis_trk vx_draw
+vis_line 484 text * cv_line ux_mix vis_col vis_lum vis_pt
 vis_lum 30 text
 vis_mask 46 text vis_bits
-vis_pt 672 text isqrt32 vis_car vph vsin
+vis_pt 508 text bg_sin isqrt32 vis_car vis_fold vph
 vis_recipe 986 bt vr_pick vr_rnd
-vis_rect 138 text * vis_line
+vis_rect 126 text * vis_line
 vis_sec 58 text
-vis_song 100 text
+vis_song 96 text
 vis_trk 86 text tsel_p vis_bits
 voice_begin 276 text drum_note_lane voice_start
 voice_block 2098 hot_text ! drift_noise fn_voice mod_voice mul64 voice_half
@@ -1846,7 +1847,6 @@ voices_load 54 text
 vph 14 text
 vr_pick 68 text vr_rnd
 vr_rnd 24 text
-vsin 4 text
 vx_draw 6248 text cv_line cv_line_t cv_pset cv_rect cv_text cv_text_in cv_text_on cv_text_r fk_txt fmt_int func_form func_free fvm_bank fvm_compile fvm_op1 fvm_op2 fvm_prog_init heat_col hud_hil hud_lane hud_tag math_func_text memcpy memset og_cos og_sin pk_board scope_at str_cpy str_len str_nth text_w trk_eng trk_engp ub_kit ub_run ux_mix vx_hive
 vx_hive 670 text cv_line_t cv_text heat_col hud_tag og_node og_sin text_w
 wave_block 2038 hot_text * fvm_run memset ms_tick wf_comp wf_spec

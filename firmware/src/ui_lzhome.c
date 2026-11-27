@@ -511,8 +511,8 @@ static __attribute__((noinline)) void graph_tracks(void)
 static void graph_home_lz(void)
 {
     if (home_vis())
-        vis_panel();                                    /* (visgen) VIS: the song's visual (ui_vis.c) */
-    else if (home_level() == 1u)
+        return;                                         /* (visgen) VIS: the whole screen (ui_vis.c; behind a dialog: none) */
+    if (home_level() == 1u)
         graph_scope(ACC);
     else if (home_level() == 4u)
         graph_tracks();

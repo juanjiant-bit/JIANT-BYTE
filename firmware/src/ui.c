@@ -454,11 +454,12 @@ enum { SCR_ON, SCR_OFF, SCR_WAKE, SCR_SLPOUT, SCR_SHOW, SCR_VIS };   /* (visgen)
 static const uint8_t VIS_MIN[8] = {0, 1, 3, 5, 10, 3, 3, 3};
 #include "vis_recipe.c"                                 /* (visgen) the recipe; HOME > VIS: ui_vis.c (ui_input.c) */
 static uint8_t vis_k[4] __attribute__((section(".pool")));   /* HOME > VIS's MIX DEFORM PALETTE REACT (not saved) */
+static uint32_t vis_ov __attribute__((section(".pool")));   /* (full screen) the card shown over it: which (bits 0-2: a
+                                                         * knob, 4 RECIPE), since when (ms, bits 4 on); bit 3: drawn */
 static uint8_t vis_id[5] __attribute__((section(".pool")));  /* .. the song's: seed (2), genre + 1 (0: not GEN's), energy,
                                                          * the recipe byte (project.c 'V' 'S') */
-static const char VIS_KN[] = "MIX\0DEFORM\0PALETTE\0REACT";
+static const char VIS_KN[] = "MIX\0DEFORM\0PALETTE\0REACT\0RECIPE";
 static const char VIS_PN[] = "AUTO\0THERM\0HUD\0TRACKS\0ICE\0AMBER";
-static void vis_panel(void);
 static void vis_saver(void);
 static void vis_oct(int up);
 static void vis_gen_set(uint32_t seed, uint32_t genre, uint32_t energy);
