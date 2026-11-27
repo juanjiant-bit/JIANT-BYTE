@@ -700,7 +700,7 @@ Las páginas van en tres grupos: **PLAY** (todo el kit), **PAD** (un pad: KNOB 1
 
 | Página | KNOB 1 | KNOB 2 | KNOB 3 | KNOB 4 |
 | --- | --- | --- | --- | --- |
-| PLAY | WAVE | MORPH | DECAY | STRIKE |
+| PLAY | FEEDBK | MORPH | DECAY | STRIKE |
 | WAVE | PAD | TABLE A | POS | TABLE B |
 | SHAPE | PAD | STRUCT | AMOUNT | RATIO |
 | MOVE | PAD | ENV | DECAY | LFO |
@@ -709,8 +709,14 @@ Las páginas van en tres grupos: **PLAY** (todo el kit), **PAD** (un pad: KNOB 1
 | COLOR | ATTACK | FOLD | GAIN | CUTOFF |
 | MIX | PAD | LEVEL | STEREO | METAL |
 
-- **PLAY**: perillas para todo el kit mientras toca. **MORPH** lleva cada pad de su lado A a su lado B.
-- **WAVE**: las dos tablas del pad y dónde está su posición (**POS**).
+- **PLAY**: perillas para todo el kit mientras toca. **FEEDBK** realimenta la salida de cada pad en la fase de su propia
+  tabla, como el feedback de un operador FM: en 0 el kit suena limpio, tal como fue diseñado; hacia 40 el bombo y el tom
+  se calientan (más armónicos, la misma nota), hacia 80 raspan y en 127 se vuelven casi ruido. Pesa más en el golpe y
+  algo menos en la cola (sigue el nivel del golpe), y en los hats y las palmas, que son sobre todo ruido, se nota poco.
+  Nunca se desboca: la salida no pasa del nivel de siempre. **MORPH** lleva cada pad de su lado A a su lado B.
+- **WAVE**: las dos tablas del pad y dónde está su posición (**POS**). Cada kit de fábrica trae además su propio
+  **tono** (cuánto corre las posiciones y aclara el ruido de todos los pads), fijo y guardado con el kit en el proyecto:
+  antes lo movía la perilla WAVE de PLAY, que sonaba como un FM lento sobre la afinación (ver abajo).
 - **SHAPE**: cómo se unen A y B: **STRUCT** **MIX, FM, RING, SYNC** o **FOLD**; **AMOUNT** cuánto; **RATIO** la relación de
   B (1/2 a 8).
 - **MOVE**: la envolvente que mueve la posición al golpe (**ENV**, su **DECAY**) y un **LFO**.
@@ -728,6 +734,14 @@ Los punch-in blancos de las fórmulas (HALF, WOBBLE, REPEAT, STEP, BITS, MIRROR,
 cambian cómo se recorren los pasos y al soltar vuelven a tiempo.
 
 El kit se guarda con cada parte del proyecto, no con los presets de usuario.
+
+**FEEDBK en lugar de WAVE.** Hasta la 1.0, la primera perilla de PLAY era **WAVE**: corría a la vez el lugar de cada pad
+en sus tablas y el corte del ruido. Como varias tablas son de fase o de sync (FM2, FMR, TRISY, FORMT, RING), moverse en
+ellas cambia el índice de modulación y qué parcial domina (en el bombo, de ~40 a ~130 Hz; en el tom, de ~140 a ~690 Hz),
+y en los pads con ruido de pasabanda o resonante (caja, rim) mover el corte es mover un pico afinado: todo eso se oía
+como un FM lento sobre la altura en cada pad. Ahora esa perilla es **FEEDBK** y el lugar queda donde lo puso el kit.
+Un proyecto anterior abre sonando igual: el WAVE que tenía su pista DRUM-W pasa a ser el tono del kit y FEEDBK empieza en
+0. Un preset de usuario de DRUM-W anterior carga con FEEDBK en 0.
 
 ### 4.5 Las páginas comunes
 

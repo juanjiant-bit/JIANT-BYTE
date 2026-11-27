@@ -913,7 +913,7 @@ static const page_t PAGES[] = {
     {"TONE", FAM_EDIT, SC_TRACK, GR_NONE, {P_FKEY, ID_CRU, ID_LIF, 0xFF}},   /* (V10.7.35, the owner: was FILTER 3 and VOICES 3,
                                                          * a knob or two each) KEY TRK, CRUSH, LIFE. (filter2-mod) KEY: the keyboard tracking (was
                                                          * FILTER 2's first: DRIVE stays FILTER's, the knob of its power) */
-    {"PLAY", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},    /* (DRUM-W, ui_dx.c dw_knob) the kit: WAVE MORPH DECAY STRIKE */
+    {"PLAY", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},    /* (DRUM-W, ui_dx.c dw_knob) the kit: FEEDBK MORPH DECAY STRIKE */
     {"WAVE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},    /* .. a pad: PAD TABLE A POS TABLE B */
     {"SHAPE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},   /* .. PAD STRUCT AMOUNT RATIO */
     {"MOVE", FAM_EDIT, SC_TRACK, GR_DXSND, {0xFF, 0xFF, 0xFF, 0xFF}},    /* .. PAD ENV DECAY LFO */

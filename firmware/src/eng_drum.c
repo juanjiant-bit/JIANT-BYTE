@@ -577,8 +577,9 @@ static void drum_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
                                                           * CAOS MAX; OCT- / OCT+ the COLOR too, +-16: the noise's filter
                                                           * with the pads, the whole kit an octave down / up) */
            p[P_E3] - 64 + DXO_DEC[L->dm & 3u] + ((hitfx&DXF_LONG)?36:0),
-           p[P_E2] - 64 + DXO_TON[L->dm & 3u] + t->pfx_pit / 12, p[P_E4] - 64 + DXO_TON[L->dm & 3u] + ((hitfx&DXF_NOISE)?32:0),
-           (hitfx&DXF_FOLD)&&p[P_E6]<80 ? 80 : p[P_E6], p[P_E5], y, n, (hitfx&DXF_FB)?6u:0u);
+           dw_ktone + DXO_TON[L->dm & 3u] + t->pfx_pit / 12, p[P_E4] - 64 + DXO_TON[L->dm & 3u] + ((hitfx&DXF_NOISE)?32:0),
+           (hitfx&DXF_FOLD)&&p[P_E6]<80 ? 80 : p[P_E6], p[P_E5], y, n,
+           p[P_E2] ? dw_fb_gain(p[P_E2], &L->x) : 0u);   /* (FEEDBK) */
     PROF_ADD(PQ_DALL, q0);                               /* (BYTE, CPU: ABOUT's DRUM-W timing) */
     if (p[P_E1] > 0) {                                   /* (BYTE 0.16) ATTACK: the hit's rise, linear over T half-rate samples */
         uint32_t T = (uint32_t)p[P_E1] * (uint32_t)p[P_E1] / 4u + 8u, a0 = L->x.dwage >= n ? L->x.dwage - n : 0u, i;
@@ -713,26 +714,32 @@ static int32_t drum_keys(const track_t *t, uint32_t k)
  * it): no RAND -> PAN (one pan for the kit: every hit would throw the kick about too) */
 static const preset_t DRUM_PRESETS[] = {                /* (0.7.2) one a factory kit: drumx_voice.c DX_KITS, this order */
     {"DRUM-W", DRUM_KIT_E, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 20), PAT(12)},   /* (core.h: SAMPLE PERC's too) */
-    {"909 CLUB", {60, 0, 78, 64, 64, 0, 0, 10}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 16), PAT(12)},
-    {"808 BOOM", {58, 0, 54, 76, 59, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 24), PAT(12)},
-    {"LOFI DUST", {70, 0, 46, 54, 78, 0, 0, 20}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(8, 0, 0, 18), PAT(12),
+    {"909 CLUB", {60, 0, 0, 64, 64, 0, 0, 10}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 16), PAT(12)},
+    {"808 BOOM", {58, 0, 0, 76, 59, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 24), PAT(12)},
+    {"LOFI DUST", {70, 0, 0, 54, 78, 0, 0, 20}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(8, 0, 0, 18), PAT(12),
      MODS(MLFO(LW_DRIFT, -3, 0, 0), P_LPHASE, -1, P_LD_SHP, 8)},                 /* MORPH wanders, a worn tape */
-    {"INDUSTRIAL", {72, 0, 99, 70, 75, 20, 0, 40}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(16, 0, 10, 30), PAT(12),
+    {"INDUSTRIAL", {72, 0, 0, 70, 75, 20, 0, 40}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(16, 0, 10, 30), PAT(12),
      MODS(MLFO(LW_SH, -10, 0, 0), P_LPHASE, -1, MMOD(1, PS_LFO, PD_E(6), 16))},   /* FOLD at random on the 16ths */
-    {"ACOUSTIC", {56, 0, 56, 62, 64, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 34), PAT(12)},
-    {"DUB ROOTS", {60, 0, 50, 70, 59, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 18, 36), PAT(12),
+    {"ACOUSTIC", {56, 0, 0, 62, 64, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 34), PAT(12)},
+    {"DUB ROOTS", {60, 0, 0, 70, 59, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 18, 36), PAT(12),
      MODS(MMOD(1, PS_RAND, PD_DLY, 20))},                                       /* each hit its own throw into the echo */
-    {"TECHNO RAW", {66, 0, 83, 62, 66, 10, 0, 30}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(10, 0, 0, 14), PAT(12),
-     MODS(MLFO(LW_TRI, -1, 0, 0), P_LPHASE, -1, MMOD(1, PS_LFO, PD_E(2), 10))},   /* TONE opens and closes over 4 bars */
-    {"BREAKS", {62, 0, 74, 62, 71, 0, 0, 10}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(4, 0, 0, 22), PAT(12)},
-    {"HIP HOP", {58, 0, 56, 64, 67, 0, 0, 18}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(6, 0, 0, 20), PAT(14)},   /* (V10.34) */
-    {"LATIN PERC", {60, 0, 64, 64, 64, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 22), PAT(12)},   /* (V10.7.8) */
+    {"TECHNO RAW", {66, 0, 0, 62, 66, 10, 0, 30}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(10, 0, 0, 14), PAT(12),
+     MODS(MLFO(LW_TRI, -1, 0, 0), P_LPHASE, -1, MMOD(1, PS_LFO, PD_FCUT, 10))},   /* the kit opens and closes over 4
+                                                         * bars (FEEDBK: on the part's CUTOFF, was on TONE / WAVE) */
+    {"BREAKS", {62, 0, 0, 62, 71, 0, 0, 10}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(4, 0, 0, 22), PAT(12)},
+    {"HIP HOP", {58, 0, 0, 64, 67, 0, 0, 18}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(6, 0, 0, 20), PAT(14)},   /* (V10.34) */
+    {"LATIN PERC", {60, 0, 0, 64, 64, 0, 0, 0}, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 22), PAT(12)},   /* (V10.7.8) */
     {"FLOAT KIT", DRUM_KIT_E, {0, 100, 127, 100}, 0, TAG(DRUM), FX(0, 0, 0, 20), PAT(12)},
 };
 _Static_assert(sizeof DRUM_PRESETS / sizeof DRUM_PRESETS[0] == 1u + sizeof DX_KITS / sizeof DX_KITS[0], "a DRUM preset a kit");
+/* (FEEDBK) each factory kit's TONE (drumx_voice.c dw_ktone): its preset's WAVE - 64 as it was voiced (DRUM-W 70, 909
+ * CLUB 78, 808 BOOM 54 ..), DRUM_PRESETS' order; their FEEDBK 0: every kit as it sounded */
+static const int8_t DX_KIT_TONE[] = {DW_KTONE_DEF, 14, -10, -18, 35, -8, -14, 19, 10, -8, 0, 6};
+_Static_assert(sizeof DX_KIT_TONE == sizeof DRUM_PRESETS / sizeof DRUM_PRESETS[0], "a TONE a kit");
 /* (0.7.2) a factory kit into the section's: the sounds, their LAYERs, their SENDs (the project saves them) */
 static void dx_kit_load(uint32_t k)
 {
+    dw_ktone = DX_KIT_TONE[k <= DX_NKIT ? k : 0u];
     const dx_kit_t *K = &DX_KITS[k % DX_NKIT];
     memcpy(dx_kit, K->lane, sizeof dx_kit);
     memcpy(dx_lay, K->lay, sizeof dx_lay);
@@ -754,7 +761,10 @@ static const engine_t ENG_DRUM = {
         {"MORPH", F_PCT, 0, 127, 64, 0},
         {"ATTACK", F_PCT, 0, 127, 0, 0},            /* (BYTE 0.16, the owner: "ATTACK as an ADSR's"): every hit's rise, 0 struck
                                                          * at once .. 127 ~0.2 s (was TUNE: a pad's own PITCH) */
-        {"WAVE", F_PCT, 0, 127, 64, 0},             /* (DRUM-W: every pad's place in its tables, and the noise's cutoff; was TONE) */
+        {"FEEDBK", F_PCT, 0, 127, 0, 0},            /* (DRUM-W, the owner: "WAVE feels like FM with a low rate on the pitch"):
+                                                         * each pad's oscillator fed back into its own phase, 0 clean ..
+                                                         * warm, grit, noise; the hit's level on it. Was WAVE (the places
+                                                         * and the noise's cutoff: now the kit's, dw_ktone) */
         {"DECAY", F_PCT, 0, 127, 64, 0},
         {"NOISE", F_PCT, 0, 127, 64, 0},
         {"STRIKE", F_PCT, 0, 127, 0, 0},            /* (DRUM-W: the hit struck further into the tables; was MOD ENV) */             /* (JIANT: was ACC; 0.6.36: was FM, a fixed FM: the FM struck

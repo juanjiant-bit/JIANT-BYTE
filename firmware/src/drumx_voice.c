@@ -95,6 +95,12 @@ static const uint16_t DW_RAT[DW_NRAT] = {2048, 4096, 5793, 6144, 8192, 11305, 12
 }
 static const dw_lane_t DW_DEF[8] = DW_DEF_KIT;
 static dw_lane_t dw_kit[8] = DW_DEF_KIT;   /* (the music's: the factory kit's from the start; a kit or a project sets it) */
+/* (FEEDBK) the kit's TONE: what the WAVE knob was, now the kit's own (-64..63, the old WAVE - 64): every pad's place in
+ * its tables and the noise's cutoff moved by it as WAVE moved them (dw_mods, dx_run_fx's COLOR). Set by a factory kit
+ * (eng_drum.c dx_kit_load: its preset's old WAVE), GEN, a project ('D' 'B'; one of before: its DRUM part's WAVE).
+ * 6: the DRUM-W kit's (its WAVE was 70) */
+#define DW_KTONE_DEF 6
+static int8_t dw_ktone = DW_KTONE_DEF;
 static void dw_sane(dw_lane_t *d)                        /* (a stored pad in range: no value indexes past a name) */
 {
     uint8_t *u = (uint8_t *)d;
@@ -214,7 +220,7 @@ static void dw_frame(int16_t *m, uint32_t f, int32_t sp)
 }
 #define DW_RD(m, p) ((m)[(p) >> 27] + ((((m)[((p) >> 27) + 1u] - (m)[(p) >> 27]) * (int32_t)(((p) >> 12) & 0x7FFFu)) >> 15))
 /* (DRUM-W) the pad's modulators, once a block at the hit's age: MOD ENV, MOD LFO and VEL, Q15 each, summed by DEST
- * into o[DWD_N]; (DRUM's own) STRIKE (MOD ENV's knob) and WAVE (TONE's) move both places too */
+ * into o[DWD_N]; (DRUM's own) STRIKE (MOD ENV's knob) and the kit's TONE (dw_ktone, WAVE's before) move both places too */
 static __attribute__((noinline)) void dw_mods(dx_voice_t *v, uint32_t ln, uint32_t n, int32_t fm, int32_t cofs, int32_t *o)
 {
     const dw_lane_t *D = &dw_kit[ln];
@@ -253,6 +259,14 @@ static __attribute__((noinline)) void dw_mods(dx_voice_t *v, uint32_t ln, uint32
     o[0] += e;
     o[1] += e;
 }
+/* (FEEDBK) the knob (a track's EDIT 3) as dw_body's phase gain on hit v's smoothed output (+-65534): ~1 turn at 127,
+ * half of it the hit's level (Q30; a new hit's full): warm .. grit .. noise on the hit, its tail a little cleaner. 0:
+ * none. (Once a block, in the flash: the RAM code's room) */
+static __attribute__((noinline)) uint32_t dw_fb_gain(int32_t knob, const dx_voice_t *v)
+{
+    uint32_t fb = (uint32_t)clamp(knob, 0, 127), ea = v->live ? (uint32_t)v->ea : 1u << 30;
+    return (fb * (fb + 127u) * 2u * (16384u + (ea >> 16))) >> 15;
+}
 /* (DRUM-W) a pad's body, n half-rate samples into y: its places this block (POS, B POS and the modulators' oa, ob),
  * the frames there, then A and B by the STRUCTURE (B's AMOUNT and gofs), at the oscillator's gain (ga + dga, Q23) */
 static __attribute__((noinline)) void dw_body(dx_voice_t *v, uint32_t ln, int32_t *y, uint32_t n, int32_t inc, int32_t dinc,
@@ -261,6 +275,9 @@ static __attribute__((noinline)) void dw_body(dx_voice_t *v, uint32_t ln, int32_
     const dw_lane_t *D = &dw_kit[ln];
     uint32_t ph = v->ph, ph2 = v->ph2, i, st, stb, rq = DW_RAT[D->ratio % DW_NRAT];
     int32_t top = (int32_t)(DW_FR - 1u) * 256, sa, sb, g = clamp((int32_t)D->bamt + mo[2], 0, 127) * 258, dstb;
+    int32_t fs = v->mo;                                  /* (FEEDBK) the output, smoothed (a one-pole, x2: no Nyquist
+                                                          * hunting), into A's phase at kq a block (0: none, bit-exact) */
+    uint32_t kq = (uint32_t)mo[5];
     int16_t ma[DW_N + 1u], mb[DW_N + 1u];
     sa = clamp(D->pos * top / 127 + mo[0], 0, top);
     sb = clamp(D->bpos * top / 127 + mo[1], 0, top);
@@ -269,7 +286,7 @@ static __attribute__((noinline)) void dw_body(dx_voice_t *v, uint32_t ln, int32_
     if (fl.on)                                           /* (LIFE: the cycle playing, its FRAGMENT) */
         for (i = 0; i < DW_N; i++) dw_lcyc[MC_CPU() & 1u][i] = ma[i];
     st = (uint32_t)inc << 4;
-    if (!g) {                                            /* (B out: A alone) */
+    if (!g && !kq) {                                     /* (B out: A alone; FEEDBK on: MIX's loop, B at 0) */
         for (i = 0; i < n; i++, inc += dinc, ga += dga) {
             y[i] = mulq15(DW_RD(ma, ph), ga >> 8);
             ph += (uint32_t)inc << 4;
@@ -283,35 +300,38 @@ static __attribute__((noinline)) void dw_body(dx_voice_t *v, uint32_t ln, int32_
 #define DW_LOOP(BODY) \
     for (i = 0; i < n; i++, inc += dinc, ga += dga, stb += (uint32_t)dstb) { \
         int32_t b = DW_RD(mb, ph2), a, o; \
-        uint32_t p1 = ph + ((uint32_t)inc << 4); \
+        uint32_t p1 = ph + ((uint32_t)inc << 4), pf = ph + (uint32_t)fs * kq; \
         BODY \
-        y[i] = mulq15(clamp(o, -32767, 32767), ga >> 8); \
+        o = clamp(o, -32767, 32767); \
+        fs = o + (fs >> 1); \
+        y[i] = mulq15(o, ga >> 8); \
         ph = p1; \
         ph2 += stb; \
     }
     switch (D->str) {                                    /* (a loop a STRUCT: no choice a sample) */
     case DWS_FM:                                         /* B on A's phase, up to a turn */
-        DW_LOOP(o = DW_RD(ma, ph + ((uint32_t)mulq15(b, g) << 17)); (void)a;)
+        DW_LOOP(o = DW_RD(ma, pf + ((uint32_t)mulq15(b, g) << 17)); (void)a;)
         break;
     case DWS_RING:                                       /* (the ring x2: as loud as A) */
-        DW_LOOP(a = DW_RD(ma, ph); o = a + mulq15(clamp(mulq15(a, b) * 2, -32767, 32767) - a, g);)
+        DW_LOOP(a = DW_RD(ma, pf); o = a + mulq15(clamp(mulq15(a, b) * 2, -32767, 32767) - a, g);)
         break;
     case DWS_SYNC:                                       /* B restarted with each of A's turns */
-        DW_LOOP(a = DW_RD(ma, ph); o = a + mulq15(b - a, g); if (p1 < ph) ph2 = 0u - stb;)
+        DW_LOOP(a = DW_RD(ma, pf); o = a + mulq15(b - a, g); if (p1 < ph) ph2 = 0u - stb;)
         break;
     case DWS_FOLD:                                       /* A + B, folded at +-T */
-        DW_LOOP(a = clamp(DW_RD(ma, ph) + mulq15(b, g) * 2, -5 * 16384, 5 * 16384);
+        DW_LOOP(a = clamp(DW_RD(ma, pf) + mulq15(b, g) * 2, -5 * 16384, 5 * 16384);
                 a = a > 16384 ? 32768 - a : a < -16384 ? -32768 - a : a;
                 a = a > 16384 ? 32768 - a : a < -16384 ? -32768 - a : a;
                 o = a * 2;)
         break;
     default:
-        DW_LOOP(o = DW_RD(ma, ph) + mulq15(b, g); (void)a;)
+        DW_LOOP(o = DW_RD(ma, pf) + mulq15(b, g); (void)a;)
         break;
     }
 #undef DW_LOOP
     v->ph = ph;
     v->ph2 = ph2;
+    v->mo = fs;
 }
 /* one block of lane L's hit v into y (n <= CTL): Q15, peaks near full scale. morph 0..127; tune16 1/16 semitones;
  * dofs / cofs / nofs move DECAY / COLOR / NOISE (-64..63). warp (DRUM's FOLD since JIANT 0.5, was WARP, 0..127): the
@@ -395,11 +415,10 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
                                              int32_t dofs, int32_t cofs, int32_t nofs, int32_t warp, int32_t fm, int32_t *y,
                                              uint32_t n, uint32_t feedback)
 {
-    int32_t life_color=0,q[DXP_N], mo[5], p16, depth, ea0, ea1, en1, ep1, og, ng, ga, dga, gn, dgn, kd, inc, dinc, mt, cx;
+    int32_t life_color=0,q[DXP_N], mo[6], p16, depth, ea0, ea1, en1, ep1, og, ng, ga, dga, gn, dgn, kd, inc, dinc, mt, cx;
     uint32_t i, k, flt = (L->mode >> 2) & 3u, ta, tn, tp, kb, inc1;
     tsvf_t c;
     uint32_t nf = n, ln = L >= dx_kit && L < dx_kit + 8 ? (uint32_t)(L - dx_kit) : 0u;
-    (void)feedback;
     if (flt == DXF_GR) flt = DXF_BP;                     /* (DRUM-W: no guiro; its filter a band) */
     if (!v->live && !v->trig) {
         for (i = 0; i < n; i++)
@@ -521,6 +540,7 @@ static __attribute__((noinline)) void dx_run_fx(const dx_lane_t *L, dx_voice_t *
     if (og) {                                            /* (DRUM-W) the body: its tables */
         const dw_lane_t *D = &dw_kit[ln];
         uint32_t age = v->dwage;
+        mo[5] = (int32_t)feedback;                       /* (FEEDBK) its phase gain (dw_fb_gain) */
         { uint32_t q0 = PROF_T(); dw_body(v, ln, y, n, inc, dinc, ga, dga, mo); PROF_ADD(PQ_DBODY, q0); }
         if (D->tick && age < 64u) {                      /* the TICK: its first ms, at the hit's level */
             int32_t tg = mulq15(og, ea0 >> 15) * (int32_t)D->tlev >> 7;
