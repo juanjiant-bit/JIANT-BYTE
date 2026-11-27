@@ -2130,7 +2130,7 @@ static void persist_boot(void)                    /* before settings_init / pane
                                                          * driver uses only generic SPI NOR commands (9F 05 35 06 20
                                                          * 02 0B), as the stock firmware on those units does */
         uint32_t id = FL_FAR(fl_jedec_ram)();
-        flash_ok = id == 0x856014u || id == 0xB36014u;
+        flash_ok = (uint8_t)((id == 0x856014u) | (id == 0xB36014u) << 1);   /* (2: MENU > PANEL AUTO's B, lcd.c) */
     }
     irq_restore(f);
     if (!flash_ok)

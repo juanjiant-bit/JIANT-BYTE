@@ -34,6 +34,7 @@ static const uint8_t ED_MENU[][2] = {
     {MI_SAVER, 33},                                    /* (visgen) SAVER OFF / 1 / 3 / 5 / 10 MIN, a row of DISPLAY (33 as JIANT
                                                         * FM V10.8.56's) */   /* (V10.6z6) VELOCITY, VEL MIN, AFTERTOUCH, VEL LEARN,
                                                         * rows of CONTROL (vel.c) */
+    {MI_LCD, 34},                                      /* PANEL AUTO / A / B, a row of DISPLAY (34 as JIANT FM V10.8.63's) */
 };
 #define ED_MENU_N NELEM(ED_MENU)
 

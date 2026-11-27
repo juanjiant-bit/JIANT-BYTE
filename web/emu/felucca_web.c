@@ -173,6 +173,7 @@ static void lcd_power(uint32_t s)              /* MENU > SCREEN OFF (lcd.c): off
 }
 static void lcd_wake_now(void) {}
 static void lcd_init(void) {}
+static void lcd_panel(uint32_t m) { (void)m; }   /* (MENU > DISPLAY > PANEL: the browser has no panel) */
 
 #include "../../firmware/src/gfx.c"
 #include "../../firmware/src/panel.c"

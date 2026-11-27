@@ -23,7 +23,8 @@ static struct {
     uint32_t key, tst;                             /* the set's inputs; Studio's timbre signature (hits bit 4) */
     uint32_t t, last, ct, tim;                     /* (from here on cleared with the set) now (ms); the last cut; the
                                                     * timbre's signature */
-    int32_t kick, snr, bass, lvl, plvl, sc, rot, zp, mix, react, scan, hg, a1;   /* 0..256 (sc Q10; rot a turn 65536) */
+    int32_t kick, snr, bass, lvl, plvl, sc, rot, zp, mix, react, scan, hg, a1, en;   /* 0..256 (sc Q10; rot a turn
+                                                    * 65536; en: the sound, held ~0.7 s) */
     int32_t def[VD_N];                             /* the deformations now (gliding to the recipe's), 256 = DEFORM 50 */
     int32_t sx, sy, sw, sh, cx, cy, R;             /* the layer's source box; the camera; its scale */
     uint8_t ri, rr, pos, sec, blend, chord, root, q, hacc, hst, dwp, mir, pal, pass;   /* (hacc: the frame's hits;
@@ -230,9 +231,10 @@ static void vis_put(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c, 
     for (m = 0; m <= vg.mir; m++) {
         if (m == 1u) { x0 = 239 - x0; x1 = 239 - x1; }   /* (MIRROR: across, then up and down too) */
         if (m == 2u) { y0 = 239 - y0; y1 = 239 - y1; }
-        if (!vg.heat)
-            cv_line(x0, y0, x1, y1, ux_mix(0, c, a * 100 >> 8));
-        else if ((uint32_t)x1 < 240u && (uint32_t)y1 < 240u) {   /* heat: its cell warmer */
+        if (!vg.heat) {                                 /* (a faint one left out; the rest 70..100 %: seen) */
+            if (a >= 64)
+                cv_line(x0, y0, x1, y1, ux_mix(0, c, 70 + (a * 30 >> 8)));
+        } else if ((uint32_t)x1 < 240u && (uint32_t)y1 < 240u) {   /* heat: its cell warmer */
             uint8_t *h = &VIS_HEAT[(y1 / 6) * 40 + x1 / 6];
             int32_t v = *h + ((int32_t)vis_lum(c) * a * vg.hg >> 19);
             *h = (uint8_t)(v > 255 ? 255 : v);
@@ -243,7 +245,8 @@ static void vis_line(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c)
 {
     const cv_vmap_t *k = cv_vmap;
     int32_t n = (VABS(x1 - x0) > VABS(y1 - y0) ? VABS(x1 - x0) : VABS(y1 - y0)) / 6 + 1, i, px, py, qx, qy, z, oy = cv_oy;
-    uint32_t b = 64u + (vis_lum(c) + vg.chord * 53u) % 192u;   /* (its brightness along the palette, the chord turning it) */
+    uint32_t b = 128u + ((vis_lum(c) + vg.chord * 53u) & 127u);   /* (its brightness along the palette's upper half,
+                                                         * the chord turning it) */
     if (c == ux.bg || c == ux.surf || (vg.heat ? cv_band != 0 : (b * vg.al >= 128u * 256u) != vg.pass))
         return;                                         /* (a wire: the dark and faint pass first, the bright last) */
     if (!vg.heat)
@@ -289,10 +292,11 @@ static void vis_layer(uint32_t i, uint32_t heat)       /* layer i of the frame (
     uint32_t g = vg.ly[i], hl = i == 2u ? vg.blend != VB_SUM : vg.blend == VB_THERM;
     const uint8_t *B = VIS_BOX[g % VI_N];
     const track_t *t = vis_trk(g);
-    int32_t oy = cv_oy, al = i == 2u ? 255 : i ? 180 : vg.a1;
-    if (g >= VI_N || (heat && !hl))
+    int32_t oy = cv_oy, al = i == 2u ? 255 : i ? 180 * vg.en >> 8 : vg.a1;
+    if (g >= VI_N || (heat && !hl) || al < 26)          /* (the layer over: only with the sound) */
         return;
-    vg.cont = i == 2u; vg.heat = (uint8_t)heat; vg.al = (uint8_t)(!heat && hl ? al * 115 >> 8 : al);
+    vg.cont = i == 2u; vg.heat = (uint8_t)heat; vg.al = (uint8_t)(!heat && hl ? al * (256 - (141 * vg.en >> 8)) >> 8 : al);   /* (a heat layer's
+                                                         * wire: faint with the sound, at rest its own) */
     vg.sx = B[0]; vg.sy = B[1]; vg.sw = B[2]; vg.sh = B[3];
     cv_oy = -30000;                                     /* (what draws straight into the canvas: nowhere) */
     cv_vmap = &VIS_MAP;
@@ -330,7 +334,9 @@ static void vis_frame(void)
         memset(&vg.t, 0, (uint32_t)((uint8_t *)(&vg + 1) - (uint8_t *)&vg.t));   /* (the camera, the cuts, the hits) */
         vg.sec = vg.rr = 255;
     }
+    e = now - vg.t;
     vg.last = vg.t = now;
+    vg.en -= (int32_t)(e * 3u / 8u);                    /* the sound: held, let go in ~0.7 s */
     vis_fol = 255;                                      /* (every part's level followed while shown: mod.c) */
     for (i = 0, e = 0, k = 0; i < trk_live && i < NTRK; i++) {   /* the levels: the loudest, the mean */
         int32_t l = clamp(track_env[i] >> 7, 0, 256);
@@ -346,6 +352,9 @@ static void vis_frame(void)
     vg.plvl = (int32_t)e;
     vg.kick = hit & 1u ? 256 : vg.kick * 205 >> 8;
     vg.snr = hit & 2u ? 256 : vg.snr * 200 >> 8;
+    e = e * 2u > (uint32_t)vg.kick ? e * 2u : (uint32_t)vg.kick;
+    if ((int32_t)e > vg.en) vg.en = e > 256u ? 256 : (int32_t)e;
+    if (vg.en < 0) vg.en = 0;
     vg.chord = (uint8_t)vis_chord();
     if (st != vg.tim) hit |= 2u;                        /* (the timbre changing: as a snare) */
     i = vis_sec();
@@ -354,7 +363,7 @@ static void vis_frame(void)
     if (i != vg.sec) { vg.sec = (uint8_t)i; vg.pos = 0; hit = 4u; }   /* (a section: reshuffled) */
     if (hit && (hit > 3u || now - vg.ct >= 150u)) {     /* the cuts: a kick the next, a snare a jump */
         vg.pos = (uint8_t)(vg.pos + (hit & 1u) + (hit & 2u ? 3u : 0u));
-        vg.ct = now; vg.zp = 256; vg.tim = st;
+        vg.ct = now; vg.zp = vg.en; vg.tim = st;
     }
     vg.ri = (uint8_t)((vg.pos * (2u * vg.sec + 1u) + vg.sec) & 7u);
     if (vg.ri != vg.rr) {                               /* a cut: that recipe of the set */
@@ -371,6 +380,7 @@ static void vis_frame(void)
         int32_t b = 0;
         for (k = 0; k < 2u; k++)
             if (R->def[vg.sec][k] == i) b = R->amt[vg.sec][k] * vis_k[1] * 13 >> 8;   /* (100 at DEFORM 50: 256) */
+        b = b * vg.en >> 8;                             /* (with the sound: at rest the form as it is) */
         vg.def[i] += (b - vg.def[i]) >> 2;
     }
     vg.scan = vg.snr * (vg.react + vg.def[VD_SCAN]) >> 9;
@@ -382,7 +392,7 @@ static void vis_frame(void)
     vg.R = 114 * vg.sc >> 10;
     vg.cx = 120 + (vsin(vph(13u)) * 12 >> 15);
     vg.cy = 120 + (vsin(vph(17u) + 0x4000u) * 8 >> 15);
-    vg.hg = 96 + (vg.bass * vg.react >> 9);             /* the heat: cooled, then the heat layers into it */
+    vg.hg = (96 + (vg.bass * vg.react >> 9)) * vg.en >> 8;   /* the heat (with the sound): cooled, the heat layers in */
     for (i = 0; i < 1600u; i++) VIS_HEAT[i] = (uint8_t)(VIS_HEAT[i] * (vg.blend == VB_THERM ? 212u : 200u) >> 8);
     for (i = 0; i < 3u; i++)
         vis_layer(i, 1);
@@ -407,13 +417,13 @@ static void vis_saver(void)
             vis_frame();
         cv_oy = 0;
         for (y = (uint32_t)cv_by; y < (uint32_t)cv_by + cv_bh; y += 2u)   /* the grain: every other row, dim dots */
-            for (i = (uint32_t)(vg.react * (32 + vg.lvl)) >> 12; i--;) {
+            for (i = (uint32_t)(vg.react * ((vg.en >> 3) + vg.lvl)) >> 12; i--;) {
                 r = (y * 40503u + i * 2654435761u + (vg.t / 80u) * 7919u) * 2654435761u;
                 cv_rect((int32_t)((r >> 8) % 240u), (int32_t)y, 1, 1, vis_col(24u + (r >> 27)));
             }
         for (i = (uint32_t)cv_by / 6u * 40u; i < ((uint32_t)cv_by + cv_bh + 5u) / 6u * 40u; i++)   /* the heat cells */
-            if ((h = VIS_HEAT[i]) > 12u)
-                cv_rect((int32_t)(i % 40u) * 6, (int32_t)(i / 40u) * 6, 5, 5, vis_col((h * h >> 8) + 20u));
+            if ((h = VIS_HEAT[i]) > 40u)
+                cv_rect((int32_t)(i % 40u) * 6, (int32_t)(i / 40u) * 6, 5, 5, vis_col((h * h >> 9) + 112u));
         for (vg.pass = 0; vg.pass < 2u; vg.pass++)      /* the wires */
             for (i = 0; i < 3u; i++)
                 vis_layer(i, 0);

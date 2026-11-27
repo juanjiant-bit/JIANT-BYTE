@@ -451,6 +451,8 @@ enum { SCR_ON, SCR_OFF, SCR_WAKE, SCR_SLPOUT, SCR_SHOW, SCR_VIS };   /* (visgen)
  * press, key or turn only brings the page back (swallowed as SCREEN OFF's wake). OFF 1 3 5 10 MIN, 3 the default: bits
  * 4-6 of a byte the teaching hints' counts once used (their small counts left 0 there: 3 MIN), stored ^ 2 */
 #define vis_scr (favorites.factory[15][12])
+#define lcd_pnl (favorites.factory[15][15])   /* MENU > DISPLAY > PANEL (lcd.c lcd_panel): bits 0-1, 0 AUTO (every older
+                                                 * record: INPUT's favourites 120..127, unused), 1 A, 2 B */
 static const uint8_t VIS_MIN[8] = {0, 1, 3, 5, 10, 3, 3, 3};
 #include "vis_recipe.c"                                 /* (visgen) the recipe; HOME > VIS: ui_vis.c (ui_input.c) */
 static uint8_t vis_k[4] __attribute__((section(".pool")));   /* HOME > VIS's MIX DEFORM PALETTE REACT (not saved) */

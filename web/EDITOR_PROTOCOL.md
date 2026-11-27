@@ -170,7 +170,7 @@ regenerated from `params.c` and compared.
 | 1.2 | V10.6z7 | `VEL` ops 4 and 5: the keys' velocity, calibration and pressure (below); MENU ids 27..30 (VELOCITY, VEL MIN, AFTERTOUCH, VEL LEARN); `INFO` tag `43 02 01 02` |
 | 1.3 | V10.7.22 | `INFO` tag `58 01 s`: the Bluetooth segment (below); `INFO` tag `43 02 01 03` |
 | 1.4 | JIANT BYTE v0.16 | `WATCH` bit 5 and the push `UI` (43): what the screen shows, for JIANT Studio's live guide (below; JIANT FM: the same number, bit and bytes); `INFO` tag `43 02 01 04` |
-| 1.5 | JIANT BYTE v0.16 (visgen) | `WATCH` bit 7 (a second byte, its bit 0) and the pushes `VIS_SONG` (98) and `VIS_TICK` (99): HOME > VIS's song and the music for JIANT Studio's visuals (below, `docs/VISGEN.md`); MENU id 33 SAVER; `INFO` tag `43 02 01 05` |
+| 1.5 | JIANT BYTE v0.16 (visgen) | `WATCH` bit 7 (a second byte, its bit 0) and the pushes `VIS_SONG` (98) and `VIS_TICK` (99): HOME > VIS's song and the music for JIANT Studio's visuals (below, `docs/VISGEN.md`); MENU id 33 SAVER, 34 PANEL; `INFO` tag `43 02 01 05` |
 
 ## 1.0: performance pushes (40-42)
 
@@ -1099,6 +1099,10 @@ expression keys' in id 90: 127 − (gates | pressure 0..7 << 2), 96..127 (pressu
 JIANT FM V10.8.56's): 0 OFF, 1 "1 MIN", 2 "3 MIN" (the default), 3 "5 MIN", 4 "10 MIN": HOME > VIS's visual on the
 whole screen after that long without panel input, before SCREEN OFF's dark; the first press, key or turn only brings
 the page back.
+Index 34, id 34 **PANEL** (DISPLAY; count 35; the id as JIANT FM V10.8.63's): 0 AUTO (the default), 1 A, 2 B: the
+display's set-up, applied at once. A is the panel set-up of before; B adds the ST7789V's porch, power, VCOM and gamma
+registers and INVOFF, for the other 1.3" IPS panel some units sold from late 2026 carry (flash 0xB36014: AUTO picks B
+on those). OCT- + SAVE held at power-on starts with A.
 
 The device's AUDIO tab shows SPEAKER EQ, USB LEVEL, CLICK, CLICK LEVEL, COUNT-IN (index 9, 10, 12, 13, 14).
 CLICK: the metronome while the transport runs: OFF, REC (while a track is armed), ON (always); CLICK LEVEL its

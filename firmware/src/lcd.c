@@ -140,24 +140,59 @@ static const uint8_t LCD_SEQ[] = {
     0x13, 0,                     /* NORON */
 };
 
-static void lcd_init(void)
+/* (JIANT FM V10.8.63's, the owner) MENU > DISPLAY > PANEL B: the units sold from late 2026 (flash 0xB36014) may carry
+ * another 1.3" ST7789-compatible IPS panel whose colours look washed out with A (above, unchanged). B, after A's
+ * sequence: the ST7789V datasheet's porch, gate, VCOM, power and gamma registers set instead of left at their reset
+ * values, and INVOFF (A: INVON); MADCTL as A's. UNTESTED on that panel. Back to A: A's sequence again (its SWRESET) */
+static const uint8_t LCD_SEQ_B[] = {
+    0xB2, 5, 0x0C, 0x0C, 0x00, 0x33, 0x33,      /* PORCTRL */
+    0xB7, 1, 0x35,                              /* GCTRL */
+    0xBB, 1, 0x19,                              /* VCOMS */
+    0xC0, 1, 0x2C,                              /* LCMCTRL */
+    0xC2, 2, 0x01, 0xFF,                        /* VDVVRHEN */
+    0xC3, 1, 0x12,                              /* VRHS */
+    0xC4, 1, 0x20,                              /* VDVS */
+    0xC6, 1, 0x0F,                              /* FRCTRL2: 60 Hz */
+    0xD0, 2, 0xA4, 0xA1,                        /* PWCTRL1 */
+    0xE0, 14, 0xD0, 0x04, 0x0D, 0x11, 0x13, 0x2B, 0x3F, 0x54, 0x4C, 0x18, 0x0D, 0x0B, 0x1F, 0x23,   /* PVGAMCTRL */
+    0xE1, 14, 0xD0, 0x04, 0x0C, 0x11, 0x13, 0x2C, 0x3F, 0x44, 0x51, 0x2F, 0x1F, 0x1F, 0x20, 0x23,   /* NVGAMCTRL */
+    0x20, 0,                                    /* INVOFF */
+};
+static void lcd_seq(const uint8_t *q, uint32_t n)
 {
     uint32_t r, x;
-    fm1_lcd_hw_init();
-    lcd_spin(2000000u);
-    for (r = 0; r < sizeof LCD_SEQ; r += 2u + LCD_SEQ[r + 1u]) {
-        if (LCD_SEQ[r] == 0x00u) {                       /* pseudo command: wait */
-            lcd_spin(LCD_SEQ[r + 2u] * 25000u);          /* ~1 ms per unit (lcd_spin(3000000) ~ 120 ms) */
+    for (r = 0; r < n; r += 2u + q[r + 1u]) {
+        if (q[r] == 0x00u) {                             /* pseudo command: wait */
+            lcd_spin(q[r + 2u] * 25000u);                /* ~1 ms per unit (lcd_spin(3000000) ~ 120 ms) */
             continue;
         }
-        lcd_cmd(LCD_SEQ[r]);
-        for (x = 0; x < LCD_SEQ[r + 1u]; x++)
-            lcd_small[x] = LCD_SEQ[r + 2u + x];
-        if (LCD_SEQ[r + 1u])
-            lcd_data(lcd_small, LCD_SEQ[r + 1u]);
+        lcd_cmd(q[r]);
+        for (x = 0; x < q[r + 1u]; x++)
+            lcd_small[x] = q[r + 2u + x];
+        if (q[r + 1u])
+            lcd_data(lcd_small, q[r + 1u]);
     }
+}
+static void lcd_init(void)
+{
+    fm1_lcd_hw_init();
+    lcd_spin(2000000u);
+    lcd_seq(LCD_SEQ, sizeof LCD_SEQ);
     fm1_lcd_baud(LCD_BAUD);
     lcd_fill(0, 0, 240, 240, 0);
+    lcd_cmd(0x29);
+}
+static uint8_t flash_ok;                         /* (storage_hw.c: 2, the late-2026 part 0xB36014: project.c persist_boot) */
+static uint8_t lcd_b;                            /* B's registers sent since A's */
+/* the panel MENU > DISPLAY > PANEL m wants (0 AUTO: B on flash 0xB36014; 1 A; 2 B), at once (main.c: at power-on,
+ * unless OCT- + SAVE are held; menu_items.c: changed); the UI redraws it all after A's reset */
+static void lcd_panel(uint32_t m)
+{
+    uint32_t b = m == 2u || (!m && flash_ok == 2u);
+    if (b == lcd_b)
+        return;
+    lcd_b = (uint8_t)b;
+    lcd_seq(b ? LCD_SEQ_B : LCD_SEQ, b ? sizeof LCD_SEQ_B : sizeof LCD_SEQ);
     lcd_cmd(0x29);
 }
 

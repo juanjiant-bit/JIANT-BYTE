@@ -103,6 +103,8 @@ static void host_pw_log(uint32_t s)
 }
 static void lcd_power(uint32_t s) { host_pw_log(s); }
 static void lcd_wake_now(void) { host_pw_log(3u); }
+static uint32_t host_panel;                            /* MENU > DISPLAY > PANEL: the last mode lcd.c was given + 1 */
+static void lcd_panel(uint32_t m) { host_panel = m + 1u; }
 #define SCOPE_N 512u                              /* audio.c: the HOME oscilloscope */
 static int16_t scope_buf[SCOPE_N];
 static uint32_t scope_w;
@@ -3000,9 +3002,9 @@ static int test_menu_tabs(void)
     hold(B_HOME);
     frame();
     ok = ui.menu == 1 && ui.mlv == 1u && lz_on() && lz_fam() == LZ_MENU && lz_tabs() == 4u && lz_tab_lit(0) &&
-         lz_crumb_is("MENU \xB7 DISPLAY \xB7 COLOR") && lz_count_is("1/33");
+         lz_crumb_is("MENU \xB7 DISPLAY \xB7 COLOR") && lz_count_is("1/34");
     turn(EN_SELECT, 1); frame();
-    ok &= ui.mlv == 1u && lz_tab_lit(0) && lz_crumb_is("MENU \xB7 DISPLAY \xB7 SCOPE") && lz_count_is("2/33");
+    ok &= ui.mlv == 1u && lz_tab_lit(0) && lz_crumb_is("MENU \xB7 DISPLAY \xB7 SCOPE") && lz_count_is("2/34");
     turn(EN_ALGO, 1); frame();
     ok &= menu_tab() == MTAB_CONTROL && lz_tab_lit(1) && lz_crumb_is("MENU \xB7 CONTROL \xB7 HOLD");
     turn(EN_SELECT, 2); frame();
@@ -3011,7 +3013,21 @@ static int test_menu_tabs(void)
     ok &= (fx_latch & 1u) != 0u;
     turn(EN_K3, -1); frame();
     menu_close();
-    bad += check("0.9.2 MENU: four tabs (the row's lit), MENU . TAB . ROW and n/34 (STYLE retired; codex/coherence: INIT SYSTEM gone; 0.9.7: SCOPE; 0.9.9-stab: CPU CLOCK; p1: CPU CORES, MIDI MAP, LEARN; V10.12: BLUETOOTH; V10.6z4: OCT BEND; V10.6z6: the keys' four; V10.7.23: SKIN retired; visgen: SAVER); ALGORITHM the tab, any knob the value", ok && MI_COUNT == 34u);
+    bad += check("0.9.2 MENU: four tabs (the row's lit), MENU . TAB . ROW and n/34 (STYLE retired; codex/coherence: INIT SYSTEM gone; 0.9.7: SCOPE; 0.9.9-stab: CPU CLOCK; p1: CPU CORES, MIDI MAP, LEARN; V10.12: BLUETOOTH; V10.6z4: OCT BEND; V10.6z6: the keys' four; V10.7.23: SKIN retired; visgen: SAVER; PANEL); ALGORITHM the tab, any knob the value", ok && MI_COUNT == 35u);
+    /* (JIANT FM V10.8.63's) MENU > DISPLAY > PANEL: AUTO (0, older settings) A B in engine 15's byte 15 bits 0-1, lcd.c
+     * told at once; AUTO itself B only on the 0xB36014 part (lcd.c lcd_panel, not here) */
+    {
+        uint8_t keep = favorites.factory[15][15];
+        favorites.factory[15][15] = 0xFCu;
+        ok = MI_TAB[MI_LCD] == MTAB_DISPLAY && menu_n(MI_LCD) == 3u && menu_get(MI_LCD) == 0u &&
+             !strcmp(menu_vname(MI_LCD, 0), "AUTO") && !strcmp(menu_vname(MI_LCD, 2), "B");
+        host_panel = 0; menu_put(MI_LCD, 2);
+        ok &= host_panel == 3u && favorites.factory[15][15] == 0xFEu && menu_get(MI_LCD) == 2u;
+        host_panel = 0; menu_put(MI_LCD, 1);
+        ok &= host_panel == 2u && menu_get(MI_LCD) == 1u && !strcmp(menu_vname(MI_LCD, 1), "A");
+        favorites.factory[15][15] = keep;
+        bad += check("MENU > DISPLAY > PANEL: AUTO A B, its bits kept with the settings, the panel told at once", ok);
+    }
 
     /* (V10.12) MENU > SYSTEM > BLUETOOTH: OFF by default (no mark: older settings), refused while playing, ON kept in
      * TRIO's retired favourites row with its mark; here (no radio, no segment) ON reads MISSING (V10.7.10: was NO SEG)

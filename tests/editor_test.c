@@ -37,6 +37,7 @@ static int32_t fm1_enc_take(uint32_t e) { (void)e; return 0; }
 static void lcd_sync(void) {}
 static void lcd_power(uint32_t s) { (void)s; }   /* (MENU > SCREEN OFF: lcd.c) */
 static void lcd_wake_now(void) {}
+static void lcd_panel(uint32_t m) { (void)m; }   /* (MENU > DISPLAY > PANEL: lcd.c) */
 static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint16_t *p)
 { (void)x; (void)y; (void)w; (void)h; (void)p; }
 #include "../firmware/src/gfx.c"

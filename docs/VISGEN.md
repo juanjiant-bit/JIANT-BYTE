@@ -172,8 +172,11 @@ between 8 generations, deterministically:
   once (the zoom pulsing over it) and its deformations' amounts glide to the new ones (~150 ms); the point
   deformations TWIST FOLD POLAR MELT and SCAN (bands of 3 rows shifted, on a snare), MIRROR drawing it again mirrored.
   Depth: a grain behind everything (every other row, dim dots of the palette's low end, as dense as REACT and the
-  level), the heat cells over it, then the wires in two passes, the dark and the faint (the skeleton, a sphere's back)
-  first, the bright last: a dark figure never sits on a bright one. The camera: a zoom breathing (0.8x..1.2x) and
+  sound), the heat cells over it, then the wires in two passes, the dim and the faint (the skeleton, a sphere's back)
+  first, the bright last: a dim figure never sits on a bright one. Every wire is seen: its colour from the palette's
+  upper half (the chord turning it there), its strength 70..100 % (the dimmest at least ~35 % of white); a wire that
+  would be fainter than a quarter is left out, not drawn dark; a heat cell shows only once warm, from mid-palette up.
+  The camera: a zoom breathing (0.8x..1.2x) and
   pulsing (a kick, the bass, each cut), a turn drifting (its way the recipe's j; a kick throws it on), the centre
   drifting a little. Heat cells
   of 6 px with memory in the display cache's spare hashes (no new RAM); a heat layer is drawn faint as a wire over its
@@ -182,6 +185,15 @@ between 8 generations, deterministically:
   and the level heat and swell, a chord change turns the colours, a section (A..D, or every 8 bars of a loop) has its
   own piece of the recipe; the saver changes section every 30 s besides. The parts' levels (VIS_TICK's, the visual's)
   are followed while VIS is shown or read (USB, `web_vis_info`), LIFE off too.
+- **At rest and with the sound.** What moves with the music moves only as much as the music sounds: the device follows
+  one amount, the sound (0..1: the loudest part's level doubled, or a kick), held while it sounds and let go linearly
+  in ~0.7 s. Silent (stopped, or nothing sounding): the recipe's skeleton and content as they are, no deformation
+  (TWIST FOLD MIRROR POLAR MELT at 0, so no SCAN bands either), no layer over, no heat (a heat layer drawn as its wire,
+  full), no grain; only the skeleton's own turning (a sphere, the radar, the Lissajous) and the camera's slow breath,
+  turn and drift move it, smoothly: a still form turning. As the sound comes in, the deformations' amounts (each its
+  recipe amount x DEFORM x the sound), the layer over (its strength x the sound), the heat, the grain, the zoom pulses
+  (a kick, the bass, each cut x the sound) come in with it, REACT setting the most; when it stops they ease back. The
+  recipe and the cuts are unchanged by this (a renderer's choice: Studio should do the same with its levels and hits).
 - The recipe's code is in the Bluetooth segment (as JIANT FM's `vis_fig`): without the segment the visual draws the
   recipe of all zeros (LIFE on LIFE).
 

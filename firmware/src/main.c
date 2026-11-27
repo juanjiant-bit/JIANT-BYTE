@@ -357,6 +357,8 @@ static void fm1_main(void)
     fm1_guard_lock_top();
     fm1_irq_enable_all();
     fm1_delay_ms(30);
+    if ((~fm1_in.buttons >> panel.btn[B_OCTDN] | ~fm1_in.buttons >> panel.btn[B_SAVE]) & 1u)
+        lcd_panel(lcd_pnl & 3u);                        /* MENU > DISPLAY > PANEL (lcd.c; OCT- + SAVE held: A this time) */
     if ((fm1_in.buttons & 3u) == 3u) {
         panel_setup();                        /* OCT- + OCT+ held at power-on */
         settings_save();
