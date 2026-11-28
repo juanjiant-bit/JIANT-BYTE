@@ -755,8 +755,10 @@ static uint32_t page_first(uint32_t fam)
  *   SAVE  (V10.2) SONG (TIMELINE ARRANGE PARTS CLIPS), PROJECT (PART SLOTS PROJECTS: the PROJECT page's KNOB 1 the part or
  *         the project), SOUND (USER PRESETS)
  *   FX    TRACK (SENDS DIST AUTO PAN), BUSES, the effects (ui.fxmod: the module shown last, BUSES' tile lit) */
-static int lens_on(void) { return !ui.home && !page_over && PAGES[ui.page].fam == FAM_SEQ; }
-static int save_on(void) { return !ui.home && !page_over && PAGES[ui.page].fam == FAM_SAVE; }
+static __attribute__((noinline)) int fam_on(uint32_t f) { return !ui.home && !page_over && PAGES[ui.page].fam == f; }   /* (BYTE ott,
+                                                         * flash: one for lens_on save_on fx_on) */
+static int lens_on(void) { return fam_on(FAM_SEQ); }
+static int save_on(void) { return fam_on(FAM_SAVE); }
 static void page_entered(void);
 static void page_flash(void);
 #define FX_NMOD 5u
@@ -764,7 +766,7 @@ static const char *const FX_MOD[FX_NMOD] = {"DELAY", "REVERB", "CHORUS", "SLICER
 #define FX_MHEAD FX_MOD   /* (the same names: one table) */   /* last) its first page */
 static const uint8_t FX_MN[FX_NMOD] = {3, 2, 1, 4, 3};   /* its pages, one after another in PAGES (snd8: MASTER, TAPE; p9 EQ) */
 static int page_visible(uint32_t i);
-static int fx_on(void) { return !ui.home && !page_over && PAGES[ui.page].fam == FAM_FX; }
+static int fx_on(void) { return fam_on(FAM_FX); }
 static uint32_t fx_page(const char *title)
 {
     uint32_t i;
@@ -775,9 +777,9 @@ static uint32_t fx_page(const char *title)
 }
 static int32_t fx_trk_k(uint32_t i)                     /* page i's place among TRACK's pages, -1 none */
 {
-    static const char *const FX_TRK[3] = {"FX", "DIST", "AUTO PAN"};
+    static const char *const FX_TRK[4] = {"FX", "DIST", "AUTO PAN", "OTT"};   /* (BYTE ott) */
     uint32_t k;
-    for (k = 0; k < 3u; k++)
+    for (k = 0; k < 4u; k++)
         if (PAGES[i].fam == FAM_FX && str_eq(PAGES[i].title, FX_TRK[k]))
             return (int32_t)k;
     return -1;

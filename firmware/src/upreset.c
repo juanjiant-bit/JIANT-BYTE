@@ -57,6 +57,9 @@
 #define UP_WEST_MARK 'W'                         /* NOISE's values: up_migrate marks them) */
 #define UP_FB_AT (UP_WEST_AT - 1u)               /* (FEEDBK) the byte before: UP_FB_MARK, a DRUM record's EDIT 3 is FEEDBK */
 #define UP_FB_MARK 'F'                           /* (else WAVE's, the kit's TONE now: up_migrate sets FEEDBK 0) */
+#define UP_OT_AT (UP_FB_AT - 1u)                 /* (BYTE ott) the byte before: UP_OT_MARK, the sound's OTT in the four */
+#define UP_OT_MARK 'O'                           /* before it (a signed byte each); without it: OTT off */
+_Static_assert(P_COUNT <= UP_OT_AT - 4u, "user presets: the parameters before the OTT's bytes");
 typedef struct {
     uint8_t used, ver, engine, np;               /* UP_USED, UP_VER, engine, P_COUNT when stored */
     char name[12];                               /* ASCII 32..126, 0-padded (no 0 when 12 long) */
@@ -388,6 +391,9 @@ static int up_store(uint32_t k, const char *name)
     up_set_name(&r, k, name);
     for (i = 0; i < P_COUNT; i++)
         up_set_value(&r, i, motion_base_value(TSEL, i));
+    r.packed[UP_OT_AT] = UP_OT_MARK;                    /* (BYTE ott) the track's OTT */
+    for (i = 0; i < OT_N; i++)
+        r.packed[UP_OT_AT - OT_N + i] = (uint8_t)ott_v[song.sel % NTRK][i];
     up_pat_from(&r, TSEL->step);
     if (drum_track(TSEL)) {                             /* a DRUM track that strikes a lane: its grid */
         uint32_t any = 0;
@@ -454,6 +460,8 @@ static int up_load(uint32_t k)
     }
     if (r->packed[UP_DT_AT] == UP_DT_MARK && r->packed[UP_CRU_AT])   /* (V10.7.33) a DIST TYPE CRUSH sound: its CRUSH */
         cru_v[song.sel % NTRK] = (int16_t)(r->packed[UP_CRU_AT] & 127u);
+    ott_put(song.sel % NTRK, r->ver >= 4u && r->packed[UP_OT_AT] == UP_OT_MARK ?   /* (BYTE ott) its OTT (a record */
+            (const int8_t *)&r->packed[UP_OT_AT - OT_N] : 0);   /* of before: off) */
     t->user = (uint8_t)(k + 1u);
     load_end(t);
     sync_reload = 1;

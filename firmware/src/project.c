@@ -107,6 +107,9 @@ typedef struct {
                                                 * leaves it) and each track's DIST NOISE: 'X' 'M' (proj_xm), as the EQ */
     int16_t dnz[NTRK];                         /* (as params.c dnz_v: copied whole) */
     int16_t cru[NTRK];                         /* (V10.7.33) each track's CRUSH (as params.c cru_v, 0..127): 'X' 'C' (proj_xm) */
+    int8_t ott[NTRK][OT_N];                    /* (BYTE ott) each track's OTT (params.c ott_v, every value within 0 .. 100):
+                                                * 'O' 'T' after 'D' 'B' when one is on (proj_ott_any); all 0 (every project
+                                                * of before, or none on): the defaults, OTT off */
     int8_t life[LIFE_N + NTRK];                  /* (V10.7.34) LIFE (params.c life_v) less its defaults (0: every project of
                                                 * before, LIFE on): 'X' 'L' (proj_xm) */
     uint8_t scene[4];                          /* (V10.31) SCL > SCENE: ON, then the six roles a nibble each (seq.c
@@ -253,6 +256,15 @@ static __attribute__((noinline)) uint32_t proj_eq(project_t *q, const uint8_t *b
  * without it: AMOUNT BAL_DEF (BALANCE on: what the owner asked for, an older project too), every NOISE 0.
  * (V10.7.33) .. then each track's CRUSH: 'X' 'C' and a byte a track (0 .. 127), when one is on (firmware before stops
  * at 'X' 'M'); without it every CRUSH 0. Reading: bytes consumed (the optional DQ extension follows) */
+/* bytes p[0], p[s], .. (n in all) not all 0 (BYTE ott, flash: one for MOTION's, RATE's and OTT's) */
+static __attribute__((noinline)) uint32_t proj_any(const void *p, uint32_t n, uint32_t s)
+{
+    uint32_t k, a = 0;
+    for (k = 0; k < n; k += s) a |= ((const uint8_t *)p)[k];
+    return a;
+}
+/* (BYTE ott) a track's OTT on (its DEPTH): the 'O' 'T' block, the six tracks' four values (a byte each), after 'D' 'B' */
+#define proj_ott_any(q) proj_any((q)->ott, sizeof (q)->ott, OT_N)
 static __attribute__((noinline)) uint32_t proj_xm(project_t *q, const uint8_t *bc, uint32_t pos, uint32_t room)
 {
     uint8_t *b = (uint8_t *)(uintptr_t)bc;
@@ -627,18 +639,8 @@ static int proj_clay_rec(const project_t *q, uint32_t t)   /* (BYTE) DRONE CLAY'
         if (q->clay_rec[t][i]) return 1;
     return 0;
 }
-static __attribute__((noinline)) uint32_t proj_fm_any(const project_t *q)   /* (funcmotion) a MOTION not 0 */
-{
-    uint32_t k, a = 0;
-    for (k = 0; k < sizeof q->fmo; k++) a |= q->fmo[0][k];
-    return a;
-}
-static __attribute__((noinline)) uint32_t proj_fx_any(const project_t *q)   /* (func-rate) */
-{
-    uint32_t k, a = 0;
-    for (k = 0; k < sizeof q->fxr; k++) a |= ((const uint8_t *)q->fxr)[k];
-    return a;
-}
+#define proj_fm_any(q) proj_any((q)->fmo, sizeof (q)->fmo, 1u)   /* (funcmotion) a MOTION not 0 */
+#define proj_fx_any(q) proj_any((q)->fxr, sizeof (q)->fxr, 1u)   /* (func-rate) */
 static uint32_t proj_packed_size(const project_t *q)
 {
     uint32_t n = (proj_sc_used(q) ? 6u : 0u) + (q->g[G_DRTIM] ? 3u : 0u) + 68u + sizeof q->chain + 4u + q->motion.count * sizeof q->motion.event[0] + 2u + G_SL_N, t, i;
@@ -704,6 +706,7 @@ static uint32_t proj_packed_size(const project_t *q)
     n += 10u + 2u + NTRK;
     for (i = 0; i < 8u; i++) n += str_len(q->dx_text[i]);
     n += proj_xm((project_t *)(uintptr_t)q, 0, 0, 0);   /* (V10.7.30) BALANCE, NOISE; (V10.7.33) CRUSH */
+    if (proj_ott_any(q)) n += 2u + sizeof q->ott;       /* (BYTE ott) */
     return n;
 }
 static int proj_split_ok(const uint8_t *s)
@@ -965,6 +968,12 @@ static int proj_pack(project_store_t *out, const project_t *q)
     }
     b[pos++] = 'D'; b[pos++] = 'B'; b[pos++] = (uint8_t)(clamp(q->dwt, -64, 63) + 64);   /* (FEEDBK) the kit's TONE, after
                                                          * them, always (an older firmware stops before it) */
+    if (proj_ott_any(q)) {                              /* (BYTE ott) the tracks' OTT, after it (an older firmware stops
+                                                         * before it) */
+        b[pos++] = 'O'; b[pos++] = 'T';
+        memcpy(b + pos, q->ott, sizeof q->ott);
+        pos += sizeof q->ott;
+    }
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
     for (i = 0; i < 4u; i++)
@@ -1405,6 +1414,10 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
             dbf = 1;
             pos += 3u;
         }
+        if (pos + 2u + sizeof q->ott <= room && b[pos] == 'O' && b[pos + 1u] == 'T') {   /* (BYTE ott) (else 0: OTT off) */
+            memcpy(q->ott, b + pos + 2u, sizeof q->ott);
+            pos += 2u + sizeof q->ott;
+        }
     }
     if (!dbf) {                                         /* (FEEDBK) a project of before: its DRUM part's WAVE the kit's
                                                          * TONE (every pad where it was, the noise as bright), FEEDBK 0 */
@@ -1573,6 +1586,8 @@ static __attribute__((noinline)) void proj_master_put(project_t *p)
     p->bal = (int8_t)(bal_v - BAL_DEF);                 /* (V10.7.30) BALANCE, the tracks' NOISE */
     memcpy(p->dnz, dnz_v, sizeof p->dnz);
     memcpy(p->cru, cru_v, sizeof p->cru);               /* (V10.7.33) CRUSH */
+    for (k = 0; k < NTRK * OT_N; k++)                   /* (BYTE ott) OTT (each within -64 .. 100: the knobs') */
+        (&p->ott[0][0])[k] = (int8_t)(&ott_v[0][0])[k];
     p->cmix = (uint8_t)clamp(cho_mix, 0, 100);          /* (FM V10.8.36) CHORUS MIX */
     for (k = 0; k < LIFE_N + NTRK; k++)                   /* (V10.7.34) LIFE, less its defaults */
         p->life[k] = (int8_t)(clamp(life_v[k], 0, 100) - life_def(k));
@@ -1853,6 +1868,8 @@ static int project_restore_runtime(const project_t *input)
         memcpy(dnz_v, p->dnz, sizeof dnz_v);            /* (0 .. 100: proj_xm's, or the knob's) */
         for (k=0;k<NTRK;k++) voice_limit[k]=(int16_t)clamp(p->voice_limit[k] ? p->voice_limit[k] : NVOICE,1,NVOICE);
         memcpy(cru_v, p->cru, sizeof cru_v);            /* (V10.7.33) CRUSH (0 .. 127: proj_xm's, or the knob's) */
+        for (k = 0; k < NTRK; k++)                      /* (BYTE ott) OTT (a project without it: off, the defaults) */
+            ott_put(k, proj_ott_any(p) ? p->ott[k] : 0);
         cho_mix = p->cmix > 100u ? 100 : p->cmix;       /* (FM V10.8.36) CHORUS MIX */
         for (k = 0; k < LIFE_N + NTRK; k++)               /* (V10.7.34) LIFE */
             life_v[k] = (int16_t)clamp(p->life[k] + life_def(k), 0, 100);
@@ -2009,6 +2026,7 @@ static __attribute__((noinline)) void system_init(void)   /* (snd8: out of its c
     memset(cru_v, 0, sizeof cru_v);                     /* (V10.7.33) no CRUSH */
     cho_mix = 0;                                        /* (FM V10.8.36) CHORUS MIX off */
     life_defaults(); voice_limits_default();                                    /* (V10.7.34) LIFE as at power-on */
+    ott_defaults();                                 /* (BYTE ott) OTT off */
     memset(clay, 0, sizeof clay);                       /* (BYTE) no DRONE CLAY */
     memset(clay_rec, 0, sizeof clay_rec);
     /* (funcplay) FUNC: nothing held */
@@ -2324,6 +2342,7 @@ static uint32_t autosave_sig(void)
     h = as_mix(h, &bal_v, sizeof bal_v);                /* (V10.7.30) BALANCE, NOISE */
     h = as_mix(h, dnz_v, sizeof dnz_v);
     h = as_mix(h, cru_v, sizeof cru_v);                 /* (V10.7.33) CRUSH */
+    h = as_mix(h, ott_v, sizeof ott_v);                 /* (BYTE ott) OTT */
     h = as_mix(h, &cho_mix, sizeof cho_mix);            /* (FM V10.8.36) CHORUS MIX */
     h = as_mix(h, life_v, sizeof life_v);               /* (V10.7.34) LIFE */
     h = as_mix(h, vis_id, sizeof vis_id);               /* (visgen) HOME > VIS's song */

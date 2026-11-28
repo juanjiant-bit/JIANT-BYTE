@@ -179,6 +179,7 @@ static void felucca_init(void)
     bal_v = 0;                                /* (byte-cpu-light, as JIANT FM V10.7.43: BALANCE off, not run) */
     (void)0;                          /* (V10.7.30) the master's BALANCE on (fx.c bal_ctl) */
     life_defaults(); voice_limits_default();                          /* (V10.7.34) LIFE on, gently (life.c) */
+    ott_defaults();                       /* (BYTE ott) OTT off */
     load_depth++;                             /* (the power-on loads: one outer load) */
     power_on_parts();                         /* (0.9.9: ui.c, TRK_DEF's sounds; the tests run it too) */
     load_depth--;

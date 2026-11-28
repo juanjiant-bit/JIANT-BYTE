@@ -48,7 +48,10 @@ SIZE_FILES = ["ui.c", "favorites.c", "menu_items.c", "icons.c", "ui_graph.c", "u
               # text (ui_byte.c math_text.c), the editor's screen, the formula inventor and compiler (fvm_gen.c,
               # fvm_func_compile.c: the audio's compiles stay -Os, isr_reach), DRONE CLAY's pages, WAVE's, HIVE's, FORM's
               "ui_byte.c", "math_text.c", "editor_screen.c", "fvm_gen.c", "fvm_func_compile.c", "clay.c", "eng_wave.c",
-              "eng_hive.c", "eng_form.c"]
+              "eng_hive.c", "eng_form.c",
+              # (BYTE ott, flash: -736 B) the formulas' compiler and the bank's readers, the main loop's (fvm_serve; what
+              # the audio runs, fvm_run and its ops, an interrupt reaches: -Os, isr_reach)
+              "fvm.c", "fvm_bank.c"]
 ISR_ROOTS = ("fm1_alnk0_irq", "fm1_timer5_irq")      # hal/fm1_isr.S: the audio ISR, the key / LED scan (+ USB poll)
 DEF = re.compile(r"^(?:static|void|int|uint\w*|int\w*|const)\b[^;=(]*?\b([A-Za-z_]\w*)\s*\(", re.M)
 IR_DEF = re.compile(r"^(define [^\n]*?@\"?([\w.]+)\"?\([^\n]*\)(?: unnamed_addr| local_unnamed_addr)?)( #\d+[^\n]*\{)$",

@@ -228,6 +228,7 @@ static void ui_power_on(void)
         song.g[i] = GP[i].def;
     bal_v = HOST_BAL;                             /* (V10.7.30: as main.c's power-on; hostsim.c HOST_BAL) */
     life_defaults(); voice_limits_default();                              /* (V10.7.34) LIFE as main.c's power-on (LIFE=a: its amount) */
+    ott_defaults();                                                   /* (BYTE ott) OTT off, as main.c's */
     life_v[LIFE_AMT] = (int16_t)(getenv("LIFE") ? atoi(getenv("LIFE")) : HOST_LIFE);   /* (hostsim.c HOST_LIFE) */
     life_reset();
     load_depth++;

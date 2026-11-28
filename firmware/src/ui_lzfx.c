@@ -318,6 +318,29 @@ static void fxg_pan(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h
     }
     fxg_label(x + 12, y, b, T_TEXT, 0);
 }
+/* (BYTE ott, the approved mock-up's B "BANDAS") OTT: two columns, LOW and HIGH: the
+ * band's level in grey from the floor (-60 dB) up, the gain it gets in colour from the middle line (green up, magenta
+ * down, 3 px a dB) with its dB (X-OVER's frequency: its card's). Read from fx.c's state (ott_s), as it plays */
+#define OTT_UP 0x7FF3u
+#define OTT_DN 0xF9D6u
+static void fxg_ott(uint32_t ti)                        /* (the TRACK panel's whole: 8, 12, 224 x 120) */
+{
+    int32_t c;
+    char b[12];
+    for (c = 0; c < 2; c++) {
+        int32_t cx = 8 + c * 118, L = ott_s[ti].lv[c], g = ott_s[ti].g[c], d = (g * 47 + (g > 0 ? 1000 : -1000)) / 2000,
+                gh = clamp(g * 9 / 128, -58, 36);       /* (dB rounded; 3 px a dB, the middle line at y 70) */
+        fxg_label(cx, 16, c ? "HIGH" : "LOW", c ? OTT_DN : HUD_BL, 0);
+        cv_rect(cx, 32, 106, 98, T_RAISE);
+        cv_rect(cx + 4, 130 - clamp((L - OT_FLOOR) / 26, 0, 98), 14, clamp((L - OT_FLOOR) / 26, 0, 98), T_MID);
+        cv_rect(cx + 26, gh > 0 ? 70 - gh : 70, 72, gh < 0 ? -gh : gh, gh > 0 ? OTT_UP : OTT_DN);
+        cv_rect(cx + 22, 70, 80, 1, T_TEXT);
+        b[0] = '+';
+        fmt_int(b + (d >= 0), d);
+        str_cpy(b + str_len(b), " dB", 4);
+        fxg_label(cx + 28, gh > 0 ? 74 : 74 - gh > 114 ? 114 : 74 - gh, b, T_TEXT, 0);   /* (under the line, under a cut) */
+    }
+}
 /* module m's picture */
 static void fxg_mod(uint32_t m, int32_t x, int32_t y, int32_t w, int32_t h)
 {
@@ -347,7 +370,11 @@ static __attribute__((noinline)) void graph_fx_lz(const track_t *t, const page_t
     if (lv == FXL_TRACK) {
         int32_t k = fx_trk_k(ui.page);
         char tn[3] = {'T', (char)('1' + song.sel % NTRK), 0};
-        fx_dots(3, (uint32_t)k, k == 0 ? "FX" : PAGES[ui.page].title, tn);
+        fx_dots(4, (uint32_t)k, k == 0 ? "FX" : PAGES[ui.page].title, tn);
+        if (k == 3) {                                   /* (BYTE ott) its two bands, the whole panel */
+            fxg_ott(song.sel % NTRK);
+            return;
+        }
         if (k == 0) fxg_sends(t, 8, 12, 224, 70);
         else if (k == 1) fxg_dist(t, 8, 12, 224, 70);
         else fxg_pan(t, 8, 12, 224, 70);

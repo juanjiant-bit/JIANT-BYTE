@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 OUT=build/byte-check
 mkdir -p "$OUT"
 python3 -c 'import tools.build as b; b.generate()' > "$OUT/generate.log"
-for test in fvm harmony funcbeat funcbeat_ui func_music funcsong funcengine funcmotion funcsmooth funcbank byte wave waveframes life_byte life_sound life_extreme byte_generation song_generator fuga drumw hive voice_limit euclid_mel byte_myloop byte_controls byte_automation form clay_engines image nav punchseq punchfx modnames uipush chorus_mix dist_noise gain key_trk drift resync relief c1stack gen_radio part_state arp_grid gen_port cpu3 visgen loopq backup studio; do
+for test in fvm harmony funcbeat funcbeat_ui func_music funcsong funcengine funcmotion funcsmooth funcbank byte wave waveframes life_byte life_sound life_extreme byte_generation song_generator fuga drumw hive voice_limit euclid_mel byte_myloop byte_controls byte_automation form clay_engines image nav punchseq punchfx modnames uipush chorus_mix dist_noise gain key_trk drift resync relief c1stack gen_radio part_state arp_grid gen_port cpu3 visgen loopq backup studio ott; do
     echo "BYTE: $test"
     # ui_test.c still contains unused helpers for retired FM engines. GCC 14+
     # diagnoses their declarations; they are eliminated from these host checks.

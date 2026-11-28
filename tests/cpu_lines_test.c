@@ -175,6 +175,10 @@ static uint32_t scene(uint32_t mask, uint32_t nblk)
             for (k = 0; k < NTRK; k++) { trk[k].p[P_DLY] = 70; trk[k].p[P_REV] = 80; trk[k].p[P_CHOR] = 70; } }
         song.master_q12 = 4096;
     } else { project(); unmute(mask); }
+    if (getenv("CL_OTT")) {                              /* (BYTE ott) every track's OTT at this DEPTH (the worst case: 100) */
+        uint32_t k;
+        for (k = 0; k < NTRK; k++) ott_v[k][OT_DEPTH] = (int16_t)atoi(getenv("CL_OTT"));
+    }
     if (mask < 0x200u) { transport_req = 1; ui_input(); }
 #if FELUCCA_VIS
     if (vis) { nav_go(SEC_HOME, HE_VIS, 0); ui.force = 1; }

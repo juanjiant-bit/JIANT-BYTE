@@ -501,6 +501,9 @@ static __attribute__((noinline)) void graph_tracks(void)
         }
         if (ph < len)                                   /* the playhead */
             cv_rect(69 + (int32_t)ph * 164 / (int32_t)len, y + 2, 1, h - 4, off ? T_DIM : T_ACCENT);
+        if (ott_v[c][OT_DEPTH]) {                       /* (BYTE ott) its OTT on: a tag at the lane's end */
+            cv_text(214, ty, &AF_X, "OTT", off ? T_DIM : HUD_YE);
+        }
     }
     cv_clip_text(4, (int32_t)graph_h() - 14, &AF_X, help_find(254u), T_TEXT, T_SURF, 232);   /* (the help line's words) */
 }

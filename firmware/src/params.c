@@ -800,6 +800,24 @@ static int16_t dnz_v[NTRK] __attribute__((section(".bss.tape")));
 static const param_desc_t CMIX_DESC __attribute__((section(".rodata.tape"))) = PD("MIX", F_PCT, 0, 100, 0);
 static int16_t cho_mix __attribute__((section(".bss.tape")));
 static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CRUSH (0..127: DIST's DRIVE, shown 0..100 %) */
+/* (BYTE ott) FX > OTT, a track each (fx.c ott_block): DEPTH (0: off, the track's chain as before, bit for bit), TIME (the
+ * envelopes' release; the attack ~1/20 of it), UP/DN (- less upward, + less downward), X-OVER (the two bands' split).
+ * Not track parameters (no slot left, as CRUSH): kept with the project ('O' 'T', project.c proj_ott; without it: these
+ * defaults, OTT off) and a user preset's sound (upreset.c UP_OT_AT) */
+#define ID_OT0 0xD0u
+enum { OT_DEPTH, OT_TIME, OT_UPDN, OT_XO, OT_N };
+static const param_desc_t OTT_DESC[OT_N] __attribute__((section(".rodata.tape"))) = {
+    PD("DEPTH", F_PCT, 0, 100, 0), PD("TIME", F_TIME, 30, 100, 64), PD("UP/DN", F_BIPCT, -64, 63, 0),
+    PD("X-OVER", F_CUTOFF, 15, 100, 37)};
+static int16_t ott_v[NTRK][OT_N] __attribute__((section(".bss.tape")));   /* (out of the merged statics) */
+static __attribute__((noinline)) void ott_put(uint32_t k, const int8_t *v)   /* track k's OTT from v (stored: each
+                                                         * clamped), or (v 0) off at its defaults */
+{
+    uint32_t i;
+    for (i = 0; i < OT_N; i++)
+        ott_v[k][i] = (int16_t)(v ? clamp(v[i], OTT_DESC[i].min, OTT_DESC[i].max) : OTT_DESC[i].def);
+}
+static void ott_defaults(void) { uint32_t k; for (k = 0; k < NTRK; k++) ott_put(k, 0); }   /* every track's OTT off */
 /* (V10.7.34, the owner: "organic, self-modulating voices") LIFE (life.c): HOME > LIFE's four, LIFE NUMBERS FRAGMENTS LINK (0..100;
  * LIFE 0: every voice and track as before, bit for bit), then each track's LIFE (EDIT > VOICES 3 KNOB 2, ID_LIF; 0..100,
  * times the global one). Not song or track parameters (as BALANCE: no slot left): kept with the project ('X' 'L',
@@ -1047,6 +1065,9 @@ static const page_t PAGES[] = {
     {"MOTION", FAM_EDIT, SC_TRACK, GR_NONE, {ID_FM0, ID_FM0 + 1u, ID_FM0 + 2u, ID_FM0 + 3u}},   /* (funcmotion) its alone */
     {"LAYER B", FAM_EDIT, SC_TRACK, GR_NONE, {ID_FM0 + 5u, ID_FM0 + 6u, ID_FM0 + 7u, ID_FM0 + 8u}},   /* (func-rate) B's LEVEL
                                                          * TONE OCT RATE, its alone */
+    {"OTT", FAM_FX, SC_TRACK, GR_NONE, {ID_OT0, ID_OT0 + 1u, ID_OT0 + 2u, ID_OT0 + 3u}},   /* (BYTE ott) the track's two-band
+                                                         * up / down compressor (FX's TRACK, after AUTO PAN; last: the rows'
+                                                         * indices kept) */
 };
 #define SPLIT_PAGE(pg) (FELUCCA_SPLIT && (uint32_t)((pg)->graph - GR_SPLIT) < 2u)   /* (V10.7.32: out, core.h) */
 #define STAGE_PAGE(pg) (FELUCCA_ENVX && (pg)->graph == GR_STAGE)   /* (V10.7.32: ENV > STAGE out, core.h) */
@@ -1078,6 +1099,10 @@ static __attribute__((noinline)) const param_desc_t *page_desc_v(uint32_t id, in
     if (id >= ID_BAL && id <= ID_CRU) {               /* (V10.7.30) BALANCE; the track's NOISE; (V10.7.33) its CRUSH */
         *valp = id == ID_BAL ? &bal_v : id == ID_DNZ ? &dnz_v[song.sel % NTRK] : &cru_v[song.sel % NTRK];
         return &XM_DESC[id - ID_BAL];
+    }
+    if (id - ID_OT0 < OT_N) {                         /* (BYTE ott) the track's OTT */
+        *valp = &ott_v[song.sel % NTRK][id - ID_OT0];
+        return &OTT_DESC[id - ID_OT0];
     }
     if (id == ID_CMIX) {                              /* (FM V10.8.36) FX > CHORUS's MIX */
         *valp = &cho_mix;
@@ -1113,7 +1138,8 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         *valp = &trks_ui;
         return &TRKS_DESC;
     }
-    if (id == ID_VMAX || (id >= ID_TAPE && id <= ID_LMODE) || (id >= ID_EQ0 && id <= ID_CMIX) || (id >= ID_BAL && id <= ID_LIF))   /* (0.9.18) the LFO's MODE and PHASE;
+    if (id == ID_VMAX || (id >= ID_TAPE && id <= ID_LMODE) || (id >= ID_EQ0 && id <= ID_CMIX) || (id >= ID_BAL && id <= ID_LIF) ||
+        id - ID_OT0 < OT_N)                           /* (0.9.18) the LFO's MODE and PHASE;
                                                          * (snd8) the master's TAPE; (p9) its EQ */
         return page_desc_v(id, valp);
     if (id == G_LOADP) {                              /* (0.6.30) the same */

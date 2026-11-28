@@ -120,6 +120,7 @@ static const ng_t CG_SEQ[] = {{"STEP", 0}, {"PATTERN", "PAT"}, {"EUCLID", "EUCL"
                                                          * LENGTH RHYTHM TRACK; TRACK GEN, was GENERATE) */
 enum { FXL_TRACK, FXL_BUSES, FXL_EFFECT };
 static const nv_t CE_FX[] = {NV("FX", "SENDS", 0, FXL_TRACK), NV("DIST", 0, 0, FXL_TRACK), NV("AUTO PAN", 0, 0, FXL_TRACK),
+                             NV("OTT", 0, 0, FXL_TRACK),   /* (BYTE ott) */
                              NV("BUSES", 0, 1, FXL_BUSES), NV("DELAY", 0, 2, FXL_EFFECT), NV("DELAY 2", 0, 2, FXL_EFFECT),
                              NV("DELAY 3", 0, 2, FXL_EFFECT), NV("REVERB", 0, 3, FXL_EFFECT), NV("REVERB 2", 0, 3, FXL_EFFECT),
                              NV("CHORUS", 0, 4, FXL_EFFECT), NV("SLICER", 0, 5, FXL_EFFECT), NV("SLICER IN", 0, 5, FXL_EFFECT),
@@ -299,10 +300,12 @@ static uint32_t home_level(void) { return gen_on() ? 2u : ui.hlv >= 2u ? ui.hlv 
                                                          * screens: the song's pages are SAVE's lens, save_level) */
 static int home_macros(void) { return ui.home && !ui.menu && !gen_on() && !ui.hlv; }   /* MACROS: M1..M4 */
 static int home_scope(void) { return ui.home && !gen_on() && ui.hlv == 1u; }   /* SCOPE: the mix's four (ui.c home_knob) */
-static int home_life(void) { return ui.home && !gen_on() && ui.hlv == 2u; }   /* (V10.7.34) LIFE: its four (ui_input.c life_knob) */
-static int home_tracks(void) { return ui.home && !gen_on() && ui.hlv == 3u; }   /* (V10.7.34) TRACKS: TRACK LEVEL PAN REV */
+static __attribute__((noinline)) int home_hlv(uint32_t k) { return ui.home && !gen_on() && ui.hlv == k; }   /* (BYTE ott, flash:
+                                                         * one for the three below) */
+static int home_life(void) { return home_hlv(2u); }   /* (V10.7.34) LIFE: its four (ui_input.c life_knob) */
+static int home_tracks(void) { return home_hlv(3u); }   /* (V10.7.34) TRACKS: TRACK LEVEL PAN REV */
 #if FELUCCA_VIS
-static int home_vis(void) { return ui.home && !gen_on() && ui.hlv == 4u; }   /* (visgen) VIS: MIX DEFORM PALETTE REACT (ui_vis.c) */
+static int home_vis(void) { return home_hlv(4u); }   /* (visgen) VIS: MIX DEFORM PALETTE REACT (ui_vis.c) */
 #else
 #define home_vis() 0
 #endif

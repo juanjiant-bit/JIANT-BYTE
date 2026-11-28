@@ -477,6 +477,82 @@ static void track_crush(track_t *t, int32_t *b, uint32_t n)
     }
 }
 
+/* (BYTE ott) FX > OTT, a track's light two-band upward and downward compressor (params.c ott_v; after CRUSH). The
+ * split a one-pole low-pass at X-OVER (low = LP, high = x - LP: the two add up to x exactly); each band's level its
+ * peak over the block, followed in log2 (Q8, 256 = 6 dB) at TIME (release; the attack ~1/20 of it: ENV_EXP's index - 50);
+ * from it, once a block, the band's gain: under OT_TUP up (0.6 dB a dB, at most +12 dB, faded out under OT_FLOOR: no
+ * hiss brought up), over OT_TDN down (4:1, at most -18 dB), UP/DN taking from one side, DEPTH the whole; the gain linear, ramped across
+ * the next block (the level a block behind: no second pass). Applied as x + low (g_lo - 1) + high (g_hi - 1): unity
+ * adds 0. DEPTH 0: the gains ramp back to 1 over a block, then the track skips it (mix_part: not called; its state
+ * cleared, the next start from the level it hears). The overload's relief (core.h load_rl): half the depth tripped,
+ * none from RL_WAVE1 on (the sound stays, only the effect eases). In the flash, called through a register (crush's) */
+#define OT_FS 4352                                      /* log2 Q8 of a part at full scale (2^17) */
+#define OT_TDN (OT_FS - 1020)                           /* -24 dB (a part plays at ~-20: its peaks come down) */
+#define OT_TUP (OT_FS - 1276)                           /* -30 dB */
+#define OT_FLOOR (OT_FS - 2552)                         /* -60 dB */
+typedef struct { int32_t lp; int16_t lv[2], g[2]; } ott_t;   /* lv: the bands' levels (0: not yet heard), g their gains (log2 Q8) */
+static ott_t ott_s[NTRK] __attribute__((section(".bss.tape")));
+static int32_t ott_log2(uint32_t p)                     /* log2 Q8 of p >= 1 (within ~0.1 dB) */
+{
+    uint32_t e = 31u - (uint32_t)__builtin_clz(p | 1u), m = ((p << (31u - e)) >> 23) & 255u;
+    return (int32_t)(e * 256u + m + ((m * (256u - m) * 89u) >> 16));
+}
+static __attribute__((noinline)) int32_t ott_lin(int32_t q)                       /* 2^(q / 256), Q12 (q -2048 .. 511) */
+{
+    int32_t f = q & 255, m = 4096 + ((f * (2689 + ((f * 1407) >> 8))) >> 8), i = q >> 8;
+    return i >= 0 ? m << i : m >> -i;
+}
+static __attribute__((noinline)) void ott_block(uint32_t ti, int32_t *b, uint32_t n)   /* (ott_v within its ranges:
+                                                         * the knobs', ott_put's) */
+{
+    uint32_t i, k;
+    ott_t *s = &ott_s[ti];
+    const int16_t *v = ott_v[ti];
+    int32_t dep = v[OT_DEPTH], bal = v[OT_UPDN], tm = v[OT_TIME], uw = 64 + (bal < 0 ? bal : 0), dw = bal > 0 ? 63 - bal : 64;
+    int32_t g0[2], dg[2], pk[2] = {1, 1}, lp = s->lp, a = SVF_G[v[OT_XO] & 127];
+    a = (a << 12) / (4096 + a);                         /* the one-pole's coefficient, g / (1 + g), Q12 */
+    dep = load_rl >= RL_WAVE1 ? 0 : dep >> (load_rl != 0);
+    for (k = 0; k < 2u; k++) {                          /* the gains: from where the last block ended to the levels' */
+        int32_t L = s->lv[k], up = ((OT_TUP - L) * 154) >> 8, dn = ((L - OT_TDN) * 192) >> 8, g;
+        if (L < OT_FLOOR)
+            up -= (OT_FLOOR - L) * 2;
+        up = clamp(up, 0, 511);
+        g = clamp((((up * uw - (dn > 0 ? dn : 0) * dw) >> 6) * dep * 655) >> 16, -766, 511);
+        g0[k] = ott_lin(s->g[k]);
+        dg[k] = (ott_lin(L > 0 ? g : 0) - g0[k]) >> CTL_LOG2;
+        g0[k] -= 4096;
+        s->g[k] = (int16_t)(L > 0 ? g : 0);
+    }
+    if (dep | g0[0] | g0[1]) {
+        for (i = 0; i < n; i++) {
+            int32_t x = clamp(b[i], -262144, 262143), h;
+            lp += ((x - lp) * a) >> 12;
+            h = x - lp;
+            x = lp < 0 ? -lp : lp;                      /* (the bands' peaks) */
+            pk[0] = x > pk[0] ? x : pk[0];
+            x = h < 0 ? -h : h;
+            pk[1] = x > pk[1] ? x : pk[1];
+            g0[0] += dg[0];
+            g0[1] += dg[1];
+            b[i] += (((lp >> 2) * g0[0]) >> 10) + (((h >> 2) * g0[1]) >> 10);
+        }
+    }
+    if (!dep && !s->g[0] && !s->g[1]) {                 /* (relieved, or DEPTH 0, back at unity: out until DEPTH again,
+                                                         * from what it hears) */
+        s->lp = 0;
+        s->lv[0] = s->lv[1] = 0;
+        return;
+    }
+    s->lp = lp;
+    for (k = 0; k < 2u; k++) {                          /* the levels, a block's peak each, followed */
+        int32_t m = ott_log2((uint32_t)pk[k]), L = s->lv[k];
+        L = L <= 0 ? m : L + (((m - L) * ENV_EXP[m > L ? (tm > 50 ? tm - 50 : 0) : tm]) >> 16);
+        s->lv[k] = (int16_t)(L < 1 ? 1 : L);
+    }
+}
+/* (out of the RAM code's room: mix_part calls it only while DEPTH is up or its gains not yet back at 1) */
+static inline __attribute__((always_inline)) int ott_on(uint32_t ti) { return ott_v[ti][OT_DEPTH] || (ott_s[ti].g[0] | ott_s[ti].g[1]); }
+
 /* master: peak limiter in front of the soft clipper. Fast attack (~0.1 ms),
  * ~150 ms release, threshold where tanh is still nearly linear, so chords
  * get quieter instead of crushed. */
@@ -3029,6 +3105,11 @@ static inline __attribute__((always_inline)) void mix_part(track_t *t, uint32_t 
             lq = duck_ramp(l0 >> 8, mp_lvl[ti] >> 8, &dl);
         track_dist(t, b, n);
         track_crush(t, b, n);                           /* (V10.7.33) CRUSH, the track's own */
+        if (ott_on(ti)) {                               /* (BYTE ott) OTT, after it (in the flash, through a register) */
+            void (*f)(uint32_t, int32_t *, uint32_t) = ott_block;
+            FM1_OPAQUE(f);
+            f(ti, b, n);
+        }
         int32_t pm0 = 32768, pm1 = 32768;               /* (0.6.48: drum_mix's; pf.mg counts only while muting) */
         if ((pf.mute >> (t - trk)) & 1u) {
             pm0 = pf.mg[ti];
