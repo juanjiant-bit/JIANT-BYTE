@@ -729,6 +729,8 @@ static void session_dice(uint32_t seed)
 #define GLO_ALL ((uint32_t)NTRK)
 #define GLO_TAP 7u
 #define GLO_UNDO 8u                                     /* (0.6.21) G4: UNDO the last big change (project.c undo_do) */
+#define GLO_RESOUND 9u                                  /* (v1.1b5, JIANT FM V10.8.54) A4: RESOUND, new sounds for the
+                                                         * whole song (gen.c gen_resound_key) */
                                                         /* (V10.6) A4 FREEZE, B4 REVERT ALL and SEQ's D5 REVERT gone with MUTATE */
 static __attribute__((noinline)) void layer_key(uint32_t l, uint32_t k)
 {
@@ -749,6 +751,8 @@ static __attribute__((noinline)) void layer_key(uint32_t l, uint32_t k)
             glo_tap();
         } else if (p == GLO_UNDO) {
             undo_ui();
+        } else if (p == GLO_RESOUND) {
+            gen_resound_key();
         }
     } else if (l == LAYER_SCL) {
         TSEL->p[P_ROOT] = (int16_t)((k + 5u) % 12u);    /* the key's note name (F3 = F) */
@@ -923,7 +927,7 @@ static uint32_t layer_leds(uint32_t *br)
             on = b ? (p < NTRK && glo_sounding(p)) || (p >= NTRK && p < NTRK + 4u && !((dx_mute >> (p - NTRK)) & 1u))
                    : p < NTRK && ((lys.solo >> k) & 1u);      /* (a group sounding: lit) */
             can = !b && ((p < NTRK && p < trk_live) || p == GLO_ALL || (p == GLO_TAP && !song.g[G_CLOCK]) ||
-                         (p == GLO_UNDO && undo_ok));
+                         (p == GLO_UNDO && undo_ok) || p == GLO_RESOUND);
                                                         /* (the keys that do something breathe: not an asleep track's) */
         } else if (l == LAYER_SCL) {                    /* the root lit, the scale's notes breathe */
             e = (k + 5u + 12u - root) % 12u;
@@ -1039,7 +1043,8 @@ static uint32_t ly_keyname(uint32_t l, int blk, uint32_t p, char *nm)
             nm[6] = (char)('1' + p);
             return (perf_solo >> p) & 1u ? LS_HELD : p >= trk_live ? LS_DIM : LS_OFF;
         }
-        str_cpy(nm, p == GLO_ALL ? "UNMUTE" : p == GLO_TAP ? "TAP" : p == GLO_UNDO ? "UNDO" : "", 12);
+        str_cpy(nm, p == GLO_ALL ? "UNMUTE" : p == GLO_TAP ? "TAP" : p == GLO_UNDO ? "UNDO" : p == GLO_RESOUND ? "RESOUND" : "",
+                12);                                    /* (v1.1b5: A4's RESOUND named on the map too) */
         return p == GLO_TAP && song.g[G_CLOCK] ? LS_DIM : p == GLO_UNDO && !undo_ok ? LS_DIM : LS_OFF;
     }
     if (l == LAYER_SCL) {                               /* every key its note: the root lit, the scale's plain, the rest dim */
@@ -1408,6 +1413,7 @@ static __attribute__((noinline)) void layer_state(uint32_t l)
         for (k = 0; glo_drums() && k < 4u; k++)
             lst_chip(GLO_GROUP[k], (dx_mute >> k) & 1u ? "MUTE" : "ON", !((dx_mute >> k) & 1u));
         lst_chip("UNDO", undo_ok ? "READY" : "-", undo_ok);
+        lst_chip("A4", "RESOUND", 1);
     } else if (l == LAYER_MACRO) {                      /* the latch, each macro's routes */
         lst_chip("LATCH", mac_latch ? "ON" : "OFF", mac_latch);
         for (k = 0; k < 4u; k++) {

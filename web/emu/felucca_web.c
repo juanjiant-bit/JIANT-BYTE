@@ -763,6 +763,91 @@ EXPORT void web_gen_cmd(uint32_t cmd, int32_t arg)
     ui.force = 1;
 }
 
+/* (v1.1b5, as JIANT FM V10.8.54) RESOUND from the page (JIANT Studio's RADIO: gen messages cmd 10 / 11, worklet.js): the
+ * firmware's own (gen.c gen_rs_prep / gen_rs_apply, GLO + A4), and the four parts in proj_slot given the same new sounds
+ * (web_rs_part), so the song's next section brings them; nothing loaded, the music plays on; the staged next section
+ * dropped (song_poll stages it again). One UNDO point (GLO + G4: the playing part) and web_gen_resound_undo: the parts
+ * and the music's sounds as they were.
+ *   web_gen_resound(seed): seed 0..9999; 0 = done, 1 = nothing to resound (no track with a part), 2 = could not pack.
+ *   web_gen_resound_seed(): the last seed applied (0xFFFFFFFF: none, or undone).
+ *   web_gen_resound_undo(): 0 = back as it was, 1 = nothing to undo (a new piece since, or none).
+ * The emulator's alone: nothing here is in the FM-1's binary. */
+#define WEB_RL_N (RL_TEX + 1u)                          /* (gen's RL_N: ui_layer.c, after it, has its own) */
+static project_store_t web_rs_bk[4];                    /* the parts before the last RESOUND */
+static uint8_t web_rs_ok;
+static uint32_t web_rs_last = 0xFFFFFFFFu, web_rs_sig;
+static project_t web_rs_old, web_rs_new;
+/* a stored part's sounds made the new ones (its steps, pattern, mutes kept): every resounded track its engine, preset,
+ * sound parameters (not param_kept's), FM6 patch, OTT; LEVEL and PAN the new ones where the part had the old ones (a
+ * part's own mix kept); the DRUM-X kit where a track plays drums */
+static void web_rs_part(project_t *S, const project_t *N, const project_t *O)
+{
+    uint32_t k, i, dr = 0;
+    for (k = 0; k < NTRK; k++) {
+        if (rs_role[k] >= WEB_RL_N) continue;
+        dr |= rs_role[k] == RL_DRUM;
+        for (i = 0; i < P_COUNT; i++)
+            if (!param_kept(i) || ((i == P_LEVEL || i == P_PAN) && S->t[k].p[i] == O->t[k].p[i])) S->t[k].p[i] = N->t[k].p[i];
+        S->t[k].engine = N->t[k].engine; S->t[k].preset = N->t[k].preset;
+        memcpy(S->fm6[k], N->fm6[k], sizeof S->fm6[k]);
+        memcpy(S->ott[k], N->ott[k], sizeof S->ott[k]);
+    }
+    if (dr) {
+        memcpy(S->dx, N->dx, sizeof S->dx); memcpy(S->dx_mot, N->dx_mot, sizeof S->dx_mot);
+        S->dx_tone = N->dx_tone; S->dx_hands = N->dx_hands;
+        memcpy(S->dx_snd, N->dx_snd, sizeof S->dx_snd); memcpy(S->dx_lay, N->dx_lay, sizeof S->dx_lay);
+        memcpy(S->dx_form, N->dx_form, sizeof S->dx_form); memcpy(S->dw, N->dw, sizeof S->dw); S->dwt = N->dwt;
+        memcpy(S->dx_text, N->dx_text, sizeof S->dx_text); memcpy(S->dx_fmod, N->dx_fmod, sizeof S->dx_fmod);
+    }
+    S->sum = proj_sum(S);
+}
+static uint32_t web_rs_parts(const project_t *N, const project_t *O)   /* the four stored parts (an empty one left); 0 ok */
+{
+    uint32_t s, bad = 0;
+    for (s = 0; s < 4u; s++) {
+        if (!project_used(s) || !proj_import(&proj_scratch, &proj_slot[s], sizeof proj_slot[s])) continue;
+        web_rs_part(&proj_scratch, N, O);
+        if (proj_pack(&proj_wire, &proj_scratch)) { memcpy(&proj_slot[s], &proj_wire, sizeof proj_slot[s]); live.dirty |= (uint8_t)(1u << s); }
+        else bad = 1;
+    }
+    proj_wire_gen++;
+    fm1_irq_off(); sec_stage.ready = 0; snd_held = snd_seen = 0; fm1_irq_on();   /* (the next section staged with the old
+                                                         * sounds: staged again; no sound held as the player's) */
+    return bad;
+}
+EXPORT uint32_t web_gen_resound_seed(void) { return web_rs_last; }
+EXPORT uint32_t web_gen_resound(uint32_t seed)
+{
+    uint32_t bad;
+    if (!bt_hw_seg() || !gen_rs_prep(seed)) return 1;
+    undo_mark();                                        /* (GLO + G4: the part playing as it was) */
+    project_capture(&web_rs_old);
+    memcpy(web_rs_bk, proj_slot, sizeof proj_slot);
+    gen_rs_apply();
+    project_capture(&web_rs_new);
+    bad = web_rs_parts(&web_rs_new, &web_rs_old);
+    web_rs_ok = 1; web_rs_last = rs_seed; web_rs_sig = gp.sig;
+    rs_banner();
+    return bad ? 2u : 0u;
+}
+EXPORT uint32_t web_gen_resound_undo(void)
+{
+    uint32_t k;
+    if (!web_rs_ok || gp.sig != web_rs_sig) return 1;
+    memcpy(proj_slot, web_rs_bk, sizeof proj_slot);
+    live.dirty |= 15u; proj_wire_gen++;
+    for (k = 0; k < NTRK && k < trk_live; k++) {         /* the music playing: each track's sound as it was, it plays on */
+        if (rs_role[k] >= WEB_RL_N) continue;
+        sound_put(&web_rs_old, k);
+        trk[k].p[P_LEVEL] = web_rs_old.t[k].p[P_LEVEL]; trk[k].p[P_PAN] = web_rs_old.t[k].p[P_PAN];
+        ott_put(k, web_rs_old.ott[k]);
+    }
+    fm1_irq_off(); sec_stage.ready = 0; snd_held = snd_seen = 0; fm1_irq_on();
+    web_rs_ok = 0; web_rs_last = 0xFFFFFFFFu;
+    ui_message("SOUNDS BACK"); ui.force = 1;
+    return 0;
+}
+
 /* for the test and the bench (web/emu/emu_test.mjs), a heavy song straight into the tracks (as hostsim's
  * renders set them): T1 WAVE SAW PAD, T2 MATH FLOAT PAD, T3 MATH BYTEBEAT, 4-note chords on all 16
  * steps, held; T4 DRUM, kick snare and hats. PLAY is the page's (or the test's) to press */

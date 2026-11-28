@@ -3176,6 +3176,34 @@ static __attribute__((noinline)) void gen_ott(void)
         ott_put(k, v);
     }
 }
+/* the sounds (their own stream) by role: gen_make's (rs 0: every track its role's), (v1.1b5) RESOUND's (gen_rs_apply: rs
+ * the roles, RL_N none; a kit's track playing a melody its kit kept; each another sound than it had, the picker asked
+ * again up to 8 times till the engine or the preset differs). From a throw's own track on (V10.6z10: FM6's two to
+ * whichever roles come first; was the bass's and the chords' nearly always). In the segment, gen_make's */
+BTAPP_FN static void gen_voices(const uint8_t *rs)
+{
+    const ggenre_t *g = gs.g;
+    uint32_t k, next;
+    gseed(GS_SOUND);
+    for (next = gr() % NTRK, k = 0; k < NTRK; k++) {
+        uint32_t ti = (k + next) % NTRK, r = rs ? rs[ti] : gs.role[ti], n = 0;
+        track_t *t = &trk[ti];
+        if (r >= RL_N) continue;
+        if (r == RL_DRUM) gen_kit(t);
+        else if (!rs || !drum_track(t))
+            do {
+                uint32_t e0 = t->eng_req, p0 = t->preset, fm6 = gs.fm6;
+                uint8_t odd = gx.odd;
+                if (gx.on) gx.eng = gx_engine(r);       /* (0.8.6) EXPLORE: any engine */
+                gen_sound(t, r, r == RL_BASS ? g->snd[GP_BASS] : r == RL_PAD ? g->snd[GP_CHORDS] : r == RL_LEAD ? g->snd[GP_LEAD] :
+                                r == RL_ARP ? g->snd[GP_ARP] : g->tex);
+                gx.eng = -1;
+                if (gx.on) gx_sound(t, r);
+                if (!rs || t->eng_req != e0 || t->preset != p0) break;
+                gs.fm6 = fm6; gx.odd = odd;
+            } while (++n < 8u);
+    }
+}
 /* (BYTE 0.17) in the Bluetooth segment (BTAPP_FN, as gen_pick: the image full); its one caller gen_go asks bt_hw_seg()
  * first; main loop only */
 BTAPP_FN static void gen_make(void)
@@ -3318,20 +3346,7 @@ BTAPP_FN static void gen_make(void)
     wet = (uint32_t)clamp((int32_t)g->wet + (gs.energy < 34 ? 20 : gs.energy > 66 ? -15 : 0), 0, 100);
     /* the sounds (their own stream), then the parts in the pipeline's order: drums, bass (reads the kick), chords,
      * arp (reads the voicing), lead (reads the bass) */
-    gseed(GS_SOUND);
-    for (next = gr() % NTRK, k = 0; k < NTRK; k++) {   /* (V10.6z10) from a throw's own track on: FM6's two to whichever
-                                                         * roles come first (was the bass's and the chords' nearly always) */
-        track_t *t = &trk[(k + next) % NTRK];
-        uint32_t r = gs.role[(k + next) % NTRK];
-        if (r == RL_DRUM) gen_kit(t);
-        else {
-            if (gx.on) gx.eng = gx_engine(r);           /* (0.8.6) EXPLORE: any engine */
-            gen_sound(t, r, r == RL_BASS ? g->snd[GP_BASS] : r == RL_PAD ? g->snd[GP_CHORDS] : r == RL_LEAD ? g->snd[GP_LEAD] :
-                            r == RL_ARP ? g->snd[GP_ARP] : g->tex);
-            gx.eng = -1;
-            if (gx.on) gx_sound(t, r);
-        }
-    }
+    gen_voices(0);
     gen_scale_page();
     gseed(GS_MIX);
     for (k = 0; k < NTRK; k++) gen_mix(&trk[k], gs.role[k]);
@@ -3906,3 +3921,78 @@ static void gen_panel(void)
         gen_helix();
 }
 #include "gen_track.c"
+
+/* (BYTE v1.1b5, as JIANT FM V10.8.54; the owner on the RADIO: "a song I like but not its sounds") RESOUND: every track's
+ * notes, steps and song kept, new sounds for all of them at once, each by its role (a bass a bass's, the chords a chord's,
+ * the drums a kit), out of GEN's own picker with a seed of its own. A GEN piece (a draft: its roles and genre known):
+ * that genre's sounds (EXPLORE: EXPLORE's); a project of the player's: the roles by what each track plays (gls_role), the
+ * genre a seed's among those whose tempo is near the song's. Its OTT as GEN gives it (gen_ott: the electronic genres'
+ * on, every other off). On the FM-1 GLO + A4 (layer_key): the music plays on; the next sections keep the new sounds
+ * (sec_apply: a sound the player changed is held), SAVE keeps them, GLO + G4 undoes it. The emulator's
+ * web_gen_resound also gives the four stored parts the new sounds. gen_rs_prep: the roles and the genre (0: nothing to
+ * resound); gen_rs_apply: the sounds on the tracks (GEN's state as it was after). Main loop only, once bt_hw_seg() */
+static struct { uint8_t role[NTRK]; int16_t gi; uint16_t seed; } gen_rs __attribute__((section(".pool")));   /* (in the
+                                                         * pool: no global of the RAM region moves) the roles, the genre
+                                                         * (-1 EXPLORE), the seed */
+#define rs_role gen_rs.role
+#define rs_gi gen_rs.gi
+#define rs_seed gen_rs.seed
+static uint32_t gen_rs_prep(uint32_t seed)
+{
+    uint32_t k, any = 0, h = seed % 10000u, gen = song_draft && gs.g;
+    for (k = 0; k < NTRK; k++) {
+        uint32_t r = k >= trk_live ? RL_N : drum_track(&trk[k]) ? RL_DRUM : gen ? gs.role[k] : gls_role(&trk[k]);
+        if (r == RL_DRUM && !drum_track(&trk[k])) r = RL_N;   /* (a part GEN gave the drums on a track not DRUM-X's) */
+        rs_role[k] = (uint8_t)(r < RL_N ? r : RL_N);
+        any |= r < RL_N;
+    }
+    if (!gen) {                                         /* (a seed's genre, its tempo near the song's; none: EXPLORE) */
+        uint32_t q = gq;
+        gq = h * 2654435761u + 1u;
+        k = gen_near();
+        gq = q;
+    } else
+        k = gs.gi;
+    rs_gi = (int16_t)(k < NGENRE ? (int32_t)k : -1);
+    rs_seed = (uint16_t)h;
+    return any;
+}
+static void gen_rs_apply(void)
+{
+    struct { __typeof__(gp) p; __typeof__(gs) s; ggenre_t g; __typeof__(gx) x; uint32_t q; } save = {gp, gs, gmut, gx, gq};
+    uint32_t i, k;
+    memset(&gs, 0, sizeof gs); memset(&gx, 0, sizeof gx); gx.eng = -1;
+    gp.seed = rs_seed;
+    for (i = 0; i < GP_N; i++) gp.amt[i] = GA_AUTO;
+    gseed(GS_PICK);
+    if (rs_gi < 0) { gx.on = 1; gx_genre(&gmut); gs.gi = NGENRE; }
+    else { gs.gi = (uint32_t)rs_gi; gmut = GENRE[gs.gi]; }
+    gs.g = &gmut;
+    gen_pick();
+    gmut.kit = (uint8_t)((gmut.kit + 1u + gr() % (KIT_N - 1u)) % KIT_N);   /* (another kit than the genre's) */
+    gs.energy = gp.energy; gs.complex = gp.complex ? gp.complex : 50u;
+    for (k = 0; k < RL_N; k++) gs.trk_of[k] = NTRK;
+    for (k = 0; k < NTRK; k++) {
+        uint32_t r = rs_role[k];
+        gs.role[k] = (uint8_t)(r < RL_N ? r : RL_TEX);
+        if (r >= RL_N) continue;
+        gs.act[r] = 1;
+        if (gs.trk_of[r] == NTRK) gs.trk_of[r] = (uint8_t)k;
+    }
+    gen_voices(rs_role);
+    gseed(GS_MIX);
+    for (k = 0; k < NTRK; k++)
+        if (rs_role[k] < RL_N) { gen_mix(&trk[k], rs_role[k]); ott_put(k, 0); }   /* (OTT off, then GEN's) */
+    gen_ott();
+    gp = save.p; gs = save.s; gmut = save.g; gx = save.x; gq = save.q;
+}
+static void rs_banner(void) { char b[8]; fmt_int(b, (int32_t)rs_seed); ui_say("RESOUND #", b); ui.force = 1; }
+/* GLO + A4: a new seed each press (the time's) */
+static void gen_resound_key(void)
+{
+    if (!bt_hw_seg()) { seg_missing(); return; }
+    if (!gen_rs_prep(fm1_ms * 2654435761u >> 18)) { ui_message("NOTHING TO RESOUND"); return; }
+    undo_mark();                                        /* (GLO + G4: the sounds as they were) */
+    gen_rs_apply();
+    rs_banner();
+}

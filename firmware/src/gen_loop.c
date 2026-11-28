@@ -185,12 +185,20 @@ BTAPP_FN static uint32_t gls_snare(const track_t *t)   /* (BYTE 0.17: gen.c gen_
 }
 /* the genre (RANDOM, EXPLORE: by the loop's tempo and drums: four kicks a bar or more from 100 BPM HOUSE, or HARD
  * TECHNO past 138; else an arc: KRAUT from 110 BPM, DREAM POP under) */
+/* (v1.1b5) a genre of the stream's (gr) whose tempo is near the song's, 32 throws (NGENRE: none); FROM LOOP's EXPLORE,
+ * RESOUND's (gen_rs_prep) */
+static __attribute__((noinline)) uint32_t gen_near(void)
+{
+    uint32_t bpm = (uint32_t)song.g[G_BPM], i, n;
+    for (i = 0; i < 32u; i++) { n = gr() % NGENRE; if (bpm + 24u >= GENRE[n].bpm_lo && bpm <= GENRE[n].bpm_hi + 24u) return n; }
+    return NGENRE;
+}
 static uint32_t gls_genre(void)
 {
     uint32_t bpm = (uint32_t)song.g[G_BPM], i, n = 0, dr = gs.trk_of[RL_DRUM] % NTRK;
     if (gp.genre && gp.genre <= NGENRE) return gp.genre - 1u;
-    if (gp.genre == GEN_EXPLORE)                        /* (EXPLORE: a seed's, any whose tempo is near the loop's) */
-        for (i = 0; i < 32u; i++) { n = gr() % NGENRE; if (bpm + 24u >= GENRE[n].bpm_lo && bpm <= GENRE[n].bpm_hi + 24u) return n; }
+    if (gp.genre == GEN_EXPLORE && (n = gen_near()) < NGENRE)   /* (EXPLORE: a seed's, any whose tempo is near the loop's) */
+        return n;
     for (i = n = 0; i < 64u; i++) n += gkick(i);
     return bpm >= 100u && n * 4u >= dlen(&trk[dr]) ? (bpm > 138u ? 1u : 3u) : bpm >= 110u ? 16u : 22u;
 }

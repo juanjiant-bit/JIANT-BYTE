@@ -300,6 +300,39 @@ int main(void)
         ck("9. GEN: 13 electronic genres' drums / bass DEPTH 40..60, a lead / arp / FX 60..80 or off, none elsewhere; by the seed",
            ok && seen == 3u && ng == 26u);
     }
+    {   /* 10. (v1.1b5 rel15) RESOUND (GLO + A4, gen.c gen_rs_prep / gen_rs_apply): the notes kept, new sounds, OTT as GEN
+         * gives it on the tracks it resounds (an electronic genre's: on; any other's: off), the same seed the same sounds and
+         * OTT, GEN's own state (seed, streams) as it was; GLO + G4 the sounds and OTT back */
+        uint32_t k, ok = 1, sig[NTRK], on = 0, e0[NTRK];
+        uint16_t seed0;
+        int16_t o1[NTRK][OT_N];
+        ui_power_on();
+        gp.genre = 3u + 1u; gp.form = 0; gp.seed = 421; gp.energy = 60; grd.on = 0; grd.mood = 0;   /* (HOUSE: GOTT_G's) */
+        gen_make();
+        song_draft = 1;
+        for (k = 0; k < NTRK; k++) { sig[k] = steps_sig(&trk[k]); e0[k] = trk[k].eng_req << 8 | trk[k].preset; ott_put(k, 0); }
+        seed0 = gp.seed;
+        undo_mark();
+        ok &= gen_rs_prep(1234) && rs_gi == 3;
+        gen_rs_apply();
+        for (k = 0; k < NTRK; k++) {
+            ok &= steps_sig(&trk[k]) == sig[k];
+            if (rs_role[k] < RL_TEX + 1u && (rs_role[k] == RL_DRUM || rs_role[k] == RL_BASS)) ok &= ott_v[k][OT_DEPTH] >= 40 && ott_v[k][OT_DEPTH] <= 60;
+            on |= ott_v[k][OT_DEPTH] != 0;
+        }
+        ok &= on && gp.seed == seed0;
+        memcpy(o1, ott_v, sizeof o1);
+        (void)gen_rs_prep(1234); gen_rs_apply();          /* (from the new sounds: the same OTT, from the seed alone) */
+        ok &= !memcmp(o1, ott_v, sizeof o1);
+        ok &= !undo_do();
+        for (k = 0; k < NTRK; k++) ok &= ott_v[k][OT_DEPTH] == 0 && (uint32_t)(trk[k].eng_req << 8 | trk[k].preset) == e0[k];
+        for (k = 0; k < NTRK; k++) ott_v[k][OT_DEPTH] = 30;   /* (a non-electronic genre: RESOUND turns its tracks' OTT off) */
+        gs.gi = 13u; while ((GOTT_G >> gs.gi) & 1u) gs.gi++;
+        (void)gen_rs_prep(77); gen_rs_apply();
+        for (k = 0; k < NTRK; k++) ok &= rs_role[k] < RL_TEX + 1u ? ott_v[k][OT_DEPTH] == 0 : ott_v[k][OT_DEPTH] == 30;
+        ck("10. RESOUND: notes kept, OTT as GEN's (HOUSE on, another genre off, untouched tracks kept), seeded; UNDO back", ok);
+        for (k = 0; k < NTRK; k++) ott_put(k, 0);
+    }
     printf("ott: %s\n", bad ? "FAILED" : "all ok");
     return bad != 0;
 }

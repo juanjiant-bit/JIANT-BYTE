@@ -126,7 +126,9 @@ class Felucca extends AudioWorkletProcessor {
           new Int32Array(ex.memory.buffer, ex.web_gen_state(), glen).set(st);
           rc = ex.web_gen_set_state(m.regen ? 1 : 0);
         }
-        if (typeof m.cmd === "number") ex.web_gen_cmd(m.cmd >>> 0, m.arg | 0);
+        if (m.cmd === 10) rc = ex.web_gen_resound ? ex.web_gen_resound(m.arg >>> 0) : null;   // (v1.1b5) RESOUND (arg: a seed
+        else if (m.cmd === 11) rc = ex.web_gen_resound_undo ? ex.web_gen_resound_undo() : null;   // 0..9999), 11 its undo
+        else if (typeof m.cmd === "number") ex.web_gen_cmd(m.cmd >>> 0, m.arg | 0);
         const o = new Int32Array(ex.memory.buffer, ex.web_gen_info(), ex.web_gen_state ? 9 : 8);
         const info = { radio: o[0], genre: o[1], seed: o[2], mood: o[3], energy: o[4], form: o[5], n: o[6], playing: o[7],
           salt: ex.web_gen_state ? o[8] : 0 };
@@ -140,7 +142,9 @@ class Felucca extends AudioWorkletProcessor {
             genres.push(t);
           }
         }
-        this.port.postMessage({ type: "gen", id: m.id, info, genres, state, rc });
+        const rs = ex.web_gen_resound_seed ? ex.web_gen_resound_seed() >>> 0 : 0xFFFFFFFF;   // (v1.1b5) the last RESOUND's seed
+        this.port.postMessage({ type: "gen", id: m.id, info, genres, state, rc, resound: !!ex.web_gen_resound,
+          rs: rs === 0xFFFFFFFF ? null : rs });
       }
     }
 
