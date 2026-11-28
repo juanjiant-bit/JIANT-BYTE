@@ -1,9 +1,14 @@
 [
  {
+  "version": "BYTE v1.1b5-32428a5",
+  "file": "JIANT-B1T3-v1.1b5-32428a5.fwsc",
+  "sha256": "7d5b921f3a89016e990627bf45f57ae7167a283b4165991cac8444ebbb602346",
+  "commit": "32428a5d4221c4a3085635bd700ca11dc9ddd4d2"
+ },
+ {
   "version": "BYTE v1.1b4-efb4b29",
   "file": "JIANT-B1T3-v1.1b4-efb4b29.fwsc",
-  "sha256": "e100fe2902e1506c8bf6a9e4e79525a6f564ee1a9b20a8b50a2b00d3cb3f938a",
-  "commit": "efb4b2928b3517a48f570186e495d461314180fc"
+  "sha256": "e100fe2902e1506c8bf6a9e4e79525a6f564ee1a9b20a8b50a2b00d3cb3f938a"
  },
  {
   "version": "BYTE v1.0-5aebdf5",
@@ -24,10 +29,5 @@
   "version": "BYTE v0.14-b06b939",
   "file": "felucca-BYTE-v0.14-b06b939.fwsc",
   "sha256": "7baf4b676fa95698f70217a62850b7b7afa32977bf0a25a0b980105441285d2a"
- },
- {
-  "version": "BYTE v0.13-0019221",
-  "file": "felucca-BYTE-v0.13-0019221.fwsc",
-  "sha256": "65e7396788d65a72b73a2908685f3621ae5b267e86576181ca5bc270e65d535a"
  }
 ]

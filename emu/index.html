@@ -142,7 +142,7 @@ footer small { font-size: 11px; opacity: .8; }
 
 <p class="kofi" style="border-left:3px solid #ec6e50;padding:4px 0 4px 12px">If you resonate with my work, consider supporting me on <a href="https://ko-fi.com/juanjiant" target="_blank" rel="noopener" style="color:inherit;font-weight:600">Ko-fi</a> (in Argentina: <a href="https://cafecito.app/juanjiant" target="_blank" rel="noopener" style="color:inherit;font-weight:600">Cafecito</a>). Thanks for all the good energy, hope you enjoy this little beast 🫶✨🎹</p>
 <footer>
-  <small class="version">BYTE v1.1b4 · <a href="build.json">efb4b29</a></small><br>
+  <small class="version">BYTE v1.1b5 · <a href="build.json">32428a5</a></small><br>
   JIANT /B1T3 by Juan Jiant (a fork of JIANT FM) · <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0</a> · browser build after charlesvestal's <a href="https://github.com/charlesvestal/fm1-x0x">X0X</a> · DotGothic16 font, <a href="fonts/OFL.txt">SIL OFL 1.1</a><br>
   <nav><a href="../">JIANT /B1T3 home</a> · <a href="https://github.com/juanjiant-bit/JIANT-BYTE">Source</a> · <a href="../webapp/installer/">Install this version</a> ·
     <a href="../webapp/editor/">Editor</a></nav>
@@ -551,7 +551,9 @@ window.jiantEmu = {
      (0 A: the whole piece); null: the state alone. Every reply has state: the generator's whole state (19 numbers,
      felucca_web.c web_gen_state; v1.1b4: 44, the 19 then the regenerations since the piece, [19] their count (-1 past
      8), a triple each: kind 5 / 6, index, salt); opt.state (the 19 or the 44) sets it first, opt.regen the piece made
-     again from it, its regenerations replayed in order (rc 0, 1 refused, 2 made without them: the log was full) */
+     again from it, its regenerations replayed in order (rc 0, 1 refused, 2 made without them: the log was full);
+     (v1.1b5) cmd 10 RESOUND with seed arg (0..9999; rc 0 done, 1 nothing to resound, 2 a part not packed), 11 its undo
+     (rc 0, 1 nothing to undo); every reply has resound (the build has it) and rs (the last RESOUND's seed, null none) */
   gen: (cmd, arg, genres, opt) => new Promise((res, rej) => {
     if (!node) { rej(new Error("emulator off")); return; }
     const id = ++genId;
@@ -611,7 +613,7 @@ async function switchOn() {
         }
         else if (m.type === "gen") {
           const w = genWait.get(m.id);
-          if (w) { genWait.delete(m.id); if (m.error) w.rej(new Error(m.error)); else w.res({ info: m.info, genres: m.genres, state: m.state, rc: m.rc }); }
+          if (w) { genWait.delete(m.id); if (m.error) w.rej(new Error(m.error)); else w.res({ info: m.info, genres: m.genres, state: m.state, rc: m.rc, resound: m.resound, rs: m.rs }); }
         }
         else if (m.type === "frame") {
           if (m.sysex) sysexListeners.forEach((f) => m.sysex.forEach(f));
