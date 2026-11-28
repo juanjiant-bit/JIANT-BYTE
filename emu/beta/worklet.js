@@ -119,15 +119,18 @@ class Felucca extends AudioWorkletProcessor {
       else if (m.type === "gen") {                 // (studio) the RADIO page: a command (cmd a number), then the state
         if (!ex.web_gen_info) { this.port.postMessage({ type: "gen", id: m.id, error: "This engine has no GEN for the page." }); return; }
         let rc;
-        if (Array.isArray(m.state) && m.state.length === 19 && ex.web_gen_state) {   // (v1.1b2) the generator's whole state
-          new Int32Array(ex.memory.buffer, ex.web_gen_state(), 19).set(m.state.map((v) => v | 0));
+        const glen = ex.web_gen_state_len ? ex.web_gen_state_len() : 19;   // (v1.1b4) the 19 and the regenerations' log
+        if (Array.isArray(m.state) && (m.state.length === 19 || m.state.length === glen) && ex.web_gen_state) {   // (v1.1b2)
+          const st = new Int32Array(glen);                                 // the generator's whole state; a 19: no log
+          st.set(m.state.map((v) => v | 0));
+          new Int32Array(ex.memory.buffer, ex.web_gen_state(), glen).set(st);
           rc = ex.web_gen_set_state(m.regen ? 1 : 0);
         }
         if (typeof m.cmd === "number") ex.web_gen_cmd(m.cmd >>> 0, m.arg | 0);
         const o = new Int32Array(ex.memory.buffer, ex.web_gen_info(), ex.web_gen_state ? 9 : 8);
         const info = { radio: o[0], genre: o[1], seed: o[2], mood: o[3], energy: o[4], form: o[5], n: o[6], playing: o[7],
           salt: ex.web_gen_state ? o[8] : 0 };
-        const state = ex.web_gen_state ? Array.from(new Int32Array(ex.memory.buffer, ex.web_gen_state(), 19)) : null;
+        const state = ex.web_gen_state ? Array.from(new Int32Array(ex.memory.buffer, ex.web_gen_state(), glen)) : null;
         let genres;
         if (m.genres) {
           genres = [];
