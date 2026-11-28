@@ -108,8 +108,8 @@ typedef struct {
     int16_t dnz[NTRK];                         /* (as params.c dnz_v: copied whole) */
     int16_t cru[NTRK];                         /* (V10.7.33) each track's CRUSH (as params.c cru_v, 0..127): 'X' 'C' (proj_xm) */
     int8_t ott[NTRK][OT_N];                    /* (BYTE ott) each track's OTT (params.c ott_v, every value within 0 .. 100):
-                                                * 'O' 'T' after 'D' 'B' when one is on (proj_ott_any); all 0 (every project
-                                                * of before, or none on): the defaults, OTT off */
+                                                * 'O' 'T' after 'D' 'B' when one differs from its default (proj_ott_on);
+                                                * all 0 (none read): the defaults, OTT off */
     int8_t life[LIFE_N + NTRK];                  /* (V10.7.34) LIFE (params.c life_v) less its defaults (0: every project of
                                                 * before, LIFE on): 'X' 'L' (proj_xm) */
     uint8_t scene[4];                          /* (V10.31) SCL > SCENE: ON, then the six roles a nibble each (seq.c
@@ -263,8 +263,16 @@ static __attribute__((noinline)) uint32_t proj_any(const void *p, uint32_t n, ui
     for (k = 0; k < n; k += s) a |= ((const uint8_t *)p)[k];
     return a;
 }
-/* (BYTE ott) a track's OTT on (its DEPTH): the 'O' 'T' block, the six tracks' four values (a byte each), after 'D' 'B' */
-#define proj_ott_any(q) proj_any((q)->ott, sizeof (q)->ott, OT_N)
+/* (BYTE ott) the 'O' 'T' block, the six tracks' four values (a byte each), after 'D' 'B': (v1.1b5, as JIANT FM) written
+ * when any value is not its default (was: a DEPTH on, TIME UP/DN X-OVER lost at DEPTH 0); read, a TIME (30 .. 100) says
+ * it was there (absent: all 0, the defaults; every block of before had them too: loaded as it was) */
+#define proj_ott_any(q) proj_any(&(q)->ott[0][OT_TIME], sizeof (q)->ott - OT_TIME, OT_N)
+static __attribute__((noinline)) uint32_t proj_ott_on(const project_t *q)
+{
+    uint32_t k, a = 0;
+    for (k = 0; k < NTRK * OT_N; k++) a |= (uint32_t)((&q->ott[0][0])[k] != OTT_DESC[k % OT_N].def);
+    return a;
+}
 static __attribute__((noinline)) uint32_t proj_xm(project_t *q, const uint8_t *bc, uint32_t pos, uint32_t room)
 {
     uint8_t *b = (uint8_t *)(uintptr_t)bc;
@@ -706,7 +714,7 @@ static uint32_t proj_packed_size(const project_t *q)
     n += 10u + 2u + NTRK;
     for (i = 0; i < 8u; i++) n += str_len(q->dx_text[i]);
     n += proj_xm((project_t *)(uintptr_t)q, 0, 0, 0);   /* (V10.7.30) BALANCE, NOISE; (V10.7.33) CRUSH */
-    if (proj_ott_any(q)) n += 2u + sizeof q->ott;       /* (BYTE ott) */
+    if (proj_ott_on(q)) n += 2u + sizeof q->ott;       /* (BYTE ott) */
     return n;
 }
 static int proj_split_ok(const uint8_t *s)
@@ -968,7 +976,7 @@ static int proj_pack(project_store_t *out, const project_t *q)
     }
     b[pos++] = 'D'; b[pos++] = 'B'; b[pos++] = (uint8_t)(clamp(q->dwt, -64, 63) + 64);   /* (FEEDBK) the kit's TONE, after
                                                          * them, always (an older firmware stops before it) */
-    if (proj_ott_any(q)) {                              /* (BYTE ott) the tracks' OTT, after it (an older firmware stops
+    if (proj_ott_on(q)) {                               /* (BYTE ott) the tracks' OTT, after it (an older firmware stops
                                                          * before it) */
         b[pos++] = 'O'; b[pos++] = 'T';
         memcpy(b + pos, q->ott, sizeof q->ott);

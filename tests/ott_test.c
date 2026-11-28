@@ -204,6 +204,21 @@ int main(void)
         ck("   a project with no OTT on writes no block; loading one (as every project of before): OTT off, the defaults",
            ok && !found && ott_v[1][OT_DEPTH] == 0 && ott_v[1][OT_TIME] == 56 && ott_v[1][OT_XO] == 37);
     }
+    {   /* 6b. (v1.1b5, as JIANT FM) DEPTH 0 everywhere, a TIME UP/DN X-OVER moved: the block written, kept */
+        static project_store_t st;
+        int ok;
+        uint32_t j, found = 0;
+        ui_power_on();
+        ott_set(5, 0, 33, -40, 90);
+        project_capture(&proj_scratch);
+        ok = proj_pack(&st, &proj_scratch);
+        for (j = 68; j + 1 < PROJ_STORE_SIZE; j++) found |= st.raw[j] == 'O' && st.raw[j + 1] == 'T';
+        ui_power_on();
+        ok = ok && proj_import(&proj_scratch, &st, sizeof st) && project_restore_runtime(&proj_scratch) == 0;
+        ck("6b. DEPTH 0, T6's TIME UP/DN X-OVER moved (33 -40 90): 'O' 'T' written, they load back, the others the defaults",
+           ok && found && ott_v[5][OT_DEPTH] == 0 && ott_v[5][OT_TIME] == 33 && ott_v[5][OT_UPDN] == -40 && ott_v[5][OT_XO] == 90 &&
+           ott_v[0][OT_TIME] == 56 && ott_v[0][OT_XO] == 37);
+    }
     {   /* 7. a user preset keeps the track's OTT; one of before loads it off */
         int ok;
         ui_power_on();
