@@ -366,6 +366,7 @@ int main(void)
         bad += check("a FUN6 project (retired) is refused (2), the slot kept",
                      put_all(5, &v6, sizeof v6, st_crc32(&v6, sizeof v6)) == 2u && !memcmp(&was, &proj_slot[3], sizeof was));
     }
+#ifdef FM6_NFACTORY                                      /* (BYTE: no FM6) */
     {   /* 1.0.3: the FM6 patch bank (id 8) is retired; (V10.6s) an older archive's bank is taken and ignored (its move
          * into the user presets is retired too), the user presets' patches are id 9 */
         static up_bank_t ub;
@@ -418,6 +419,7 @@ int main(void)
         bad += check("an id 9 of the wrong size is refused at begin (1)", put_begin(9, sizeof got - 4u, 0) == 1u);
         bad += check("an id 10 is refused (1)", put_begin(10, 0, 0) == 1u);
     }
+#endif
     memcpy(&st, &proj_slot[2], sizeof st);
     erase_error = 1;
     proj_slot[2].raw[100] ^= 1;                          /* (marks the RAM copy, to see it is kept) */
@@ -458,6 +460,45 @@ int main(void)
                      !memcmp(&proj_wire, &b, sizeof b));
         b.nslot = 3;
         bad += check("a bank with the wrong slot count is refused", put_all(7, &b, sizeof b, st_crc32(&b, sizeof b)) == 2u);
+    }
+    {   /* (BYTE v1.1b2, JIANT FM V10.8.54's) Studio's project library: PROJ_LIST / PROJ_NAME / PROJ_OP */
+        static const uint8_t cp[4] = {0, 0, 2, 0}, mv[4] = {1, 2, 3, 0}, del[4] = {2, 3, 0, 0}, nm[5] = {2, 0, 'N', 'E', 'W'};
+        static const uint8_t bad_op[4] = {5, 0, 1, 0}, onto[4] = {0, 1, 0, 0}, nm9[3] = {9, 0, 'X'};
+        reset();
+        trk[0].step[0] = (step_t){{60}, 1, ST_NOTE, 0, 96, 0, 0};
+        project_save_as(0, "MYSONG");
+        call(ED_PROJ_LIST, 0, 0);
+        bad += check("PROJ_LIST: rc 0, NSONG, NSONG x 15 bytes, the open project flagged",
+                     rep_n == 2u + NSONG * 15u && rep[0] == 0u && rep[1] == NSONG && (rep[2 + song_cur * 15u + 2u] & 1u) &&
+                     rep[2 + 1] == 1u && !memcmp(&rep[2 + 3], "MYSONG", 6));
+        call(ED_PROJ_OP, cp, 4);
+        bad += check("PROJ_OP COPY 1 -> 3: done", rep_n == 4u && rep[3] == 0u);
+        call(ED_PROJ_LIST, 0, 0);
+        bad += check("PROJ_LIST: project 3 has part A, named MYSONG", rep[0] == 0u && rep[1] == NSONG && rep[2 + 2u * 15u] == 2u &&
+                     rep[2 + 2u * 15u + 1u] == 1u && !memcmp(&rep[2 + 2u * 15u + 3u], "MYSONG", 6));
+        call(ED_PROJ_OP, cp, 4);
+        bad += check("PROJ_OP COPY over it again, force 0: 4 (occupied)", rep[3] == 4u);
+        call(ED_PROJ_OP, onto, 4);
+        bad += check("PROJ_OP COPY onto the open project: 1", rep_n == 4u && rep[3] == 1u);
+        call(ED_PROJ_OP, bad_op, 4);
+        bad += check("PROJ_OP 5: 1", rep_n == 4u && rep[3] == 1u);
+        call(ED_PROJ_NAME, nm9, 3);
+        bad += check("PROJ_NAME 9 0 X: 9, 0, 1", rep_n == 3u && rep[0] == 9u && rep[2] == 1u);
+        call(ED_PROJ_NAME, nm, 5);
+        bad += check("PROJ_NAME 3 A NEW: 0", rep_n == 3u && rep[2] == 0u);
+        call(ED_PROJ_LIST, 0, 0);
+        bad += check("PROJ_NAME 3 A NEW: renamed in flash", !memcmp(&rep[2 + 2u * 15u + 3u], "NEW", 4));
+        call(ED_PROJ_OP, mv, 4);
+        call(ED_PROJ_LIST, 0, 0);
+        bad += check("PROJ_OP MOVE 3 -> 4: 3 empty, 4 NEW", rep[2 + 2u * 15u + 1u] == 0u && rep[2 + 3u * 15u + 1u] == 1u &&
+                     !memcmp(&rep[2 + 3u * 15u + 3u], "NEW", 4));
+        call(ED_PROJ_OP, del, 4);
+        call(ED_PROJ_LIST, 0, 0);
+        bad += check("PROJ_OP DELETE 4: empty", rep[2 + 3u * 15u + 1u] == 0u);
+        song.playing = 1;
+        call(ED_PROJ_OP, cp, 4);
+        bad += check("playing: 3 (STOP first)", rep[3] == 3u);
+        song.playing = 0;
     }
     printf("backup test %s\n", bad ? "FAILED" : "passed");
     return bad != 0;

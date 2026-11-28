@@ -1653,6 +1653,18 @@ static void project_capture(project_t *p)
     p->sum = proj_sum(p);
 }
 
+/* p named name (0: its own name kept) and packed into proj_wire: 0 the pack failed (its message) (as JIANT FM's: SAVE's,
+ * RENAME's and the editor's PROJ_NAME one copy) */
+static __attribute__((noinline)) int proj_name_pack(project_t *p, const char *name)
+{
+    if (name) {
+        memset(p->name, 0, sizeof p->name);
+        memcpy(p->name, name, str_len(name) < PROJ_NAME_LEN ? str_len(name) : PROJ_NAME_LEN);
+    }
+    proj_wire_gen++;
+    if (!proj_pack(&proj_wire, p)) { proj_err(); return 0; }
+    return 1;
+}
 /* the music as it is now -> slot, named `name` (0: the current name; "" none); 0 saved, nonzero refused or failed.
  * The current name becomes the saved one */
 static int project_save_as(uint32_t slot, const char *name)
@@ -1663,12 +1675,7 @@ static int project_save_as(uint32_t slot, const char *name)
         return 1;
     }
     project_capture(p);
-    if (name) {
-        memset(p->name, 0, sizeof p->name);
-        memcpy(p->name, name, str_len(name) < PROJ_NAME_LEN ? str_len(name) : PROJ_NAME_LEN);
-    }
-    proj_wire_gen++;
-    if (!proj_pack(&proj_wire, p)) { proj_err(); return 2; }
+    if (!proj_name_pack(p, name)) return 2;
 
 #if FELUCCA_FLASH
     if (flash_ok && !song_draft) {
@@ -1721,10 +1728,7 @@ static int project_rename(uint32_t slot, const char *name)
         ui_message("EMPTY SLOT");
         return 1;
     }
-    memset(p->name, 0, sizeof p->name);
-    memcpy(p->name, name, str_len(name) < PROJ_NAME_LEN ? str_len(name) : PROJ_NAME_LEN);
-    proj_wire_gen++;
-    if (!proj_pack(&proj_wire, p)) { proj_err(); return 2; }
+    if (!proj_name_pack(p, name)) return 2;
 #if FELUCCA_FLASH
     if (flash_ok && st_save(proj_obj(slot), &proj_wire, sizeof proj_wire)) {
         ui_message("SAVE ERROR");

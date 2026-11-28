@@ -29,8 +29,11 @@ enum { ED_VIS_SONG = 98, ED_VIS_TICK };                              /* v6: song
 /* (V10.6z3) the protocol's version, INFO's tag 43 02 major minor: 1.0 the stability contract (web/EDITOR_PROTOCOL.md
  * "Stability contract"): from it on only additive changes; a minor for each addition, a major never (a break) */
 #define ED_PROTO_MAJOR 1u
-#define ED_PROTO_MINOR 5u   /* (V10.6z5) 1.1: VEL (81); (V10.6z6) 1.2: VEL ops 4, 5 (the keys' velocity); 1.3: INFO's 'X';
-                             * 1.4: the UI push (43, WATCH bit 5); 1.5: VIS_SONG, VIS_TICK (98, 99: WATCH bit 7) */
+#define ED_PROTO_MINOR 6u   /* (V10.6z5) 1.1: VEL (81); (V10.6z6) 1.2: VEL ops 4, 5 (the keys' velocity); 1.3: INFO's 'X';
+                             * 1.4: the UI push (43, WATCH bit 5); 1.5: VIS_SONG, VIS_TICK (98, 99: WATCH bit 7);
+                             * (BYTE v1.1b2) 1.6: JIANT Studio's, INFO 44 01 caps (ED_STUDIO_CAPS) */
+/* (1.6) INFO 'D' 44 01 caps, a bit each: 0 the project library (PROJ_LIST / PROJ_NAME / PROJ_OP, 95..97) */
+#define ED_STUDIO_CAPS 1u
 enum { ED_VM_READ = 80 };   /* (V10.10) read-only: 256 B of the stock VM (0xE7000 + 256 x a[0], a[0] < 48: the radio's
                               * RF trims and BT address, web/btcheck.html); reply: a[0], then 256 x (hi nibble, lo nibble) */
 /* (V10.6z5, 1.1) the velocity diagnostic (vel_diag.c, web/vel.html): op 0 status, 1 on (drive 0..4), 2 off, 3 the next
@@ -562,6 +565,9 @@ static __attribute__((noinline)) int ed_args_ok(uint32_t cmd, const uint8_t *a, 
                a[0] < NTRK;
     case ED_SONG:
         return n && (a[0] == 1u || n == 1u);
+    case ED_PROJ_LIST: case ED_PROJ_NAME: case ED_PROJ_OP:
+        return 1;                                  /* (1.6) validated in ed_pj_handle: a malformed one answers rc 1, as
+                                                    * JIANT FM's */
     default:
         return 1;                                  /* variable payloads validate in their handler */
     }
@@ -629,6 +635,7 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         ed_b(0x58); ed_b(1); ed_b(bt_hw_seg() ? 1u : 2u);   /* (1.3) 'X': the Bluetooth segment (flash 0xEA000: GEN, the
                                                          * songs' saving, ...): 1 this build's, 2 missing, torn or another
                                                          * build's (the web installer checks it after an update) */
+        ed_b(0x44); ed_b(1); ed_b(ED_STUDIO_CAPS);   /* (1.6) 'D': JIANT Studio's additions (ED_STUDIO_CAPS) */
         ed_b(0x43); ed_b(2); ed_b(ED_PROTO_MAJOR); ed_b(ED_PROTO_MINOR);   /* (V10.6z3) 'C': the protocol's version (the
                                                          * stability contract); before 'Y', which the web editor reads last */
         ed_b(0x59); ed_b(1); ed_b(LYR_LEN - 1u);   /* (JIANT 0.8.5) 'Y': LYRIC (cmd 39), a track's lyric, at most 63 bytes */

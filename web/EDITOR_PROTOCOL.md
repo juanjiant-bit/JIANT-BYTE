@@ -171,6 +171,7 @@ regenerated from `params.c` and compared.
 | 1.3 | V10.7.22 | `INFO` tag `58 01 s`: the Bluetooth segment (below); `INFO` tag `43 02 01 03` |
 | 1.4 | JIANT BYTE v0.16 | `WATCH` bit 5 and the push `UI` (43): what the screen shows, for JIANT Studio's live guide (below; JIANT FM: the same number, bit and bytes); `INFO` tag `43 02 01 04` |
 | 1.5 | JIANT BYTE v0.16 (visgen) | `WATCH` bit 7 (a second byte, its bit 0) and the pushes `VIS_SONG` (98) and `VIS_TICK` (99): HOME > VIS's song and the music for JIANT Studio's visuals (below, `docs/VISGEN.md`); MENU id 33 SAVER, 34 PANEL; `INFO` tag `43 02 01 05`. JIANT BYTE v1.0 is built without the visual generator (`FELUCCA_VIS` 0): it reports 1.5, answers `WATCH`'s second byte 0 (VIS not taken), sends no `VIS_SONG` / `VIS_TICK` and offers no SAVER (PANEL is index 33) |
+| 1.6 | JIANT BYTE v1.1b2 | JIANT Studio's: `INFO` tag `44 01 caps` (below, "1.6: JIANT Studio"); bit 0 the project library `PROJ_LIST` (95), `PROJ_NAME` (96), `PROJ_OP` (97), as JIANT FM V10.8.54's (same bytes and rc); `INFO` tag `43 02 01 06` |
 
 ## 1.0: performance pushes (40-42)
 
@@ -235,6 +236,33 @@ ask again with one byte. Asking for it anew sends `VIS_SONG` first. The recipe S
   of its range) changed), `root` (the chord playing, 0..11, C 0: SCL > HARMONY's,
   else the key's), `quality` (0 MAJ, 1 MIN, 2 DIM, 3 AUG, 4 SUS), `step` (0..63). 25 a second (every 40 ms) while
   playing; none stopped.
+
+## 1.6: JIANT Studio (INFO 'D')
+
+`INFO` advertises `44 01 caps` right before the version tag (`43 02 01 06`): a bit for each of JIANT Studio's
+additions this firmware has. Firmware without the tag has none of them (a request for one gets no reply, or the reply
+of before).
+
+| bit | addition |
+| --- | --- |
+| 0 | the project library: `PROJ_LIST` (95), `PROJ_NAME` (96), `PROJ_OP` (97) |
+
+### Project library (95-97, bit 0)
+
+The same requests, bytes and rc as JIANT FM V10.8.54 (`editor_backup.c` `ed_pj_handle`). A project is one of the 6
+songs (n 0..5), each with its parts A..D (backup ids 40 + 4n + k; the name is part A's).
+
+| cmd | Request args | Reply args |
+| --- | --- | --- |
+| 95 PROJ_LIST | — | 0, NSONG (6), then NSONG × (n, parts, flags, name[12]): parts bit k = part A..D stored; flags bit 0 the open project, bit 1 a GEN draft (unsaved); name: part A's, ASCII 0-padded (all 0: none). 2 + 6 × 15 = 92 bytes |
+| 96 PROJ_NAME | n, part 0..3, ASCII (0..12 bytes) | n, part, rc: that part's name (part A's is the project's), written in flash at once; the open project's in RAM too |
+| 97 PROJ_OP | op, from, to, force | op, from, to, rc. op 0 COPY (`from` → `to`: the four parts and its rows, scenes, sources and variations in the song index), 1 MOVE (a COPY, then `from` deleted; never the open project), 2 DELETE (`from`; `to` ignored). COPY / MOVE never onto the open project nor while it is a GEN draft; an occupied `to` only with force 1 (back it up first with `BACKUP_GET`) |
+
+rc: 0 done, 1 refused (a bad request: its length, n, part, op; the open project as the target or moved; an empty
+part to rename), 2 the flash failed (the target as it was) or no flash / no Bluetooth segment, 3 playing (STOP first:
+these write flash and never stop the transport themselves), 4 the target holds a project (force 0). A malformed
+request still answers (rc 1, its bytes 127 where they were missing). Each write takes up to ~2 s (4 parts and the
+index for a COPY). The library on the device (SAVE > LIBRARY) shows the change at once.
 
 ## 1.1: the velocity diagnostic (81)
 
@@ -401,7 +429,7 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 
 | cmd | Request args | Reply args |
 | --- | --- | --- |
-| 1 INFO | — | version string, NENGINES, P_COUNT, G_COUNT, NSTEP, P_E0, then NENGINES engine-name strings, then (v3) NTRK (6 since JIANT 0.6, 4 before), then (v6) CHAIN_ROWS (16), then the tagged blocks `55 01 uiCaps`, `4D 01 64 01`, `42 01 3`, `46 01 nfactory nbank`, `53 01 3`, (1.0.3) `50 01 3` and (1.0.4) `4E 01 count` (MENU settings; 12, 1.1: 15, 1.2: 17, 1.1.5: 18) and (1.0.5) `52 01 4` (ratchet) and (1.1) `4C 01 1` (parameter locks) and (JIANT 0.6.11) `56 01 32` (FM6's voice bank) and (JIANT 0.6.62) `4A 01 1` (JIANT) and (JIANT 0.8.5) `4F 01 7` (DRUM lane modes) (below), (1.3) `58 01 s` (the Bluetooth segment: "INFO 'X'" below), (JIANT 0.8.5) `59 01 63` (LYRIC, always the last tag) and, just before it, (1.0) `43 02 major minor`: the protocol's version (see "Stability contract (1.0)"); older firmware ends earlier |
+| 1 INFO | — | version string, NENGINES, P_COUNT, G_COUNT, NSTEP, P_E0, then NENGINES engine-name strings, then (v3) NTRK (6 since JIANT 0.6, 4 before), then (v6) CHAIN_ROWS (16), then the tagged blocks `55 01 uiCaps`, `4D 01 64 01`, `42 01 3`, `46 01 nfactory nbank`, `53 01 3`, (1.0.3) `50 01 3` and (1.0.4) `4E 01 count` (MENU settings; 12, 1.1: 15, 1.2: 17, 1.1.5: 18) and (1.0.5) `52 01 4` (ratchet) and (1.1) `4C 01 1` (parameter locks) and (JIANT 0.6.11) `56 01 32` (FM6's voice bank) and (JIANT 0.6.62) `4A 01 1` (JIANT) and (JIANT 0.8.5) `4F 01 7` (DRUM lane modes) (below), (1.3) `58 01 s` (the Bluetooth segment: "INFO 'X'" below), (1.6) `44 01 caps` (JIANT Studio's additions: "1.6: JIANT Studio" below), (JIANT 0.8.5) `59 01 63` (LYRIC, always the last tag) and, just before it, (1.0) `43 02 major minor`: the protocol's version (see "Stability contract (1.0)"); older firmware ends earlier |
 | 2 GET | scope, id | scope, id, v14 |
 | 3 SET | scope, id, v14 | scope, id, v14 (the value after clamping). Setting global `G_ENGSEL` (id from DESC label "ENG") changes the engine: its defaults, then its first preset (as on the device) |
 | 4 DUMP | — | engine, preset, then P_COUNT × v14 (the selected track), then G_COUNT × v14 (globals) |
@@ -451,6 +479,9 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 | 65 BACKUP_LIST | — | 1, rc, count (35 since V10.6p, 6 songs; 43 with 8 songs; 10 before JIANT 0.3), then per object: id, size u32, crc u32 |
 | 66 BACKUP_GET | id, offset u32, count lo, count hi (≤ 256) | id, rc, offset u32, count lo, count hi, pack7 data |
 | 67 BACKUP_PUT | op 0 begin: 0, id, size u32, crc u32; op 1 data: 1, id, offset u32, pack7 data; op 2 commit: 2, id; op 3 abort: 3, id | op, id, rc |
+| 95 PROJ_LIST (1.6) | — | 0, NSONG, NSONG × (n, parts, flags, name[12]) ("1.6: JIANT Studio") |
+| 96 PROJ_NAME (1.6) | n, part, ASCII ≤ 12 | n, part, rc |
+| 97 PROJ_OP (1.6) | op (0 COPY, 1 MOVE, 2 DELETE), from, to, force | op, from, to, rc |
 
 **pack7:** groups of up to 7 bytes, each preceded by one byte holding their top bits
 (bit j = bit 7 of byte j). A mask must have at least one following data byte;
