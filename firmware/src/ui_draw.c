@@ -948,7 +948,7 @@ static void draw_tabs(void)
                    n * 7919u + (song.sel + 1u) * 101u * (head_trk + 1u);
     for (k = 0; k < n; k++)
         sig = (sig ^ str_hash(cnt[k], nm[k])) * 16777619u;
-    if (!ui.force && sig == drawn)
+    if (dw_full() || (!ui.force && sig == drawn))
         return;
     drawn = sig;
     k = tab_first(n, lv);                               /* (more than TAB_SHOWN groups: those round the one lit) */
@@ -1362,6 +1362,8 @@ static void draw_columns(void)
     uint32_t c;
     char val[12];
     const char *unit;
+    if (dw_full())                                      /* (DRUM-W's PLAY: its knobs at the radar's foot) */
+        return;
     (void)motion_mask(song.sel, card_mot_mask);       /* (PLAY OFF: no scan) */
     if (home_macros()) {                                /* (0.8.5) HOME's MACROS: M1..M4, 0..100 % (V10.7.24: dim without a
                                                          * route, as the MACRO layer's) */

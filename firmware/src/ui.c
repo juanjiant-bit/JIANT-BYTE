@@ -618,6 +618,17 @@ static int lens_on(void);
 static uint32_t lz_on(void);
 static uint32_t lz_fam(void);
 static int name_on(void);                       /* (ui_name.c) */
+/* (BYTE v1.1b5, the owner's mock-up drumw.html A) DRUM-W's PLAY (its only GR_DXSND page named P..): no cards, no tabs,
+ * the panel the page from the header to the footer (ui_dx.c dw_play_panel: the radar, the four knobs at its foot); a
+ * layer, the menu, NAME: their own layout */
+#define DWF_Y 24u
+static uint32_t ly_drawn(void);
+static uint8_t mac_latch;
+static int dw_full(void)
+{
+    const page_t *pg = cur_page();
+    return !ui.home && !page_over && !ui.menu && !ly_drawn() && !mac_latch && !name_on() && pg->graph == GR_DXSND && pg->title[0] == 'P';
+}
 static uint32_t large_kind(void)
 {
     uint32_t g;
@@ -631,23 +642,25 @@ static uint32_t large_kind(void)
         return LK_LABEL;
     if (ui.home)
         return LK_TALL;
+    if (dw_full())                                      /* (DRUM-W's PLAY: its radar the page, LARGE or not) */
+        return LK_LABEL;
     g = cur_page()->graph;
     return g == GR_BROWSE || g == GR_SLOTS || g == GR_USER || g == GR_PATS || g == GR_SONG || g == GR_ROLL ||
            g == GR_CHANCE || g == GR_COMP || g == GR_EVENTS || g == GR_LYRIC || g == GR_LIVE ? LK_LABEL : LK_TALL;
 }
 /* the geometry of the page shown: the cards' height, the panel's top and height. (0.8.5) A lens page (lz_on): the
  * mock-up's (LZ_*), under its level tabs; a layer's map over it: the usual layout */
-static uint32_t card_y(void) { return lz_on() ? LZ_CARD_Y : Y_LABEL; }
+static uint32_t card_y(void) { return dw_full() ? DWF_Y : lz_on() ? LZ_CARD_Y : Y_LABEL; }
 static uint32_t foot_y(void) { return lz_on() ? LZ_FOOT_Y : Y_FOOT; }
 static uint32_t foot_h(void) { return lz_on() ? LZ_FOOT_H : H_FOOT; }
-static uint32_t card_h(void) { return large_kind() == LK_TALL ? LG_CARD_H : lz_on() ? LZ_CARD_H : CARD_H; }
+static uint32_t card_h(void) { return dw_full() ? 0u : large_kind() == LK_TALL ? LG_CARD_H : lz_on() ? LZ_CARD_H : CARD_H; }
 static uint32_t graph_y(void)
 {
-    return large_kind() == LK_TALL ? (lz_on() ? LZ_LG_Y_GRAPH : LG_Y_GRAPH) : lz_on() ? LZ_GRAPH_Y : Y_GRAPH;
+    return dw_full() ? DWF_Y : large_kind() == LK_TALL ? (lz_on() ? LZ_LG_Y_GRAPH : LG_Y_GRAPH) : lz_on() ? LZ_GRAPH_Y : Y_GRAPH;
 }
 static uint32_t graph_h(void)
 {
-    return large_kind() == LK_TALL ? LG_H_GRAPH : lz_on() ? LZ_GRAPH_H : H_GRAPH;
+    return dw_full() ? LZ_FOOT_Y - DWF_Y : large_kind() == LK_TALL ? LG_H_GRAPH : lz_on() ? LZ_GRAPH_H : H_GRAPH;
 }
 static int face_has(const aafont_t *f, const char *s)   /* every glyph of s in a sparse face (L; V, the figures') */
 {
@@ -2125,6 +2138,7 @@ static void dx_knob(const page_t *pg, uint32_t k, int32_t s);
 static void dx_cards(const page_t *pg);
 static void dw_panel(void);
 static void dw_panel2(uint32_t pn);
+static uint16_t dw_glow(void);                        /* (ui_dx.c) DRUM-W's PLAY: its pads' glow, the panel's ground */
 static void dx_kit3_knob(uint32_t k, int32_t s);      /* (0.6.54) KIT 3: TONE's BP, FEEDBK */
 static void sw_ui_knob(const page_t *pg, uint32_t k, int32_t s);   /* (V10.6z6) EDIT > SWARM, SWARM 2 */
 static void sw_ui_cards_bt(const page_t *pg);

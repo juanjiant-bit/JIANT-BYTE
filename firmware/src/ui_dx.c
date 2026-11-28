@@ -192,9 +192,11 @@ static void dw_mod_box(const dw_lane_t *D, int lfo, int32_t x, int32_t y, int32_
     }
     cv_line(x + 1, y + 17, x + 65, y + 17, ux_mix(T_SURF, T_DIM, 60));
 }
+static const char *const DW_PAD[] = {"KICK", "SNARE", "CLAP", "HAT C", "HAT O", "TOM", "RIM", "BELL"};
+static const char *const DW_LP[8] = {"FEEDBK", "MORPH", "DECAY", "STRIKE", "ATTACK", "FOLD", "GAIN", "CUTOFF"};   /* (PLAY's: the kit's, DW_PL) */
+static const uint8_t DW_PL[4] = {P_E2, P_E0, P_E3, P_E5}, DW_CO[4] = {P_E1, P_E6, P_E7, P_FCUT};
 static void dw_panel(void)
 {
-    static const char *const PAD[8] = {"KICK", "SNARE", "CLAP", "HAT C", "HAT O", "TOM", "RIM", "BELL"};
     uint32_t ln = dx_ui_lane & 7u, k, pn = dx_pagen(cur_page());
     const dw_lane_t *D = &dw_kit[ln];
     int16_t m[DW_N + 1u];
@@ -202,7 +204,7 @@ static void dw_panel(void)
     int32_t sp = on ? (lv & 0x7FFF) : p0;
     int32_t se = D->edst == DWD_POSA || D->edst == DWD_POS ? clamp(p0 + ((int32_t)D->eamt - 64) * 12, 0, top) : p0;
     int32_t x0 = 8, y0 = 88, dx = 10, dy = 12, w = 104, a = 12;
-    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, PAD[ln], T_ACCENT);
+    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, DW_PAD[ln], T_ACCENT);
     cv_text(60, 4 - AF_S_CAP_Y, &AF_S, N_WAVEF[D->ta & 15u], T_TEXT);
     for (k = DW_FR; k-- > 0;) {                          /* the frames, the far one first */
         int32_t ox = x0 + (int32_t)k * dx, oy = y0 - (int32_t)k * dy;
@@ -248,8 +250,7 @@ static void dw_panel(void)
 enum { DWP_PLAY = 20, DWP_WAVE, DWP_SHAPE, DWP_MOVE, DWP_BODY, DWP_NOISE, DWP_COLOR, DWP_MIX };
 static const uint8_t DW_TYPE[10][2] = {{DWN_WHITE, DXF_HP}, {DWN_WHITE, DXF_BP}, {DWN_WHITE, DXF_LP}, {DWN_PINK, DXF_BP}, {DWN_PINK, DXF_LP},
                                        {DWN_BROWN, DXF_LP}, {DWN_VIOLET, DXF_HP}, {DWN_VIOLET, DXF_BP}, {DWN_RESON, DXF_BP}, {DWN_RESON, DXF_HP}};
-static const char *const N_DWTY[10] = {"WHT HP", "WHT BP", "WHT LP", "PNK BP", "PNK LP", "BRN LP", "VIO HP", "VIO BP", "RES BP", "RES HP"};
-static const char *const DW_PAD[8] = {"KICK", "SNARE", "CLAP", "HAT C", "HAT O", "TOM", "RIM", "BELL"};
+static const char *const N_DWTY[] = {"WHT HP", "WHT BP", "WHT LP", "PNK BP", "PNK LP", "BRN LP", "VIO HP", "VIO BP", "RES BP", "RES HP"};
 static uint32_t dw_side(void) { return TSEL->p[P_E0] >= 64; }   /* (the patch sounding) */
 static uint32_t dw_type_ix(const dx_lane_t *L, const dw_lane_t *D)
 {
@@ -265,8 +266,7 @@ static void dw_knob(uint32_t pn, uint32_t k, int32_t s)
     int32_t st = s > 0 ? 1 : -1, ac = accel(EN_K1 + k, s, 127);
     int16_t *p = TSEL->p;
     if (pn == DWP_PLAY || pn == DWP_COLOR) {            /* (the kit's: the engine's own) */
-        static const uint8_t PL[4] = {P_E2, P_E0, P_E3, P_E5}, CO[4] = {P_E1, P_E6, P_E7, P_FCUT};
-        uint32_t id = (pn == DWP_PLAY ? PL : CO)[k & 3u];
+        uint32_t id = (pn == DWP_PLAY ? DW_PL : DW_CO)[k & 3u];
         p[id] = (int16_t)clamp(p[id] + ac, 0, 127);
         return;
     }
@@ -309,13 +309,11 @@ static void dw_cards(uint32_t pn)
     char val[12], ln[8];
     uint32_t sd = (pn == DWP_BODY || pn == DWP_NOISE);
     if (pn == DWP_PLAY || pn == DWP_COLOR) {
-        static const char *const LP[4] = {"FEEDBK", "MORPH", "DECAY", "STRIKE"}, *const LC[4] = {"ATTACK", "FOLD", "GAIN", "CUTOFF"};
-        static const uint8_t PL[4] = {P_E2, P_E0, P_E3, P_E5}, CO[4] = {P_E1, P_E6, P_E7, P_FCUT};
         uint32_t c;
         for (c = 0; c < 4u; c++) {
-            uint32_t id = (pn == DWP_PLAY ? PL : CO)[c];
+            uint32_t id = (pn == DWP_PLAY ? DW_PL : DW_CO)[c];
             fmt_int(val, p[id]);
-            hot_gauge_column(c, (pn == DWP_PLAY ? LP : LC)[c], val, p[id] * 1000 / 127);
+            hot_gauge_column(c, DW_LP[c + (pn == DWP_PLAY ? 0u : 4u)], val, p[id] * 1000 / 127);
         }
         return;
     }
@@ -362,65 +360,106 @@ static void dw_frame_now(uint32_t ln, int16_t *m)
     int32_t top = (int32_t)(DW_FR - 1u) * 256, lv = dw_live[ln];
     dw_frame(m, D->ta & 15u, (lv & 0x8000) ? (lv & 0x7FFF) : D->pos * top / 127);
 }
-/* PLAY: the eight pads as eight living tables, each lit as it sounds */
-/* (BYTE, the owner's references: RADAR) PLAY: the kit a radar, each pad a sector, its table's frame now drawn round
- * in it; a hit lights its sector (the track's colour) and a ring falls from the rim to the middle; a yellow sweep on the
- * step; each pad's tag at the rim (lit yellow on its hit, the one edited white); beside, the step and each pad's level */
-static uint32_t dw_hit_ms[8];
+/* (BYTE v1.1b5, the owner's mock-up drumw.html A "RADAR VIVO") PLAY: the kit a live radar, the whole page (ui.c
+ * dw_full). Each pad a ray in its colour, stretched by its glow (a hit: half and its velocity, by its LEVEL; ~0.9 a 15 ms tick
+ * after), a dot at its tip, a ring from the middle out as it fades, its name at the rim lit while it glows; the tips
+ * joined, filled in the loudest pad's colour, outlined white; the kick swells it all and tints the ground in the
+ * loudest's colour, the snare a short white flash; the whole turning slowly. The hits: drum_kit's ages (eng_drum.c,
+ * read here: nothing added to the audio); the four knobs as tags at its foot */
+static const uint16_t DW_PC[8] = {0xF9D6, 0xFC47, 0xEF8B, 0x7FF3, 0x3E9F, 0x2B7F, 0xA47F, 0xFACB};
+static uint8_t dw_e[8], dw_ag[8], dw_tk, dw_ld;
+static uint16_t dw_bg;
+static uint16_t dw_glow(void)                         /* (once a tick: the same tick's bands, the ground, the same) */
+{
+    const drum_lane_t *L = drum_kit[song.sel % NTRK];
+    uint32_t k, i, e, m = 0, n = (uint8_t)(anim_fr - dw_tk);
+    if (!n)
+        return dw_bg;
+    dw_tk = (uint8_t)anim_fr;
+    for (k = 0; k < 8u; k++, L++) {
+        uint32_t h = (128u + L->x.sv) * (uint32_t)(TSEL->p[P_LN0 + k] + 128) >> 8;
+        for (e = dw_e[k], i = n < 40u ? n : 40u; i--;) e = e * 230u >> 8;
+        if (L->age < dw_ag[k] && h > e) e = h;
+        dw_ag[k] = L->age; dw_e[k] = (uint8_t)e;
+        if (e > dw_e[m]) m = k;
+    }
+    dw_ld = (uint8_t)m;
+    return dw_bg = ux_mix(ux_mix(T_BG, DW_PC[m], 10 + (dw_e[0] * 35 >> 8)), 0xFFFFu, dw_e[1] * dw_e[1] * 60 >> 16);   /* (the
+                                                         * snare's flash: its glow squared, ~0.8 a tick) */
+}
+static void dw_thick(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c, int32_t th)   /* across its run */
+{
+    int32_t t, h = (x1 - x0) * (x1 - x0) > (y1 - y0) * (y1 - y0);
+    for (t = -th / 2; t < th - th / 2; t++)
+        cv_line(x0 + (h ? 0 : t), y0 + (h ? t : 0), x1 + (h ? 0 : t), y1 + (h ? t : 0), c);
+}
+static void dw_round(int32_t r, uint16_t c, int32_t th)   /* a circle round the radar's middle (120, 88) */
+{
+    int32_t px = 0, py = 0;
+    uint32_t i;
+    for (i = 0; i <= 32u; i++) {
+        int32_t x = 120 + (r * og_cos(i * 2048u) >> 15), y = 88 + (r * og_sin(i * 2048u) >> 15);
+        if (i) dw_thick(px, py, x, y, c, th);
+        px = x; py = y;
+    }
+}
+static void dw_tri(const int32_t *p, uint16_t c)     /* p: three points' x, y; the band's rows only */
+{
+    int32_t y, e, y0 = p[1], y1 = p[1];
+    for (e = 3; e < 6; e += 2) { y0 = p[e] < y0 ? p[e] : y0; y1 = p[e] > y1 ? p[e] : y1; }
+    y0 = y0 < cv_by ? cv_by : y0;
+    y1 = y1 >= cv_by + (int32_t)cv_bh ? cv_by + (int32_t)cv_bh - 1 : y1;
+    for (y = y0; y <= y1; y++) {
+        int32_t lo = 999, hi = -999;
+        for (e = 0; e < 6; e += 2) {
+            int32_t ax = p[e], ay = p[e + 1], bx = p[(e + 2) % 6], by = p[(e + 3) % 6], x;
+            if ((y < ay && y < by) || (y > ay && y > by)) continue;
+            x = ay == by ? ax : ax + (y - ay) * (bx - ax) / (by - ay);
+            lo = x < lo ? x : lo; hi = x > hi ? x : hi;
+            if (ay == by) { lo = bx < lo ? bx : lo; hi = bx > hi ? bx : hi; }
+        }
+        if (hi >= lo) cv_rect(lo, y, hi - lo + 1, 1, c);
+    }
+}
 static void dw_play_panel(void)
 {
-    uint32_t k, i, sel = dx_ui_lane & 7u;
-    int16_t m[DW_N + 1u];
-    int32_t cx = 70, cy = 60, R = 52, r;
-    uint16_t tc = TRK_COL[song.sel % 6u], bl = 0x29FFu, ye = 0xEF8Bu;
-    char b[12];
-    for (r = 13; r <= R; r += 13)                        /* the range rings, dotted */
-        for (i = 0; i < 64u; i += 2u)
-            cv_pset(cx + (r * og_cos(i * 1024u) >> 15), cy + (r * og_sin(i * 1024u) >> 15), r == R ? T_DIM : T_LINE);
-    for (k = 0; k < 8u; k++) {
-        uint32_t a0 = k * 8192u - 16384u, age;
-        int on = (dw_live[k] & 0x8000) != 0, lit;
-        int32_t px = 0, py = 0;
-        if (on && fm1_ms - dw_hit_ms[k] > 300u && !(dw_hit_ms[k] & 1u)) dw_hit_ms[k] = fm1_ms | 1u;   /* (a new hit) */
-        if (!on) dw_hit_ms[k] &= ~1u;
-        age = fm1_ms - (dw_hit_ms[k] & ~1u);
-        lit = on && age < 300u;
-        cv_line(cx, cy, cx + (R * og_cos(a0) >> 15), cy + (R * og_sin(a0) >> 15), lit ? tc : ux_mix(T_BG, bl, 30));
-        dw_frame_now(k, m);
-        for (i = 0; i <= 24u; i++) {                     /* its frame, round in its sector */
-            uint32_t a = a0 + i * 8192u / 24u;
-            int32_t v = m[i * DW_N / 24u], rr = 18 + (R - 22) * (16384 + v * 13 / 32) / 32768;
-            int32_t x = cx + (rr * og_cos(a) >> 15), y = cy + (rr * og_sin(a) >> 15);
-            if (i) cv_line(px, py, x, y, lit ? tc : k == sel ? T_TEXT : bl);
-            px = x; py = y;
-        }
-        if (lit) {                                       /* the ring falling in */
-            int32_t rr = R - (int32_t)age * (R - 12) / 300;
-            for (i = 0; i <= 8u; i++)
-                cv_pset(cx + (rr * og_cos(a0 + i * 1024u) >> 15), cy + (rr * og_sin(a0 + i * 1024u) >> 15), ye);
-        }
-        {   /* its tag at the rim */
-            uint32_t am = a0 + 4096u;
-            int32_t tx = cx + ((R + 9) * og_cos(am) >> 15), ty = cy + ((R + 7) * og_sin(am) >> 15), tw;
-            const char *nm = DX_LANE_ABBR[k];
-            uint16_t bg = lit ? ye : k == sel ? T_TEXT : bl, fg = lit || k == sel ? 0x0000u : T_TEXT;
-            tw = text_w(&AF_X, nm) + 4;
-            tx = clamp(tx - tw / 2, 0, 150 - tw); ty = clamp(ty - 5, 0, 110);
-            hud_tag(tx, ty, nm, fg, bg);
-        }
-        {   /* beside: its level (the hit's, falling) */
-            int32_t lv = on ? 56 - (int32_t)(age > 600u ? 600u : age) * 56 / 600 : 0, y = 30 + (int32_t)k * 11;
-            cv_rect(152, y, 56, 6, T_SURF);
-            if (lv > 0) cv_rect(152, y, lv, 6, lit ? tc : bl);
-            cv_text(212, y - 2 - AF_X_CAP_Y + 1, &AF_X, DX_LANE_ABBR[k], k == sel ? T_TEXT : T_DIM);
-        }
+    int32_t R = 74 + (dw_e[0] * 22 >> 8), tx[9], ty[9], k, t[6] = {120, 88};
+    uint32_t rot = (uint32_t)anim_fr * 47u;
+    uint16_t bg = dw_glow();
+    char v[8];
+    for (k = 1; k <= 3; k++)                             /* the range */
+        dw_round(R * k / 3, ux_mix(bg, T_TEXT, 12), 1);
+    for (k = 0; k < 8; k++) {
+        uint32_t a = (uint32_t)k * 8192u - 16384u + rot;
+        int32_t l = (R * (64 + (dw_e[k] * 270 >> 8)) >> 8) + 4;
+        if (dw_e[k] > 20u)                               /* a ring out from the middle as it fades */
+            dw_round(20 + (255 - dw_e[k]) * 2 / 3, ux_mix(bg, DW_PC[k], dw_e[k] * 100 >> 8), 2 + dw_e[k] / 64);
+        tx[k] = 120 + (l * og_cos(a) >> 15); ty[k] = 88 + (l * og_sin(a) >> 15);   /* its tip */
     }
-    {   /* the sweep: on the step */
-        uint32_t st = (uint32_t)TSEL->seq_idx & 15u, a = st * 4096u - 16384u;
-        cv_line(cx, cy, cx + (R * og_cos(a) >> 15), cy + (R * og_sin(a) >> 15), ye);
-        str_cpy(b, "STEP ", sizeof b);
-        b[5] = (char)('0' + (st + 1u) / 10u); b[6] = (char)('0' + (st + 1u) % 10u); b[7] = 0;
-        cv_text(152, 6 - AF_X_CAP_Y, &AF_X, b, ye);
+    tx[8] = tx[0]; ty[8] = ty[0];
+    for (k = 0; k < 8; k++) {                            /* the tips joined, filled in the loudest's colour */
+        t[2] = tx[k]; t[3] = ty[k]; t[4] = tx[k + 1]; t[5] = ty[k + 1];
+        dw_tri(t, ux_mix(bg, DW_PC[dw_ld], 35 + (dw_e[dw_ld] * 40 >> 8)));
+    }
+    for (k = 0; k < 8; k++) {                            /* the rays, their dots */
+        uint16_t c = ux_mix(bg, DW_PC[k], 50 + (dw_e[k] * 50 >> 8));
+        int32_t r = 2 + (dw_e[k] * 6 >> 8);       /* (cv_rrect: r <= 8) */
+        dw_thick(120, 88, tx[k], ty[k], c, 2 + dw_e[k] / 28);
+        cv_rrect(tx[k] - r, ty[k] - r, 2 * r + 1, 2 * r + 1, r, c, bg);
+    }
+    for (k = 0; k < 8; k++)                              /* the outline, white; the names over it */
+        dw_thick(tx[k], ty[k], tx[k + 1], ty[k + 1], 0xFFFFu, 2);
+    for (k = 0; k < 8; k++) {                            /* the names at the rim: a tag in its colour while it glows */
+        uint32_t a = (uint32_t)k * 8192u - 16384u + rot, on = dw_e[k] > 76u;
+        const char *nm = DW_PAD[(uint32_t)k];
+        hud_tag(118 + (88 * og_cos(a) >> 15) - text_w(&AF_X, nm) / 2, 83 + (80 * og_sin(a) >> 15), nm,
+                on ? 0x0000u : ux_mix(bg, T_TEXT, 35), on ? DW_PC[k] : bg);
+    }
+    for (k = 0; k < 4; k++) {                            /* the knobs: FEEDBK MORPH DECAY STRIKE */
+        int32_t x = 4 + k * 59, hot = ui.hot_t && ui.hot_col == (uint32_t)k;
+        hud_tag(x, 176, DW_LP[k], hot ? 0x0000u : T_TEXT, hot ? TRK_COL[song.sel % 6u] : 0x29FFu);
+        fmt_int(v, TSEL->p[DW_PL[k]]);
+        cv_text_on(x + 2, 190 - AF_S_CAP_Y, &AF_S, v, T_TEXT, bg);
     }
 }
 /* SHAPE: one turn of A and B joined by the STRUCT, as the voice joins them (B at its RATIO) */

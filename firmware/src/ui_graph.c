@@ -1857,7 +1857,7 @@ static void draw_graph(void)
         gr_ms = fm1_ms;
     }
     ui.graph_sig = sig;
-    CV_BANDS(240, graph_h(), T_BG) {                  /* (devcpu3) in bands: the panel's picture drawn for each */
+    CV_BANDS(240, graph_h(), dw_full() ? dw_glow() : T_BG) {                  /* (devcpu3) in bands: the panel's picture drawn for each */
         surf = ux.surf;                                  /* no panel box in any skin: the picture on the background, as AIR's
                                                           * (COLORS had a rounded SURF panel, 4 .. 236). What the panel's
                                                           * inside clears and writes on T_SURF lands on the background */
