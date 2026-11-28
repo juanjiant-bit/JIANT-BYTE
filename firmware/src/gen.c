@@ -3148,6 +3148,34 @@ BTAPP_FN static void gen_pick(void)
 static struct { uint16_t h[8], s[4]; uint8_t at, thrown, sat; } gsr __attribute__((section(".bss.dice")));   /* (the genre in
                                                          * h; V10.7.2: s the last four seeds thrown) */
 #include "gen_loop.c"
+/* (BYTE v1.1b5, the owner) OTT (params.c ott_v) on the electronic genres' tracks, from the seed alone (no gr(): the piece's
+ * streams as they were): the drums and the bass DEPTH 40 .. 60, the lead, the arp and the texture half the throws 60 .. 80,
+ * the chords off; the drums and the bass UP/DN -48 (mostly downward); TIME a little faster on the drums, slower on
+ * the bass, its X-OVER lower. The others (and EXPLORE:
+ * gi NGENRE) off, gen_clean's. GOTT_G: the genres by their place in GENRE (ott_test checks the names) MINIMAL TECHNO,
+ * HARD TECHNO, HARD BASS, HOUSE, DEEP HOUSE, TECH HOUSE, TRIBAL, ELECTRO, BREAKBEAT, DRUM & BASS, IDM GLITCH, EBM, PHONK */
+#define GOTT_G 0x823C7Fu
+static __attribute__((noinline)) void gen_ott(void)
+{
+    uint32_t k, h = gp.seed * 2654435761u + gs.gi;
+    int8_t v[OT_N];
+    if (!((GOTT_G >> gs.gi) & 1u))
+        return;
+    for (k = 0; k < NTRK; k++) {
+        uint32_t r = gs.role[k], x;
+        h = h * 1103515245u + 12345u;
+        x = h >> 16;
+        if (!gs.act[r] || r == RL_PAD || (r == RL_TEX && k != gs.trk_of[RL_TEX]) || (r > RL_BASS && (x & 1u)))
+            continue;
+        v[OT_DEPTH] = (int8_t)((r > RL_BASS ? 60u : 40u) + x / 2u % 21u);
+        v[OT_TIME] = (int8_t)(r == RL_DRUM ? 48 : r == RL_BASS ? 66 : 56);
+        v[OT_UPDN] = (int8_t)(r > RL_BASS ? 0 : -48);   /* (the drums and the bass a quarter of the upward: their
+                                                         * onsets after a gap not boosted into the clip, the bass under
+                                                         * the drums: gen_radio_test) */
+        v[OT_XO] = (int8_t)(r == RL_BASS ? 28 : r == RL_DRUM ? 37 : 46);
+        ott_put(k, v);
+    }
+}
 /* (BYTE 0.17) in the Bluetooth segment (BTAPP_FN, as gen_pick: the image full); its one caller gen_go asks bt_hw_seg()
  * first; main loop only */
 BTAPP_FN static void gen_make(void)
@@ -3402,6 +3430,7 @@ BTAPP_FN static void gen_make(void)
     song.g[G_CLIP] = (int16_t)(gs.act[RL_DRUM] ? (g->spec & GSP_HEAVY ? grr(40, 60) : grr(25, 45)) : grr(10, 30));   /* (gen3: a
                                                          * little more: the peaks rounded; V10.6p: a heavy genre's driven) */
     song.g[G_PUNCH] = (int16_t)(gs.act[RL_DRUM] ? grr(45, 85) : 0);
+    gen_ott();                                          /* (v1.1b5) the electronic genres' OTT */
     if (gx.on) {                                        /* (0.8.6) EXPLORE: the grain delay's pitch and spray, a ping-pong,
                                                          * the feedback short of self-oscillation */
         song.g[G_DPIT] = (int16_t)(gch(10) ? (gch(50) ? 12 : -12) : 0);   /* (V10.8: seldom, octaves only, spray

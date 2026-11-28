@@ -260,6 +260,36 @@ int main(void)
         ck("8. FX > TRACK's fourth page OTT: DEPTH (KNOB 1 turns it on) TIME (ms) UP/DN X-OVER (187 Hz)", ok);
         ott_v[song.sel % NTRK][OT_DEPTH] = 0;
     }
+    {   /* 9. (v1.1b5) GEN: the electronic genres (gen.c GOTT_G, by their place: the names here) the drums and the bass
+         * DEPTH 40 .. 60, a lead / arp / texture 60 .. 80 or off, the chords off, from the seed; every other genre none */
+        static const char *const EL[] = {"MINIMAL TECHNO", "HARD TECHNO", "HARD BASS", "HOUSE", "DEEP HOUSE", "TECH HOUSE",
+                                         "TRIBAL", "ELECTRO", "BREAKBEAT", "DRUM & BASS", "IDM GLITCH", "EBM", "PHONK"};
+        uint32_t m = 0, e, g, k, i, ok, seen = 0, d1[NTRK], ng = 0;
+        for (e = 0; e < sizeof EL / sizeof EL[0]; e++)
+            for (g = 0; g < NGENRE; g++) if (str_eq(GENRE[g].name, EL[e])) m |= 1u << g;
+        ok = m == GOTT_G;
+        ui_power_on();
+        for (g = 0; g < NGENRE * 2u; g++) {
+            uint32_t on = 0, gi = g % NGENRE;
+            gp.genre = (uint8_t)(gi + 1u); gp.form = 0; gp.seed = (uint16_t)(300u + g * 7u);
+            for (i = 0; i < GP_N; i++) gp.amt[i] = GA_AUTO;
+            gp.energy = 60; gp.complex = 50; gp.swing = GA_AUTO; gp.human = 30; grd.on = 0; grd.mood = 0;
+            gen_make();
+            for (k = 0; k < NTRK; k++) {
+                int32_t d = ott_v[k][OT_DEPTH], r = gs.role[k];
+                on |= d != 0;
+                if (!((m >> gi) & 1u)) ok &= d == 0 && ott_v[k][OT_TIME] == 56 && ott_v[k][OT_XO] == 37;
+                else if (d) ok &= r == RL_DRUM || r == RL_BASS ? d >= 40 && d <= 60 : r != RL_PAD && d >= 60 && d <= 80;
+                if (d) seen |= r > RL_BASS ? 2u : 1u;
+            }
+            if ((m >> gi) & 1u) { ok &= on != 0; ng++; }
+            if (!g) for (k = 0; k < NTRK; k++) d1[k] = (uint32_t)(ott_v[k][OT_DEPTH] << 8 | ott_v[k][OT_XO]);
+        }
+        gp.genre = 1; gp.seed = 300; gen_make();         /* (MINIMAL TECHNO 0300 again, after the others) */
+        for (k = 0; k < NTRK; k++) ok &= d1[k] == (uint32_t)(ott_v[k][OT_DEPTH] << 8 | ott_v[k][OT_XO]);
+        ck("9. GEN: 13 electronic genres' drums / bass DEPTH 40..60, a lead / arp / FX 60..80 or off, none elsewhere; by the seed",
+           ok && seen == 3u && ng == 26u);
+    }
     printf("ott: %s\n", bad ? "FAILED" : "all ok");
     return bad != 0;
 }
