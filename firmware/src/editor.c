@@ -33,8 +33,9 @@ enum { ED_VIS_SONG = 98, ED_VIS_TICK };                              /* v6: song
                              * 1.4: the UI push (43, WATCH bit 5); 1.5: VIS_SONG, VIS_TICK (98, 99: WATCH bit 7);
                              * (BYTE v1.1b2) 1.6: JIANT Studio's, INFO 44 01 caps (ED_STUDIO_CAPS) */
 /* (1.6) INFO 'D' 44 01 caps, a bit each: 0 the project library (PROJ_LIST / PROJ_NAME / PROJ_OP, 95..97); 1 the whole
- * step (STEP_GET / TRACK_STEP flag 2: MICRO, LEN, DIV, EVERY, the components) */
-#define ED_STUDIO_CAPS 3u
+ * step (STEP_GET / TRACK_STEP flag 2: MICRO, LEN, DIV, EVERY, the components); 2 SONG ops 4, 5 (a row's scene, its
+ * tracks' sources and variations) */
+#define ED_STUDIO_CAPS 7u
 enum { ED_VM_READ = 80 };   /* (V10.10) read-only: 256 B of the stock VM (0xE7000 + 256 x a[0], a[0] < 48: the radio's
                               * RF trims and BT address, web/btcheck.html); reply: a[0], then 256 x (hi nibble, lo nibble) */
 /* (V10.6z5, 1.1) the velocity diagnostic (vel_diag.c, web/vel.html): op 0 status, 1 on (drive 0..4), 2 off, 3 the next
@@ -604,8 +605,8 @@ static __attribute__((noinline)) int ed_args_ok(uint32_t cmd, const uint8_t *a, 
         return (n == 1u || (n == 2u && (a[1] == 2u || a[1] == 7u)) || (n == 3u && a[1] == 1u && a[2] <= 1u) ||
                 (n == 6u && (a[1] == 3u || a[1] == 5u)) || (n == 4u && a[1] == 4u) || (n == 3u && a[1] == 6u)) &&
                a[0] < NTRK;
-    case ED_SONG:
-        return n && (a[0] == 1u || n == 1u);
+    case ED_SONG:                                  /* (1.6) op 4 row, op 5 row and its 16 bytes in pack7 (19) */
+        return n && (a[0] == 1u || n == 1u || (n == (a[0] == 4u ? 2u : a[0] == 5u ? 21u : 0u) && a[1] < CHAIN_ROWS));
     case ED_PROJ_LIST: case ED_PROJ_NAME: case ED_PROJ_OP:
         return 1;                                  /* (1.6) validated in ed_pj_handle: a malformed one answers rc 1, as
                                                     * JIANT FM's */
@@ -1034,7 +1035,7 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
     case ED_SONG: {
         uint32_t rc = 0, op;
         chain_config_t c;
-        if (!na || a[0] > 3u) return;
+        if (!na || a[0] > 5u) return;
         op = a[0];
         if (op == 1u) {
             chain_defaults(&c);
@@ -1051,6 +1052,29 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
             }
         } else if (op == 2u) rc = chain_prepare();
         else if (op == 3u) transport_req = 2;
+        else if (op >= 4u) {                               /* (1.6, INFO 44 bit 2) row a[1]'s scene, sources, variations */
+            uint8_t b[16];
+            uint32_t r = a[1], ts, tv, k;
+            scene_t sc;
+            _Static_assert(sizeof sc == 8u, "a scene: 8 bytes on the wire");
+            if (op == 5u) {
+                if (ed_unpack7(a + 2, na - 2u, b, sizeof b) != 16u) rc = 1;
+                memcpy(&sc, b, 8); memcpy(&ts, b + 8, 4); memcpy(&tv, b + 12, 4);
+                if (sc.on > 7u || sc.pfx >> 10 || ts >> (3u * NTRK) || tv >> (4u * NTRK)) rc = 1;
+                for (k = 0; k < NTRK; k++)
+                    if ((ts >> (3u * k) & 7u) > 4u || (tv >> (4u * k) & 15u) >= RV_N || (k < 4u && sc.mac[k] > 127u)) rc = 1;
+                if (!rc && chain_busy()) rc = 2;
+                if (!rc) {
+                    song_idx.scene[song_cur][r] = sc; song_idx.tsrc[song_cur][r] = ts; song_idx.tvar[song_cur][r] = tv;
+                    song_idx_touch(); ui.force = 1;
+                }
+            }
+            memcpy(b, &song_idx.scene[song_cur][r], 8); memcpy(b + 8, &song_idx.tsrc[song_cur][r], 4);
+            memcpy(b + 12, &song_idx.tvar[song_cur][r], 4);
+            ed_b(op); ed_b(rc); ed_b(r);
+            ed_bk_pack(b, 16);
+            break;
+        }
         ed_b(op); ed_b(rc); ed_b(chain_config.count);
         ed_b(chain.running); ed_b(chain.row); ed_b(chain.remaining);
         for (i = 0; i < chain_config.count; i++) {

@@ -129,6 +129,77 @@ static void whole_step(void)
        trk[1].step[7].clen[0] == 31u && trk[1].step[7].cnm[1] == 0x37u && song.sel == 0u);
 }
 
+/* pack7 (as editor_backup.c ed_bk_pack): n bytes of p into o, its length */
+static uint32_t pack7(const uint8_t *p, uint32_t n, uint8_t *o)
+{
+    uint32_t k = 0;
+    while (n) {
+        uint32_t c = n > 7u ? 7u : n, m = 0, i;
+        for (i = 0; i < c; i++) m |= (uint32_t)(p[i] >> 7) << i;
+        o[k++] = (uint8_t)m;
+        for (i = 0; i < c; i++) o[k++] = p[i] & 127u;
+        p += c; n -= c;
+    }
+    return k;
+}
+static void unpack7(const uint8_t *a, uint32_t n, uint8_t *o)
+{
+    while (n) {
+        uint32_t m = *a++, c = n - 1u > 7u ? 7u : n - 1u, i;
+        for (i = 0; i < c; i++) *o++ = (uint8_t)(a[i] | ((m >> i) & 1u) << 7);
+        a += c; n -= c + 1u;
+    }
+}
+/* (1.6) SONG ops 4, 5: a row's scene (8 B), tsrc, tvar (u32 LE each), 16 bytes in pack7 */
+static void song_rows(void)
+{
+    uint8_t a[32], b[16], got[16];
+    uint32_t n, ts = 4u | 2u << 3 | 1u << 15, tv = RV_FILL | (uint32_t)RV_MUT1 << 4 | (uint32_t)RV_OCTD << 20;
+    scene_t sc = {1u | 4u, 0x93u, 0x2A5u, {0, 64, 127, 5}}, was;
+    memset(&song_idx.scene[song_cur][3], 0, sizeof sc);
+    song_idx.tsrc[song_cur][3] = song_idx.tvar[song_cur][3] = 0;
+    memcpy(b, &sc, 8); memcpy(b + 8, &ts, 4); memcpy(b + 12, &tv, 4);
+    a[0] = 5; a[1] = 3;
+    ok("16 bytes in pack7: 19", pack7(b, 16, a + 2) == 19u);
+    song_idx_dirty = 0;
+    n = request(ED_SONG, a, 21);
+    unpack7(r + 3, 19, got);
+    ok("SONG op 5 row 3: 5, rc 0, 3, its 16 bytes as written (22)", n == 22u && r[0] == 5u && !r[1] && r[2] == 3u &&
+       !memcmp(got, b, 16));
+    ok("  in the song index (the scene, the sources, the variations), to flash soon",
+       !memcmp(&song_idx.scene[song_cur][3], &sc, sizeof sc) && song_idx.tsrc[song_cur][3] == ts &&
+       song_idx.tvar[song_cur][3] == tv && song_idx_dirty && row_src(3, 0, 2) == 3u && row_src(3, 1, 2) == 1u &&
+       row_src(3, 2, 2) == 2u && row_var(3, 0) == RV_FILL && row_var(3, 5) == RV_OCTD);
+    a[0] = 4; a[1] = 3;
+    n = request(ED_SONG, a, 2);
+    unpack7(r + 3, 19, got);
+    ok("SONG op 4 row 3: 4, 0, 3, the same 16 bytes", n == 22u && r[0] == 4u && !r[1] && r[2] == 3u && !memcmp(got, b, 16));
+    a[1] = 4; n = request(ED_SONG, a, 2);
+    unpack7(r + 3, 19, got);
+    ok("SONG op 4 row 4: another row's (empty)", n == 22u && r[2] == 4u && !got[0] && !got[8] && !got[12]);
+    a[1] = CHAIN_ROWS; n = request(ED_SONG, a, 2);
+    ok("SONG op 4 row 16: no reply", !n);
+    was = song_idx.scene[song_cur][3];
+    {
+        static const struct { uint32_t at, v; } BAD[] = {{0, 8}, {3, 4}, {4, 128}, {8, 5}, {11, 1}, {12, RV_N}, {15, 1}};
+        for (uint32_t i = 0; i < NELEM(BAD); i++) {
+            uint8_t c[16];
+            memcpy(c, b, 16);
+            c[BAD[i].at] = (uint8_t)(BAD[i].at == 3u ? c[3] | BAD[i].v : BAD[i].at == 11u ? 1u : BAD[i].v);
+            a[0] = 5; a[1] = 3; pack7(c, 16, a + 2);
+            n = request(ED_SONG, a, 21);
+            ok("SONG op 5 with a value out of its range: rc 1, the row as it was", n == 22u && r[1] == 1u &&
+               !memcmp(&song_idx.scene[song_cur][3], &was, sizeof was) && song_idx.tsrc[song_cur][3] == ts &&
+               song_idx.tvar[song_cur][3] == tv);
+        }
+    }
+    a[0] = 5; a[1] = 3; pack7(b, 16, a + 2);
+    n = request(ED_SONG, a, 20);
+    ok("SONG op 5 short: no reply", !n);
+    a[0] = 0; n = request(ED_SONG, a, 1);
+    ok("SONG op 0 as before", n >= 6u && r[0] == 0u && r[2] == chain_config.count);
+}
+
 int main(void)
 {
     uint32_t n, i;
@@ -140,6 +211,7 @@ int main(void)
     ok("INFO: 44 01 caps right before 43 02 01 06", i + 7u <= n && r[i + 2] == ED_STUDIO_CAPS && r[i + 4] == 2 &&
        r[i + 5] == 1 && r[i + 6] == 6);
     whole_step();
+    song_rows();
     printf("studio: %s\n", bad ? "FAIL" : "all ok");
     return bad != 0;
 }

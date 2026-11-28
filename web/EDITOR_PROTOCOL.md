@@ -247,6 +247,7 @@ of before).
 | --- | --- |
 | 0 | the project library: `PROJ_LIST` (95), `PROJ_NAME` (96), `PROJ_OP` (97) |
 | 1 | the whole step: `STEP_GET` / `TRACK_STEP` flag 2 and the writes with the 20 bytes after the lane modes |
+| 2 | a song row's scene, its tracks' sources and variations: `SONG` ops 4, 5 |
 
 ### The whole step (bit 1)
 
@@ -271,6 +272,30 @@ The components (v2, `core.h` "STEP COMPONENTS v2"): comp / comp2 = ACTION (bits 
 (0..31; 255 a legacy code not migrated yet, as read); cnm N − 1 | (M − 1) << 4. A write with any field out of its range
 (or a CONDITION 15) gets no reply and changes nothing; the VALUE is taken as it is. Refused like any step write while
 the song chain runs.
+
+### A song row's scene (SONG ops 4, 5, bit 2)
+
+Each row of the open project's song has, beside its section and bars (ops 0, 1), a scene, a source for each track
+and a variation for each track (SAVE > SONG's KNOB 4, ARRANGE 2; in the song index, backup id 10). These read and
+write them for one row, live (the index goes to flash a while later, as the device's own edits):
+
+- `33 4 row` → `4, rc 0, row, d[19]`
+- `33 5 row d[19]` → `5, rc, row, d[19]` (the row as it is after the write)
+
+`row` 0..15 (any row, in the song or past its count; 16 and up: no reply). `d` is 16 bytes in pack7 (as `BACKUP`'s:
+a mask byte before each 7, the last group 2 bytes): 8 the scene, then `tsrc` and `tvar`, each a u32 little-endian:
+
+| byte | field |
+| --- | --- |
+| 0 | on: bit 0 the row has a scene, bit 1 T5 muted, bit 2 T6 muted (0..7) |
+| 1 | mute: bits 0..3 T1..T4 muted, bits 4..7 DRUM's groups muted |
+| 2, 3 | pfx (u16 LE): the punch-in effects held, bit k the effect PF_OCTD + k (10 bits: OCT−, OCT+, 1/2 TEMPO, WOBBLE, DLY 1/16, STUTTER 1/8, STUTTER 1/16, ATK+, ARP, RANDOM) |
+| 4..7 | M1..M4, 0..127 |
+| 8..11 | tsrc: 3 bits a track (track k at bit 3k, 6 tracks): 0 the row's section, 1..4 A..D |
+| 12..15 | tvar: 4 bits a track: 0 none, 1 MUTE, 2 THIN, 3 FILL, 4 HALF, 5 REV, 6 SHIFT, 7 OCT+, 8 OCT−, 9..12 VAR 1..4 |
+
+rc 0 done, 1 a field out of its range (or the 19 bytes not 16 in pack7; nothing written), 2 the song chain is
+running (busy, as op 1: nothing written). A request of another length gets no reply.
 
 ### Project library (95-97, bit 0)
 
@@ -754,7 +779,7 @@ stay where they were. No trailing byte means no SONG command: hide its controls.
 
 | cmd | Request args | Reply args |
 | --- | --- | --- |
-| 33 SONG | op 0 query; op 1 set, count 0..16, count × (section 0..3, bars 1..64); op 2 start; op 3 stop | op, rc, count, running 0/1, row 0..15, bars to go, count × (section, bars) |
+| 33 SONG | op 0 query; op 1 set, count 0..16, count × (section 0..3, bars 1..64); op 2 start; op 3 stop; (1.6, `44` bit 2) op 4 row (read a row's scene, sources and variations); op 5 row, 19 bytes (write them) | op, rc, count, running 0/1, row 0..15, bars to go, count × (section, bars); ops 4, 5: op, rc, row, 19 bytes ("1.6: JIANT Studio", "A song row's scene") |
 
 A set must have exactly `2 + count × 2` argument bytes. rc 0 = accepted,
 1 = invalid rows (or an empty chain on start), 2 = busy, 3..6 = source slot 0..3
