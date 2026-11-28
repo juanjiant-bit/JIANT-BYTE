@@ -78,12 +78,13 @@ int main(void)
         q_mix = run_sine(0, 1300, 3000, 400, &r, &mx);
         printf("ott: quiet low %+.1f dB, quiet high %+.1f, loud low %+.1f, loud high %+.1f; UP/DN +63 loud %+.1f, -64 quiet %+.1f; DEPTH 50 quiet %+.1f\n",
                q_lo, q_hi, l_lo, l_hi, l_none, q_none, q_mix);
-        ck("1. DEPTH 100 (bigtext: smashed): a quiet band up (+20 .. +31 dB), a loud one down (-3 .. -20 dB), low and high alike",
-           q_lo > 20 && q_lo < 31 && q_hi > 20 && q_hi < 31 && l_lo < -3 && l_lo > -20 && l_hi < -3 && l_hi > -20);
-        ck("   UP/DN +63: no downward nor makeup (a loud band within 0.5 dB); -64: no upward, the makeup alone (+5 .. +7 dB); DEPTH 50 a quarter or so (squared)",
-           fabs(l_none) < 0.5 && q_none > 5 && q_none < 7 && q_mix > q_hi * 0.15 && q_mix < q_hi * 0.4);
-        {   /* (bigtext) at DEPTH 100 a -40 dB sine and a -6 dB one come out within 6 dB of each other, none past full scale */
-            double lq, ll, rq, rl;
+        ck("1. DEPTH 100 (v1.1b5: brutal): a quiet band up (+28 .. +40 dB), a -0.8 dB one down (-1 .. -15 dB), low and high alike",
+           q_lo > 28 && q_lo < 40 && q_hi > 28 && q_hi < 40 && l_lo < -1 && l_lo > -15 && l_hi < -1 && l_hi > -15);
+        ck("   UP/DN +63: no downward, makeup nor drive (a loud band within 0.5 dB); -64: no upward, the makeup and the drive (+12 .. +16 dB); DEPTH 50 a quarter or so",
+           fabs(l_none) < 0.5 && q_none > 12 && q_none < 16 && q_mix > q_hi * 0.12 && q_mix < q_hi * 0.4);
+        {   /* (bigtext) at DEPTH 100 a -40 dB sine and a -6 dB one come out within 6 dB of each other, none past full scale;
+             * (v1.1b5) a -46 dB one and the -6 dB one within 3 dB; DEPTH 60 still gentle (the -40 dB one up 4 .. 14 dB) */
+            double lq, ll, rq, rl, l46, r46, d60;
             int32_t m2;
             memset(ott_s, 0, sizeof ott_s);
             ott_set(0, 100, 56, 0, 37);
@@ -94,6 +95,15 @@ int main(void)
             printf("ott: DEPTH 100, 1 kHz: -40 dB in -> %+.1f dB out, -6 dB in -> %+.1f dB out (peaks %d %d)\n", lq, ll, mx, m2);
             ck("   DEPTH 100: -40 dB and -6 dB sines out within 6 dB of each other, neither past full scale",
                fabs(lq - ll) < 6 && mx <= 131072 && m2 <= 131072);
+            memset(ott_s, 0, sizeof ott_s);
+            (void)run_sine(0, 657, 1000, 400, &r46, &mx);     /* -46 dB */
+            l46 = 20 * log10(r46 * M_SQRT2 / 131072);
+            memset(ott_s, 0, sizeof ott_s);
+            ott_set(0, 60, 56, 0, 37);
+            d60 = run_sine(0, 1311, 1000, 400, &r, &m2);
+            printf("ott: DEPTH 100, 1 kHz: -46 dB in -> %+.1f dB out (peak %d); DEPTH 60: -40 dB %+.1f dB\n", l46, mx, d60);
+            ck("   (v1.1b5) DEPTH 100: -46 dB and -6 dB sines out within 3 dB (smashed), no peak past full scale; DEPTH 60 +4 .. +14 dB",
+               fabs(l46 - ll) < 3 && mx <= 131072 && d60 > 4 && d60 < 14);
         }
     }
     {   /* 2. a quiet low under a loud high: the low comes up, the high goes down (the bands apart) */
@@ -124,7 +134,7 @@ int main(void)
             ott_block(1, b, CTL);
             for (i = 0; i < CTL; i++) ok &= b[i] == 0;
         }
-        ck("3. DEPTH 100, silence in: silence out (no hiss brought up), its gain within the bounds", ok && ott_s[1].g[0] <= 1276 && ott_s[1].g[0] >= 0);
+        ck("3. DEPTH 100, silence in: silence out (no hiss brought up), its gain within the bounds", ok && ott_s[1].g[0] <= OT_UPMAX && ott_s[1].g[0] >= 0);
         for (k = 0; k < 4u; k++) {
             ott_set(1, 100, k ? 30 + (int)k * 23 : 30, k & 1 ? 63 : -64, k ? 100 : 15);
             for (n = 0; n < 500; n++) {
@@ -135,7 +145,7 @@ int main(void)
                 }
                 ott_block(1, b, CTL);
                 for (i = 0; i < CTL; i++) ok &= b[i] > -(1 << 25) && b[i] < (1 << 25);
-                ok &= ott_s[1].g[0] >= -1276 && ott_s[1].g[0] <= 1276 && ott_s[1].g[1] >= -1276 && ott_s[1].g[1] <= 1276;
+                ok &= ott_s[1].g[0] >= -1276 && ott_s[1].g[0] <= OT_UPMAX && ott_s[1].g[1] >= -1276 && ott_s[1].g[1] <= OT_UPMAX;
                 ok &= ott_s[1].lv[0] >= 0 && ott_s[1].lv[1] >= 0;
             }
         }
