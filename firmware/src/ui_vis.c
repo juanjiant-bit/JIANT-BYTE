@@ -379,7 +379,7 @@ static VNI void vis_frame(uint32_t fresh, uint32_t cap)
     vg.cap = (uint16_t)cap;
     for (i = 0; i < 3u; i++) {                          /* the content's strokes over it, each its colour */
         const uint8_t *S = VIS_SHP[R->content % VI_N][i];
-        uint32_t n = S[0] & 127u, b = n < 12u ? 48u / n : 2u, j;
+        uint32_t n = S[0] & 127u, b = n - 1u < 11u ? 48u / n : 2u, j;   /* (n 0: no stroke, skipped below; never 48 / 0) */
         if (!n)
             continue;
         vg.col = vis_col(192u + ((i * 61u + vg.chord * 53u + vg.ri * 29u) & 63u));
