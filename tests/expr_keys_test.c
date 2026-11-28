@@ -265,8 +265,8 @@ int main(void)
                                                          * F.NOISE appended after them, 26) */
        MS_MODW == 6 && MS_PROX == 15 && MS_FOLLOW == 17 && MS_T1 == 18 && MS_OCTUP == MS_T1 + NTRK && MS_OCTUP == 24 &&
        MS_OCTDN == 25 && MS_FNZ == 26 && MS_LIFE == 27 && MS_BEING == 28 && MS_FNHIT == 29 && MS_FNBAR == 31 && MS_N == 32 &&   /* (V10.7.34 LIFE BEING; funcmotion FN HIT NOTE BAR appended) */
-       str_eq(N_MSRC[MS_OCTUP], "OCT+") && str_eq(N_MSRC[MS_OCTDN], "OCT-") &&
-       str_eq(N_MSRC[MS_T1 + NTRK - 1], "T6 ENV") && TP[P_M1SRC].max == MS_N - 1 && !MS_BIPOLAR(MS_OCTDN) && !MS_VOICE(MS_OCTUP));
+       str_eq(PN_AT(N_MSRC, MS_OCTUP), "OCT+") && str_eq(PN_AT(N_MSRC, MS_OCTDN), "OCT-") &&
+       str_eq(PN_AT(N_MSRC, MS_T1 + NTRK - 1), "T6 ENV") && TP[P_M1SRC].max == MS_N - 1 && !MS_BIPOLAR(MS_OCTDN) && !MS_VOICE(MS_OCTUP));
     setup();
     midi_out_mode = MO_ALL;
     trk[0].p[P_M1SRC] = MS_OCTUP; trk[0].p[P_M1DST] = MD_CUT; trk[0].p[P_M1AMT] = 63;

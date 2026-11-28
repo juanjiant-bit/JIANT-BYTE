@@ -29,7 +29,7 @@ int main(void)
         frame();
         for (v = 0; v < MD_N; v++) {
             mod_full(TSEL, 0u, (int32_t)v, b, sizeof b, w, sizeof w);
-            if (!b[0]) { printf("engine %s DEST %u (%s): no full name\n", ENGINES[e]->name, v, N_MDST[v]); return 1; }
+            if (!b[0]) { printf("engine %s DEST %u (%s): no full name\n", ENGINES[e]->name, v, PN_AT(N_MDST, v)); return 1; }
         }
     }
     select_engine(ENGI_WAVE);

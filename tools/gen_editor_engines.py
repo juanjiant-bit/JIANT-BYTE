@@ -44,7 +44,7 @@ static void desc(const param_desc_t *d)
     printf(",\"names\":");
     if (d->names) {
         putchar('[');
-        for (i = d->min; i <= d->max; i++) { if (i > d->min) putchar(','); js(d->names[i]); }
+        for (i = d->min; i <= d->max; i++) { if (i > d->min) putchar(','); js(desc_nm(d, i)); }   /* (bigtext: packed lists) */
         putchar(']');
     } else printf("null");
     putchar('}');

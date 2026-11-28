@@ -16,7 +16,7 @@ int main(void)
     song.g[G_SWING] = 0;
     for (uint32_t b = 0; b < NELEM(tempos); b++) {
         song.g[G_BPM] = tempos[b];
-        for (uint32_t div = 0; div < NELEM(N_DIV); div++) {
+        for (uint32_t div = 0; div < N_DIV_N; div++) {
             uint32_t period = div_samples(div);
             for (uint32_t len = 1; len <= NSTEP; len++) {
                 t->p[P_SLEN] = len;

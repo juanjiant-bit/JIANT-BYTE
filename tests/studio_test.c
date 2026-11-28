@@ -266,6 +266,37 @@ static void mod_amt(void)
     t->p[P_M1SRC] = t->p[P_M1DST] = t->p[P_M1AMT] = 0; t->mw = 0;
 }
 
+/* (bigtext, INFO 44 01 bit 4) the special ids: DESC scope 2 (the selected track's), TRACK_PARAM's track + 64, the id less
+ * 0x80 on the wire: FX > OTT's four of any track, CRUSH, the master's EQ; an id outside the set: no reply */
+static void special_ids(void)
+{
+    uint8_t a[4];
+    uint32_t n;
+    song.sel = 0;
+    ott_v[3][OT_DEPTH] = 40; ott_v[0][OT_DEPTH] = 0;
+    a[0] = 2; a[1] = ID_OT0 - 0x80u;
+    n = request(ED_DESC, a, 2);
+    ok("DESC 2 0x50: OTT's DEPTH (F_PCT 0..100, its label)", n > 10u && r[0] == 2 && r[1] == 0x50 && r[2] == F_PCT &&
+       rv(r + 3) == 0 && rv(r + 5) == 100 && !memcmp(r + 9, "DEPTH", 5));
+    a[0] = 64 + 3; a[1] = ID_OT0 - 0x80u;
+    n = request(ED_TRACK_PARAM, a, 2);
+    ok("TRACK_PARAM 67 0x50: T4's OTT DEPTH read (40)", n == 4u && r[0] == 67 && r[1] == 0x50 && rv(r + 2) == 40);
+    v14(a + 2, 250);
+    n = request(ED_TRACK_PARAM, a, 4);
+    ok("  written, clamped (100), T4's alone", n == 4u && rv(r + 2) == 100 && ott_v[3][OT_DEPTH] == 100 && ott_v[0][OT_DEPTH] == 0);
+    a[0] = 64 + 5; a[1] = ID_CRU - 0x80u; v14(a + 2, 33);
+    n = request(ED_TRACK_PARAM, a, 4);
+    ok("TRACK_PARAM 69 0x6E: T6's CRUSH written", n == 4u && cru_v[5] == 33);
+    a[0] = 64; a[1] = ID_EQ0 + 1u - 0x80u; v14(a + 2, -5);
+    n = request(ED_TRACK_PARAM, a, 4);
+    ok("TRACK_PARAM 64 0x61: the master's LO MID EQ written (-5)", n == 4u && eq_v[1] == -5);
+    a[1] = ID_LMODE - 0x80u;
+    ok("an id outside the set (the LFO's MODE view, 0x7B): no reply", !request(ED_TRACK_PARAM, a, 2));
+    a[0] = 64 + NTRK; a[1] = ID_OT0 - 0x80u;
+    ok("a track past the last: no reply", !request(ED_TRACK_PARAM, a, 2));
+    ott_v[3][OT_DEPTH] = 0; cru_v[5] = 0; eq_v[1] = 0;
+}
+
 int main(void)
 {
     uint32_t n, i;
@@ -279,6 +310,7 @@ int main(void)
     whole_step();
     song_rows();
     mod_amt();
+    special_ids();
     printf("studio: %s\n", bad ? "FAIL" : "all ok");
     return bad != 0;
 }

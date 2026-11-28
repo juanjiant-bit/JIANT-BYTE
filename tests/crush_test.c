@@ -159,8 +159,8 @@ int main(int argc, char **argv)
             track_dist(t, b2, CTL);
         }
         for (j = 0; j < CTL; j++) diff += b[j] != b2[j];
-        ok = diff > CTL / 2u && d->max == 4 && str_eq(d->names[0], "SOFT") && str_eq(d->names[2], "FOLD") &&
-             str_eq(d->names[3], "RECT") && str_eq(d->names[4], "AMP");
+        ok = diff > CTL / 2u && d->max == 4 && str_eq(desc_nm(d, 0), "SOFT") && str_eq(desc_nm(d, 2), "FOLD") &&
+             str_eq(desc_nm(d, 3), "RECT") && str_eq(desc_nm(d, 4), "AMP");
         ck("3. DIST HARD and CRUSH together: both run; DIST TYPE SOFT HARD FOLD RECT AMP (no CRUSH)", ok);
         t->p[P_DIST] = 0; t->p[P_DTYPE] = 0;
     }

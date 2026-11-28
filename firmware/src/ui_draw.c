@@ -1216,9 +1216,43 @@ static __attribute__((noinline)) void draw_crumbs(int32_t y, uint16_t fg, uint16
         cv_free_text(x, y, f, b + k, last, T_BG, mx - x);
     }
 }
+/* (bigtext, as JIANT FM V10.8.65 knob_line) the knob just turned said whole on the footer a moment, its page's name first:
+ * "LFO RATE 1.24 HZ", "GLOBAL BPM 121 BPM", HOME > LIFE "LIFE NUM 65 %" (its label alone where it is the page's name;
+ * the cards keep their short labels); not while a step is held, the menu or a dialog is open; 0: none */
+static __attribute__((noinline)) int knob_line(char *s)
+{
+    const param_desc_t *d;
+    int16_t *vp = 0;
+    const char *u = "", *lb;
+    uint32_t c = ui.hot_col & 3u, n;
+    if (!ui.hot_t || ui.menu || dlg_on() || lock_held())
+        return 0;
+    if (ui.home) {
+        if (!home_life())
+            return 0;
+        d = &LIFE_DESC, vp = &life_v[c], lb = LIFE_NM[c];
+    } else if (!(d = page_desc(cur_page(), c, &vp)) || !vp || !(lb = d->label))
+        return 0;
+    str_cpy(s, nav_page_name(), 24);
+    n = str_len(s);
+    if (!str_eq(s, lb)) {
+        s[n++] = ' ';
+        str_cpy(s + n, lb, 12);
+        n = str_len(s);
+    }
+    s[n++] = ' ';
+    param_format(d, *vp, s + n, &u);
+    n = str_len(s);
+    if (u && u[0] && n + str_len(u) < 44u) {
+        s[n++] = ' ';
+        str_cpy(s + n, u, 8);
+    }
+    return 1;
+}
 static void draw_foot(void)
 {
-    char s[48], ti[20];
+    char s[48], ti[20], kl[64];
+    int kon = knob_line(kl);
     const track_t *t = TSEL;
     uint32_t sig;
     int lz = (int)lz_on(), accw = grid_on() && black_held(GK_ACC);
@@ -1236,6 +1270,7 @@ static void draw_foot(void)
         sig += str_hash(str_hash(act_ready() ? 7u : 3u, ha), hb);
     }
     sig += (uint32_t)accw * 977u + (uint32_t)clip.n * 7919u;   /* (seq2h) the clipboard's [n] */
+    sig += kon ? str_hash(0x4B4Eu, kl) : 0u;           /* (bigtext) the knob's line */
     if (!ui.force && sig == ui.foot_sig)
         return;
     ui.foot_sig = sig;
@@ -1254,8 +1289,11 @@ static void draw_foot(void)
             GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H | AL_CELLS | AL_N(16), "footer step bars centred");
         (void)foot_strip(12, 1, 0);
     }
-    draw_crumbs(ry, T_TEXT, accw ? T_ACCENT : T_TEXT);   /* (0.8.5) row 2: the breadcrumb (the track's engine and sound:
-                                                         * the header's centre) */
+    if (kon)                                          /* (bigtext) the knob just turned, with its page's name */
+        cv_free_text(8, ry, &AF_X, kl, T_TEXT, T_BG, 226);
+    else
+        draw_crumbs(ry, T_TEXT, accw ? T_ACCENT : T_TEXT);   /* (0.8.5) row 2: the breadcrumb (the track's engine and
+                                                         * sound: the header's centre) */
     cv_blit(0, foot_y());
 }
 /* the EDIT layer's cards (ui_layer.c; 0.9.9-seq2f): ENG, No. (the engine's sounds: PRESETS' list, ui.c eng_list_pos),
@@ -1390,7 +1428,7 @@ static void draw_columns(void)
         hot_gauge_column(0, "KNOB", d->label, (int32_t)k * 1000 / 7);
         card_mot_of(vp);
         draw_column(1, d->label, val, unit, VAL(1u), RATIO(d, enum_rank(d, *vp)), ICON_NONE);
-        text_column(2, "SRC", j < 0 ? "OFF" : N_MSRC[clamp(TSEL->p[P_M1SRC + 3u * (uint32_t)j], 0, MS_N - 1)], j < 0 ? T_DIM : VAL(2u));
+        text_column(2, "SRC", j < 0 ? "OFF" : PN_AT(N_MSRC, clamp(TSEL->p[P_M1SRC + 3u * (uint32_t)j], 0, MS_N - 1)), j < 0 ? T_DIM : VAL(2u));
         if (j < 0)
             text_column(3, "AMT", "--", T_DIM);
         else {
@@ -1710,7 +1748,7 @@ static void draw_columns(void)
         int32_t s = t->p[id], d = t->p[id + 1u], a = t->p[id + 2u];
         fmt_int(val, (int32_t)mod_ui_slot + 1);
         draw_column(0, "SLOT", val, "/4", VAL(0u), (int32_t)mod_ui_slot * 1000 / 3, mod_src_icon(MS_OFF));   /* (the mod icon) */
-        text_column(1, "SRC", N_MSRC[clamp(s, 0, MS_N - 1)], s ? VAL(1u) : T_DIM);
+        text_column(1, "SRC", PN_AT(N_MSRC, clamp(s, 0, MS_N - 1)), s ? VAL(1u) : T_DIM);
         text_column(2, mod_dst_scope(t, d) == 'M' ? "MASTER" : mod_dst_scope(t, d) == 'V' ? "VOICE" : "TRACK", mod_dst_name(t, d), d ? VAL(2u) : T_DIM);
         pf_column(3, "AMT", &TP[id + 2u], a, a ? VAL(3u) : T_DIM, mod_src_icon(MS_OFF));
         return;

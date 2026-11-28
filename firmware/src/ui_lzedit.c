@@ -87,8 +87,8 @@ static void graph_filter_lz(const track_t *t, const page_t *pg)
         str_cpy(b + str_len(b), u, 32 - str_len(b));
         cv_text_on(xc + 4 < 180 ? xc + 4 : xc - 4 - text_w(&AF_X, b), 20 - AF_X_CAP_Y, &AF_X, b, HUD_YE, T_BG);
     }
-    hud_tag(10, 2, N_FTYPE[ty], (uint32_t)(t - trk) % 6u >= 4u ? 0xFFFFu : 0x0000u, tc);
-    cv_text_on(14 + text_w(&AF_X, N_FTYPE[ty]) + 4, 3 - AF_X_CAP_Y, &AF_X, trk_eng(t) == 0u ? "PER VOICE" : "ON THE PART", T_MID, T_BG);
+    hud_tag(10, 2, PN_AT(N_FTYPE, ty), (uint32_t)(t - trk) % 6u >= 4u ? 0xFFFFu : 0x0000u, tc);
+    cv_text_on(14 + text_w(&AF_X, PN_AT(N_FTYPE, ty)) + 4, 3 - AF_X_CAP_Y, &AF_X, trk_eng(t) == 0u ? "PER VOICE" : "ON THE PART", T_MID, T_BG);
     d = page_desc(pg, 3, &vp);
     if (d) {
         const char *u = "";
@@ -180,7 +180,7 @@ static void graph_focus_lz(const track_t *t)
         cv_rect(10 + x0, 42, x1 - x0 + 1, 3, tc);
         cv_rect(10 + x0, 40, 1, 5, tc); cv_rect(10 + x1, 40, 1, 5, tc);
         str_cpy(b, "MOD: ", 24);
-        str_cpy(b + 5, N_MSRC[clamp(t->p[P_M1SRC + 3u * (uint32_t)j], 0, MS_N - 1)], 19);
+        str_cpy(b + 5, PN_AT(N_MSRC, clamp(t->p[P_M1SRC + 3u * (uint32_t)j], 0, MS_N - 1)), 19);
         str_cpy(b + str_len(b), " \xB7 ", 4);
         param_format(da, am, a, &u);
         str_cpy(b + str_len(b), a, 24 - str_len(b));

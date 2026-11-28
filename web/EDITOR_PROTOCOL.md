@@ -249,6 +249,34 @@ of before).
 | 1 | the whole step: `STEP_GET` / `TRACK_STEP` flag 2 and the writes with the 20 bytes after the lane modes |
 | 2 | a song row's scene, its tracks' sources and variations: `SONG` ops 4, 5 |
 | 3 | the MOD matrix's AMT1..AMT4 −128..127 ("MOD AMT", below) |
+| 4 | (BYTE v1.1b4) the special ids: FX > OTT, CRUSH, NOISE, LIFE, the master's EQ, BALANCE, TAPE ("Special ids", below) |
+
+### Special ids (bit 4)
+
+Values the device keeps beside the track and global parameters (no `P_*` / `G_*` id: not in `DUMP`, `GET`, `SET` or
+`TRACK_DUMP`), reached by their page id less 0x80 (`w`, 0x50..0x79), through the commands that exist:
+
+- `DESC 2 w` → `2 w fmt min max def label unit` (as `DESC 0 / 1`; the per-track ones the selected track's).
+- `TRACK_PARAM (64 + track) w` → `(64 + track) w v14` (read); `TRACK_PARAM (64 + track) w v14` writes it (clamped to
+  its range) and replies the same. track 0..5; the global ones (EQ, CHORUS MIX, BALANCE, TAPE, WOW) take any track.
+- An id outside the table, or a track past the last: no reply. Kept with the project / a user preset as on the device.
+
+| w | page id | label | range | default | unit | scope |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0x50 | 0xD0 | DEPTH (FX > OTT) | 0..100 | 0 (off) | % | track |
+| 0x51 | 0xD1 | TIME | 30..100 | 56 | ms | track |
+| 0x52 | 0xD2 | UP/DN | −64..63 | 0 | % | track |
+| 0x53 | 0xD3 | X-OVER | 15..100 | 37 | Hz | track |
+| 0x60..0x63 | 0xE0..0xE3 | LOW, LO MID, HI MID, HIGH (FX > EQ) | −12..12 | 0 | dB | global |
+| 0x64 | 0xE4 | MIX (FX > CHORUS) | 0..100 | 0 | % | global |
+| 0x6C | 0xEC | AMOUNT (BALANCE) | 0..100 | 50 | % | global |
+| 0x6D | 0xED | NOISE (EDIT) | 0..100 | 0 | % | track |
+| 0x6E | 0xEE | CRUSH (EDIT > TONE) | 0..127 | 0 | % | track |
+| 0x6F | 0xEF | LIFE (the track's, EDIT > TONE) | 0..100 | 100 | % | track |
+| 0x78, 0x79 | 0xF8, 0xF9 | TAPE, WOW (FX > TAPE) | 0..100 | 0 | % | global |
+
+Example: T3's OTT DEPTH to 70: `F0 7D 46 4C 1F 42 50 46 40 F7` (31 TRACK_PARAM, 0x42 = 64 + 2, 0x50, v14 70 = `46 40`);
+the reply the same bytes.
 
 ### The whole step (bit 1)
 
@@ -346,6 +374,16 @@ adds to its GEN entry points (`web/emu/editor-api.h`; the page's `gen(cmd, arg, 
   section new, the tempo kept.
 - The salt: 1.. (0: a new one each call); `web_gen_info()[8]` (a ninth number) the one used last. The same salt on the
   same piece gives the same result.
+- (BYTE v1.1b4) The regenerations in the state: `web_gen_state()` holds `web_gen_state_len()` int32 (44): the 19 as
+  above (unchanged), then `[19]` how many regenerations (`web_gen_cmd` 5 / 6) were made of the piece since it was made
+  (0..8; −1 more than 8: the first 8 kept), and from `[20]` a triple each in their order: the kind (5 a track, 6 a
+  section), its index (the track 0..5, the section 0..3), the salt it used (1..2^28−1). A new piece (OCT+, RADIO,
+  `web_gen`, `web_gen_set_state(1)`) starts the log empty. `web_gen_set_state(1)` with a log makes the piece, then
+  replays each regeneration in order: the same piece byte for byte as the one the state was read from; rc 2 (the piece
+  made, none replayed) when `[19]` is −1. The log is read once (the buffer's `[19..]` cleared after the call): a page
+  writing only the first 19 numbers writes `[19]` 0 first (`worklet.js` pads a 19-number state with zeros), and an
+  entry out of range refuses the whole state (rc 1). The page's `gen(cmd, arg, genres, opt)` returns the 44 and takes
+  either form in `opt.state`.
 
 ## 1.1: the velocity diagnostic (81)
 
@@ -516,7 +554,7 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 | 2 GET | scope, id | scope, id, v14 |
 | 3 SET | scope, id, v14 | scope, id, v14 (the value after clamping). Setting global `G_ENGSEL` (id from DESC label "ENG") changes the engine: its defaults, then its first preset (as on the device) |
 | 4 DUMP | — | engine, preset, then P_COUNT × v14 (the selected track), then G_COUNT × v14 (globals) |
-| 5 DESC | scope, id | scope, id, fmt, min v14, max v14, def v14, label string, unit string, then for an enum (fmt 8) one name string per value (at most 32 since 0.7.0; 24 before it, 16 before the matrix) |
+| 5 DESC | scope, id (scope 2, INFO 44 01 bit 4: a special id less 0x80, "Special ids") | scope, id, fmt, min v14, max v14, def v14, label string, unit string, then for an enum (fmt 8) one name string per value (at most 32 since 0.7.0; 24 before it, 16 before the matrix) |
 | 6 STEP_GET | index 0..NSTEP−1 [, flag: 1 the lane modes (`4F 01`), 2 (1.6, `44` bit 1) and the whole step] | index, n (0..4 notes), note0..note3, time (0 NOTE, 1 TIE, 2 REST), flags (1 accent, 2 slide), vel, then (v5) hits (3 bytes, below), then (v7) chance 0..100, then (`52 01`) ratchet 1..4, then (`4F 01`, flag 1 or 2) 8 lane modes 0..6, then (flag 2) the whole step's 20 bytes ("The whole step", below) |
 | 7 STEP_SET | index, n, note0..3, time, flags, vel [, hits (3 bytes, v5) [, chance 0..100 (v7) [, ratchet 1..4 [, 8 lane modes 0..6 (`4F 01`) [, the whole step's 20 bytes (1.6)]]]]] | same as STEP_GET (after the write; with the 20 bytes, with them). Without the hits the step keeps its own; without the chance, the ratchet, the lane modes or the 20 bytes it keeps its own. The chance can only follow the hits, the ratchet the chance, the lane modes the ratchet, the 20 bytes the lane modes |
 | 8 PRESET | engine, preset | engine, preset (applies the preset's sound to the selected track and sends; the steps and the track's own parameters stay, see "Sound loads and undo"). For another track, select it with `TRACK` first |
@@ -544,7 +582,7 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 
 | cmd (v4) | Request args | Reply args |
 | --- | --- | --- |
-| 31 TRACK_PARAM | track, id (get), or track, id, v14 (set); id = `P_*` (0..P_COUNT−1) | track, id, v14 (the value after clamping, as `SET`). The selection does not change; no push about the editor's own write |
+| 31 TRACK_PARAM | track, id (get), or track, id, v14 (set); id = `P_*` (0..P_COUNT−1); (bigtext, INFO 44 01 bit 4) track + 64 and a special id less 0x80 ("Special ids") | track, id, v14 (the value after clamping, as `SET`). The selection does not change; no push about the editor's own write |
 | 32 TRACK_CHANGED (push) | — | track, id, v14: `P_LEVEL`, `P_PAN` or `P_MUTE` of a track that is not selected changed on the device (only while `WATCH` was sent with bit 1) |
 
 | cmd (1.0) | Request args | Reply args |

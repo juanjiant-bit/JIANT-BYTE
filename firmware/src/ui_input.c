@@ -47,7 +47,7 @@ static void mod_full(const track_t *t, uint32_t src, int32_t v, char *b, uint32_
     if (!src) {
         if (bt_hw_seg() && (v == MD_CUT || v == MD_SHP || (v >= MD_E1 && v < MD_CLIP))) {   /* (the engine's own) */
             const char *l = mod_dst_name(t, v), *m;
-            if (str_eq(l, N_MDST[MD_FCUT])) {
+            if (str_eq(l, PN_AT(N_MDST, MD_FCUT))) {
                 v = MD_FCUT;
             } else if (str_eq(l, "N/A")) {
                 if (w) str_cpy(w, "NOT ON THIS ENGINE", wn);

@@ -193,7 +193,7 @@ int main(void)
             turn(EN_K1, 5); assert(fp_kp[0][2] != 64);
         }
         mod_full(TSEL, 1u, MS_FNHIT, nb, sizeof nb, w, sizeof w); assert(!strcmp(nb, "FUNC HITS"));
-        assert(!strcmp(N_MSRC[MS_FNBAR], "FN BAR"));
+        assert(!strcmp(PN_AT(N_MSRC, MS_FNBAR), "FN BAR"));
         TSEL->p[P_M1SRC] = MS_FNBAR; TSEL->p[P_M1DST] = MD_PAN; TSEL->p[P_M1AMT] = 63; fn_sg[0].v[2] = 32767;
         mo(0, 0, 0, 0);
         assert(mod_begin(TSEL) && TSEL->p[P_PAN] > 40); mod_end(TSEL);

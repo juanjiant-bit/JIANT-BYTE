@@ -623,7 +623,7 @@ static __attribute__((noinline)) void graph_euclid(const track_t *t)
         cv_text_in(90, cy - 18, 60, &AF_M, N_NOTE[e->root % 12u], T_TEXT, T_SURF);
         for (i = 1; i < NELEM(SCALE_MASK) && SCALE_MASK[i] != e->mask; i++) {}
         if (i < NELEM(SCALE_MASK))
-            cv_text_in(90, cy + 1, 60, &AF_X, N_SCALE[i], T_TEXT, T_SURF);
+            cv_text_in(90, cy + 1, 60, &AF_X, PN_AT(N_SCALE, i), T_TEXT, T_SURF);
         if (e->own) str_cpy(b, e->rl && (e->rs & 1u) ? "YOUR SEQ" : "YOUR NOTES", sizeof b);
         else if (e->src == 0u) str_cpy(b, "SCL", sizeof b);
         else if (e->src == 7u) str_cpy(b, "NEW KEY", sizeof b);

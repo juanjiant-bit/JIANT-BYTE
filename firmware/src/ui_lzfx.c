@@ -96,7 +96,7 @@ static void fxg_reverb(int32_t x, int32_t y, int32_t w, int32_t h)
         }
         e = e * k / 1000;
     }
-    fxg_label(x, y, N_RTYPE[clamp(ty, 0, 4)], T_TEXT, 0);
+    fxg_label(x, y, PN_AT(N_RTYPE, clamp(ty, 0, 4)), T_TEXT, 0);
     if (w > 120) {
         str_cpy(b, "PRE ", sizeof b);
         fmt_int(b + 4, song.g[G_RPRE]);
@@ -267,11 +267,11 @@ static void fxg_sends(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t
 static void fxg_dist(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h)
 {
     int32_t d = t->p[P_DIST], s = h;
-    uint32_t type = (uint32_t)clamp(t->p[P_DTYPE],0,NELEM(N_DTYPE)-1);
+    uint32_t type = (uint32_t)clamp(t->p[P_DTYPE],0,N_DTYPE_N-1);
     char b[16];
     if(type>=DT_EQ0 && type<DT_EQ0+DIST_NEQ) {
         const char *text=DIST_EQ[type-DT_EQ0];
-        fxg_label(x,y,N_DTYPE[type],T_TEXT,0);
+        fxg_label(x,y,PN_AT(N_DTYPE, type),T_TEXT,0);
         if(h>55) for(uint32_t q=0;text[q];q++) {
             uint32_t cols=(uint32_t)(w>12?(w-8)/6:1);
             int32_t yy=y+19+(int32_t)(q/cols)*11;
@@ -286,7 +286,7 @@ static void fxg_dist(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t 
     if(type>DT_AMP)type=DT_SOFT;
     fxg_curve(type, x, y, s, d, fxg_en() && s > 20 ? s / 2 + clamp(bg_energy(), 0, 256) * (s / 2) / 256 : -1, 1);   /* (the
                                                          * level now, a dot on the curve) */
-    hud_tag(x + s + 8, y + 1, N_DTYPE[type], song.sel % 6u >= 4u ? 0xFFFFu : 0x0000u, FXG_TC);
+    hud_tag(x + s + 8, y + 1, PN_AT(N_DTYPE, type), song.sel % 6u >= 4u ? 0xFFFFu : 0x0000u, FXG_TC);
     str_cpy(b, "TONE ", sizeof b);
     fmt_int(b + 5, t->p[P_DTONE]);
     fxg_label(x + s + 8, y + 15, b, T_TEXT, 0);

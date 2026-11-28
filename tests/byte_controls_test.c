@@ -24,9 +24,9 @@ int main(void){
  printf("Drum formula FOLD delta %.3f MOD ENV delta %.3f\n",delta(a,b),delta(a,c));
  OK(delta(a,b)>.15,"DRUM-W FOLD changes the audio");OK(delta(a,c)>.15,"DRUM-W MOD ENV changes the audio");
  drum(0,0,b);OK(!memcmp(a,b,sizeof a),"zero FOLD/MOD ENV remains deterministic and dry");
- for(unsigned ty=0;ty<NELEM(N_DTYPE);ty++)if(!enum_skip(&TP[P_DTYPE],ty)){
+ for(unsigned ty=0;ty<N_DTYPE_N;ty++)if(!enum_skip(&TP[P_DTYPE],ty)){
   distortion(ty,-64,0,a);distortion(ty,63,0,b);distortion(ty,-64,80,c);
-  printf("DIST %s tone %.3f noise %.3f\n",N_DTYPE[ty],delta(a,b),delta(a,c));
+  printf("DIST %s tone %.3f noise %.3f\n",PN_AT(N_DTYPE, ty),delta(a,b),delta(a,c));
   OK(delta(a,b)>.02,"each selectable distortion has an audible TONE");OK(delta(a,c)>.001,"each selectable distortion has an audible NOISE");
  }
  OK(enum_skip(&TP[P_DTYPE],12)&&enum_skip(&TP[P_DTYPE],13)&&enum_skip(&TP[P_DTYPE],14),"filters are skipped by the DIST selector");

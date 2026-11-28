@@ -116,7 +116,7 @@ static void graph_mod_net(const track_t *t)
         uint16_t bg = sel ? T_TINT : T_RAISE, lc = sel ? T_THEME : on ? T_MID : T_DIM;
         char b[16];
         const char *u = "";
-        cv_text(6, sy - AF_X_CAP_Y, &AF_X, N_MSRC[clamp(p[0], 0, MS_N - 1)], on ? T_TEXT : T_DIM);
+        cv_text(6, sy - AF_X_CAP_Y, &AF_X, PN_AT(N_MSRC, clamp(p[0], 0, MS_N - 1)), on ? T_TEXT : T_DIM);
         if (on) {
             cv_rect(58, sy, 100, 1, lc);
             if (sel && !ANIM_OFF())
@@ -448,7 +448,7 @@ BTAPP_FN static void graph_harm(const track_t *t)   /* (in the segment, as graph
     m = scale_mask(t) & 0xFFFu;
     if (__builtin_popcount(m) != 7) m = 0xAB5u;         /* (no mode of seven: the major scale's chords, as hm_move) */
     for (i = 0; i < 12u; i++) if ((m >> i) & 1u) pc[np++] = (uint8_t)i;
-    ed_cap(10, 6, N_HPROG[(uint32_t)song.g[G_HPROG] % NELEM(N_HPROG)], hm_n ? HUD_YE : T_DIM);
+    ed_cap(10, 6, PN_AT(N_HPROG, (uint32_t)song.g[G_HPROG] % N_HPROG_N), hm_n ? HUD_YE : T_DIM);
     for (i = 0; i < n; i++) {
         int32_t x = 8 + (int32_t)i * w;
         uint32_t d = (uint32_t)(hm_n ? hm_dg[i] : (int32_t)i) % 7u, on = i == now, l;

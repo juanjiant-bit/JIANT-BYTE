@@ -422,7 +422,7 @@ static void graph_eco(uint32_t lf)
     if (lf) {                                           /* (LIFE) its amount, the lines counted */
         fmt_int(b, life_v[LIFE_AMT]);
         str_cpy(b + str_len(b), life_v[LIFE_AMT] ? "% LIFE" : "% STILL", 8);
-        cv_text(6, 2, &AF_X, b, life_v[LIFE_AMT] ? T_TEXT : T_DIM);
+        page_big("LIFE", b);                            /* (bigtext, as JIANT FM V10.8.64) its name large, its state under */
         fmt_int(b, (int32_t)links);
         str_cpy(b + str_len(b), links == 1u ? " LINK" : " LINKS", 7);
     } else if (ui.hot_t && ui.hot_col < 4u) {           /* MACROS: a macro turned, where it goes ("M2 T1 CUT+40 T3 ..",
@@ -432,12 +432,13 @@ static void graph_eco(uint32_t lf)
         b[2] = ' ';
         if (!macro_routes(ui.hot_col, b + 3, sizeof b - 3u))
             str_cpy(b + 3, "NO ROUTE", sizeof b - 3u);
-        cv_clip_text(6, 2, &AF_X, b, T_TEXT, T_SURF, 176);
     } else {
         fmt_int(b, (int32_t)routes_count());
         str_cpy(b + str_len(b), " ROUTES", 8);
-        cv_text(6, 2, &AF_X, b, T_TEXT);
     }
+    if (!lf)
+        page_big("MACROS", b);                          /* (bigtext) its name large, the routes (a macro turned: where it
+                                                         * goes) under */
     if (lf)
         cv_text_r(234, 2, &AF_X, b, links ? T_ACCENT : T_DIM, T_SURF);
     else

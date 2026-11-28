@@ -833,7 +833,7 @@ static void page_title(char *ti)
     if (roll_view(pg) && !drum_track(t)) {          /* the piano roll: its tinted rows' scale ("C MIN") */
         str_cpy(ti, N_NOTE[(uint32_t)t->p[P_ROOT] % 12u], 4);
         str_cpy(ti + str_len(ti), " ", 4);
-        str_cpy(ti + str_len(ti), N_SCALE[clamp(t->p[P_SCALE], 0, (int32_t)(sizeof N_SCALE / sizeof N_SCALE[0]) - 1)], 8);
+        str_cpy(ti + str_len(ti), PN_AT(N_SCALE, clamp(t->p[P_SCALE], 0, (int32_t)N_SCALE_N - 1)), 8);
     }
 }
 /* the strip's title: L centred (M when L lacks a glyph or is too wide) */
@@ -1671,6 +1671,20 @@ static void graph_scope(uint16_t c)
 {
     scope_at(PANEL_X0, PANEL_W, (int32_t)cv_h / 2, cv_h == H_GRAPH ? 46 : (int32_t)cv_h / 2 - 6, c);   /* (LARGE: the strip) */
 }
+/* (bigtext, as JIANT FM V10.8.64 / 65 ui_gx.c page_big) a page with no picture of its own: its name large at the panel's
+ * top left (L; M when L lacks a glyph or it is wider than 228 px), its state dim and small under it (b: 0 none) */
+static __attribute__((noinline)) void page_big(const char *a, const char *b)
+{
+    cv_text(6, 2, large_face_has(a) && text_w(&AF_L, a) <= 228 ? &AF_L : &AF_M, a, T_TEXT);
+    if (b)
+        cv_clip_text(8, 34, &AF_X, b, T_DIM, T_SURF, 150);
+}
+/* .. its name large, the scope lower under it (GLOBAL, KEY SPLIT, the pages without a graph: was the scope alone) */
+static __attribute__((noinline)) void graph_named(const page_t *pg, uint16_t c)
+{
+    page_big(pg->title, 0);
+    scope_at(PANEL_X0, PANEL_W, (int32_t)cv_h / 2 + 18, 28, c);
+}
 /* (codex/anim) a stroke of the scope, as hot as it is loud (its end's height) */
 static __attribute__((noinline)) void scope_seg(int32_t xa, int32_t ya, int32_t xb, int32_t yb, int32_t cy, int32_t a)
 {
@@ -1976,7 +1990,7 @@ static void draw_graph(void)
                 else {                                   /* the FX, DEST, VOICE, GLOBAL pages: their graphs (else the scope) */
                     cv_oy = 0;
                     if (!graph_tech(t, pg))
-                        graph_scope(c);
+                        graph_named(pg, c);     /* (bigtext) no picture of its own: its name large, the scope under it */
                 }
                 break;
             }

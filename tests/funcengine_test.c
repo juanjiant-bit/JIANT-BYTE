@@ -443,7 +443,7 @@ int main(int argc, char **argv)
     uint32_t k, f;
     /* the engine: number 18 (appended), named, picked after MATH, a preset a FORM; MATH's WAVE without FUNC */
     assert(ENGINES[ENGI_FUNC] == &ENG_FUNC && eng_idx(ENGI_FUNC) == ENGI_FUNC && eng_ok(ENGI_FUNC) && ENGI_HIVE == 17u);
-    assert(!strcmp(ENG_FUNC.name, "FUNC") && !strcmp(N_ENGNAME[ENGI_FUNC], "FUNC") && NELEM(N_ENGNAME) == NENGINES);
+    assert(!strcmp(ENG_FUNC.name, "FUNC") && !strcmp(PN_AT(N_ENGNAME, ENGI_FUNC), "FUNC") && N_ENGNAME_N == NENGINES);
     assert(eng_vis(eng_rank(ENGI_LOFI) + 1u) == ENGI_FUNC && eng_step(ENGI_LOFI, 1) == ENGI_FUNC);
     assert(ENGINE_PC_ORDER[NENG_SHOWN - 1u] == ENGI_FUNC);
     assert(ENG_LOFI.edit[1].max == RW_USER && ENG_FUNC.edit[1].min == RW_FUNC && ENG_FUNC.edit[1].max == RW_FUNC);

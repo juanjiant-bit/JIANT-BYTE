@@ -83,7 +83,7 @@ int main(void){
      for(unsigned k=0;k<4;k++){const param_desc_t*d=lofi_desc(&ft,2u+k);const char*tip=func_knob_tip(d);
        int bk=f==(int)FUNC_BANK&&k<2u;   /* (funcbank) BANK's FORM A, FORM B: the bank's names */
        assert(d&&d->label[0]&&strlen(d->label)<=6u&&d->min==0&&d->max==(bk?(int)FB_N-1:127)&&tip&&strlen(d->label)+2u+strlen(tip)<=26u);
-       assert(!bk==!d->names&&(!bk||(!strcmp(d->names[0],"PAD")&&!d->names[FB_N])));
+       assert(!bk==!d->names&&(!bk||(!strcmp(desc_nm(d, 0),"PAD")&&!desc_nm(d, FB_N))));
        for(const char*c=d->label;*c;c++)assert((*c>='A'&&*c<='Z')||(*c>='0'&&*c<='9')||(bk&&*c==' '&&c[1]));
        if(f==0||f>=(int)FUNC_NFORM)assert(d->label[0]=='A'+(int)k&&!d->label[1]);else assert(strlen(d->label)>1u);}
      assert(!func_knob_tip(lofi_desc(&ft,0))&&!func_knob_tip(lofi_desc(&ft,7)));}

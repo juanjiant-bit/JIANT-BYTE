@@ -177,7 +177,8 @@ static int graph_tech(const track_t *t, const page_t *pg)
         default: return 0;
         }
     switch (pg->id[0]) {
-    case G_BPM: graph_scope(T_THEME); return 1;   /* (the owner: the mix's scope; was tech_global's bars) */
+    case G_BPM: graph_named(pg, T_THEME); return 1;   /* (the owner: the mix's scope; was tech_global's bars; bigtext: under
+                                                         * GLOBAL large) */
     case G_MIDI: if (pg->id[1] != G_MIDI || !bt_hw_seg()) return 0; tech_ports(); return 1;   /* (V10.44) SYSTEM 2 */
     default: return 0;
     }

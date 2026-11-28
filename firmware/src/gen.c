@@ -817,7 +817,7 @@ static void hm_load(void)
     else memset(hm_x, 0, sizeof hm_x);
     hm_n = v ? pr->n : 0u;
 }
-_Static_assert(sizeof N_HPROG / sizeof N_HPROG[0] == PR_N + 1u, "SCL > HARMONY: a name a progression");
+_Static_assert(N_HPROG_N == PR_N + 1u, "SCL > HARMONY: a name a progression");   /* (tests/harmony_test.c counts them) */
 BTAPP_FN static void gx_prog(uint32_t fam);
 /* (BYTE, FM V10.8.34, the owner: "different parts within a song") gen_parts' contrast section (PARTS' B, the others' D):
  * its own progression, the family's grammar's (as many chords as A's pn, A's qualities pq), not A's degrees pdeg; else

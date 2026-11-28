@@ -168,7 +168,7 @@ static void mac_eval(uint32_t beat_q16)
         }
     }
 }
-_Static_assert(NELEM(N_MSRC) == MS_N && NELEM(N_MDST) == MD_N, "N_MSRC / N_MDST == MS_* / MD_*");
+_Static_assert(N_MSRC_N == MS_N && N_MDST_N == MD_N, "N_MSRC / N_MDST == MS_* / MD_*");
 _Static_assert(PS_LFO == MS_LFO && PS_ENV2 == MS_ENV2 && PS_NOISE == MS_NOISE && PS_MODW == MS_MODW && PS_RAND == MS_RAND &&
                PD_VIB == MD_VIB && PD_E1 == MD_E1 && PD_FCUT == MD_FCUT && PD_LEVEL == MD_LEVEL && PD_REV == MD_REV,
                "core.h PS_* / PD_* (a preset's MOD slots) == MS_* / MD_*");
@@ -745,7 +745,7 @@ BTAPP_FN static const char *mod_dst_name_bt(const track_t *t, int32_t v)
     if (v == MD_CUT) {
         static const uint8_t CUT_ID[NENGINES] = {P_E4, P_FCUT, P_E2, P_FCUT, P_FCUT, P_E0, P_FCUT, P_FCUT,
                                                 P_FCUT, P_FCUT, P_FCUT, P_E2, P_E2, P_FCUT, P_FCUT, P_FCUT, P_FCUT, P_E5, P_FCUT};   /* (HIVE: BRIGHT; FUNC: the filter's) */
-        if (e == ENGI_DRUM) return N_MDST[MD_FCUT];
+        if (e == ENGI_DRUM) return PN_AT(N_MDST, MD_FCUT);
         return track_desc(t, CUT_ID[e])->label;
     }
     if (v == MD_SHP) {
@@ -755,10 +755,10 @@ BTAPP_FN static const char *mod_dst_name_bt(const track_t *t, int32_t v)
         k = e == ENGI_LOFI && t->p[P_E1] >= RW_BYTE ? P_E3 : SHP_ID[e];   /* (FUNC 18: B, as MATH's) */
         return track_desc(t, k)->label;
     }
-    return N_MDST[v];
+    return PN_AT(N_MDST, v);
 }
 
 static const char *mod_dst_name(const track_t *t, int32_t v)
 {
-    return bt_hw_seg() ? mod_dst_name_bt(t, v) : N_MDST[clamp(v, 0, MD_N - 1)];
+    return bt_hw_seg() ? mod_dst_name_bt(t, v) : PN_AT(N_MDST, clamp(v, 0, MD_N - 1));
 }

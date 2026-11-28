@@ -54,8 +54,8 @@ int main(void)
     int32_t mx;
     uint32_t i, k;
     ui_power_on();
-    ck("power-on: every track's OTT off at its defaults (DEPTH 0, TIME 64, UP/DN 0, X-OVER 37), not run",
-       ott_v[0][OT_DEPTH] == 0 && ott_v[5][OT_TIME] == 64 && ott_v[3][OT_UPDN] == 0 && ott_v[2][OT_XO] == 37 && !ott_on(0) && !ott_on(5));
+    ck("power-on: every track's OTT off at its defaults (DEPTH 0, TIME 56, UP/DN 0, X-OVER 37), not run",
+       ott_v[0][OT_DEPTH] == 0 && ott_v[5][OT_TIME] == 56 && ott_v[3][OT_UPDN] == 0 && ott_v[2][OT_XO] == 37 && !ott_on(0) && !ott_on(5));
     {   /* 1. a quiet band up, a loud one down (DEPTH 100), each band its own; UP/DN takes from one side */
         double q_lo, q_hi, l_lo, l_hi, q_none, l_none, q_mix;
         memset(ott_s, 0, sizeof ott_s);
@@ -78,10 +78,23 @@ int main(void)
         q_mix = run_sine(0, 1300, 3000, 400, &r, &mx);
         printf("ott: quiet low %+.1f dB, quiet high %+.1f, loud low %+.1f, loud high %+.1f; UP/DN +63 loud %+.1f, -64 quiet %+.1f; DEPTH 50 quiet %+.1f\n",
                q_lo, q_hi, l_lo, l_hi, l_none, q_none, q_mix);
-        ck("1. DEPTH 100: a quiet band up (+4 .. +12 dB), a loud one down (-2 .. -18 dB), low and high alike",
-           q_lo > 4 && q_lo < 12.5 && q_hi > 4 && q_hi < 12.5 && l_lo < -2 && l_lo > -18.5 && l_hi < -2 && l_hi > -18.5);
-        ck("   UP/DN +63: no downward (a loud band within 0.3 dB); -64: no upward (a quiet one within 0.3 dB); DEPTH 50 about half",
-           fabs(l_none) < 0.3 && fabs(q_none) < 0.3 && q_mix > q_hi * 0.35 && q_mix < q_hi * 0.65);
+        ck("1. DEPTH 100 (bigtext: smashed): a quiet band up (+20 .. +31 dB), a loud one down (-3 .. -20 dB), low and high alike",
+           q_lo > 20 && q_lo < 31 && q_hi > 20 && q_hi < 31 && l_lo < -3 && l_lo > -20 && l_hi < -3 && l_hi > -20);
+        ck("   UP/DN +63: no downward nor makeup (a loud band within 0.5 dB); -64: no upward, the makeup alone (+5 .. +7 dB); DEPTH 50 a quarter or so (squared)",
+           fabs(l_none) < 0.5 && q_none > 5 && q_none < 7 && q_mix > q_hi * 0.15 && q_mix < q_hi * 0.4);
+        {   /* (bigtext) at DEPTH 100 a -40 dB sine and a -6 dB one come out within 6 dB of each other, none past full scale */
+            double lq, ll, rq, rl;
+            int32_t m2;
+            memset(ott_s, 0, sizeof ott_s);
+            ott_set(0, 100, 56, 0, 37);
+            (void)run_sine(0, 1311, 1000, 400, &rq, &mx);     /* -40 dB of full scale (2^17) */
+            memset(ott_s, 0, sizeof ott_s);
+            (void)run_sine(0, 65700, 1000, 400, &rl, &m2);    /* -6 dB */
+            lq = 20 * log10(rq * M_SQRT2 / 131072); ll = 20 * log10(rl * M_SQRT2 / 131072);
+            printf("ott: DEPTH 100, 1 kHz: -40 dB in -> %+.1f dB out, -6 dB in -> %+.1f dB out (peaks %d %d)\n", lq, ll, mx, m2);
+            ck("   DEPTH 100: -40 dB and -6 dB sines out within 6 dB of each other, neither past full scale",
+               fabs(lq - ll) < 6 && mx <= 131072 && m2 <= 131072);
+        }
     }
     {   /* 2. a quiet low under a loud high: the low comes up, the high goes down (the bands apart) */
         static int32_t b[CTL];
@@ -111,7 +124,7 @@ int main(void)
             ott_block(1, b, CTL);
             for (i = 0; i < CTL; i++) ok &= b[i] == 0;
         }
-        ck("3. DEPTH 100, silence in: silence out (no hiss brought up), its gain within the bounds", ok && ott_s[1].g[0] <= 511 && ott_s[1].g[0] >= 0);
+        ck("3. DEPTH 100, silence in: silence out (no hiss brought up), its gain within the bounds", ok && ott_s[1].g[0] <= 1276 && ott_s[1].g[0] >= 0);
         for (k = 0; k < 4u; k++) {
             ott_set(1, 100, k ? 30 + (int)k * 23 : 30, k & 1 ? 63 : -64, k ? 100 : 15);
             for (n = 0; n < 500; n++) {
@@ -122,7 +135,7 @@ int main(void)
                 }
                 ott_block(1, b, CTL);
                 for (i = 0; i < CTL; i++) ok &= b[i] > -(1 << 25) && b[i] < (1 << 25);
-                ok &= ott_s[1].g[0] >= -766 && ott_s[1].g[0] <= 511 && ott_s[1].g[1] >= -766 && ott_s[1].g[1] <= 511;
+                ok &= ott_s[1].g[0] >= -1276 && ott_s[1].g[0] <= 1276 && ott_s[1].g[1] >= -1276 && ott_s[1].g[1] <= 1276;
                 ok &= ott_s[1].lv[0] >= 0 && ott_s[1].lv[1] >= 0;
             }
         }
@@ -180,7 +193,7 @@ int main(void)
         ok = ok && proj_import(&proj_scratch, &st, sizeof st) && project_restore_runtime(&proj_scratch) == 0;
         ck("6. a project keeps each track's OTT ('O' 'T'): T3 70 40 -20 60, T5's knobs at DEPTH 0, the others off",
            ok && found && ott_v[2][OT_DEPTH] == 70 && ott_v[2][OT_TIME] == 40 && ott_v[2][OT_UPDN] == -20 && ott_v[2][OT_XO] == 60 &&
-           ott_v[4][OT_DEPTH] == 0 && ott_v[4][OT_TIME] == 90 && ott_v[0][OT_DEPTH] == 0 && ott_v[0][OT_TIME] == 64);
+           ott_v[4][OT_DEPTH] == 0 && ott_v[4][OT_TIME] == 90 && ott_v[0][OT_DEPTH] == 0 && ott_v[0][OT_TIME] == 56);
         ok = proj_packed_size(&proj_scratch) >= 2u + sizeof proj_scratch.ott;
         ui_power_on();                                    /* a project of before: no 'O' 'T' */
         project_capture(&proj_scratch);
@@ -189,7 +202,7 @@ int main(void)
         ott_set(1, 100, 40, 0, 50);
         ok = ok && proj_import(&proj_scratch, &st, sizeof st) && project_restore_runtime(&proj_scratch) == 0;
         ck("   a project with no OTT on writes no block; loading one (as every project of before): OTT off, the defaults",
-           ok && !found && ott_v[1][OT_DEPTH] == 0 && ott_v[1][OT_TIME] == 64 && ott_v[1][OT_XO] == 37);
+           ok && !found && ott_v[1][OT_DEPTH] == 0 && ott_v[1][OT_TIME] == 56 && ott_v[1][OT_XO] == 37);
     }
     {   /* 7. a user preset keeps the track's OTT; one of before loads it off */
         int ok;
@@ -204,7 +217,7 @@ int main(void)
             rr.packed[UP_OT_AT] = 0;                    /* (a record of before) */
             *up_rec(10) = rr;
         }
-        ok &= up_load(10) == 0 && ott_v[3][OT_DEPTH] == 0 && ott_v[3][OT_TIME] == 64;
+        ok &= up_load(10) == 0 && ott_v[3][OT_DEPTH] == 0 && ott_v[3][OT_TIME] == 56;
         ck("7. a user preset keeps the track's OTT (55 70 +30 80); one of before loads with it off", ok);
         memset(up_rec(9), 0, sizeof(up_rec_t)); memset(up_rec(10), 0, sizeof(up_rec_t));
         song.sel = 0;

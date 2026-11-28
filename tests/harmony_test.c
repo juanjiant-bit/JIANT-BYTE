@@ -72,7 +72,8 @@ int main(void)
         uint8_t nn[8];
         uint32_t n, c, pcs;
         char b[8];
-        ok = str_eq(N_HPROG[1 + PR_JZ], "TRITN") && str_eq(N_HPROG[1 + PR_JZ + 5], "BKDOR") && str_eq(N_HPROG[PR_N], "MINIV");
+        ok = str_eq(PN_AT(N_HPROG, 1 + PR_JZ), "TRITN") && str_eq(PN_AT(N_HPROG, 1 + PR_JZ + 5), "BKDOR") && str_eq(PN_AT(N_HPROG, PR_N), "MINIV") &&
+             str_eq(PN_AT(N_HPROG, N_HPROG_N), "4BAR");   /* (bigtext: packed, the count PR_N + 1) */
         song.g[G_HPROG] = 1 + PR_JZ; song.g[G_HEXT] = 0; hm_load();
         for (bar_n = 0, beat_n = 0; bar_n < 4u; bar_n++) { hm_name(&trk[1], bar_n, b); ok &= str_eq(b, NM[bar_n]); if (!str_eq(b, NM[bar_n])) printf("  card %u: %s\n", bar_n, b); }
         bar_n = 1;                                      /* bII13: C E G up a semitone, its b7 and 13 (Db F Ab Cb Bb) */
@@ -171,7 +172,7 @@ int main(void)
     }
     {   /* (FM V10.8.34) GEN: the harmony families' own progressions (PROG's PR_FAM ..) thrown now and then */
         ok = PROG[PR_FAM].n == 4u && PROG[PR_FAM + 4].deg[1] == 4 && PROG[PR_FAM + 11].deg[0] == 1 &&
-             str_eq(N_HPROG[1 + PR_FAM + 4], "4CHRD") && str_eq(N_HPROG[1 + PR_NSOUL], "NSOUL");
+             str_eq(PN_AT(N_HPROG, 1 + PR_FAM + 4), "4CHRD") && str_eq(PN_AT(N_HPROG, 1 + PR_NSOUL), "NSOUL");
         for (k = 0, hits = 0; k < 96u; k++) {
             ui_power_on();
             gp.genre = 1u + (k >> 1) % NGENRE; gp.seed = 100u + (k >> 1); gp.energy = 60; gp.form = 0;

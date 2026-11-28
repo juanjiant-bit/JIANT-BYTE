@@ -53,7 +53,7 @@ static int val_of(track_t *t, uint32_t id, const char *v)
     long n = strtol(v, &e, 10);
     if (!*e) return (int)n;
     if (id >= P_M1SRC && id <= P_M4AMT && (id - P_M1SRC) % 3u == 0u) {
-        for (k = 0; k < MS_N; k++) if (!strcmp(N_MSRC[k], v)) return k;
+        for (k = 0; k < MS_N; k++) if (!strcmp(PN_AT(N_MSRC, k), v)) return k;
     }
     if (id >= P_M1SRC && id <= P_M4AMT && (id - P_M1SRC) % 3u == 1u) {
         for (k = 0; k < MD_N; k++) {
@@ -69,7 +69,7 @@ static int val_of(track_t *t, uint32_t id, const char *v)
         }
     }
     if (d && d->names)
-        for (k = d->min; k <= d->max; k++) if (d->names[k] && !strcmp(d->names[k], v)) return k;
+        for (k = d->min; k <= d->max; k++) if (desc_nm(d, k) && !strcmp(desc_nm(d, k), v)) return k;
     if (d && d->label) {
         for (k = d->min; k <= d->max; k++) {
             char b[32] = {0};

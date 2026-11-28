@@ -280,7 +280,7 @@ static int scene_gen(void)
     set_engine_of(&trk[0],ENGI_DRUM);trk[0].engine=trk[0].eng_req;
     sc_trk=0;scn_role[0]=SC_DRUM;
     const param_desc_t *d=sc_desc(3,&vp);
-    ok=d->max==SC_DGEN&&!strcmp(d->names[SC_DGEN],"GEN");
+    ok=d->max==SC_DGEN&&!strcmp(desc_nm(d, SC_DGEN),"GEN");
     tg_config[0].energy=33;tg_config[0].complex=7;
     trk[0].p[P_SLEN]=16;sc_put(3,SC_DGEN);
     d=sc_desc(3,&vp);ok&=scn_pat[0]==SC_DGEN&&*vp==SC_DGEN;

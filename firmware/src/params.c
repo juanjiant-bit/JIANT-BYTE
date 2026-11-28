@@ -2,17 +2,13 @@
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
  * Portions Copyright (C) 2026 Juan Ignacio Antonucci (Juan Jiant) */
 /* Parameter descriptors, formatting and the page table. */
-static const char *const N_LWAVE[] = {"SIN", "TRI", "SAW", "SQR", "S&H"};
-static const char *const N_LWAVE6[] = {"SIN", "TRI", "SAW", "SQR", "S&H", "DRIFT"};   /* (V10.36) the LFO's own: AUTO PAN keeps five */
+#define PN_LWAVE "SIN\0" "TRI\0" "SAW\0" "SQR\0" "S&H\0"
+#define PN_LWAVE6 "SIN\0" "TRI\0" "SAW\0" "SQR\0" "S&H\0" "DRIFT\0"   /* (V10.36) the LFO's own: AUTO PAN keeps five */
 /* (JIANT 0.6.51) the LFO's RATE below 0: in time with the tempo, -1 the slowest (next to the slowest free rate) */
-static const char *const N_LSYNC[14] = {"4BAR", "2BAR", "1BAR", "1/2", "1/4", "1/8D", "1/4T", "1/8", "1/8T", "1/16",
-                                        "1/16T", "1/32", "8BAR", "16BAR"};   /* (V10.27: -13 8BAR, -14 16BAR, a tester's) */
-static const char *const N_AMODE[] = {"OFF", "UP", "DN", "UPDN", "RND", "ORD", "REPEAT",   /* (append-only: seq.c AM_*) */
-                                       "DNUP", "UP+8", "CONV", "DIVG", "PINKY", "THUMB", "WALK", "CHORD",
-                                       "TRNS",                          /* (JIANT: seq.c AM_TRNS) */
-                                       "E:3X", "E:XOR", "E:SQR", "E:GRAY", "E:TAB", "E:GROW", "E:JUMP", "E:HASH"};   /* (JIANT
+#define PN_LSYNC "4BAR\0" "2BAR\0" "1BAR\0" "1/2\0" "1/4\0" "1/8D\0" "1/4T\0" "1/8\0" "1/8T\0" "1/16\0" "1/16T\0" "1/32\0" "8BAR\0" "16BAR\0"   /* (bigtext: packed, PNB) */   /* (V10.27: -13 8BAR, -14 16BAR, a tester's) */
+#define PN_AMODE "OFF\0" "UP\0" "DN\0" "UPDN\0" "RND\0" "ORD\0" "REPEAT\0" "DNUP\0" "UP+8\0" "CONV\0" "DIVG\0" "PINKY\0" "THUMB\0" "WALK\0" "CHORD\0" "TRNS\0" "E:3X\0" "E:XOR\0" "E:SQR\0" "E:GRAY\0" "E:TAB\0" "E:GROW\0" "E:JUMP\0" "E:HASH\0"   /* (JIANT
                                                          * BYTE) the step's note an equation of it: seq.c ARP_EQ */
-static const char *const N_DIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1/1", "2BAR", "4BAR"};
+#define PN_DIV "1/4\0" "1/8\0" "1/16\0" "1/32\0" "8T\0" "16T\0" "1/2\0" "1/1\0" "2BAR\0" "4BAR\0"
 /* (JIANT 0.4) the delay's TIME: N_DIV's ten, then free times past the last division (5 ms .. 1.48 s, exponential;
  * fx.c delay_samples, DTIME_MS); (0.8.4) appended up to the longest the line holds at a quarter rate (the values
  * before them mean what they did) */
@@ -22,21 +18,20 @@ static const char *const N_DIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "
 #ifndef DLY_LEN
 #define DLY_LEN 32768u
 #endif
-static const char *const N_DRTIM[] = {"=L", "x1/2", "x2/3", "x3/4", "x4/3", "x3/2", "x2"};   /* (V10.49) R TIME */
-static const char *const N_DTIME[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1/1", "2BAR", "4BAR", "5ms", "6ms", "7ms", "8ms", "9ms", "10ms", "11ms", "12ms", "13ms", "15ms", "17ms", "19ms", "21ms", "24ms", "27ms", "31ms", "35ms", "39ms", "44ms", "50ms", "56ms", "64ms", "72ms", "81ms", "91ms", "103ms", "116ms", "131ms", "148ms", "167ms", "189ms", "213ms", "241ms", "272ms", "307ms", "346ms", "391ms", "441ms", "498ms", "562ms", "634ms", "716ms", "808ms", "912ms", "1.03s", "1.16s", "1.31s", "1.48s",
-                                      /* (0.8.4) past the line at the full rate (fx.c dly_lo): half rate to 2.97 s, then a quarter */
-                                      "1.67s", "1.89s", "2.13s", "2.40s", "2.71s"
+#define PN_DRTIM "=L\0" "x1/2\0" "x2/3\0" "x3/4\0" "x4/3\0" "x3/2\0" "x2\0"   /* (V10.49) R TIME */
 #if DLY_LEN >= 65536u
-                                      , "3.06s", "3.45s", "3.90s", "4.40s", "4.97s", "5.61s", "5.90s"
+#define PN_DTIME_FREE "3.06s\0" "3.45s\0" "3.90s\0" "4.40s\0" "4.97s\0" "5.61s\0" "5.90s\0"
 #else
-                                      , "2.95s"
+#define PN_DTIME_FREE "2.95s\0"
 #endif
-                                      , "1/8D", "1/16D", "1/4D"   /* (V10.8) dotted, appended (the values before mean what
-                                                         * they did); DTIME_ORDER puts them by their divisions */
-                                      };
+/* (bigtext, as JIANT FM V10.8.70: packed in PNB, str_nth by desc_nm / PN_AT; a pointer each saved) the divisions, the free times,
+ * (0.8.4) past the line at the full rate (fx.c dly_lo) half rate to 2.97 s then a quarter, (V10.8) the dotted ones appended
+ * (the values before mean what they did; DTIME_ORDER puts them by their divisions) */
+#define PN_DTIME "1/4\0" "1/8\0" "1/16\0" "1/32\0" "8T\0" "16T\0" "1/2\0" "1/1\0" "2BAR\0" "4BAR\0" "5ms\0" "6ms\0" "7ms\0" "8ms\0" "9ms\0" "10ms\0" "11ms\0" "12ms\0" "13ms\0" "15ms\0" "17ms\0" "19ms\0" "21ms\0" "24ms\0" "27ms\0" "31ms\0" "35ms\0" "39ms\0" "44ms\0" "50ms\0" "56ms\0" "64ms\0" "72ms\0" "81ms\0" "91ms\0" "103ms\0" "116ms\0" "131ms\0" "148ms\0" "167ms\0" "189ms\0" "213ms\0" "241ms\0" "272ms\0" "307ms\0" "346ms\0" "391ms\0" "441ms\0" "498ms\0" "562ms\0" "634ms\0" "716ms\0" "808ms\0" "912ms\0" "1.03s\0" "1.16s\0" "1.31s\0" "1.48s\0" "1.67s\0" "1.89s\0" "2.13s\0" "2.40s\0" "2.71s\0" \
+    PN_DTIME_FREE "1/8D\0" "1/16D\0" "1/4D\0"
 #define DT_DOT (DLY_LEN >= 65536u ? 70u : 64u)          /* the first dotted one */
-typedef char dt_dot_ok[NELEM(N_DTIME) == DT_DOT + 3u ? 1 : -1];
-static const uint16_t DTIME_MS[NELEM(N_DTIME) - DT_FREE] = {5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 19, 21, 24, 27, 31, 35, 39, 44, 50, 56, 64, 72, 81, 91, 103, 116, 131, 148, 167, 189, 213, 241, 272, 307, 346, 391, 441, 498, 562, 634, 716, 808, 912, 1029, 1162, 1311, 1480,
+#define N_DTIME_N (DT_DOT + 3u)                         /* (PN_DTIME's names: the dotted three last) */
+static const uint16_t DTIME_MS[N_DTIME_N - DT_FREE] = {5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 19, 21, 24, 27, 31, 35, 39, 44, 50, 56, 64, 72, 81, 91, 103, 116, 131, 148, 167, 189, 213, 241, 272, 307, 346, 391, 441, 498, 562, 634, 716, 808, 912, 1029, 1162, 1311, 1480,
                                       1670, 1885, 2128, 2402, 2711
 #if DLY_LEN >= 65536u
                                       , 3060, 3454, 3899, 4400, 4967, 5606, 5900
@@ -44,60 +39,135 @@ static const uint16_t DTIME_MS[NELEM(N_DTIME) - DT_FREE] = {5, 6, 7, 8, 9, 10, 1
                                       , 2950
 #endif
                                       };
-static const char *const N_SCALE[] = {"CHR", "MAJ", "MIN", "DOR", "MIX", "PEN", "MPEN", "HARM",
-                                    "PHRY", "LYD", "LOC", "MEL", "BLUES", "WHOLE", "DIMHW", "DIMWH"};
-static const char *const N_ONOFF[] = {"OFF", "ON"};
+#define PN_SCALE "CHR\0" "MAJ\0" "MIN\0" "DOR\0" "MIX\0" "PEN\0" "MPEN\0" "HARM\0" "PHRY\0" "LYD\0" "LOC\0" "MEL\0" "BLUES\0" "WHOLE\0" "DIMHW\0" "DIMWH\0"
+#define PN_ONOFF "OFF\0" "ON\0"
 static const char *const N_DLYTYPE[] = {"ANALOG", "DIGITAL", "REVERS", 0};   /* (0.6.90) DLY 3 > TYPE; (V10.6g) REVERSE */
-static const char *const N_PFXRES[] = {"1/8", "1/16", "1/32"};     /* (0.6.99) FX > PUNCH: the lane's step */
+#define PN_PFXRES "1/8\0" "1/16\0" "1/32\0"     /* (0.6.99) FX > PUNCH: the lane's step */
 /* (BYTE, JIANT FM V10.7.66's) SCL > HARMONY: the progressions, gen_tables.c PROG's order (1 + PR_*): GEN's own, the
  * harmony families' two each (V10.8.34's) last; five letters, as every value's card */
-static const char *const N_HPROG[] = {"OFF", "PEDAL", "I-VII", "I-VI", "I-IV", "I-V", "I-II", "I-III", "IV-I", "AXIS", "TRANC", "MIN 4",
-                                      "ANDAL", "EPIC", "50S", "CADEN", "DEEP", "DEEP6", "2-5-1", "SUS", "POP", "PHRYG", "ELECT", "DREAM",
-                                      "DRM 2", "TURN", "STAB", "NSOUL", "NSO 2", "JAZZ2", "JAZZ3", "IDM 1", "IDM 2", "LYD", "PROG",
-                                      "LOOP", "MODAL", "4THS", "MIN 7", "4CHRD", "POP 6", "MIXO", "LIFT", "CINE", "CINE2", "JAZZ4",
-                                      "JAZZ5", "TRITN", "TURN3", "LYD7", "NSOL3", "NSOL4", "BKDOR", "CHROM", "DOR11", "MINIV"};
-static const char *const N_HLEN[] = {"1/4", "1/2", "1 BAR", "2 BAR", "4 BAR"};
-static const char *const N_HSKIP[] = {"NONE", "T1", "T2", "T3", "T4", "T5", "T6"};
+#define PN_HPROG "OFF\0" "PEDAL\0" "I-VII\0" "I-VI\0" "I-IV\0" "I-V\0" "I-II\0" "I-III\0" "IV-I\0" "AXIS\0" "TRANC\0" "MIN 4\0" "ANDAL\0" "EPIC\0" "50S\0" "CADEN\0" "DEEP\0" "DEEP6\0" "2-5-1\0" "SUS\0" "POP\0" "PHRYG\0" "ELECT\0" "DREAM\0" "DRM 2\0" "TURN\0" "STAB\0" "NSOUL\0" "NSO 2\0" "JAZZ2\0" "JAZZ3\0" "IDM 1\0" "IDM 2\0" "LYD\0" "PROG\0" "LOOP\0" "MODAL\0" "4THS\0" "MIN 7\0" "4CHRD\0" "POP 6\0" "MIXO\0" "LIFT\0" "CINE\0" "CINE2\0" "JAZZ4\0" "JAZZ5\0" "TRITN\0" "TURN3\0" "LYD7\0" "NSOL3\0" "NSOL4\0" "BKDOR\0" "CHROM\0" "DOR11\0" "MINIV\0"
+#define PN_HLEN "1/4\0" "1/2\0" "1 BAR\0" "2 BAR\0" "4 BAR\0"
+#define PN_HSKIP "NONE\0" "T1\0" "T2\0" "T3\0" "T4\0" "T5\0" "T6\0"
 /* seq.c kb_map; 1 = SNAP (stored projects: the former ON); 3 = SEQ: SNAP, and the sequencer's notes snap too as
  * they play (seq.c seq_step; the steps keep what was written). Append-only: older projects hold 0..2 */
-static const char *const N_QUANT[] = {"OFF", "SNAP", "WHITE", "SEQ"};
-static const char *const N_DTYPE[] = {"SOFT", "HARD", "FOLD", "RECT", "AMP", "-", "RING", "STEPS", "XOR", "GATE", "WOB",
-                                     "SFOLD", "LPF", "LFO.F", "HPF", "RND", "SAT"};   /* (JIANT BYTE: 6.. a formula, fx.c
+#define PN_QUANT "OFF\0" "SNAP\0" "WHITE\0" "SEQ\0"
+#define PN_DTYPE "SOFT\0" "HARD\0" "FOLD\0" "RECT\0" "AMP\0" "-\0" "RING\0" "STEPS\0" "XOR\0" "GATE\0" "WOB\0" "SFOLD\0" "LPF\0" "LFO.F\0" "HPF\0" "RND\0" "SAT\0"   /* (JIANT BYTE: 6.. a formula, fx.c
                                                          * DIST_EQ; 5 stays CRUSH's old number, never shown) */   /* (JIANT) fx.c DT_*; 0.7.8 AMP; (V10.7.33)
                                                          * CRUSH its own: EDIT > VOICES 3 (a project's migrates: project.c) */
 static const char *const N_KEY[] = {"UNSYNC", "SYNC", "FIJO", 0};   /* (JIANT BYTE) P_KEY: TIME (eng_lofi.c lofi_time) */
-static const char *const N_FTYPE[] = {"LP", "HP", "BP", "COMB", "COMB-", "LP24", "LP24"};   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_*
+#define PN_FTYPE "LP\0" "HP\0" "BP\0" "COMB\0" "COMB-\0" "LP24\0" "LP24\0"   /* (JIANT 0.5) P_FTYPE: eng_analog.c FT_*
                                                          * (0.9.9-snd1: COMB- the negative comb, MS20) */
-static const char *const N_VOICE[] = {"POLY", "MONO", "LEG", "UNI", "DRONE"};   /* V_POLY .. V_DRONE (append only) */
-static const char *const N_GLMODE[] = {"RATE", "TIME"};
-static const char *const N_PRIO[] = {"LAST", "LOW", "HIGH"};
-static const char *const N_ALLOC[] = {"ROT", "REUSE"};
-static const char *const N_ORDER[] = {"NOTE", "PLAY"};
-static const char *const N_CLOCK[] = {"INT", "USB+BT", "TRS"};   /* (V10.37) USB follows Bluetooth's clock too */
-static const char *const N_MIDI_INPUT[] = {"USB", "TRS"};
-static const char *const N_ROUTE[] = {"CH1-6", "SEL"};   /* MIDI IN (seq.c): 1..6 -> parts, 7..16 ignored / all -> selected */
+#define PN_VOICE "POLY\0" "MONO\0" "LEG\0" "UNI\0" "DRONE\0"   /* V_POLY .. V_DRONE (append only) */
+#define PN_GLMODE "RATE\0" "TIME\0"
+#define PN_PRIO "LAST\0" "LOW\0" "HIGH\0"
+#define PN_ALLOC "ROT\0" "REUSE\0"
+#define PN_ORDER "NOTE\0" "PLAY\0"
+#define PN_CLOCK "INT\0" "USB+BT\0" "TRS\0"   /* (V10.37) USB follows Bluetooth's clock too */
+#define PN_MIDI_INPUT "USB\0" "TRS\0"
+#define PN_ROUTE "CH1-6\0" "SEL\0"   /* MIDI IN (seq.c): 1..6 -> parts, 7..16 ignored / all -> selected */
 static const char *const N_NOTE[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-static const char *const N_RTYPE[] = {"ROOM", "SPRING", "SHIMR", "RESO", "CLOUD"};   /* (JIANT 0.5: + 3) */   /* G_RTYPE: the reverb bus's model (fx.c) */
-static const char *const N_GO[] = {"--", "GO"};
-static const char *const N_SLCR[] = {"OFF", "GATE", "STUT"};             /* SL_OFF .. SL_STUT (slicer.c) */
-static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T"};   /* SL_DEN */
-static const char *const N_SLPQ[] = {"CHR", "SCL"};                      /* (JIANT 0.6.3) the SLICER's pitch steps */
-static const char *const N_APSYNC[] = {"FREE", "BEAT"};                  /* (JIANT 0.6.9) AUTO PAN's RATE: Hz / the tempo */
-static const char *const N_APDIV[] = {"4BAR", "2BAR", "1BAR", "1/2", "1/4", "1/8", "1/16", "1/32"};   /* .. BEAT (fx.c AP_SIXT) */
+#define PN_RTYPE "ROOM\0" "SPRING\0" "SHIMR\0" "RESO\0" "CLOUD\0"   /* (JIANT 0.5: + 3) */   /* G_RTYPE: the reverb bus's model (fx.c) */
+#define PN_GO "--\0" "GO\0"
+#define PN_SLCR "OFF\0" "GATE\0" "STUT\0"             /* SL_OFF .. SL_STUT (slicer.c) */
+#define PN_SLDIV "1/8\0" "1/16\0" "1/32\0" "8T\0" "16T\0" "32T\0"   /* SL_DEN */
+#define PN_SLPQ "CHR\0" "SCL\0"                      /* (JIANT 0.6.3) the SLICER's pitch steps */
+#define PN_APSYNC "FREE\0" "BEAT\0"                  /* (JIANT 0.6.9) AUTO PAN's RATE: Hz / the tempo */
+#define PN_APDIV "4BAR\0" "2BAR\0" "1BAR\0" "1/2\0" "1/4\0" "1/8\0" "1/16\0" "1/32\0"   /* .. BEAT (fx.c AP_SIXT) */
 /* modulation matrix (mod.c): sources, destinations (E1..E8 = P_E0..P_E7: shown with the engine's labels) */
-static const char *const N_MSRC[] = {"OFF", "LFO", "ENV", "VEL", "KEY", "RAND", "MODW", "AT", "EXPR",
-                                     "M1", "M2", "M3", "M4", "STEP", "NOISE", "PROX", "ENV2", "IN ENV", "T1 ENV", "T2 ENV", "T3 ENV", "T4 ENV", "T5 ENV", "T6 ENV", "OCT+", "OCT-", "F.NOISE", "LIFE", "BEING", "FN HIT", "FN NOTE", "FN BAR"};   /* (V10.7.22) OCT+ OCT-: the expression keys; (filter2-mod) F.NOISE: FILTER 2's */   /* (V10.22) ENV2 */   /* (0.7.8) NOISE; (V10.14) PROX */   /* (JIANT: the macros, LFO held; the modulation sequence) */
-static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN", "DIST", "CHO", "DLY", "REV", "L.RATE",
-                                     "L.PIT", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8",
-                                     "CLIP", "PNCH",   /* (JIANT: the master, FX > MASTER) */
-                                     "D.TIM", "D.FB", "D.TON", "D.MIX", "R.SIZ", "R.DMP", "C.RAT", "C.DEP", "F.CUT", "LEVEL", "LIFE",
-                                     "M1 AMT", "M1 DEC", "M2 AMT", "M2 DEC", "M3 AMT", "M3 DEC", "GAIN", "M4 DEC",
-                                     "DENS", "SWING", "CMPLX", "RANGE"};   /* (funcplay) FUNC's GROOVE */   /* (BYTE 0.17: FORM's modulators, mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
+#define PN_MSRC "OFF\0" "LFO\0" "ENV\0" "VEL\0" "KEY\0" "RAND\0" "MODW\0" "AT\0" "EXPR\0" "M1\0" "M2\0" "M3\0" "M4\0" "STEP\0" "NOISE\0" "PROX\0" "ENV2\0" "IN ENV\0" "T1 ENV\0" "T2 ENV\0" "T3 ENV\0" "T4 ENV\0" "T5 ENV\0" "T6 ENV\0" "OCT+\0" "OCT-\0" "F.NOISE\0" "LIFE\0" "BEING\0" "FN HIT\0" "FN NOTE\0" "FN BAR\0"   /* (V10.7.22) OCT+ OCT-: the expression keys; (filter2-mod) F.NOISE: FILTER 2's */   /* (V10.22) ENV2 */   /* (0.7.8) NOISE; (V10.14) PROX */   /* (JIANT: the macros, LFO held; the modulation sequence) */
+#define PN_MDST "OFF\0" "PITCH\0" "CUT\0" "SHP\0" "AMP\0" "PAN\0" "DIST\0" "CHO\0" "DLY\0" "REV\0" "L.RATE\0" "L.PIT\0" "E1\0" "E2\0" "E3\0" "E4\0" "E5\0" "E6\0" "E7\0" "E8\0" "CLIP\0" "PNCH\0" "D.TIM\0" "D.FB\0" "D.TON\0" "D.MIX\0" "R.SIZ\0" "R.DMP\0" "C.RAT\0" "C.DEP\0" "F.CUT\0" "LEVEL\0" "LIFE\0" "M1 AMT\0" "M1 DEC\0" "M2 AMT\0" "M2 DEC\0" "M3 AMT\0" "M3 DEC\0" "GAIN\0" "M4 DEC\0" "DENS\0" "SWING\0" "CMPLX\0" "RANGE\0"   /* (funcplay) FUNC's GROOVE */   /* (BYTE 0.17: FORM's modulators, mod.c FORM_XDST) */   /* (0.7.0) the FX buses'
                                                          * globals (DELAY TIME FDBK TONE MIX, REVERB SIZE DAMP, CHORUS RATE
                                                          * DEPTH): mod.c macro_master, fx.c GFX() */
-static const char *const N_ENGNAME[] = {"ANALOG", "-", "PHASE", "MATH", "-", "VOICE", "-", "WHEEL", "STRING", "-",
-                                             "DRUM", "WEST", "FM6", "ADD", "ANIMAL", "EXT", "FORM", "HIVE", "FUNC"};   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired; 0.8.3 ANIMAL;
+#define PN_ENGNAME "ANALOG\0" "-\0" "PHASE\0" "MATH\0" "-\0" "VOICE\0" "-\0" "WHEEL\0" "STRING\0" "-\0" "DRUM\0" "WEST\0" "FM6\0" "ADD\0" "ANIMAL\0" "EXT\0" "FORM\0" "HIVE\0" "FUNC\0"   /* (JIANT: SAMPLE 4, GRAIN 8, SLICE 13 retired; 0.8.3 ANIMAL;
                                                          * 0.9.9-snd5 STRING ADD; V10.7.36 WEST, NOISE's 11) */
+#define PN_DKEYMODE "CLASSIC\0" "EXTENDED\0"
+#define PN_TRKS "4\0" "6\0"
+#define PN_LMODE "TRIG\0" "FREE\0"
+#define PN_RFOLW "OFF\0" "T1\0" "T2\0" "T3\0" "T4\0" "T5\0" "T6\0"
+/* (bigtext, as JIANT FM V10.8.70) the long enum lists packed one after the other, each name 0-terminated (str_nth: desc_nm,
+ * PN_AT), for the flash (a pointer each saved); N_* the list's start, N_*_N its count */
+static const char PNB[] = PN_DTIME PN_HPROG PN_LSYNC PN_AMODE PN_SCALE PN_DTYPE PN_RTYPE PN_APDIV PN_MSRC PN_MDST PN_ENGNAME PN_LWAVE PN_LWAVE6 PN_DIV PN_DRTIM PN_ONOFF PN_PFXRES PN_HLEN PN_HSKIP PN_QUANT PN_FTYPE PN_VOICE PN_GLMODE PN_PRIO PN_ALLOC PN_ORDER PN_CLOCK PN_MIDI_INPUT PN_ROUTE PN_GO PN_SLCR PN_SLDIV PN_SLPQ PN_APSYNC PN_DKEYMODE PN_TRKS PN_LMODE PN_RFOLW;
+#define N_DTIME ((const char *const *)(PNB + 0))
+#define N_HPROG ((const char *const *)(PNB + sizeof PN_DTIME - 1u))
+#define N_LSYNC ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u))
+#define N_AMODE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u))
+#define N_SCALE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u))
+#define N_DTYPE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u))
+#define N_RTYPE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u))
+#define N_APDIV ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u))
+#define N_MSRC ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u))
+#define N_MDST ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u))
+#define N_ENGNAME ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u))
+#define N_LWAVE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u))
+#define N_LWAVE6 ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u))
+#define N_DIV ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u))
+#define N_DRTIM ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u))
+#define N_ONOFF ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u))
+#define N_PFXRES ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u))
+#define N_HLEN ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u))
+#define N_HSKIP ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u))
+#define N_QUANT ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u))
+#define N_FTYPE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u))
+#define N_VOICE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u))
+#define N_GLMODE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u))
+#define N_PRIO ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u))
+#define N_ALLOC ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u))
+#define N_ORDER ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u))
+#define N_CLOCK ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u))
+#define N_MIDI_INPUT ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u))
+#define N_ROUTE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u + sizeof PN_MIDI_INPUT - 1u))
+#define N_GO ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u + sizeof PN_MIDI_INPUT - 1u + sizeof PN_ROUTE - 1u))
+#define N_SLCR ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u + sizeof PN_MIDI_INPUT - 1u + sizeof PN_ROUTE - 1u + sizeof PN_GO - 1u))
+#define N_SLDIV ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u + sizeof PN_MIDI_INPUT - 1u + sizeof PN_ROUTE - 1u + sizeof PN_GO - 1u + sizeof PN_SLCR - 1u))
+#define N_SLPQ ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u + sizeof PN_MIDI_INPUT - 1u + sizeof PN_ROUTE - 1u + sizeof PN_GO - 1u + sizeof PN_SLCR - 1u + sizeof PN_SLDIV - 1u))
+#define N_APSYNC ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u + sizeof PN_MIDI_INPUT - 1u + sizeof PN_ROUTE - 1u + sizeof PN_GO - 1u + sizeof PN_SLCR - 1u + sizeof PN_SLDIV - 1u + sizeof PN_SLPQ - 1u))
+#define N_DKEYMODE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u + sizeof PN_MIDI_INPUT - 1u + sizeof PN_ROUTE - 1u + sizeof PN_GO - 1u + sizeof PN_SLCR - 1u + sizeof PN_SLDIV - 1u + sizeof PN_SLPQ - 1u + sizeof PN_APSYNC - 1u))
+#define N_TRKS ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u + sizeof PN_MIDI_INPUT - 1u + sizeof PN_ROUTE - 1u + sizeof PN_GO - 1u + sizeof PN_SLCR - 1u + sizeof PN_SLDIV - 1u + sizeof PN_SLPQ - 1u + sizeof PN_APSYNC - 1u + sizeof PN_DKEYMODE - 1u))
+#define N_LMODE ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u + sizeof PN_MIDI_INPUT - 1u + sizeof PN_ROUTE - 1u + sizeof PN_GO - 1u + sizeof PN_SLCR - 1u + sizeof PN_SLDIV - 1u + sizeof PN_SLPQ - 1u + sizeof PN_APSYNC - 1u + sizeof PN_DKEYMODE - 1u + sizeof PN_TRKS - 1u))
+#define N_RFOLW ((const char *const *)(PNB + sizeof PN_DTIME - 1u + sizeof PN_HPROG - 1u + sizeof PN_LSYNC - 1u + sizeof PN_AMODE - 1u + sizeof PN_SCALE - 1u + sizeof PN_DTYPE - 1u + sizeof PN_RTYPE - 1u + sizeof PN_APDIV - 1u + sizeof PN_MSRC - 1u + sizeof PN_MDST - 1u + sizeof PN_ENGNAME - 1u + sizeof PN_LWAVE - 1u + sizeof PN_LWAVE6 - 1u + sizeof PN_DIV - 1u + sizeof PN_DRTIM - 1u + sizeof PN_ONOFF - 1u + sizeof PN_PFXRES - 1u + sizeof PN_HLEN - 1u + sizeof PN_HSKIP - 1u + sizeof PN_QUANT - 1u + sizeof PN_FTYPE - 1u + sizeof PN_VOICE - 1u + sizeof PN_GLMODE - 1u + sizeof PN_PRIO - 1u + sizeof PN_ALLOC - 1u + sizeof PN_ORDER - 1u + sizeof PN_CLOCK - 1u + sizeof PN_MIDI_INPUT - 1u + sizeof PN_ROUTE - 1u + sizeof PN_GO - 1u + sizeof PN_SLCR - 1u + sizeof PN_SLDIV - 1u + sizeof PN_SLPQ - 1u + sizeof PN_APSYNC - 1u + sizeof PN_DKEYMODE - 1u + sizeof PN_TRKS - 1u + sizeof PN_LMODE - 1u))
+#define N_AMODE_N 24u
+#define N_SCALE_N 16u
+#define N_DTYPE_N 17u
+#define N_RTYPE_N 5u
+#define N_APDIV_N 8u
+#define N_MSRC_N 32u
+#define N_MDST_N 45u
+#define N_ENGNAME_N 19u
+#define N_HPROG_N 56u
+#define N_LWAVE_N 5u
+#define N_LWAVE6_N 6u
+#define N_DIV_N 10u
+#define N_DRTIM_N 7u
+#define N_ONOFF_N 2u
+#define N_PFXRES_N 3u
+#define N_HLEN_N 5u
+#define N_HSKIP_N 7u
+#define N_QUANT_N 4u
+#define N_FTYPE_N 7u
+#define N_VOICE_N 5u
+#define N_GLMODE_N 2u
+#define N_PRIO_N 3u
+#define N_ALLOC_N 2u
+#define N_ORDER_N 2u
+#define N_CLOCK_N 3u
+#define N_MIDI_INPUT_N 2u
+#define N_ROUTE_N 2u
+#define N_GO_N 2u
+#define N_SLCR_N 3u
+#define N_SLDIV_N 6u
+#define N_SLPQ_N 2u
+#define N_APSYNC_N 2u
+#define N_DKEYMODE_N 2u
+#define N_TRKS_N 2u
+#define N_LMODE_N 2u
+#define N_RFOLW_N 7u
+#define PN_AT(l, i) str_nth((const char *)(l), (unsigned)(i))   /* a packed list's name i */
+/* an F_ENUM's name i: a list of PNB's or of pointers */
+static __attribute__((noinline)) const char *desc_nm(const param_desc_t *d, int32_t i)
+{
+    const char *p = (const char *)d->names;
+    return (uintptr_t)p - (uintptr_t)PNB < sizeof PNB ? str_nth(p, (unsigned)i) : d->names[i];
+}
 
 #define PD(l, f, mn, mx, df) {l, f, mn, mx, df, 0}
 #define PE(l, n, df) {l, F_ENUM, 0, (int16_t)(sizeof(n) / sizeof(n[0]) - 1), df, n}
@@ -124,9 +194,9 @@ static const param_desc_t TP[P_COUNT] = {
     [P_ED_FLT] = PD("FILTER", F_BIPCT, -64, 63, 0),
     [P_ED_PIT] = PD("PITCH", F_BIPCT, -64, 63, 0),
     [P_ED_SHP] = PD("SHAPE", F_BIPCT, -64, 63, 0),
-    [P_ED_FX] = PE("LOOP", N_ONOFF, 0),          /* (JIANT 0.4, P_ELOOP) ON: held, the ENV starts again at the sustain */
+    [P_ED_FX] = {"LOOP", F_ENUM, 0, N_ONOFF_N - 1, 0, N_ONOFF},          /* (JIANT 0.4, P_ELOOP) ON: held, the ENV starts again at the sustain */
     [P_LRATE] = PD("RATE", F_LFOHZ, -14, 127, 60),  /* (JIANT 0.6.51) below 0 in time: 4BAR .. 1/32 (N_LSYNC) */
-    [P_LWAVE] = PE("WAVE", N_LWAVE6, 0),
+    [P_LWAVE] = {"WAVE", F_ENUM, 0, N_LWAVE6_N - 1, 0, N_LWAVE6},
     [P_LPHASE] = PD("PHASE", F_INT, -1, 127, 0),   /* (JIANT 0.6.51) -1: FREE, never restarted by a note (0.9.18: nor its
                                                      * FADE); the pages show it as MODE TRIG / FREE and PHASE 0..127 */
     [P_LFADE] = PD("FADE", F_TIME, 0, 127, 0),
@@ -134,40 +204,40 @@ static const param_desc_t TP[P_COUNT] = {
     [P_LD_FLT] = PD("FILTER", F_BIPCT, -64, 63, 0),
     [P_LD_SHP] = PD("SHAPE", F_BIPCT, -64, 63, 0),
     [P_LD_AMP] = PD("AMP", F_PCT, 0, 127, 0),
-    [P_AMODE] = PE("MODE", N_AMODE, 0),
-    [P_ARATE] = PE("RATE", N_DIV, 2),
+    [P_AMODE] = {"MODE", F_ENUM, 0, N_AMODE_N - 1, 0, N_AMODE},
+    [P_ARATE] = {"RATE", F_ENUM, 0, N_DIV_N - 1, 2, N_DIV},
     [P_AOCT] = PD("OCT", F_INT, 1, 4, 1),
     [P_AGATE] = PD("GATE", F_PCT, 1, 127, 64),
     [P_ASWING] = PD("ARP SWG", F_PCT, 0, 100, 0),
     [P_APROB] = PD("PROB", F_PCT, 0, 127, 127),
-    [P_AHOLD] = PE("HOLD", N_ONOFF, 0),
-    [P_AORDER] = PE("ORDER", N_ORDER, 0),
+    [P_AHOLD] = {"HOLD", F_ENUM, 0, N_ONOFF_N - 1, 0, N_ONOFF},
+    [P_AORDER] = {"ORDER", F_ENUM, 0, N_ORDER_N - 1, 0, N_ORDER},
     [P_ROOT] = PD("ROOT", F_NOTE, 0, 11, 0),
-    [P_SCALE] = PE("SCALE", N_SCALE, 0),
-    [P_QUANT] = PE("KEY SNAP", N_QUANT, 0),
+    [P_SCALE] = {"SCALE", F_ENUM, 0, N_SCALE_N - 1, 0, N_SCALE},
+    [P_QUANT] = {"KEY SNAP", F_ENUM, 0, N_QUANT_N - 1, 0, N_QUANT},
     [P_TRANS] = PD("TRANS", F_SEMI, -24, 24, 0),
     [P_SLEN] = PD("LEN", F_STEPS, 1, NSTEP, 16),
-    [P_SDIV] = PE("DIV", N_DIV, 2),
+    [P_SDIV] = {"DIV", F_ENUM, 0, N_DIV_N - 1, 2, N_DIV},
     [P_SSWING] = PD("SWING", F_PCT, 0, 100, 0),
     [P_SGATE] = PD("GATE", F_PCT, 1, 127, 127),   /* (V10.6z4, the owner: 100 %, was 50 %; stored as before: param_store_def) */
     [P_DIST] = PD("DIST", F_PCT, 0, 127, 0),
     [P_CHOR] = PD("CHORUS", F_PCT, 0, 127, 0),
     [P_DLY] = PD("DLY", F_PCT, 0, 127, 0),
     [P_REV] = PD("REV", F_PCT, 0, 127, 0),
-    [P_VOICE] = PE("POLY", N_VOICE, 0),         /* (codex/coherence: was VOICE, the engine's, the group's and the page's) */
+    [P_VOICE] = {"POLY", F_ENUM, 0, N_VOICE_N - 1, 0, N_VOICE},         /* (codex/coherence: was VOICE, the engine's, the group's and the page's) */
     [P_GLIDE] = PD("GLIDE", F_TIME, 0, 127, 0),
-    [P_GLMODE] = PE("GL MODE", N_GLMODE, 0),    /* (codex/coherence: the glide's MODE) */
-    [P_PRIO] = PE("PRIO", N_PRIO, 0),
-    [P_ALLOC] = PE("ALLOC", N_ALLOC, 0),
+    [P_GLMODE] = {"GL MODE", F_ENUM, 0, N_GLMODE_N - 1, 0, N_GLMODE},    /* (codex/coherence: the glide's MODE) */
+    [P_PRIO] = {"PRIO", F_ENUM, 0, N_PRIO_N - 1, 0, N_PRIO},
+    [P_ALLOC] = {"ALLOC", F_ENUM, 0, N_ALLOC_N - 1, 0, N_ALLOC},
     [P_DETUNE] = PD("UNISON", F_PCT, 0, 127, 40),   /* (codex/coherence) UNISON's detune, how far apart (was DETUNE, a
                                                      * bare number: the engines' DETUNE is another) */
     [P_PAN] = PD("PAN", F_BIPCT, -64, 63, 0),
-    [P_MUTE] = PE("MUTE", N_ONOFF, 0),
+    [P_MUTE] = {"MUTE", F_ENUM, 0, N_ONOFF_N - 1, 0, N_ONOFF},
     [P_APDEP] = PD("DEPTH", F_PCT, 0, 127, 0),       /* (JIANT 0.6.9) AUTO PAN (core.h: the old SLICER's slots) */
     [P_APRATE] = PD("RATE", F_LFOHZ, 0, 127, 2),    /* (BEAT: 0..7, page_desc AP_BEAT) */
-    [P_APWAVE] = PE("WAVE", N_LWAVE, 1),
-    [P_APSYNC] = PE("SYNC", N_APSYNC, 1),
-#define MSLOT(k) [P_M##k##SRC] = PE("SRC" #k, N_MSRC, 0), [P_M##k##DST] = PE("DEST" #k, N_MDST, 0), \
+    [P_APWAVE] = {"WAVE", F_ENUM, 0, N_LWAVE_N - 1, 1, N_LWAVE},
+    [P_APSYNC] = {"SYNC", F_ENUM, 0, N_APSYNC_N - 1, 1, N_APSYNC},
+#define MSLOT(k) [P_M##k##SRC] = {"SRC" #k, F_ENUM, 0, N_MSRC_N - 1, 0, N_MSRC}, [P_M##k##DST] = {"DEST" #k, F_ENUM, 0, N_MDST_N - 1, 0, N_MDST}, \
                  [P_M##k##AMT] = PD("AMT" #k, F_BIPCT, -128, 127, 0)   /* (v1.1b2, JIANT FM V10.8.51's: -200 .. +198 %, 64 100 %;
                                                          * was -64..63; stored as a byte value + 64, 192..255 the
                                                          * negatives: project.c, upreset.c) */
@@ -196,16 +266,16 @@ static const param_desc_t TP[P_COUNT] = {
     LANE(0, "KICK"), LANE(1, "SNARE"), LANE(2, "CLAP"), LANE(3, "HATCL"),
     LANE(4, "HATOP"), LANE(5, "TOM"), LANE(6, "RIM"), LANE(7, "BELL"),
 #undef LANE
-    [P_DTYPE] = PE("TYPE", N_DTYPE, 0),         /* (JIANT) DIST: SOFT (as before) HARD FOLD RECT AMP */
+    [P_DTYPE] = {"TYPE", F_ENUM, 0, N_DTYPE_N - 1, 0, N_DTYPE},         /* (JIANT) DIST: SOFT (as before) HARD FOLD RECT AMP */
     [P_DTONE] = PD("TONE", F_BIPCT, -64, 63, 0),   /* .. its tone: darker / brighter */
     [P_MSLEN] = PD("LEN", F_STEPS, 1, 16, 16),  /* (JIANT) the modulation sequence (mod.c MS_STEP) */
-    [P_MSDIV] = PE("DIV", N_DIV, 2),
+    [P_MSDIV] = {"DIV", F_ENUM, 0, N_DIV_N - 1, 2, N_DIV},
     [P_MSSLW] = PD("SLEW", F_PCT, 0, 127, 0),
 #define MSTEP(k) [P_MS0 + (k)] = PD("LEVEL", F_PCT, 0, 127, 0)
     MSTEP(0), MSTEP(1), MSTEP(2), MSTEP(3), MSTEP(4), MSTEP(5), MSTEP(6), MSTEP(7),
     MSTEP(8), MSTEP(9), MSTEP(10), MSTEP(11), MSTEP(12), MSTEP(13), MSTEP(14), MSTEP(15),
 #undef MSTEP
-    [P_FTYPE] = PE("TYPE", N_FTYPE, 0),         /* (JIANT 0.5) the filter: LP (as before) HP BP COMB */
+    [P_FTYPE] = {"TYPE", F_ENUM, 0, N_FTYPE_N - 1, 0, N_FTYPE},         /* (JIANT 0.5) the filter: LP (as before) HP BP COMB */
     [P_FCUT] = PD("CUT", F_CUTOFF, 0, 127, 127),  /* .. the other engines' (on the part): open, */
     [P_FRES] = PD("RES", F_PCT, 0, 127, 0),       /* no resonance: out of the chain (its drive: DIST, the part's) */
 };
@@ -213,9 +283,9 @@ static const param_desc_t TP[P_COUNT] = {
 static const param_desc_t GP[G_COUNT] = {
     [G_BPM] = PD("BPM", F_BPM, 40, 240, 120),
     [G_SWING] = PD("G.SWING", F_PCT, 0, 100, 0),
-    [G_CLOCK] = PE("CLOCK", N_CLOCK, 0),
+    [G_CLOCK] = {"CLOCK", F_ENUM, 0, N_CLOCK_N - 1, 0, N_CLOCK},
     [G_TUNE] = PD("TUNE", F_INT, -50, 50, 0),
-    [G_DTIME] = PE("TIME", N_DTIME, 1),                 /* (JIANT 0.4: past the divisions, free times) */
+    [G_DTIME] = {"TIME", F_ENUM, 0, N_DTIME_N - 1, 1, N_DTIME},               /* (JIANT 0.4: past the divisions, free times) */
     [G_DFDBK] = PD("FEEDBK", F_PCT, 0, 120, 60),
     [G_DCOLOR] = PD("TONE", F_PCT, 0, 127, 64),        /* (JIANT 0.4, was COLR + HPF) the repeats: below 64 darker, above
                                                         * thinner (64 open) */
@@ -224,20 +294,20 @@ static const param_desc_t GP[G_COUNT] = {
     [G_RDAMP] = PD("DAMP", F_PCT, 0, 127, 60),
     [G_CRATE] = PD("RATE", F_LFOHZ, 0, 127, 40),
     [G_CDEPTH] = PD("DEPTH", F_PCT, 0, 127, 60),
-    [G_MIDI] = PE("MIDI", N_MIDI_INPUT, 0),
+    [G_MIDI] = {"MIDI", F_ENUM, 0, N_MIDI_INPUT_N - 1, 0, N_MIDI_INPUT},
     [G_DREL] = PD("REL", F_PCT, 0, 100, 30),     /* DUCK's release: 40 .. 600 ms (fx.c duck_block) */
-    [G_ROUTE] = PE("ROUTE", N_ROUTE, 0),          /* (was "--": stored 0 = CH1-4, as MIDI IN always was) */
+    [G_ROUTE] = {"ROUTE", F_ENUM, 0, N_ROUTE_N - 1, 0, N_ROUTE},          /* (was "--": stored 0 = CH1-4, as MIDI IN always was) */
     [G_INFO] = PD("CPU", F_INT, 0, 0, 0),
     [G_SLOT] = PD("SLOT", F_INT, 1, 4, 1),
     [G_DJF] = PD("DJ FILT", F_BIPCT, -64, 63, 0),   /* (0.9.1) the master DJ FILTER: 0 off, - low-pass, + high-pass (fx.c) */
-    [G_LOAD] = PE("LOAD", N_GO, 0),
-    [G_SAVE] = PE("SAVE", N_GO, 0),
-    [G_ENGSEL] = PE("ENG", N_ENGNAME, 0),
+    [G_LOAD] = {"LOAD", F_ENUM, 0, N_GO_N - 1, 0, N_GO},
+    [G_SAVE] = {"SAVE", F_ENUM, 0, N_GO_N - 1, 0, N_GO},
+    [G_ENGSEL] = {"ENG", F_ENUM, 0, N_ENGNAME_N - 1, 0, N_ENGNAME},
     [G_CLIP] = PD("CLIP", F_PCT, 0, 100, 0),     /* the master clipper: drive x1 .. x4 into the soft clip */
-    [G_CLRSEQ] = PE("CLRSQ", N_GO, 0),
-    [G_INITSND] = PE("INIT", N_GO, 0),
+    [G_CLRSEQ] = {"CLRSQ", F_ENUM, 0, N_GO_N - 1, 0, N_GO},
+    [G_INITSND] = {"INIT", F_ENUM, 0, N_GO_N - 1, 0, N_GO},
     /* the reverb's model on the REVERB page: the id of the old GM drum channel (G_DRCH, inert since 1.0) */
-    [G_RTYPE] = PE("TYPE", N_RTYPE, 0),
+    [G_RTYPE] = {"TYPE", F_ENUM, 0, N_RTYPE_N - 1, 0, N_RTYPE},
     /* (JIANT) the drum bus and the kick's ducking (fx.c, eng_drum.c); the ids of the GM drum part's level and
      * reverb send, inert since 1.0 */
     [G_PUNCH] = PD("PUNCH", F_PCT, 0, 100, 0),    /* DRUM fattened: up to +5 dB the first 4 ms, the body +3 dB (0.5) */
@@ -249,11 +319,11 @@ static const param_desc_t GP[G_COUNT] = {
     [G_DPING] = {"PING", F_ENUM, 0, 1, 0, N_ONOFF},   /* (0.6.90) PING-PONG: the repeats left, right, left .. */
     [G_PFXLEN] = PD("LEN", F_INT, 1, 64, 64),    /* (0.6.99) the punch-in lane: its steps and their size */
     [G_PFXRES] = {"RES", F_ENUM, 0, 2, 1, N_PFXRES},
-    [G_DRTIM] = PE("R TIME", N_DRTIM, 0),           /* (V10.49) the right echo's time, a ratio of TIME (fx.c dly_rate) */
-    [G_HPROG] = PE("PROG", N_HPROG, 0),            /* (BYTE, FM V10.7.66) SCL > HARMONY */
-    [G_HLEN] = PE("LENGTH", N_HLEN, 2),
+    [G_DRTIM] = {"R TIME", F_ENUM, 0, N_DRTIM_N - 1, 0, N_DRTIM},           /* (V10.49) the right echo's time, a ratio of TIME (fx.c dly_rate) */
+    [G_HPROG] = {"PROG", F_ENUM, 0, N_HPROG_N - 1, 0, N_HPROG},            /* (BYTE, FM V10.7.66) SCL > HARMONY */
+    [G_HLEN] = {"LENGTH", F_ENUM, 0, N_HLEN_N - 1, 2, N_HLEN},
     [G_HEXT] = PD("EXTENS", F_PCT, 0, 127, 0),   /* (the owner: EVOLVE's place) the chords' extensions */
-    [G_HSKIP] = PE("SKIP", N_HSKIP, 0),
+    [G_HSKIP] = {"SKIP", F_ENUM, 0, N_HSKIP_N - 1, 0, N_HSKIP},
     [G_DDRV] = PD("DRIVE", F_PCT, 0, 100, 0),    /* (snd2) the delay's loop driven: 0 clean as before, 100 x4 into the clip */
     [G_DMOD] = PD("MOD", F_PCT, 0, 127, 0),      /* (0.6.89: 0, the repeats exact copies, by default) */     /* (0.6.86) the delay's drift: WOW + FLUTTER (fx.c dly_wow_adv) */
     [G_RMOD] = PD("MOD", F_PCT, 0, 127, 0),      /* the reverb's modulation depth (ROOM: the combs, SPRING: its wobble) */
@@ -265,15 +335,15 @@ static const param_desc_t GP[G_COUNT] = {
     [G_DSPRY] = PD("SPRAY", F_PCT, 0, 127, 0),    /* .. their spray: each grain from a random place (0: plain delay) */
     [G_STRN] = PD("TRANSP", F_INT, -14, 14, 0),  /* (JIANT 0.4) every sequence this many steps up / down its scale (0.6.45:
                                                   * named ALL TR, was STRN: nobody knew what moved their notes) */
-    [G_SLMODE] = PE("MODE", N_SLCR, 0),         /* (JIANT 0.6.3) the SLICER bus (slicer.c) */
+    [G_SLMODE] = {"MODE", F_ENUM, 0, N_SLCR_N - 1, 0, N_SLCR},         /* (JIANT 0.6.3) the SLICER bus (slicer.c) */
     [G_SLPAT] = PD("PAT", F_INT, 1, 16, 1),
-    [G_SLRATE] = PE("RATE", N_SLDIV, 1),
+    [G_SLRATE] = {"RATE", F_ENUM, 0, N_SLDIV_N - 1, 1, N_SLDIV},
     [G_SLDEP] = PD("DEPTH", F_PCT, 0, 127, 127),
-    [G_SLT1] = PE("T1", N_ONOFF, 1), [G_SLT1 + 1] = PE("T2", N_ONOFF, 1), [G_SLT1 + 2] = PE("T3", N_ONOFF, 1),
-    [G_SLT1 + 3] = PE("T4", N_ONOFF, 1), [G_SLT1 + 4] = PE("T5", N_ONOFF, 1), [G_SLT6] = PE("T6", N_ONOFF, 1),
-    [G_SLFX] = PE("FX", N_ONOFF, 1),            /* the delay, reverb and chorus returns: on, the tails cut too */
+    [G_SLT1] = {"T1", F_ENUM, 0, N_ONOFF_N - 1, 1, N_ONOFF}, [G_SLT1 + 1] = {"T2", F_ENUM, 0, N_ONOFF_N - 1, 1, N_ONOFF}, [G_SLT1 + 2] = {"T3", F_ENUM, 0, N_ONOFF_N - 1, 1, N_ONOFF},
+    [G_SLT1 + 3] = {"T4", F_ENUM, 0, N_ONOFF_N - 1, 1, N_ONOFF}, [G_SLT1 + 4] = {"T5", F_ENUM, 0, N_ONOFF_N - 1, 1, N_ONOFF}, [G_SLT6] = {"T6", F_ENUM, 0, N_ONOFF_N - 1, 1, N_ONOFF},
+    [G_SLFX] = {"FX", F_ENUM, 0, N_ONOFF_N - 1, 1, N_ONOFF},            /* the delay, reverb and chorus returns: on, the tails cut too */
     [G_SLPLEN] = PD("LEN", F_INT, 1, 16, 16),
-    [G_SLPQ] = PE("QUANT", N_SLPQ, 1),            /* the pitch steps: every semitone / the scale's */
+    [G_SLPQ] = {"QUANT", F_ENUM, 0, N_SLPQ_N - 1, 1, N_SLPQ},            /* the pitch steps: every semitone / the scale's */
     [G_SLP0] = PD("PITCH", F_SEMI, -24, 24, 0), [G_SLP0 + 1] = PD("PITCH", F_SEMI, -24, 24, 0),
     [G_SLP0 + 2] = PD("PITCH", F_SEMI, -24, 24, 0), [G_SLP0 + 3] = PD("PITCH", F_SEMI, -24, 24, 0),
     [G_SLP0 + 4] = PD("PITCH", F_SEMI, -24, 24, 0), [G_SLP0 + 5] = PD("PITCH", F_SEMI, -24, 24, 0),
@@ -319,7 +389,7 @@ static const param_desc_t MATH_CAOS[2] = {          /* (JIANT BYTE) MATH's CAOS 
     {"CAOS", F_PCT, 0, 127, 0, 0},
     {"TIME", F_ENUM, 0, 2, 0, N_KEY},
 };
-static const char *const N_DKEYMODE[] = {"CLASSIC", "EXTENDED"};
+/* (bigtext) N_DKEYMODE: packed, PNB */
 static const param_desc_t DKEYMODE_DESC = {"KEY MAP",F_ENUM,0,1,1,N_DKEYMODE};   /* (2..9: EXTENDED, eng_drum.c drum_chrom) */
 static const param_desc_t SIMG_DESC = {"IMAGE", F_PCTINV, 0, 127, 127, 0};   /* (V10.49) P_SIMG: 127 = 0 % */
 static const param_desc_t NONE_DESC = {"-", F_PCTINV, 0, 127, 127, 0};      /* (codex/coherence) EXT's P_SIMG: no card on PLAY 2,
@@ -479,7 +549,7 @@ static int32_t enum_step(const param_desc_t *d, int32_t from, int32_t v)
  * -> the shown order of d's values (index: position, entry: value), 0 = the values' own order */
 static const uint8_t DIV_ORDER[10] = {9, 8, 7, 6, 0, 1, 4, 2, 5, 3};   /* 4BAR 2BAR 1/1 1/2 1/4 1/8 8T 1/16 16T 1/32 */
 static const uint8_t SLDIV_ORDER[6] = {0, 3, 1, 4, 2, 5};              /* 1/8 8T 1/16 16T 1/32 32T */
-static const uint8_t DTIME_ORDER[NELEM(N_DTIME)] = {9, 8, 7, 6, DT_DOT + 2u, 0, DT_DOT, 1, DT_DOT + 1u, 4, 2, 5, 3, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57,
+static const uint8_t DTIME_ORDER[N_DTIME_N] = {9, 8, 7, 6, DT_DOT + 2u, 0, DT_DOT, 1, DT_DOT + 1u, 4, 2, 5, 3, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57,
                                                  58, 59, 60, 61, 62
 #if DLY_LEN >= 65536u
                                                  , 63, 64, 65, 66, 67, 68, 69
@@ -629,7 +699,7 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
     case F_LFOHZ: {
         uint32_t h = LFO_HZ_X100[v & 127];
         if (v < 0) {                                    /* (0.6.51) the LFO in time */
-            str_cpy(val, N_LSYNC[(uint32_t)(-v - 1) % 14u], 6);
+            str_cpy(val, PN_AT(N_LSYNC, (uint32_t)(-v - 1) % 14u), 6);
             break;
         }
         if (h < 1000u)
@@ -670,7 +740,7 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         *unit = d->fmt == F_SEMI ? "st" : "dB";
         break;
     case F_ENUM:
-        str_cpy(val, d->names[v < d->min ? d->min : v > d->max ? d->max : v], 6);
+        str_cpy(val, desc_nm(d, v < d->min ? d->min : v > d->max ? d->max : v), 6);
         break;
     case F_BPM:
         fmt_int(val, v);
@@ -680,7 +750,7 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         str_cpy(val, N_NOTE[v % 12], 6);
         break;
     case F_ONOFF:
-        str_cpy(val, N_ONOFF[v ? 1 : 0], 6);
+        str_cpy(val, PN_AT(N_ONOFF, v ? 1 : 0), 6);
         break;
     case F_STEPS:                                     /* (0: OFF, C.LEN's) */
         if (!v) { str_cpy(val, "OFF", 6); break; }
@@ -739,8 +809,8 @@ typedef struct {
  * kept with the settings, not in the song). An id past the globals (no song.g of its own): trks_ui mirrors the setting
  * (ui.c rp_apply), a turn writes it back (ui_input.c knob_turn) */
 #define G_TRKS 0xFEu
-static const char *const N_TRKS[] = {"4", "6"};
-static const param_desc_t TRKS_DESC = PE("TRACKS", N_TRKS, 0);
+/* (bigtext) N_TRKS: packed, PNB */
+static const param_desc_t TRKS_DESC = {"TRACKS", F_ENUM, 0, N_TRKS_N - 1, 0, N_TRKS};
 static int16_t trks_ui;
 /* (0.6.30) .. and LOAD, next to it (ui.c ui_load, voice.c sys_load): the heavy parts lightened or gone while they
  * sound, ECO the lightest. load_ui mirrors it as trks_ui does */
@@ -756,8 +826,8 @@ static int16_t load_ui;
  * (RAM, a track each) for TRIG again, and PHASE turned in FREE moves only that (shown dimmed) */
 #define ID_LMODE 0xFBu
 #define ID_LPHS 0xFAu
-static const char *const N_LMODE[] = {"TRIG", "FREE"};
-static const param_desc_t LFO_MODE_DESC = PE("MODE", N_LMODE, 0);
+/* (bigtext) N_LMODE: packed, PNB */
+static const param_desc_t LFO_MODE_DESC = {"MODE", F_ENUM, 0, N_LMODE_N - 1, 0, N_LMODE};
 static const param_desc_t LFO_PHASE_DESC = PD("PHASE", F_INT, 0, 127, 0);
 static int16_t lmode_ui, lphase_ui;
 /* (0.9.9-snd8) the master's TAPE (FX > TAPE): its DRIVE and WOW, 0..100 (fx.c tape_block). Not song globals: song_t's size
@@ -807,7 +877,7 @@ static int16_t cru_v[NTRK] __attribute__((section(".pool")));   /* (V10.7.33) CR
 #define ID_OT0 0xD0u
 enum { OT_DEPTH, OT_TIME, OT_UPDN, OT_XO, OT_N };
 static const param_desc_t OTT_DESC[OT_N] __attribute__((section(".rodata.tape"))) = {
-    PD("DEPTH", F_PCT, 0, 100, 0), PD("TIME", F_TIME, 30, 100, 64), PD("UP/DN", F_BIPCT, -64, 63, 0),
+    PD("DEPTH", F_PCT, 0, 100, 0), PD("TIME", F_TIME, 30, 100, 56), PD("UP/DN", F_BIPCT, -64, 63, 0),
     PD("X-OVER", F_CUTOFF, 15, 100, 37)};
 static int16_t ott_v[NTRK][OT_N] __attribute__((section(".bss.tape")));   /* (out of the merged statics) */
 static __attribute__((noinline)) void ott_put(uint32_t k, const int8_t *v)   /* track k's OTT from v (stored: each
@@ -1078,30 +1148,31 @@ static const page_t PAGES[] = {
 #define PG_TI(pg) ((pg)->id[0] != P_E0 && (pg)->id[0] != P_E7)
 static uint8_t mod_ui_slot;      /* the MOD page: the matrix slot (0..3) KNOB 2..4 edit */
 static uint8_t ms_ui_step;       /* (JIANT) the MSEQ page: the step (0..15) KNOB 2 edits */
-static const char *const N_RFOLW[] = {"OFF", "T1", "T2", "T3", "T4", "T5", "T6"};
+/* (bigtext) N_RFOLW: packed, PNB */
 static const param_desc_t RESO_PITCH = PD("PITCH", F_INT, 0, 14, 0);   /* (0.6.5) RESO: the chord's steps up the scale (G_RPRE) */
-static const param_desc_t RESO_FOLW = PE("FOLLOW", N_RFOLW, 0);          /* .. the track whose notes it follows (G_RDAMP) */
+static const param_desc_t RESO_FOLW = {"FOLLOW", F_ENUM, 0, N_RFOLW_N - 1, 0, N_RFOLW};          /* .. the track whose notes it follows (G_RDAMP) */
 static const param_desc_t REV_PRE = PD("PRE", F_INT, 0, 100, 0);       /* ROOM / SPRING: the pre-delay, ms (G_RPRE) */
 static const param_desc_t REV_AIR = PD("AIR", F_SEMI, -24, 24, 0);    /* (0.6.12) SHIMMER / CLOUD: pitch and tone, down dark,
                                                                        * up airy (G_RPRE; fx.c rev_air) */
-static const param_desc_t AP_BEAT = PE("RATE", N_APDIV, 2);          /* (0.6.9) AUTO PAN's RATE on the tempo (SYNC BEAT) */
+static const param_desc_t AP_BEAT = {"RATE", F_ENUM, 0, N_APDIV_N - 1, 2, N_APDIV};          /* (0.6.9) AUTO PAN's RATE on the tempo (SYNC BEAT) */
 static uint8_t sl_ui_step;       /* (JIANT 0.6.3) the SL PITCH page: the step KNOB 2 edits */
 
 /* page_desc's views (ids ID_TAPE .. ID_LMODE): (0.9.18) the LFO's MODE and PHASE, views of P_LPHASE; (0.9.9-snd8) the
  * master's TAPE (noinline: page_desc is recorded code) */
-static __attribute__((noinline)) const param_desc_t *page_desc_v(uint32_t id, int16_t **valp)
+static __attribute__((noinline)) const param_desc_t *page_desc_v(uint32_t id, int16_t **valp, uint32_t tr)   /* (bigtext: tr the
+                                                         * track, the editor's TRACK_PARAM any) */
 {
-    if (id == ID_VMAX) { *valp = &voice_limit[song.sel % NTRK]; if (!**valp) **valp=NVOICE; return &VMAX_DESC; }
+    if (id == ID_VMAX) { *valp = &voice_limit[tr]; if (!**valp) **valp=NVOICE; return &VMAX_DESC; }
     if (id == ID_LIF) {                               /* (V10.7.34) the track's LIFE (life.c) */
-        *valp = &life_v[LIFE_N + song.sel % NTRK];
+        *valp = &life_v[LIFE_N + tr];
         return &LIFE_DESC;
     }
     if (id >= ID_BAL && id <= ID_CRU) {               /* (V10.7.30) BALANCE; the track's NOISE; (V10.7.33) its CRUSH */
-        *valp = id == ID_BAL ? &bal_v : id == ID_DNZ ? &dnz_v[song.sel % NTRK] : &cru_v[song.sel % NTRK];
+        *valp = id == ID_BAL ? &bal_v : id == ID_DNZ ? &dnz_v[tr] : &cru_v[tr];
         return &XM_DESC[id - ID_BAL];
     }
     if (id - ID_OT0 < OT_N) {                         /* (BYTE ott) the track's OTT */
-        *valp = &ott_v[song.sel % NTRK][id - ID_OT0];
+        *valp = &ott_v[tr][id - ID_OT0];
         return &OTT_DESC[id - ID_OT0];
     }
     if (id == ID_CMIX) {                              /* (FM V10.8.36) FX > CHORUS's MIX */
@@ -1118,7 +1189,7 @@ static __attribute__((noinline)) const param_desc_t *page_desc_v(uint32_t id, in
     } else {
         int32_t ph = TSEL->p[P_LPHASE];
         lmode_ui = (int16_t)(ph < 0);
-        lphase_ui = (int16_t)(ph < 0 ? lfo_ph_mem[song.sel % NTRK] : ph);
+        lphase_ui = (int16_t)(ph < 0 ? lfo_ph_mem[tr] : ph);
         *valp = id == ID_LMODE ? &lmode_ui : &lphase_ui;
         return id == ID_LMODE ? &LFO_MODE_DESC : &LFO_PHASE_DESC;
     }
@@ -1141,7 +1212,7 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
     if (id == ID_VMAX || (id >= ID_TAPE && id <= ID_LMODE) || (id >= ID_EQ0 && id <= ID_CMIX) || (id >= ID_BAL && id <= ID_LIF) ||
         id - ID_OT0 < OT_N)                           /* (0.9.18) the LFO's MODE and PHASE;
                                                          * (snd8) the master's TAPE; (p9) its EQ */
-        return page_desc_v(id, valp);
+        return page_desc_v(id, valp, song.sel % NTRK);
     if (id == G_LOADP) {                              /* (0.6.30) the same */
         *valp = &load_ui;
         return &LOAD_DESC;

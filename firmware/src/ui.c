@@ -990,7 +990,7 @@ static void rate_name(const track_t *t, uint32_t n, char *b)
     static const uint8_t BASE[10] = {4, 8, 16, 32, 0, 0, 2, 1, 0, 0};   /* N_DIV: 1/4 1/8 1/16 1/32 8T 16T 1/2 1/1 2BAR 4BAR */
     uint32_t d = (uint32_t)clamp(t->p[P_SDIV], 0, 9), base = BASE[d], v = 0;
     const char *tr = "";
-    if (n == 1u && (d == 4u || d == 5u)) { str_cpy(b, N_DIV[d], 8); return; }   /* (8T 16T; a bar DIV x1) */
+    if (n == 1u && (d == 4u || d == 5u)) { str_cpy(b, PN_AT(N_DIV, d), 8); return; }   /* (8T 16T; a bar DIV x1) */
     if (base && (n == 1u || n == 2u || n == 4u || n == 8u)) v = base * n;
     else if (base && (n == 3u || n == 6u)) { v = base * n * 2u / 3u; tr = "T"; }
     if (!v || v > 64u) { b[0] = 'x'; fmt_int(b + 1, (int32_t)n); return; }   /* (past 1/64: "x6") */

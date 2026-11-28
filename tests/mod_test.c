@@ -1370,7 +1370,7 @@ static void test_fnoise(void)
     trk_note_on(&trk[0], 36, 100);
     blocks(4);
     check("F.NOISE: appended (OCT- before it), named, bipolar; a kit's 0",
-          MS_FNZ == MS_OCTDN + 1 && str_eq(N_MSRC[MS_FNZ], "F.NOISE") && MS_BIPOLAR(MS_FNZ) && fn_src(&trk[0]) == 0);
+          MS_FNZ == MS_OCTDN + 1 && str_eq(PN_AT(N_MSRC, MS_FNZ), "F.NOISE") && MS_BIPOLAR(MS_FNZ) && fn_src(&trk[0]) == 0);
 }
 
 int main(int argc, char **argv)

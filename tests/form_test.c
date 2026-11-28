@@ -80,8 +80,8 @@ int main(int argc, char **argv)
         turn(EN_K1, 1); frames(2);
         ok &= clay[song.sel][CL_ON] == 1 && clay[song.sel][CL_MF(0, 3u)] != 0;
         int16_t *vp; const param_desc_t *d = clay_desc(TSEL, CL_MF(0, 1u), &vp);
-        ok &= d && d->names && !strcmp(d->names[0], "KICK");   /* (the owner: the HITS first) */
-        OK(ok, "SEQ > DRONE CLAY: ON from blank its first sound, SHAPE's first a HIT (%s)", d && d->names ? d->names[0] : "-");
+        ok &= d && d->names && !strcmp(desc_nm(d, 0), "KICK");   /* (the owner: the HITS first) */
+        OK(ok, "SEQ > DRONE CLAY: ON from blank its first sound, SHAPE's first a HIT (%s)", d && d->names ? desc_nm(d, 0) : "-");
     }
     {   /* stored and read back */
         static project_t q, r; static project_store_t st;
@@ -245,7 +245,7 @@ int main(int argc, char **argv)
         ui_power_on(); go_home(); frame(); clay_defaults(clay[song.sel]); clay[song.sel][CL_RUN] = 1;
         ok &= nav_put(SEC_SEQ, "CLAY TIME") && cur_page()->id[2] == ID_CL0 + CL_KEYS;
         int16_t *vp; const param_desc_t *d = clay_desc(TSEL, CL_KEYS, &vp);
-        ok &= d && !strcmp(d->label, "KEYS") && d->names && !strcmp(d->names[*vp], "ON");
+        ok &= d && !strcmp(d->label, "KEYS") && d->names && !strcmp(desc_nm(d, *vp), "ON");
         turn(EN_K3, 1); frames(2);
         ok &= clay[song.sel][CL_RUN] == 3;            /* (KEYS OFF: RUN's bit 1, FREE kept) */
         turn(EN_K1, -1); frames(2);

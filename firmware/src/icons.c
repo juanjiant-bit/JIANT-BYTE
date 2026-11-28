@@ -160,7 +160,7 @@ static uint32_t param_icon(const param_desc_t *d, int32_t v)
     if (d->fmt == F_ENUM && d->names && v >= d->min && v <= d->max &&
         (str_eq(d->label, "WAVE") || str_eq(d->label, "WAVE2")))
         for (i = 0; i < sizeof(WAVE_ICON) / sizeof(WAVE_ICON[0]); i++)
-            if (str_eq(d->names[v], WAVE_ICON[i].label))
+            if (str_eq(desc_nm(d, v), WAVE_ICON[i].label))
                 return WAVE_ICON[i].icon;
     if (d == &TP[P_LWAVE])
         return ICON_LFO_WAVE;                 /* "WAVE" is also the oscillator wave */

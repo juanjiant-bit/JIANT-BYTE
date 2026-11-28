@@ -34,8 +34,9 @@ enum { ED_VIS_SONG = 98, ED_VIS_TICK };                              /* v6: song
                              * (BYTE v1.1b2) 1.6: JIANT Studio's, INFO 44 01 caps (ED_STUDIO_CAPS) */
 /* (1.6) INFO 'D' 44 01 caps, a bit each: 0 the project library (PROJ_LIST / PROJ_NAME / PROJ_OP, 95..97); 1 the whole
  * step (STEP_GET / TRACK_STEP flag 2: MICRO, LEN, DIV, EVERY, the components); 2 SONG ops 4, 5 (a row's scene, its
- * tracks' sources and variations); 3 the MOD matrix's AMT -128..127 (DESC says it too) */
-#define ED_STUDIO_CAPS 15u
+ * tracks' sources and variations); 3 the MOD matrix's AMT -128..127 (DESC says it too); 4 (bigtext) the special ids
+ * (ed_sdesc: DESC scope 2, TRACK_PARAM's track + 64) */
+#define ED_STUDIO_CAPS 31u
 enum { ED_VM_READ = 80 };   /* (V10.10) read-only: 256 B of the stock VM (0xE7000 + 256 x a[0], a[0] < 48: the radio's
                               * RF trims and BT address, web/btcheck.html); reply: a[0], then 256 x (hi nibble, lo nibble) */
 /* (V10.6z5, 1.1) the velocity diagnostic (vel_diag.c, web/vel.html): op 0 status, 1 on (drive 0..4), 2 off, 3 the next
@@ -442,6 +443,15 @@ static const param_desc_t *ed_desc(uint32_t scope, uint32_t id, int16_t **vp)
     }
     return 0;
 }
+/* (bigtext, INFO 44 01 bit 4) the values kept beside the parameters, by their page ids less 0x80 on the wire (w): FX >
+ * OTT's DEPTH TIME UP/DN X-OVER 0x50..0x53 (a track's), the master's EQ LOW LO MID HI MID HIGH 0x60..0x63 and CHORUS MIX
+ * 0x64, BALANCE 0x6C, the track's NOISE 0x6D, CRUSH 0x6E and LIFE 0x6F, TAPE and WOW 0x78, 0x79 (params.c page_desc_v) */
+static const param_desc_t *ed_sdesc(uint32_t tr, uint32_t w, int16_t **vp)
+{
+    uint32_t id = w | 0x80u;
+    return tr < NTRK && (id - ID_OT0 < OT_N || id - ID_EQ0 < 5u || id - ID_BAL < 4u || id - ID_TAPE < 2u) ?
+           page_desc_v(id, vp, tr) : 0;
+}
 
 /* (1.6, INFO 44 01 bit 1) the whole step, after the 8 lane modes (STEP_GET / TRACK_STEP's read with flag 2, a write of
  * them): MICRO + 32 (0..63: -32..+31 64ths), LEN (0..15: 0 the track's GATE, n/16), DIV (0..5: CT_DIVS), EVERY (0..13,
@@ -721,8 +731,8 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         for (i = 0; i < G_COUNT; i++)
             ed_v(song.g[i]);
         break;
-    case ED_DESC:
-        if (na < 2u || !(d = ed_desc(a[0], a[1], &vp)))
+    case ED_DESC:                                          /* (bigtext) scope 2: a special id, the selected track's */
+        if (na < 2u || !(d = a[0] == 2u ? ed_sdesc(song.sel % NTRK, a[1], &vp) : ed_desc(a[0], a[1], &vp)))
             return;
         ed_b(a[0]);
         ed_b(a[1]);
@@ -737,7 +747,7 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
             for (i = 0; i <= (uint32_t)(d->max - d->min) && i < 48u; i++) {
                 int dst = d->names == N_MDST, show = dst && (mod_dst_offer(TSEL, i) || i == (uint32_t)*vp);
                 if (show && i) { ed_b(mod_dst_scope(TSEL, i)); ed_b(':'); }
-                ed_str(dst ? (show ? mod_dst_name(TSEL, (int32_t)i) : N_MDST[0]) : d->names[d->min + (int32_t)i], show && i ? 6u : 8u);
+                ed_str(dst ? (show ? mod_dst_name(TSEL, (int32_t)i) : PN_AT(N_MDST, 0)) : desc_nm(d, d->min + (int32_t)i), show && i ? 6u : 8u);
             }
         break;
     case ED_STEP_GET:
@@ -998,6 +1008,16 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
     }
     case ED_TRACK_PARAM: {                                 /* track, id [, v14] -> track, id, v14 */
         track_t *t;
+        if (na >= 2u && a[0] >= 64u) {                     /* (bigtext) track + 64: a special id (ed_sdesc) */
+            if (!(d = ed_sdesc(a[0] - 64u, a[1], &vp)))
+                return;
+            if (na >= 4u)
+                *vp = (int16_t)clamp(ed_rv(a + 2), d->min, d->max), ui.force = 1;
+            ed_b(a[0]);
+            ed_b(a[1]);
+            ed_v(*vp);
+            break;
+        }
         if (na < 2u || a[0] >= NTRK || a[1] >= P_COUNT)
             return;
         t = &trk[a[0]];
