@@ -159,11 +159,11 @@ static __attribute__((noinline)) int32_t about_cpu(int32_t y, int draw)
         uint32_t i;
         str_cpy(b, fm1_clk_320() ? "CPU 320 MHZ  RAIL" : "CPU 360 MHZ  RAIL", sizeof b);
         for (i = 0; i < 4u; i++) {
-            str_cpy(b + str_len(b), RL[i], 4);
+            str_cat(b, RL[i], 4);
             fmt_int(n, fm1_rails[(i + 2u) & 3u]);
-            str_cpy(b + str_len(b), n, 4);
+            str_cat(b, n, 4);
         }
-        str_cpy(b + str_len(b), fm1_power_ready ? ") DC" : ")", 5);   /* (V10.11) DC: the stock supply setup took */
+        str_cat(b, fm1_power_ready ? ") DC" : ")", 5);   /* (V10.11) DC: the stock supply setup took */
         y = menu_text(b, y, T_TEXT, draw);
         if (fm1_crash.magic == FM1_CRASH_MAGIC && fm1_crash.count) {   /* (0.9.9-stab) the last crash since power-on
                                                      * (.noinit, hal/fm1_irq.h): what its red screen showed, in hex */
@@ -174,10 +174,10 @@ static __attribute__((noinline)) int32_t about_cpu(int32_t y, int draw)
                 uint32_t k, v = cv[i];
                 if (!(i & 1u))
                     b[0] = 0;
-                str_cpy(b + str_len(b), CL[i], 7);
+                str_cat(b, CL[i], 7);
                 if (i == 0) {
                     fmt_int(n, (int32_t)v);
-                    str_cpy(b + str_len(b), n, 8);
+                    str_cat(b, n, 8);
                 } else {
                     for (k = str_len(b) + 8u; k > str_len(b); k--, v >>= 4)
                         b[k - 1u] = "0123456789ABCDEF"[v & 15u];
@@ -199,7 +199,7 @@ static __attribute__((noinline)) const char *about_cores(void)
 {
     static char b[40];
     str_cpy(b, cpu_status(), 28);
-    str_cpy(b + str_len(b), "  GUARD ", 9);
+    str_cat(b, "  GUARD ", 9);
     fmt_frac(b + str_len(b), load_rl, (int32_t)load_diag.rl);
     return b;
 }
@@ -209,26 +209,26 @@ static int32_t about_load(int32_t y, int draw)
 {
     char b[40];
     y = menu_text("AUDIO LOAD", y, T_THEME, draw);
-    str_cpy(b, "NOW ", sizeof b); fmt_int(b + str_len(b), (int32_t)((song.cpu_q8 * 100u) >> 8));
-    str_cpy(b + str_len(b), "%  PEAK ", 10); fmt_int(b + str_len(b), (int32_t)load_diag.peak);
-    str_cpy(b + str_len(b), "%", 2);
+    str_cpy(b, "NOW ", sizeof b); fmt_cat(b, (int32_t)((song.cpu_q8 * 100u) >> 8));
+    str_cat(b, "%  PEAK ", 10); fmt_cat(b, (int32_t)load_diag.peak);
+    str_cat(b, "%", 2);
     y = menu_text(b, y, T_TEXT, draw);
-    str_cpy(b, "LATE ", sizeof b); fmt_int(b + str_len(b), (int32_t)load_diag.late);
-    str_cpy(b + str_len(b), "  SHED ", 8); fmt_int(b + str_len(b), (int32_t)load_diag.shed);
+    str_cpy(b, "LATE ", sizeof b); fmt_cat(b, (int32_t)load_diag.late);
+    str_cat(b, "  SHED ", 8); fmt_cat(b, (int32_t)load_diag.shed);
     y = menu_text(b, y, T_TEXT, draw);
     y = menu_text(about_cores(), y, T_TEXT, draw);   /* (the second core: fx.c; p1: MENU > CPU CORES, cpu_safe.c) */
 #if FELUCCA_DUAL_CORE
     if (fm1_core1_fault.count) {                     /* (BYTE) core 1's fault, where: its PC, core 1's own, the debug word,
                                                       * the window it wrote into (hal/fm1_irq.h); the map names the code */
         str_cpy(b, "C1 PC ", sizeof b); hex8(b + 6, fm1_core1_fault.pc);
-        str_cpy(b + str_len(b), " AT ", 5); hex8(b + str_len(b), fm1_core1_fault.pc1);
+        str_cat(b, " AT ", 5); hex8(b + str_len(b), fm1_core1_fault.pc1);
         y = menu_text(b, y, T_ACCENT, draw);
         str_cpy(b, "DBG ", sizeof b); hex8(b + 4, fm1_core1_fault.dbg);
-        str_cpy(b + str_len(b), " WR ", 5); fmt_int(b + str_len(b), (int32_t)fm1_core1_fault.wr);
-        str_cpy(b + str_len(b), " X", 3); fmt_int(b + str_len(b), (int32_t)fm1_core1_fault.count);
+        str_cat(b, " WR ", 5); fmt_cat(b, (int32_t)fm1_core1_fault.wr);
+        str_cat(b, " X", 3); fmt_cat(b, (int32_t)fm1_core1_fault.count);
         if (mc_lost_at >= 0 && mc_lost_at < (int8_t)NPART) {   /* (the part it was rendering, its engine) */
-            str_cpy(b + str_len(b), " T", 3); fmt_int(b + str_len(b), mc_lost_at + 1);
-            str_cpy(b + str_len(b), " ", 2); str_cpy(b + str_len(b), ENGINES[trk[mc_lost_at].engine]->name, sizeof b - str_len(b));
+            str_cat(b, " T", 3); fmt_cat(b, mc_lost_at + 1);
+            str_cat(b, " ", 2); str_cat(b, ENGINES[trk[mc_lost_at].engine]->name, sizeof b - str_len(b));
         }
         y = menu_text(b, y, T_ACCENT, draw);
     }
@@ -239,23 +239,23 @@ static int32_t about_load(int32_t y, int draw)
     {
         uint32_t k;
         char d[96];
-        str_cpy(d, "VOICES ", sizeof d); fmt_int(d + str_len(d), voices_busy());
-        str_cpy(d+str_len(d), " CAP ", 6); fmt_int(d + str_len(d), voice_cap());
+        str_cpy(d, "VOICES ", sizeof d); fmt_cat(d, voices_busy());
+        str_cpy(d+str_len(d), " CAP ", 6); fmt_cat(d, voice_cap());
         y = menu_text(d, y, T_TEXT, draw);
-        str_cpy(d, "ALLOC CUT ", sizeof d); fmt_int(d + str_len(d), voice_kills-voice_trims-shed_count);
-        str_cpy(d+str_len(d), " TRIM ", 7); fmt_int(d + str_len(d), voice_trims);
+        str_cpy(d, "ALLOC CUT ", sizeof d); fmt_cat(d, voice_kills-voice_trims-shed_count);
+        str_cpy(d+str_len(d), " TRIM ", 7); fmt_cat(d, voice_trims);
         y = menu_text(d, y, T_TEXT, draw);
-        str_cpy(d, "FX ", sizeof d); fmt_int(d + str_len(d), mc_fx_tk/24u);
-        str_cpy(d+str_len(d), " us PEAK ", 10); fmt_int(d + str_len(d), mc_pk[NTRK]/24u);
+        str_cpy(d, "FX ", sizeof d); fmt_cat(d, mc_fx_tk/24u);
+        str_cpy(d+str_len(d), " us PEAK ", 10); fmt_cat(d, mc_pk[NTRK]/24u);
         y = menu_text(d, y, T_TEXT, draw);
         for (k=0; k<trk_live && k<NTRK; k++) {
             uint32_t v, live=0;
             for (v=0; v<NVOICE; v++) live += trk[k].v[v].active;
-            str_cpy(d, "T", sizeof d); fmt_int(d + str_len(d), k+1);
+            str_cpy(d, "T", sizeof d); fmt_cat(d, k+1);
             str_cpy(d+str_len(d), " ", 2); str_cpy(d+str_len(d), ENGINES[trk[k].engine]->name, 20);
-            str_cpy(d+str_len(d), " V", 3); fmt_int(d + str_len(d), live);
-            str_cpy(d+str_len(d), " ", 2); fmt_int(d + str_len(d), mc_tk[k]/24u);
-            str_cpy(d+str_len(d), " PK ", 5); fmt_int(d + str_len(d), mc_pk[k]/24u);
+            str_cpy(d+str_len(d), " V", 3); fmt_cat(d, live);
+            str_cpy(d+str_len(d), " ", 2); fmt_cat(d, mc_tk[k]/24u);
+            str_cpy(d+str_len(d), " PK ", 5); fmt_cat(d, mc_pk[k]/24u);
             y = menu_text(d, y, T_TEXT, draw);
         }
         {   /* (BYTE, CPU) the engines' insides, us a block of 64 samples, over the last second (formula_perf.c prof_tk) */
@@ -271,14 +271,14 @@ static int32_t about_load(int32_t y, int draw)
                 ph = audio_halves;
                 pms = fm1_ms;
             }
-            str_cpy(d, "WAVE TAB ", sizeof d); fmt_int(d + str_len(d), pv[PQ_WTAB]);
-            str_cpy(d + str_len(d), " VM ", 5); fmt_int(d + str_len(d), pv[PQ_WVM]);
-            str_cpy(d + str_len(d), " RD ", 5); fmt_int(d + str_len(d), pv[PQ_WRD]);
-            str_cpy(d + str_len(d), " ALL ", 6); fmt_int(d + str_len(d), pv[PQ_WALL]);
+            str_cpy(d, "WAVE TAB ", sizeof d); fmt_cat(d, pv[PQ_WTAB]);
+            str_cat(d, " VM ", 5); fmt_cat(d, pv[PQ_WVM]);
+            str_cat(d, " RD ", 5); fmt_cat(d, pv[PQ_WRD]);
+            str_cat(d, " ALL ", 6); fmt_cat(d, pv[PQ_WALL]);
             y = menu_text(d, y, T_TEXT, draw);
-            str_cpy(d, "DRUM-W MOD ", sizeof d); fmt_int(d + str_len(d), pv[PQ_DMOD]);
-            str_cpy(d + str_len(d), " BODY ", 7); fmt_int(d + str_len(d), pv[PQ_DBODY]);
-            str_cpy(d + str_len(d), " ALL ", 6); fmt_int(d + str_len(d), pv[PQ_DALL]);
+            str_cpy(d, "DRUM-W MOD ", sizeof d); fmt_cat(d, pv[PQ_DMOD]);
+            str_cat(d, " BODY ", 7); fmt_cat(d, pv[PQ_DBODY]);
+            str_cat(d, " ALL ", 6); fmt_cat(d, pv[PQ_DALL]);
             y = menu_text(d, y, T_TEXT, draw);
         }
     }
@@ -384,7 +384,7 @@ static __attribute__((noinline)) void menu_panel(void)
             GFX_HOOK_ALIGN(x, 0, x + 115, 0, AL_H, "menu tab tile name centred");
             cv_text_in(x, y + 14, 115, &AF_M, MTAB_NAME[k], k == t ? T_THEME : T_TEXT, bg);
             fmt_int(v, (int32_t)mtab_rows(k));
-            str_cpy(v + str_len(v), " ROWS", 8);
+            str_cat(v, " ROWS", 8);
             cv_text_in(x, y + 40 - AF_X_CAP_Y, 115, &AF_X, v, T_TEXT, bg);
         }
         return;
@@ -415,8 +415,8 @@ static __attribute__((noinline)) void menu_panel(void)
         uint32_t row = ui.menu_sel, nv = row < MI_VALUES ? menu_n(row) : 0u, cur = nv ? menu_get(row) : 0u;
         char b[32];
         str_cpy(b, MTAB_NAME[t], 32);
-        str_cpy(b + str_len(b), " > ", 32 - str_len(b));
-        str_cpy(b + str_len(b), str_nth(MI_NAME, row), 32 - str_len(b));
+        str_cat(b, " > ", 32 - str_len(b));
+        str_cat(b, str_nth(MI_NAME, row), 32 - str_len(b));
         cv_text(10, 6 - AF_X_CAP_Y, &AF_X, b, T_THEME);
         if (!nv) {
             cv_text_in(4, 60 - AF_M_CAP_Y, 232, &AF_M, "OCT+ OPENS IT", T_TEXT, T_SURF);
@@ -465,12 +465,12 @@ BTAPP_FN static void bt_prox_panel(const aafont_t *fx, const aafont_t *fm, const
     cv_rect(10, 18, 220, 14, T_RAISE);
     heat_bar(10, 18, p * 220 / 32767, 220, 14, T_ACCENT);   /* (V10.7.7: cold to hot, the thermal palette) */
     fmt_int(b, p * 100 / 32767);
-    str_cpy(b + str_len(b), BPS(13), 2);
+    str_cat(b, BPS(13), 2);
     cv_text(10, 40 - AF_M_CAP_Y, fm, b, T_TEXT);
     if (bp.conn && bp.have) {
         str_cpy(b, BPS(9), sizeof b);
         fmt_fix(b + str_len(b), bp.lvl * 10 / 256, 1);
-        str_cpy(b + str_len(b), BPS(10), 10);
+        str_cat(b, BPS(10), 10);
         for (k = 0; k < 4u; k++)
             b[str_len(b) + 1u] = 0, b[str_len(b)] = "0123456789ABCDEF"[bp.raw >> (12u - 4u * k) & 15u];
         b[str_len(b) + 3u] = 0;                         /* (V10.18) the reading used: "R" its word, its kind */
@@ -494,12 +494,12 @@ BTAPP_FN static void bt_prox_panel(const aafont_t *fx, const aafont_t *fm, const
     }
     if (bpc.on) {                                       /* (V10.6z8) a point being taken: how far */
         str_cpy(b, bpc.on > 1u ? "HOLD STILL: NEAR " : "HOLD STILL: FAR ", sizeof b);
-        fmt_int(b + str_len(b), (int32_t)((fm1_ms - bpc.t0) * 100u / BPC_MS));
-        str_cpy(b + str_len(b), BPS(13), 2);
+        fmt_cat(b, (int32_t)((fm1_ms - bpc.t0) * 100u / BPC_MS));
+        str_cat(b, BPS(13), 2);
     } else if (BT_CAL[0] != BT_CAL[1]) {
         str_cpy(b, BPS(11), sizeof b);
         fmt_fix(b + str_len(b), BT_CAL[0] * 5, 1);
-        str_cpy(b + str_len(b), BPS(12), 10);
+        str_cat(b, BPS(12), 10);
         fmt_fix(b + str_len(b), BT_CAL[1] * 5, 1);
     } else
         str_cpy(b, BPS(3), sizeof b);
@@ -507,11 +507,11 @@ BTAPP_FN static void bt_prox_panel(const aafont_t *fx, const aafont_t *fm, const
     for (k = 0; k < 3u; k++)
         cv_text(10, 95 + 11 * (int32_t)k - AF_X_CAP_Y, fx, BPS(4u + k), T_DIM);   /* (9 px capitals: 11 apart) */
     str_cpy(b, BPS(14), sizeof b);                     /* (V10.61) KNOB 1 MIN, KNOB 2 MAX, KNOB 3 SPEED */
-    fmt_int(b + str_len(b), BT_MIN());
-    str_cpy(b + str_len(b), BPS(15), 16);
-    fmt_int(b + str_len(b), BT_MAX() < BT_MIN() + 10 ? BT_MIN() + 10 : BT_MAX());
-    str_cpy(b + str_len(b), BPS(16), 16);
-    fmt_int(b + str_len(b), (int32_t)BT_SPEED() + 1);
+    fmt_cat(b, BT_MIN());
+    str_cat(b, BPS(15), 16);
+    fmt_cat(b, BT_MAX() < BT_MIN() + 10 ? BT_MIN() + 10 : BT_MAX());
+    str_cat(b, BPS(16), 16);
+    fmt_cat(b, (int32_t)BT_SPEED() + 1);
     cv_text(10, 129 - AF_S_CAP_Y, fs, b, T_TEXT);       /* (inside the panel: it stood at 136, cut at the foot) */
 }
 static __attribute__((noinline)) void bt_prox_white(void)   /* (V10.7.24 white: its words TEXT, gfx.c UX_WHITE) */

@@ -607,8 +607,8 @@ static void vx_kit_page(const track_t *t, int32_t lane)
     }
     l = lane < 0 ? vxs.last & 7u : (uint32_t)lane & 7u;
     str_cpy(b, drum_lane_abbr(t, l), sizeof b);
-    str_cpy(b + str_len(b), " \xB7 ", sizeof b - str_len(b));
-    str_cpy(b + str_len(b), drum_lane_name(t, l), sizeof b - str_len(b));
+    str_cat(b, " \xB7 ", sizeof b - str_len(b));
+    str_cat(b, drum_lane_name(t, l), sizeof b - str_len(b));
     cv_text(8, 6 - AF_X_CAP_Y, &AF_X, "KIT", T_THEME);
     cv_text_r(232, 6 - AF_X_CAP_Y, &AF_X, b, lane < 0 ? T_TEXT : T_THEME, T_SURF);
 }

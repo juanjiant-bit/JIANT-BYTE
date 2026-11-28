@@ -297,7 +297,7 @@ static void hud_wave(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
         }
     }
     hud_tag(rx, y + 2, "PHASE ORBIT", 0x0000, tc);
-    str_cpy(b, "POS ", sizeof b); fmt_int(b + 4, (int32_t)pos * 100 / 127); str_cpy(b + str_len(b), "%", 2);
+    str_cpy(b, "POS ", sizeof b); fmt_int(b + 4, (int32_t)pos * 100 / 127); str_cat(b, "%", 2);
     cv_text_on(rx, y + 20 - AF_X_CAP_Y, &AF_X, b, HUD_YE, T_BG);
     cv_text_on(rx, y + 32 - AF_X_CAP_Y, &AF_X, "X  THE CYCLE", T_MID, T_BG);
     cv_text_on(rx, y + 43 - AF_X_CAP_Y, &AF_X, "Y  +90 DEG", T_MID, T_BG);
@@ -429,7 +429,7 @@ static void hud_func(const track_t *t, gq_work_t *w, int32_t x, int32_t y, int32
                      fs->sec | fs->fill | fs->mut | fs->mute | fs->sreq ? HUD_YE : T_MID) + 4;
         str_cpy(m, "A ", 3); str_cpy(m + 2, N_FRATE[3 + clamp(kp[FK_RATE], -3, 3)], 6);
         if (t->p[P_FFB] > 0) {                          /* (layer B on: its RATE) */
-            str_cpy(m + str_len(m), "  B ", 5); str_cpy(m + str_len(m), N_FRATE[3 + clamp(kp[FK_BRATE], -3, 3)], 6);
+            str_cat(m, "  B ", 5); str_cat(m, N_FRATE[3 + clamp(kp[FK_BRATE], -3, 3)], 6);
         }
         cv_text_on(x, ry + 1 - AF_X_CAP_Y, &AF_X, m, T_TEXT, T_BG);
         if (g->side) q = -q;                            /* (func_mod's offset, MOVE's way) */

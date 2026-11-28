@@ -335,7 +335,7 @@ static void nm_title(char *b)
     if(nm.kind==NK_FUNC){str_cpy(b,"FUNC T",24);fmt_int(b+6,nm.slot+1);return;}
     if (nm.kind == NK_SONG_SAVE) {
         str_cpy(b, song_save_loop ? "SAVE LOOP TO PROJECT " : "SAVE SONG TO PROJECT ", 24);
-        fmt_int(b + str_len(b), (int32_t)nm.slot + 1);
+        fmt_cat(b, (int32_t)nm.slot + 1);
         return;
     }
     str_cpy(b, nm.kind == NK_USER_SAVE || nm.kind == NK_PROJ_SAVE ? "SAVE " : "NAME ", 8);
@@ -364,7 +364,7 @@ static void nm_draw_field(void)
     nm_card(1, "CHAR", c[0] == ' ' ? "_" : c, T_TEXT);
     fmt_int(b, nm.len);
     if (nm_formula())
-        str_cpy(b + str_len(b), nm.kind==NK_DX_FORM?"/63":"/255", 5);
+        str_cat(b, nm.kind==NK_DX_FORM?"/63":"/255", 5);
     if (nm.kind == NK_SONG_SAVE) nm_card(2, "SCOPE", song_save_loop ? "LOOP" : "SONG", T_THEME);
     else nm_card(2, "LEN", b, nm.len >= nm_len_max() ? T_ACCENT : T_TEXT);
     nm_card(3, "OCT +", nm_formula() ? "APPLY" : nm.kind == NK_USER_SAVE || nm.kind == NK_PROJ_SAVE || nm.kind == NK_SONG_SAVE ? "SAVE" : "WRITE",
@@ -388,7 +388,7 @@ static void nm_panel_band(void)        /* (devcpu3: a band of it; nm_draw_panel)
             cv_text(x, y - AF_F_CAP_Y, &AF_F, c, i == nm.cur ? T_INK : T_TEXT);
         }
         if (nm.ferr) {
-            str_cpy(b, nm.ferr == FE_LONG ? "TOO COMPLEX @" : nm.ferr == FE_NAME ? "UNKNOWN NAME @" : "SYNTAX @", sizeof b); fmt_int(b + str_len(b), nm.fpos + 1);
+            str_cpy(b, nm.ferr == FE_LONG ? "TOO COMPLEX @" : nm.ferr == FE_NAME ? "UNKNOWN NAME @" : "SYNTAX @", sizeof b); fmt_cat(b, nm.fpos + 1);
             cv_text(10, 68 - AF_X_CAP_Y, &AF_X, b, T_ACCENT);
         } else cv_text(10, 68 - AF_X_CAP_Y, &AF_X, "K1 CURSOR / K2 CHARACTER", T_DIM);
         for (i = 0; i < 16u; i++) {

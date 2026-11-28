@@ -3820,8 +3820,8 @@ BTAPP_FN static void gen_panel_bt(void)
             v[0] = (char)('A' + (uint32_t)live.cur % 4u); v[1] = ' ';
             fmt_int(v + 2, (int32_t)chain.row + 1);
             k = str_len(v); v[k++] = '/'; fmt_int(v + k, chain.config.count);
-            str_cpy(v + str_len(v), " LEFT ", 7);
-            fmt_int(v + str_len(v), chain.remaining);
+            str_cat(v, " LEFT ", 7);
+            fmt_cat(v, chain.remaining);
         } else str_cpy(v, song.playing ? "PLAYING LOOP" : live.mode ? "SONG READY" : "LOOP MODE", sizeof v);
         cv_text(4, 128, &AF_X, v, T_TEXT);
         cv_text_r(236, 128, &AF_X, song_draft ? "DRAFT / SAVE" : "SAVE: SONG", T_ACCENT, T_SURF);

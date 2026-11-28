@@ -102,10 +102,10 @@ static void song_len_txt(char *b, uint32_t total)
 {
     uint32_t end = SONG_END(&chain_config);
     fmt_int(b, (int32_t)total);
-    str_cpy(b + str_len(b), " BARS \xB7 ", 9);
-    if (end == SONG_FOREVER) str_cpy(b + str_len(b), "LOOP", 6);
+    str_cat(b, " BARS \xB7 ", 9);
+    if (end == SONG_FOREVER) str_cat(b, "LOOP", 6);
     else if (end >= 2u) { uint32_t k = str_len(b); b[k] = 'x'; fmt_int(b + k + 1u, (int32_t)end); }
-    else str_cpy(b + str_len(b), "STOP", 6);
+    else str_cat(b, "STOP", 6);
 }
 static uint32_t song_bars(uint32_t s)                  /* the song's bars (s 4), part s's in it */
 {
@@ -233,7 +233,7 @@ static __attribute__((noinline)) void graph_tl(void)
     song_strip(3, 18, 4u, 1);
     if (chain.running && !chain.loop) {
         str_cpy(b, chain.hold ? "LOOP ROW " : "ROW ", sizeof b);
-        fmt_int(b + str_len(b), (int32_t)chain.row + 1);
+        fmt_cat(b, (int32_t)chain.row + 1);
     } else str_cpy(b, "PLAY: LOOP THE ROW", sizeof b);
     cv_text(4, 25, &AF_X, b, chain.hold ? T_THEME : T_TEXT);
     song_len_txt(b, song_bars(4u));
@@ -293,10 +293,10 @@ static void gen_board(void)
         for (x = 0; x < 5; x++)
             cv_rect(8 + x * 6, 15 + y * 6, 5, 5, (GB_GLY[s][y] >> (4 - x)) & 1u ? HUD_YE : T_SURF);
     fmt_int(b, r->bars);
-    str_cpy(b + str_len(b), r->bars == 1u ? " BAR" : " BARS", 6);
+    str_cat(b, r->bars == 1u ? " BAR" : " BARS", 6);
     cv_text(44, 46 - AF_M_CAP_Y, &AF_M, b, T_TEXT);
     b[0] = 'P'; b[1] = 'A'; b[2] = 'R'; b[3] = 'T'; b[4] = ' '; fmt_int(b + 5, (int32_t)cur + 1);
-    str_cpy(b + str_len(b), "/", 2); fmt_int(b + str_len(b), (int32_t)n);
+    str_cat(b, "/", 2); fmt_cat(b, (int32_t)n);
     cv_text(44, 18 - AF_X_CAP_Y, &AF_X, b, T_MID);
     cv_text(140, 3, &AF_X, "NEXT", T_DIM);              /* NEXT, THEN */
     if (n > 1u) {
@@ -306,7 +306,7 @@ static void gen_board(void)
         cv_text_on(144, 16 + (14 - AF_M_CAP_H) / 2 - AF_M_CAP_Y + 1, &AF_M, b, T_INK, T_TEXT);
         if (n > 2u) {
             str_cpy(b, "THEN ", 6); gb_name(b + 5, (cur + 2u) % n);
-            if (n > 3u) { str_cpy(b + str_len(b), " \xB7 ", 4); gb_name(b + str_len(b), (cur + 3u) % n); }
+            if (n > 3u) { str_cat(b, " \xB7 ", 4); gb_name(b + str_len(b), (cur + 3u) % n); }
             cv_text(140, 40 - AF_X_CAP_Y, &AF_X, b, T_MID);
         }
     } else

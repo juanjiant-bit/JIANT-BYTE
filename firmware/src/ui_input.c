@@ -23,8 +23,8 @@ static void knob_hint(const char *label, const char *meaning)   /* (func-tame) m
     if (!meaning && !(meaning = knob_meaning(label)))
         return;
     str_cpy(b, label, sizeof b);
-    str_cpy(b + str_len(b), ": ", sizeof b - str_len(b));
-    str_cpy(b + str_len(b), meaning, sizeof b - str_len(b));
+    str_cat(b, ": ", sizeof b - str_len(b));
+    str_cat(b, meaning, sizeof b - str_len(b));
     if (ui.msg_t && str_eq(ui.msg, b)) { ui.msg_t = 40; return; }   /* (still turning: it stays) */
     ui_say(b, "");
 }
@@ -59,8 +59,8 @@ static void mod_full(const track_t *t, uint32_t src, int32_t v, char *b, uint32_
                 if (m && (*q == ',' || (m[0] == 'H' && m[1] == 'O' && m[2] == 'W') || (m[0] == 'W' && m[1] == 'H')))
                     m = 0;                              /* (HOW FAR, WHAT IT MOVES, A TO B, BY ..: the label itself) */
                 str_cpy(b, trk_engp(t)->name, n);
-                str_cpy(b + str_len(b), " ", n - str_len(b));
-                str_cpy(b + str_len(b), m ? m : l, n - str_len(b));
+                str_cat(b, " ", n - str_len(b));
+                str_cat(b, m ? m : l, n - str_len(b));
             }
         }
     }
@@ -82,15 +82,15 @@ static void mod_card(uint32_t knob)
     mod_full(TSEL, 1u, p[0], s, sizeof s, knob == 1u ? w : 0, sizeof w);
     mod_full(TSEL, 0u, p[1], d, sizeof d, knob == 2u ? w : 0, sizeof w);
     str_cpy(a, knob == 1u ? "SOURCE: " : "DEST: ", sizeof a);
-    str_cpy(a + str_len(a), knob == 1u ? s : d, sizeof a - str_len(a));
+    str_cat(a, knob == 1u ? s : d, sizeof a - str_len(a));
     if (!(ui.msg_t && str_eq(ui.msg, a)))
         ui_say(a, "");
     ui.msg_t = 40;                                      /* (still turning: it stays) */
     if ((!w[0] || knob == 2u) && p[0] && p[1]) {        /* (DEST: the route first, its note when no route) */
         char r[40];
         str_cpy(r, s, sizeof r);
-        str_cpy(r + str_len(r), " > ", sizeof r - str_len(r));
-        str_cpy(r + str_len(r), d, sizeof r - str_len(r));
+        str_cat(r, " > ", sizeof r - str_len(r));
+        str_cat(r, d, sizeof r - str_len(r));
         if (text_w(&AF_S, r) <= MOD_CARD_W)            /* (if room: the toast's pill clear of the page's words) */
             str_cpy(w, r, sizeof w);
     }
@@ -932,8 +932,8 @@ static void cp_say(const char *what, uint32_t n)
 {
     char b[24];
     str_cpy(b, what, sizeof b);
-    fmt_int(b + str_len(b), (int32_t)n);
-    str_cpy(b + str_len(b), n == 1u ? " STEP" : " STEPS", 8);
+    fmt_cat(b, (int32_t)n);
+    str_cat(b, n == 1u ? " STEP" : " STEPS", 8);
     ui_message(b);
 }
 
@@ -1279,9 +1279,9 @@ static void shape_apply(uint32_t which)
     n = which == 0u ? (shp_k() == 1 ? was : tl_stretch(t, shp_k())) : (shp_rep() == 1u ? was : tl_repeat(t, shp_rep()));
     shp_base.sig = steps_sig(t);
     if (!n) { ui_message("LEN 64: NO ROOM"); return; }
-    str_cpy(m, "LEN ", sizeof m); fmt_int(m + 4, (int32_t)was); str_cpy(m + str_len(m), " > ", 4);
-    fmt_int(m + str_len(m), (int32_t)n);
-    if (which == 0u && shp_k() > 1 && was * (uint32_t)shp_k() > NSTEP) str_cpy(m + str_len(m), " CUT", 5);
+    str_cpy(m, "LEN ", sizeof m); fmt_int(m + 4, (int32_t)was); str_cat(m, " > ", 4);
+    fmt_cat(m, (int32_t)n);
+    if (which == 0u && shp_k() > 1 && was * (uint32_t)shp_k() > NSTEP) str_cat(m, " CUT", 5);
     ui_message(m);
 }
 /* (NUDGE's step) a note's first step: back from i over TIEs; one past its last: on from i over TIEs, inside len */
@@ -2083,8 +2083,8 @@ static void rec_clear_auto(uint32_t b)
         if (b == B_GLO || k == song.sel)
             n += motion_clear_ids(&trk[k], m);
     str_cpy(msg, n ? "" : "NO ", sizeof msg);
-    str_cpy(msg + str_len(msg), name, sizeof msg - str_len(msg));
-    str_cpy(msg + str_len(msg), n ? " AUTOMATION CLEARED" : " AUTOMATION", sizeof msg - str_len(msg));
+    str_cat(msg, name, sizeof msg - str_len(msg));
+    str_cat(msg, n ? " AUTOMATION CLEARED" : " AUTOMATION", sizeof msg - str_len(msg));
     ui_message(msg);
     ui.force = 1;
 }
@@ -2100,12 +2100,12 @@ static void ent_message(void)
 {
     char a[24], b[24];
     if (ui.ent_arp) {
-        str_cpy(a, "ARP ", sizeof a); str_cpy(a + str_len(a), ENT_ORD[ui.ent_ord & 3u], 8);
-        str_cpy(b, ENT_RES[(ui.ent_res - 1u) & 3u], 8); str_cpy(b + str_len(b), " x", 4);
-        fmt_int(b + str_len(b), ui.ent_oct); str_cpy(b + str_len(b), " OCT", 6);
+        str_cpy(a, "ARP ", sizeof a); str_cat(a, ENT_ORD[ui.ent_ord & 3u], 8);
+        str_cpy(b, ENT_RES[(ui.ent_res - 1u) & 3u], 8); str_cat(b, " x", 4);
+        fmt_cat(b, ui.ent_oct); str_cat(b, " OCT", 6);
     } else {
-        str_cpy(a, "LEN ", sizeof a); fmt_int(a + str_len(a), ui.ent_len);
-        str_cpy(a + str_len(a), ui.ent_len > 1u ? " STEPS" : " STEP", 8);
+        str_cpy(a, "LEN ", sizeof a); fmt_cat(a, ui.ent_len);
+        str_cat(a, ui.ent_len > 1u ? " STEPS" : " STEP", 8);
         str_cpy(b, "ARP: ARPEGGIATE", sizeof b);
     }
     str_cpy(ui.msg, a, sizeof ui.msg); str_cpy(ui.msg2, b, sizeof ui.msg2); ui.msg_t = 40;
@@ -2238,10 +2238,10 @@ static void presets_turn(int32_t s) /* One continuous preset list; EDIT + PRESET
             cursor_set((int32_t)ui.cursor + s);
         str_cpy(nm, "BAR ", sizeof nm);
         fmt_int(nm + 4, (int32_t)ui.cursor / 16 + 1);
-        str_cpy(nm + str_len(nm), "/", sizeof nm - str_len(nm));
-        fmt_int(nm + str_len(nm), nb);
-        str_cpy(nm + str_len(nm), "  STEP ", sizeof nm - str_len(nm));
-        fmt_int(nm + str_len(nm), (int32_t)ui.cursor + 1);
+        str_cat(nm, "/", sizeof nm - str_len(nm));
+        fmt_cat(nm, nb);
+        str_cat(nm, "  STEP ", sizeof nm - str_len(nm));
+        fmt_cat(nm, (int32_t)ui.cursor + 1);
         ui_message(nm);
         return;
     }
@@ -2763,7 +2763,7 @@ static void ui_input_frame(void)
             char b[24];
             str_cpy(b, "ALL TR ", sizeof b);
             if (song.g[G_STRN] < 0) str_cpy(b + 7, "-", 2);
-            fmt_int(b + str_len(b), song.g[G_STRN] < 0 ? -song.g[G_STRN] : song.g[G_STRN]);
+            fmt_cat(b, song.g[G_STRN] < 0 ? -song.g[G_STRN] : song.g[G_STRN]);
             ui_say(b, " DEG");
             str_cpy(ui.msg2, "SCL > ALL TR: 0 = OFF", sizeof ui.msg2);   /* (0.7.6: SCL KNOB 4, was SCL 2) */
         }

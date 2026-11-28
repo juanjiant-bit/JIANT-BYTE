@@ -508,10 +508,10 @@ static int clay_card_text(char *a, char *b)
         uint32_t sh = clay_ke.a % FORM_NSH, m = clay_ke.b & 3u, j;
         const param_desc_t *dd = clay_desc(t, CL_MF(m, 0u), &dv);
         str_cpy(a, str_nth(FORM_SHAPE, sh), 24);
-        str_cpy(a + str_len(a), " \xB7 M", 24 - str_len(a));
+        str_cat(a, " \xB7 M", 24 - str_len(a));
         j = str_len(a); a[j] = (char)('1' + m); a[j + 1u] = 0;
-        str_cpy(a + str_len(a), " \xB7 ", 24 - str_len(a));
-        str_cpy(a + str_len(a), sh / 12u == FPG_NOTE ? "NOTES" : dd && dd->names ? dd->names[clamp(clay[t - trk][CL_MF(m, 0u)], dd->min, dd->max)] : "-", 24 - str_len(a));
+        str_cat(a, " \xB7 ", 24 - str_len(a));
+        str_cat(a, sh / 12u == FPG_NOTE ? "NOTES" : dd && dd->names ? dd->names[clamp(clay[t - trk][CL_MF(m, 0u)], dd->min, dd->max)] : "-", 24 - str_len(a));
         {
             const char *h = str_nth(CLAY_HOW, sh), *p = h;
             uint32_t n = 0;

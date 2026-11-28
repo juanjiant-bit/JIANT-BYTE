@@ -193,7 +193,15 @@ def main(src, dst):
                   "crush_block",
                   # (funcmotion, flash) a key's press and release on DRONE CLAY's and FUNC's keys (their maps, their
                   # gestures: once a key), the buses' fault (once), the panic's flags (its work once a panic)
-                  "clay_key", "clay_kb", "func_kb", "func_apply", "fx_trip", "panic_block"}
+                  "clay_key", "clay_kb", "func_kb", "func_apply", "fx_trip", "panic_block",
+                  # (v1.1b5, flash, as JIANT FM V10.8.71) a CLAY strike, the punch-ins let go, a FUGUE head's next step:
+                  # once an event
+                  "clay_strike", "pfx_end", "fg_next",
+                  # .. an engine's switch, a key's press or release, a song's bar end (out of mix_block's RAM code: once
+                  # an event)
+                  "engine_switch", "keyboard_change", "chain_bar_end",
+                  # .. WAVE's and HIVE's note starts, FUNC's descriptor (UI text), the ARP grid's start: once an event
+                  "wave_note_on", "hive_note_on", "func_desc", "arp_grid_start"}
     names, hit = ((size_names() | cold_ui) - isr) | input_size | event_size, set()
     def mark(m):
         if m.group(2) not in names:

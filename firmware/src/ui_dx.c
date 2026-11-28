@@ -192,8 +192,11 @@ static void dw_mod_box(const dw_lane_t *D, int lfo, int32_t x, int32_t y, int32_
     }
     cv_line(x + 1, y + 17, x + 65, y + 17, ux_mix(T_SURF, T_DIM, 60));
 }
-static const char *const DW_PAD[] = {"KICK", "SNARE", "CLAP", "HAT C", "HAT O", "TOM", "RIM", "BELL"};
-static const char *const DW_LP[8] = {"FEEDBK", "MORPH", "DECAY", "STRIKE", "ATTACK", "FOLD", "GAIN", "CUTOFF"};   /* (PLAY's: the kit's, DW_PL) */
+static const char DW_PADS[] = "KICK\0" "SNARE\0" "CLAP\0" "HAT C\0" "HAT O\0" "TOM\0" "RIM\0" "BELL";   /* (v1.1b5: packed, str_nth) */
+#define DW_PAD(k) str_nth(DW_PADS, (unsigned)(k))
+static const char DW_LPS[] = "FEEDBK\0" "MORPH\0" "DECAY\0" "STRIKE\0" "ATTACK\0" "FOLD\0" "GAIN\0" "CUTOFF";   /* (PLAY's, COLOR's:
+                                                         * the kit's, DW_PL DW_CO) */
+#define DW_LP(k) str_nth(DW_LPS, (unsigned)(k))
 static const uint8_t DW_PL[4] = {P_E2, P_E0, P_E3, P_E5}, DW_CO[4] = {P_E1, P_E6, P_E7, P_FCUT};
 static void dw_panel(void)
 {
@@ -204,7 +207,7 @@ static void dw_panel(void)
     int32_t sp = on ? (lv & 0x7FFF) : p0;
     int32_t se = D->edst == DWD_POSA || D->edst == DWD_POS ? clamp(p0 + ((int32_t)D->eamt - 64) * 12, 0, top) : p0;
     int32_t x0 = 8, y0 = 88, dx = 10, dy = 12, w = 104, a = 12;
-    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, DW_PAD[ln], T_ACCENT);
+    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, DW_PAD(ln), T_ACCENT);
     cv_text(60, 4 - AF_S_CAP_Y, &AF_S, N_WAVEF[D->ta & 15u], T_TEXT);
     for (k = DW_FR; k-- > 0;) {                          /* the frames, the far one first */
         int32_t ox = x0 + (int32_t)k * dx, oy = y0 - (int32_t)k * dy;
@@ -313,7 +316,7 @@ static void dw_cards(uint32_t pn)
         for (c = 0; c < 4u; c++) {
             uint32_t id = (pn == DWP_PLAY ? DW_PL : DW_CO)[c];
             fmt_int(val, p[id]);
-            hot_gauge_column(c, DW_LP[c + (pn == DWP_PLAY ? 0u : 4u)], val, p[id] * 1000 / 127);
+            hot_gauge_column(c, DW_LP(c + (pn == DWP_PLAY ? 0u : 4u)), val, p[id] * 1000 / 127);
         }
         return;
     }
@@ -451,13 +454,13 @@ static void dw_play_panel(void)
         dw_thick(tx[k], ty[k], tx[k + 1], ty[k + 1], 0xFFFFu, 2);
     for (k = 0; k < 8; k++) {                            /* the names at the rim: a tag in its colour while it glows */
         uint32_t a = (uint32_t)k * 8192u - 16384u + rot, on = dw_e[k] > 76u;
-        const char *nm = DW_PAD[(uint32_t)k];
+        const char *nm = DW_PAD(k);
         hud_tag(118 + (88 * og_cos(a) >> 15) - text_w(&AF_X, nm) / 2, 83 + (80 * og_sin(a) >> 15), nm,
                 on ? 0x0000u : ux_mix(bg, T_TEXT, 35), on ? DW_PC[k] : bg);
     }
     for (k = 0; k < 4; k++) {                            /* the knobs: FEEDBK MORPH DECAY STRIKE */
         int32_t x = 4 + k * 59, hot = ui.hot_t && ui.hot_col == (uint32_t)k;
-        hud_tag(x, 176, DW_LP[k], hot ? 0x0000u : T_TEXT, hot ? TRK_COL[song.sel % 6u] : 0x29FFu);
+        hud_tag(x, 176, DW_LP(k), hot ? 0x0000u : T_TEXT, hot ? TRK_COL[song.sel % 6u] : 0x29FFu);
         fmt_int(v, TSEL->p[DW_PL[k]]);
         cv_text_on(x + 2, 190 - AF_S_CAP_Y, &AF_S, v, T_TEXT, bg);
     }
@@ -492,7 +495,7 @@ static void dw_body_panel(const dx_lane_t *L, const uint8_t *v)
     int32_t i, px = 0, py = 0, qx = 0, qy = 0;
     uint32_t ta = dx_tau(v[DXP_DECAY]), tp = clamp((int32_t)(ta / ((dx_ui_lane & 7u) ? 8u : 6u)), 1000, (dx_ui_lane & 7u) ? 25000 : 40000);
     (void)L;
-    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, DW_PAD[dx_ui_lane & 7u], heat_col(220));
+    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, DW_PAD(dx_ui_lane & 7u), heat_col(220));
     cv_text(150, 4 - AF_S_CAP_Y, &AF_S, "PITCH  LEVEL", T_DIM);
     cv_rect(6, 16, 228, 84, T_SURF);
     for (i = 0; i <= 226; i++) {

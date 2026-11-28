@@ -182,7 +182,7 @@ static const char *drum_oct_label(const track_t *t, int32_t o)
         static char b[12];
         if (o == -1 && drum_chrom(t) >= 0) {
             str_cpy(b, drum_lane_name(t, (uint32_t)drum_chrom(t)), 6);
-            str_cpy(b + str_len(b), " CHROM", 7);
+            str_cat(b, " CHROM", 7);
             return b;
         }
         return names[clamp(o,-3,3)+3];

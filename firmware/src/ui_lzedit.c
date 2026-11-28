@@ -84,7 +84,7 @@ static void graph_filter_lz(const track_t *t, const page_t *pg)
     if (d) {
         const char *u = "";
         param_format(d, *vp, b, &u);
-        str_cpy(b + str_len(b), u, 32 - str_len(b));
+        str_cat(b, u, 32 - str_len(b));
         cv_text_on(xc + 4 < 180 ? xc + 4 : xc - 4 - text_w(&AF_X, b), 20 - AF_X_CAP_Y, &AF_X, b, HUD_YE, T_BG);
     }
     hud_tag(10, 2, PN_AT(N_FTYPE, ty), (uint32_t)(t - trk) % 6u >= 4u ? 0xFFFFu : 0x0000u, tc);
@@ -93,9 +93,9 @@ static void graph_filter_lz(const track_t *t, const page_t *pg)
     if (d) {
         const char *u = "";
         str_cpy(b, d->label, 32);
-        str_cpy(b + str_len(b), " ", 2);
+        str_cat(b, " ", 2);
         param_format(d, *vp, b + str_len(b), &u);
-        str_cpy(b + str_len(b), u, 32 - str_len(b));
+        str_cat(b, u, 32 - str_len(b));
         cv_text_on(10, 116 - AF_X_CAP_Y, &AF_X, b, T_TEXT, T_BG);
     }
     nd = r[3] * 20 / 1000;
@@ -110,8 +110,8 @@ static void graph_voice_lz(const track_t *t, const page_t *pg)
     char b[40];
     uint32_t active = 0;
     for (i = 0; i < NVOICE; i++) active += t->v[i].active && t->v[i].stage != 4u;
-    fmt_int(b, (int32_t)active); str_cpy(b + str_len(b), " ACTIVE / ", 40 - str_len(b));
-    fmt_int(b + str_len(b), (int32_t)nv); str_cpy(b + str_len(b), " MAX", 40 - str_len(b));
+    fmt_int(b, (int32_t)active); str_cat(b, " ACTIVE / ", 40 - str_len(b));
+    fmt_cat(b, (int32_t)nv); str_cat(b, " MAX", 40 - str_len(b));
     ed_cap(10, 6, b, T_TEXT);
     for (i = 0; i < NVOICE; i++) {
         int32_t y = 17 + (int32_t)i * 9, lv = 0;
@@ -126,13 +126,13 @@ static void graph_voice_lz(const track_t *t, const page_t *pg)
         }
     }
     param_format(track_desc(t, P_VOICE), t->p[P_VOICE], b, &u);
-    str_cpy(b + str_len(b), pg->id[0] == P_ALLOC ? " \xB7 ALLOC " : " \xB7 PRIO ", 40 - str_len(b));
+    str_cat(b, pg->id[0] == P_ALLOC ? " \xB7 ALLOC " : " \xB7 PRIO ", 40 - str_len(b));
     param_format(track_desc(t, pg->id[0] == P_ALLOC ? P_ALLOC : P_PRIO), t->p[pg->id[0] == P_ALLOC ? P_ALLOC : P_PRIO],
                  b + str_len(b), &u);
     ed_cap(10, 95, b, T_TEXT);
     str_cpy(b, "GLIDE ", 40);
     param_format(track_desc(t, P_GLIDE), t->p[P_GLIDE], b + 6, &u);
-    str_cpy(b + str_len(b), u, 40 - str_len(b));
+    str_cat(b, u, 40 - str_len(b));
     ed_cap(10, 120, b, T_TEXT);
     for (x = 0; x <= 104; x++) {                        /* the glide: low note to high, as slow as GLIDE */
         int32_t tm = glide ? x * 127 * 6 / (glide * 4 + 1) : 1000, k = tm > 255 ? 255 : tm;
@@ -158,13 +158,13 @@ static void graph_focus_lz(const track_t *t)
     uint16_t tc = TRK_COL[tr], ink = tr >= 4u ? 0xFFFFu : 0x0000u;
     char b[24];
     param_format(d, t->p[P_E0 + k], b, &u);
-    str_cpy(b + str_len(b), u, 24 - str_len(b));
+    str_cat(b, u, 24 - str_len(b));
     cv_text(8, 4, &AF_M, d->label, T_TEXT);
     cv_text_r(232, 2, large_face_has(b) ? &AF_L : &AF_M, b, HUD_YE, T_SURF);
     str_cpy(b, pt && pt[0] != '-' ? pt : e->name, 16);
-    str_cpy(b + str_len(b), " ", 2);
-    fmt_int(b + str_len(b), (int32_t)(k & 3u) + 1);
-    str_cpy(b + str_len(b), "/4", 3);
+    str_cat(b, " ", 2);
+    fmt_cat(b, (int32_t)(k & 3u) + 1);
+    str_cat(b, "/4", 3);
     cv_text(8, 26, &AF_X, b, T_DIM);
     r = clamp(RATIO(d, enum_rank(d, t->p[P_E0 + k])), 0, 1000);
     fill = r * 220 / 1000;
@@ -181,10 +181,10 @@ static void graph_focus_lz(const track_t *t)
         cv_rect(10 + x0, 40, 1, 5, tc); cv_rect(10 + x1, 40, 1, 5, tc);
         str_cpy(b, "MOD: ", 24);
         str_cpy(b + 5, PN_AT(N_MSRC, clamp(t->p[P_M1SRC + 3u * (uint32_t)j], 0, MS_N - 1)), 19);
-        str_cpy(b + str_len(b), " \xB7 ", 4);
+        str_cat(b, " \xB7 ", 4);
         param_format(da, am, a, &u);
-        str_cpy(b + str_len(b), a, 24 - str_len(b));
-        str_cpy(b + str_len(b), u, 24 - str_len(b));
+        str_cat(b, a, 24 - str_len(b));
+        str_cat(b, u, 24 - str_len(b));
         cv_text(10, 74, &AF_X, b, tc);
     } else
         cv_text(10, 74, &AF_X, "NO MOD", T_DIM);

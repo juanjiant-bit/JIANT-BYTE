@@ -43,7 +43,7 @@ static void ev_name(const track_t *t, uint32_t id, char *b)
 {
     const char *pre = id >= P_ATK && id <= P_ED_SHP ? "ENV " : id >= P_LRATE && id <= P_LD_AMP ? "LFO " : "";
     str_cpy(b, pre, 12);
-    str_cpy(b + str_len(b), id == P_LEVEL ? "LEVEL" : id == P_GLIDE ? "GLIDE" : track_desc(t, id)->label, 12 - str_len(b));
+    str_cat(b, id == P_LEVEL ? "LEVEL" : id == P_GLIDE ? "GLIDE" : track_desc(t, id)->label, 12 - str_len(b));
 }
 /* the next parameter after id in direction dir (+1 / -1) that is free on track t's step (a record there: skipped);
  * id itself when there is none */
@@ -264,10 +264,10 @@ static void graph_locks(const track_t *t)
     const char *u = "";
     card_line(4, 2, 232, 17, 3, ui.ev_top ? T_TEXT : T_LINE, 1);
     str_cpy(b, motion_enabled(t) ? "PLAY ON \xB7 " : "PLAY OFF \xB7 ", sizeof b);
-    fmt_int(b + str_len(b), (int32_t)nl);
-    str_cpy(b + str_len(b), " LOCK \xB7 ", sizeof b - str_len(b));
-    fmt_int(b + str_len(b), (int32_t)(n - nl));
-    str_cpy(b + str_len(b), " REC", sizeof b - str_len(b));
+    fmt_cat(b, (int32_t)nl);
+    str_cat(b, " LOCK \xB7 ", sizeof b - str_len(b));
+    fmt_cat(b, (int32_t)(n - nl));
+    str_cat(b, " REC", sizeof b - str_len(b));
     GFX_HOOK_ALIGN(0, 2, 0, 19, AL_V | AL_PASS, "locks top row");
     cv_text(10, 2 + CAP_IN(X, 17), &AF_X, b, motion_enabled(t) ? T_TEXT : T_MID);
     GFX_HOOK_ALIGN(0, 2, 0, 19, AL_V | AL_PASS, "locks top row");
@@ -311,7 +311,7 @@ static void graph_locks(const track_t *t)
             continue;
         ev_name(t, id, nm);
         param_format(track_desc(t, id), val, v, &u);
-        str_cpy(v + str_len(v), u, sizeof v - str_len(v));
+        str_cat(v, u, sizeof v - str_len(v));
         GFX_HOOK_ALIGN(0, y, 0, y + 13, AL_V | AL_PASS, "locks row");
         cv_free_text(78, y + CAP_IN(X, 13), &AF_X, nm, i == n ? T_MID : T_TEXT, bg, 96);
         GFX_HOOK_ALIGN(0, y, 0, y + 13, AL_V | AL_PASS, "locks row");

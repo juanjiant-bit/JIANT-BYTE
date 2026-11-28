@@ -359,8 +359,8 @@ static void up_auto_name(char *b, uint32_t e, uint32_t k)
     e %= NENGINES;
     str_cpy(b, ENGINES[eng_live(e)]->name, 9);   /* (a DIGITAL record plays as FM6, PHYS as ANALOG) */
     up_slot_label(l, k);
-    str_cpy(b + str_len(b), " ", 2);
-    str_cpy(b + str_len(b), l + 1, 3);
+    str_cat(b, " ", 2);
+    str_cat(b, l + 1, 3);
 }
 
 /* the record's name = name (at most 12), 0 or "": the automatic one */

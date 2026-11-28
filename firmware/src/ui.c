@@ -1007,7 +1007,7 @@ static void rate_name(const track_t *t, uint32_t n, char *b)
     if (base && (n == 1u || n == 2u || n == 4u || n == 8u)) v = base * n;
     else if (base && (n == 3u || n == 6u)) { v = base * n * 2u / 3u; tr = "T"; }
     if (!v || v > 64u) { b[0] = 'x'; fmt_int(b + 1, (int32_t)n); return; }   /* (past 1/64: "x6") */
-    fmt_int(b, (int32_t)v); str_cpy(b + str_len(b), tr, 2);
+    fmt_int(b, (int32_t)v); str_cat(b, tr, 2);
 }
 /* (0.9.9-seq2d) SEQ > COMP / COMP 2: the step's C1 / C2 as ACTION LENGTH CONDITION VALUE (core.h CA_* CC_*) */
 /* (gen3) the names short, each read whole on its card: the value's M where it fits with its unit (COMP's 49 px), else S
@@ -1307,7 +1307,7 @@ static void cursor_fix(void)                           /* LEN got shorter: onto 
 static void note_name(char *b, uint32_t n)
 {
     str_cpy(b, N_NOTE[n % 12u], 4);
-    fmt_int(b + str_len(b), (int32_t)(n / 12u) - 1);
+    fmt_cat(b, (int32_t)(n / 12u) - 1);
 }
 
 /* (JIANT 0.6.51) a page (or the track) changed by hand: its name in the header (0.6.61), (0.6.64) the footer, for PF_MS, so the
@@ -1529,8 +1529,8 @@ static void pat_load_ui(track_t *t, uint32_t n)
     pat_label(n, tag, nm);
     pat_load(t, n);
     str_cpy(b, tag, sizeof b);
-    str_cpy(b + str_len(b), " ", 2);
-    str_cpy(b + str_len(b), nm, sizeof b - str_len(b));
+    str_cat(b, " ", 2);
+    str_cat(b, nm, sizeof b - str_len(b));
     ui_say("LOADED ", b);
 }
 

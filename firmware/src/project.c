@@ -273,6 +273,34 @@ static __attribute__((noinline)) uint32_t proj_ott_on(const project_t *q)
     for (k = 0; k < NTRK * OT_N; k++) a |= (uint32_t)((&q->ott[0][0])[k] != OTT_DESC[k % OT_N].def);
     return a;
 }
+/* (v1.1b5, flash, as JIANT FM V10.8.71) one writer and one reader for the blocks that are a tag and an array (the same
+ * bytes on disk). proj_blk: at b + pos, its tag t (PB) and the array p (n bytes), when on (PB_ANY: when a byte of it is not
+ * 0); b 0: only counted; the next pos. proj_get: such a block at b + pos within room into d; the next pos (none: pos) */
+#define PB(a, c) ((uint32_t)(a) | (uint32_t)(c) << 8)
+#define PB_ANY 2u
+static __attribute__((noinline)) uint32_t proj_blk(uint8_t *b, uint32_t pos, uint32_t t, const void *p, uint32_t n, uint32_t on)
+{
+    if (on == PB_ANY)
+        on = proj_any(p, n, 1u);
+    if (!on)
+        return pos;
+    if (b) {
+        b[pos] = (uint8_t)t; b[pos + 1u] = (uint8_t)(t >> 8);
+        memcpy(b + pos + 2u, p, n);
+    }
+    return pos + 2u + n;
+}
+static __attribute__((noinline)) int proj_at(const uint8_t *b, uint32_t pos, uint32_t room, uint32_t len, uint32_t t)
+{
+    return pos + len <= room && b[pos] == (uint8_t)t && b[pos + 1u] == (uint8_t)(t >> 8);
+}
+static __attribute__((noinline)) uint32_t proj_get(void *d, const uint8_t *b, uint32_t pos, uint32_t room, uint32_t t, uint32_t n)
+{
+    if (!proj_at(b, pos, room, 2u + n, t))
+        return pos;
+    memcpy(d, b + pos + 2u, n);
+    return pos + 2u + n;
+}
 static __attribute__((noinline)) uint32_t proj_xm(project_t *q, const uint8_t *bc, uint32_t pos, uint32_t room)
 {
     uint8_t *b = (uint8_t *)(uintptr_t)bc;
@@ -647,8 +675,6 @@ static int proj_clay_rec(const project_t *q, uint32_t t)   /* (BYTE) DRONE CLAY'
         if (q->clay_rec[t][i]) return 1;
     return 0;
 }
-#define proj_fm_any(q) proj_any((q)->fmo, sizeof (q)->fmo, 1u)   /* (funcmotion) a MOTION not 0 */
-#define proj_fx_any(q) proj_any((q)->fxr, sizeof (q)->fxr, 1u)   /* (func-rate) */
 static uint32_t proj_packed_size(const project_t *q)
 {
     uint32_t n = (proj_sc_used(q) ? 6u : 0u) + (q->g[G_DRTIM] ? 3u : 0u) + 68u + sizeof q->chain + 4u + q->motion.count * sizeof q->motion.event[0] + 2u + G_SL_N, t, i;
@@ -656,16 +682,15 @@ static uint32_t proj_packed_size(const project_t *q)
         n += 3u;
     if (proj_mf_tracks(q))                              /* (0.9.1) MICRO's 64ths: their block */
         n += 3u + 16u * proj_bits(proj_mf_tracks(q));
-    if (proj_psq_used(q))                               /* (BYTE) PUNCH SEQ's */
-        n += 2u + PSQ_BYTES;
+    n = proj_blk(0, n, 0, q->psq, PSQ_BYTES, (uint32_t)proj_psq_used(q));   /* (BYTE) PUNCH SEQ's */
     if (q->cmix)                                        /* (FM V10.8.36) CHORUS MIX */
         n += 3u;
     for (t = 0; t < NTRK; t++)                          /* (funcplay) FUNC's */
         if (q->fpx[t] & 128u) n += 5u;
-    if (proj_fm_any(q)) n += 2u + sizeof q->fmo;        /* (funcmotion) */
+    n = proj_blk(0, n, 0, q->fmo, sizeof q->fmo, PB_ANY);   /* (funcmotion) */
     if (q->g[G_HPROG]) n += 6u;                         /* (BYTE) SCL > HARMONY */
-    if (proj_fx_any(q)) n += 2u + sizeof q->fxr;        /* (func-rate) */
-    if (q->vis[2] | q->vis[4]) n += 2u + sizeof q->vis; /* (visgen) */
+    n = proj_blk(0, n, 0, q->fxr, sizeof q->fxr, PB_ANY);   /* (func-rate) */
+    n = proj_blk(0, n, 0, q->vis, sizeof q->vis, (uint32_t)(q->vis[2] | q->vis[4]) != 0u);   /* (visgen) */
     n += 3u;                                            /* (FEEDBK) the kit's TONE: 'D' 'B' */
     if (q->dx_hands >> 4)                               /* (snd1) the kit's GLUE, when on */
         n += 3u;
@@ -679,17 +704,13 @@ static uint32_t proj_packed_size(const project_t *q)
         n += 4u;
     if (q->g[G_PFXLEN] != 64 || q->g[G_PFXRES] != 1)    /* (0.6.99) the punch-in lane's LEN and RES, when not the default */
         n += 4u;
-    for (i = 0; i < sizeof q->dx_snd; i++)              /* (0.6.48) the SENDs' block, when one is set */
-        if (q->dx_snd[i]) { n += 2u + sizeof q->dx_snd; break; }
-    for (i = 0; i < sizeof q->dx_lay; i++)              /* (0.6.49) the LAYERs' */
-        if (q->dx_lay[i]) { n += 2u + sizeof q->dx_lay; break; }
+    n = proj_blk(0, n, 0, q->dx_snd, sizeof q->dx_snd, PB_ANY);   /* (0.6.48) the SENDs' block, when one is set */
+    n = proj_blk(0, n, 0, q->dx_lay, sizeof q->dx_lay, PB_ANY);   /* (0.6.49) the LAYERs' */
     n += 2u + sizeof q->dw;                             /* (DRUM-W) the tables': always */
     n += 2u + sizeof q->dx_form;                        /* (JIANT BYTE) the formulas': always (a kit of all-oscillator
                                                          * lanes is a choice; absent reads as the floatbeat factory) */
-    for (i = 0; i < sizeof q->mac_form; i++)            /* (JIANT BYTE) the macros' equations' */
-        if (q->mac_form[i]) { n += 2u + sizeof q->mac_form; break; }
-    if (proj_fg_used(q))                                /* (0.6.52) FUGUE's */
-        n += 2u + sizeof q->fugue;
+    n = proj_blk(0, n, 0, q->mac_form, sizeof q->mac_form, PB_ANY);   /* (JIANT BYTE) the macros' equations' */
+    n = proj_blk(0, n, 0, q->fugue, sizeof q->fugue, (uint32_t)proj_fg_used(q));   /* (0.6.52) FUGUE's */
     for (t = 0; t < NTRK; t++)                          /* (BYTE) DRONE CLAY's, its loop's */
         if (q->clay[t][CL_ON]) {
             n += 4u + CLAY_NF;
@@ -708,13 +729,13 @@ static uint32_t proj_packed_size(const project_t *q)
     }
     for (t = 0; t < NTRK; t++)
         if (q->fit[t]) { n += 2u + NTRK; break; }
-    for (i = 0; i < sizeof q->split; i++) if (q->split[i]) { n += 2u + sizeof q->split; break; }
-    for (i = 0; i < sizeof q->scpat; i++) if (q->scpat[i]) { n += 2u + sizeof q->scpat; break; }
+    n = proj_blk(0, n, 0, q->split, sizeof q->split, PB_ANY);
+    n = proj_blk(0, n, 0, q->scpat, sizeof q->scpat, PB_ANY);
     n += 2u + sizeof q->dx_fmod;
     n += 10u + 2u + NTRK;
     for (i = 0; i < 8u; i++) n += str_len(q->dx_text[i]);
     n += proj_xm((project_t *)(uintptr_t)q, 0, 0, 0);   /* (V10.7.30) BALANCE, NOISE; (V10.7.33) CRUSH */
-    if (proj_ott_on(q)) n += 2u + sizeof q->ott;       /* (BYTE ott) */
+    n = proj_blk(0, n, 0, q->ott, sizeof q->ott, proj_ott_on(q));   /* (BYTE ott) */
     return n;
 }
 static int proj_split_ok(const uint8_t *s)
@@ -813,40 +834,12 @@ static int proj_pack(project_store_t *out, const project_t *q)
     b[pos++] = 'S'; b[pos++] = 'L';                     /* (0.6.3) the SLICER's globals (biased bytes) */
     for (i = 0; i < G_SL_N; i++)
         b[pos++] = (uint8_t)(clamp(q->g[G_SLMODE + i], -64, 127) + 64);
-    for (i = 0; i < sizeof q->dx_snd && !q->dx_snd[i]; i++)
-        ;
-    if (i < sizeof q->dx_snd) {                         /* (0.6.48) the kit's SENDs, when one is set */
-        b[pos++] = 'D'; b[pos++] = 'S';
-        memcpy(b + pos, q->dx_snd, sizeof q->dx_snd);
-        pos += sizeof q->dx_snd;
-    }
-    for (i = 0; i < sizeof q->dx_lay && !q->dx_lay[i]; i++)
-        ;
-    if (i < sizeof q->dx_lay) {                         /* (0.6.49) the kit's LAYERs and FEEDBKs */
-        b[pos++] = 'D'; b[pos++] = 'L';
-        memcpy(b + pos, q->dx_lay, sizeof q->dx_lay);
-        pos += sizeof q->dx_lay;
-    }
-    {                                                   /* (JIANT BYTE) the kit's formula lanes */
-        b[pos++] = 'D'; b[pos++] = 'F';
-        memcpy(b + pos, q->dx_form, sizeof q->dx_form);
-        pos += sizeof q->dx_form;
-    }
-    b[pos++] = 'D'; b[pos++] = 'W';                     /* (DRUM-W) the kit's tables */
-    memcpy(b + pos, q->dw, sizeof q->dw);
-    pos += sizeof q->dw;
-    for (i = 0; i < sizeof q->mac_form && !q->mac_form[i]; i++)
-        ;
-    if (i < sizeof q->mac_form) {                       /* (JIANT BYTE) the macros' equations */
-        b[pos++] = 'M'; b[pos++] = 'F';
-        memcpy(b + pos, q->mac_form, sizeof q->mac_form);
-        pos += sizeof q->mac_form;
-    }
-    if (proj_fg_used(q)) {                              /* (0.6.52) FUGUE's heads */
-        b[pos++] = 'F'; b[pos++] = 'G';
-        memcpy(b + pos, q->fugue, sizeof q->fugue);
-        pos += sizeof q->fugue;
-    }
+    pos = proj_blk(b, pos, PB('D', 'S'), q->dx_snd, sizeof q->dx_snd, PB_ANY);   /* (0.6.48) the kit's SENDs, when one is set */
+    pos = proj_blk(b, pos, PB('D', 'L'), q->dx_lay, sizeof q->dx_lay, PB_ANY);   /* (0.6.49) its LAYERs and FEEDBKs */
+    pos = proj_blk(b, pos, PB('D', 'F'), q->dx_form, sizeof q->dx_form, 1u);   /* (JIANT BYTE) its formula lanes */
+    pos = proj_blk(b, pos, PB('D', 'W'), q->dw, sizeof q->dw, 1u);   /* (DRUM-W) its tables */
+    pos = proj_blk(b, pos, PB('M', 'F'), q->mac_form, sizeof q->mac_form, PB_ANY);   /* (JIANT BYTE) the macros' equations */
+    pos = proj_blk(b, pos, PB('F', 'G'), q->fugue, sizeof q->fugue, (uint32_t)proj_fg_used(q));   /* (0.6.52) FUGUE's heads */
     if (q->g[G_DMOD] != GP[G_DMOD].def) {               /* (0.6.86) the delay's MOD (biased), when not the default */
         b[pos++] = 'D'; b[pos++] = 'M';
         b[pos++] = (uint8_t)(clamp(q->g[G_DMOD], 0, 127) + 64);
@@ -897,11 +890,8 @@ static int proj_pack(project_store_t *out, const project_t *q)
     }
     pos += proj_tp(q, b, pos, 0);                       /* (0.9.9-snd8) the master's TAPE, when on (after DRIVE's) */
     pos += proj_eq((project_t *)(uintptr_t)q, b, pos, 0);
-    if (proj_sc_used(q)) {                              /* (V10.31) SCENE, when on or a role set (last: before, it stops here) */
-        b[pos++] = 'S'; b[pos++] = 'C';
-        memcpy(b + pos, q->scene, sizeof q->scene);
-        pos += sizeof q->scene;
-    }
+    pos = proj_blk(b, pos, PB('S', 'C'), q->scene, sizeof q->scene, (uint32_t)proj_sc_used(q));   /* (V10.31) SCENE, when on
+                                                         * or a role set (last: before, it stops here) */
     if (q->g[G_DRTIM]) {                                /* (V10.49) the delay's R TIME, when set (the last: before, it stops here) */
         b[pos++] = 'D'; b[pos++] = 'R'; b[pos++] = (uint8_t)clamp(q->g[G_DRTIM], 0, 6);
     }
@@ -910,15 +900,11 @@ static int proj_pack(project_store_t *out, const project_t *q)
         b[pos++] = 'R'; b[pos++] = 'F';
         for (t = 0; t < NTRK; t++) b[pos++] = fit_valid(q->fit[t]);
     }
-    for (i = 0; i < sizeof q->split && !q->split[i]; i++) {}
-    if (i < sizeof q->split) { b[pos++] = 'K'; b[pos++] = 'S'; memcpy(b + pos, q->split, sizeof q->split); pos += sizeof q->split; }
-    for (i = 0; i < sizeof q->scpat && !q->scpat[i]; i++) {}   /* (V10.6k) SCENE's patterns (the last) */
-    if (i < sizeof q->scpat) { b[pos++] = 'S'; b[pos++] = 'P'; memcpy(b + pos, q->scpat, sizeof q->scpat); pos += sizeof q->scpat; }
+    pos = proj_blk(b, pos, PB('K', 'S'), q->split, sizeof q->split, PB_ANY);
+    pos = proj_blk(b, pos, PB('S', 'P'), q->scpat, sizeof q->scpat, PB_ANY);   /* (V10.6k) SCENE's patterns (the last) */
     pos += proj_xm((project_t *)(uintptr_t)q, b, pos, 0);   /* (V10.7.30) BALANCE, NOISE (firmware before: the last);
                                                          * (V10.7.33) CRUSH after them */
-    b[pos++] = 'D'; b[pos++] = 'Q';
-    memcpy(b + pos, q->dx_fmod, sizeof q->dx_fmod);
-    pos += sizeof q->dx_fmod;
+    pos = proj_blk(b, pos, PB('D', 'Q'), q->dx_fmod, sizeof q->dx_fmod, 1u);
     b[pos++] = 'D'; b[pos++] = 'U';
     for (i = 0; i < 8u; i++) {
         uint32_t n = str_len(q->dx_text[i]);
@@ -939,12 +925,9 @@ static int proj_pack(project_store_t *out, const project_t *q)
                 pos += CLAY_RN;
             }
         }
-    if (proj_psq_used(q)) {                             /* (BYTE) PUNCH SEQ, after the CY blocks (before it, the reading
-                                                         * stops: an older firmware loads the rest without it) */
-        b[pos++] = 'P'; b[pos++] = 'Q';
-        memcpy(b + pos, q->psq, PSQ_BYTES);
-        pos += PSQ_BYTES;
-    }
+    pos = proj_blk(b, pos, PB('P', 'Q'), q->psq, PSQ_BYTES, (uint32_t)proj_psq_used(q));   /* (BYTE) PUNCH SEQ, after the CY
+                                                         * blocks (before it, the reading stops: an older firmware loads the
+                                                         * rest without it) */
     if (q->cmix) {                                      /* (FM V10.8.36) CHORUS MIX, the last (an older firmware stops
                                                          * before it) */
         b[pos++] = 'C'; b[pos++] = 'M'; b[pos++] = q->cmix;
@@ -954,34 +937,20 @@ static int proj_pack(project_store_t *out, const project_t *q)
         if (q->fpx[t] & 128u) {
             b[pos++] = 'F'; b[pos++] = 'P'; b[pos++] = (uint8_t)t; b[pos++] = q->fpx[t] & 7u; b[pos++] = q->fbl[t];
         }
-    if (proj_fm_any(q)) {                               /* (funcmotion) MOTION, after them (an older firmware stops) */
-        b[pos++] = 'F'; b[pos++] = 'M';
-        memcpy(b + pos, q->fmo, sizeof q->fmo);
-        pos += sizeof q->fmo;
-    }
+    pos = proj_blk(b, pos, PB('F', 'M'), q->fmo, sizeof q->fmo, PB_ANY);   /* (funcmotion) MOTION, after them (an older
+                                                         * firmware stops) */
     if (q->g[G_HPROG]) {                                /* (BYTE, FM V10.7.66) SCL > HARMONY, on: after MOTION (an older
                                                          * firmware stops before it; without it, OFF) */
         b[pos++] = 'H'; b[pos++] = 'M';
         for (i = 0; i < 4u; i++) b[pos++] = (uint8_t)clamp(q->g[G_HPROG + i], 0, 127);
     }
-    if (proj_fx_any(q)) {                               /* (func-rate) RATE, LAYER B's, after it */
-        b[pos++] = 'F'; b[pos++] = 'X';
-        memcpy(b + pos, q->fxr, sizeof q->fxr);
-        pos += sizeof q->fxr;
-    }
-    if (q->vis[2] | q->vis[4]) {                        /* (visgen) HOME > VIS's song, after it */
-        b[pos++] = 'V'; b[pos++] = 'S';
-        memcpy(b + pos, q->vis, sizeof q->vis);
-        pos += sizeof q->vis;
-    }
+    pos = proj_blk(b, pos, PB('F', 'X'), q->fxr, sizeof q->fxr, PB_ANY);   /* (func-rate) RATE, LAYER B's, after it */
+    pos = proj_blk(b, pos, PB('V', 'S'), q->vis, sizeof q->vis, (uint32_t)(q->vis[2] | q->vis[4]) != 0u);   /* (visgen) HOME >
+                                                         * VIS's song, after it */
     b[pos++] = 'D'; b[pos++] = 'B'; b[pos++] = (uint8_t)(clamp(q->dwt, -64, 63) + 64);   /* (FEEDBK) the kit's TONE, after
                                                          * them, always (an older firmware stops before it) */
-    if (proj_ott_on(q)) {                               /* (BYTE ott) the tracks' OTT, after it (an older firmware stops
-                                                         * before it) */
-        b[pos++] = 'O'; b[pos++] = 'T';
-        memcpy(b + pos, q->ott, sizeof q->ott);
-        pos += sizeof q->ott;
-    }
+    pos = proj_blk(b, pos, PB('O', 'T'), q->ott, sizeof q->ott, proj_ott_on(q));   /* (BYTE ott) the tracks' OTT, after it
+                                                         * (an older firmware stops before it) */
     memcpy(b + PROJC_PFX_OFF, q->pfx_lane, sizeof q->pfx_lane);
     b[PROJC_PFX_OFF + sizeof q->pfx_lane] = q->pfx_ltgt > 2u ? 0u : q->pfx_ltgt;
     for (i = 0; i < 4u; i++)
@@ -1187,48 +1156,26 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
     }
     memset(q->dx_snd, 0, sizeof q->dx_snd);
     memset(q->dx_lay, 0, sizeof q->dx_lay);
-    if (pos + 2u + sizeof q->dx_snd <= room && b[pos] == 'D' && b[pos + 1u] == 'S') {   /* (0.6.48) the kit's SENDs */
-        memcpy(q->dx_snd, b + pos + 2u, sizeof q->dx_snd);
-        pos += 2u + sizeof q->dx_snd;
-    }
-    if (pos + 2u + sizeof q->dx_lay <= room && b[pos] == 'D' && b[pos + 1u] == 'L') {   /* (0.6.49) its LAYERs */
-        memcpy(q->dx_lay, b + pos + 2u, sizeof q->dx_lay);
-        pos += 2u + sizeof q->dx_lay;
-    }
+    pos = proj_get(q->dx_snd, b, pos, room, PB('D', 'S'), sizeof q->dx_snd);   /* (0.6.48) the kit's SENDs */
+    pos = proj_get(q->dx_lay, b, pos, room, PB('D', 'L'), sizeof q->dx_lay);   /* (0.6.49) its LAYERs */
     memcpy(q->dx_form, DX_FORM_DEF, sizeof q->dx_form); /* (absent: the floatbeat factory) */
-    if (pos + 2u + sizeof q->dx_form <= room && b[pos] == 'D' && b[pos + 1u] == 'F') {   /* (JIANT BYTE) its formulas */
-        uint32_t k;
-        memcpy(q->dx_form, b + pos + 2u, sizeof q->dx_form);
-        for (k = 0; k < sizeof q->dx_form; k++)
-            if (q->dx_form[k] > DX_NFORM && q->dx_form[k] != DX_USER) q->dx_form[k] = 0;
-        pos += 2u + sizeof q->dx_form;
-    }
+    pos = proj_get(q->dx_form, b, pos, room, PB('D', 'F'), sizeof q->dx_form);   /* (JIANT BYTE) its formulas */
+    for (i = 0; i < sizeof q->dx_form; i++)
+        if (q->dx_form[i] > DX_NFORM && q->dx_form[i] != DX_USER) q->dx_form[i] = 0;
     memcpy(q->dw, DW_DEF, sizeof q->dw);                /* (DRUM-W; absent: the factory kit's) */
-    if (pos + 2u + sizeof q->dw <= room && b[pos] == 'D' && b[pos + 1u] == 'W') {
-        uint32_t k;
-        memcpy(q->dw, b + pos + 2u, sizeof q->dw);
-        for (k = 0; k < 8u; k++)                        /* (in range: a stored value never indexes past a name) */
-            dw_sane(&q->dw[k]);
-        pos += 2u + sizeof q->dw;
-    }
+    pos = proj_get(q->dw, b, pos, room, PB('D', 'W'), sizeof q->dw);
+    for (i = 0; i < 8u; i++)                            /* (in range: a stored value never indexes past a name) */
+        dw_sane(&q->dw[i]);
     memset(q->mac_form, 0, sizeof q->mac_form);
-    if (pos + 2u + sizeof q->mac_form <= room && b[pos] == 'M' && b[pos + 1u] == 'F') {   /* (JIANT BYTE) the macros' */
-        uint32_t k;
-        memcpy(q->mac_form, b + pos + 2u, sizeof q->mac_form);
-        for (k = 0; k < sizeof q->mac_form; k++)
-            if (q->mac_form[k] > MAC_NF) q->mac_form[k] = 0;
-        pos += 2u + sizeof q->mac_form;
-    }
+    pos = proj_get(q->mac_form, b, pos, room, PB('M', 'F'), sizeof q->mac_form);   /* (JIANT BYTE) the macros' */
+    for (i = 0; i < sizeof q->mac_form; i++)
+        if (q->mac_form[i] > MAC_NF) q->mac_form[i] = 0;
     memset(q->fugue, 0, sizeof q->fugue);
-    if (pos + 2u + sizeof q->fugue <= room && b[pos] == 'F' && b[pos + 1u] == 'G') {   /* (0.6.52) FUGUE's heads */
-        uint32_t k;
-        memcpy(q->fugue, b + pos + 2u, sizeof q->fugue);
-        for (k = 0; k < sizeof q->fugue; k += 2u) {     /* (in range) */
-            uint8_t *f = &q->fugue[0][0][0] + k;
-            if ((f[0] & 15u) >= 10u || (f[0] >> 4) > 3u) f[0] = 0;
-            if ((int8_t)f[1] < -14 || (int8_t)f[1] > 14) f[1] = 0;
-        }
-        pos += 2u + sizeof q->fugue;
+    pos = proj_get(q->fugue, b, pos, room, PB('F', 'G'), sizeof q->fugue);   /* (0.6.52) FUGUE's heads */
+    for (i = 0; i < sizeof q->fugue; i += 2u) {         /* (in range) */
+        uint8_t *f = &q->fugue[0][0][0] + i;
+        if ((f[0] & 15u) >= 10u || (f[0] >> 4) > 3u) f[0] = 0;
+        if ((int8_t)f[1] < -14 || (int8_t)f[1] > 14) f[1] = 0;
     }
     if (pos + 3u <= room && b[pos] == 'D' && b[pos + 1u] == 'M') {   /* (0.6.86) the delay's MOD (else its default) */
         q->g[G_DMOD] = (int16_t)clamp((int32_t)b[pos + 2u] - 64, GP[G_DMOD].min, GP[G_DMOD].max);
@@ -1303,11 +1250,8 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
                                                          * saved with it set skips its value (the rest loads as stored) */
         pos += 3u;
     memset(q->scene, 0, sizeof q->scene);
-    if (pos + 2u + sizeof q->scene <= room && b[pos] == 'S' && b[pos + 1u] == 'C') {   /* (V10.31) SCENE (else OFF, all KEEP) */
-        memcpy(q->scene, b + pos + 2u, sizeof q->scene);
-        q->scene[0] &= 1u;
-        pos += 2u + sizeof q->scene;
-    }
+    pos = proj_get(q->scene, b, pos, room, PB('S', 'C'), sizeof q->scene);   /* (V10.31) SCENE (else OFF, all KEEP) */
+    q->scene[0] &= 1u;
     if (pos + 3u <= room && b[pos] == 'D' && b[pos + 1u] == 'R') {   /* (V10.49) the delay's R TIME (else =L) */
         q->g[G_DRTIM] = (int16_t)(b[pos + 2u] > 6u ? 0u : b[pos + 2u]);
         pos += 3u;
@@ -1330,10 +1274,7 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
         pos += 2u + sizeof q->split;
     }
     memset(q->scpat, 0, sizeof q->scpat);
-    if (pos + 2u + sizeof q->scpat <= room && b[pos] == 'S' && b[pos + 1u] == 'P') {   /* (V10.6k) */
-        memcpy(q->scpat, b + pos + 2u, sizeof q->scpat);
-        pos += 2u + sizeof q->scpat;
-    }
+    pos = proj_get(q->scpat, b, pos, room, PB('S', 'P'), sizeof q->scpat);   /* (V10.6k) */
     pos += proj_xm(q, b, pos, room);
     memset(q->dx_fmod, 0, sizeof q->dx_fmod);
     if (pos + 2u <= room && b[pos] == 'D' && b[pos + 1u] == 'Q') {
@@ -1386,12 +1327,9 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
             }
             pos = at + len;
         }
-        if (pos + 2u + PSQ_BYTES <= room && b[pos] == 'P' && b[pos + 1u] == 'Q') {   /* (BYTE) PUNCH SEQ */
-            memcpy(q->psq, b + pos + 2u, PSQ_BYTES);
-            for (i = 0; i < PSQ_ROWS; i++)              /* (in range: pfx.c psq_fix again on the restore) */
-                if (q->psq[2u * PSQ_ROWS + i] >= PSQ_NFX) q->psq[2u * PSQ_ROWS + i] = PROJ_PSQ_DEF[2u * PSQ_ROWS + i];
-            pos += 2u + PSQ_BYTES;
-        }
+        pos = proj_get(q->psq, b, pos, room, PB('P', 'Q'), PSQ_BYTES);   /* (BYTE) PUNCH SEQ */
+        for (i = 0; i < PSQ_ROWS; i++)                  /* (in range: pfx.c psq_fix again on the restore) */
+            if (q->psq[2u * PSQ_ROWS + i] >= PSQ_NFX) q->psq[2u * PSQ_ROWS + i] = PROJ_PSQ_DEF[2u * PSQ_ROWS + i];
         if (pos + 3u <= room && b[pos] == 'C' && b[pos + 1u] == 'M') {   /* (FM V10.8.36) CHORUS MIX */
             q->cmix = b[pos + 2u] > 100u ? 100u : b[pos + 2u];
             pos += 3u;
@@ -1401,31 +1339,19 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
             q->fbl[b[pos + 2u]] = b[pos + 4u] & 127u;
             pos += 5u;
         }
-        if (pos + 2u + sizeof q->fmo <= room && b[pos] == 'F' && b[pos + 1u] == 'M') {   /* (funcmotion) */
-            memcpy(q->fmo, b + pos + 2u, sizeof q->fmo);
-            pos += 2u + sizeof q->fmo;
-        }
+        pos = proj_get(q->fmo, b, pos, room, PB('F', 'M'), sizeof q->fmo);   /* (funcmotion) */
         if (pos + 6u <= room && b[pos] == 'H' && b[pos + 1u] == 'M') {   /* (BYTE) SCL > HARMONY (else OFF: the defaults) */
             for (i = 0; i < 4u; i++) q->g[G_HPROG + i] = (int16_t)clamp(b[pos + 2u + i], GP[G_HPROG + i].min, GP[G_HPROG + i].max);
             pos += 6u;
         }
-        if (pos + 2u + sizeof q->fxr <= room && b[pos] == 'F' && b[pos + 1u] == 'X') {   /* (func-rate) */
-            memcpy(q->fxr, b + pos + 2u, sizeof q->fxr);
-            pos += 2u + sizeof q->fxr;
-        }
-        if (pos + 2u + sizeof q->vis <= room && b[pos] == 'V' && b[pos + 1u] == 'S') {   /* (visgen) */
-            memcpy(q->vis, b + pos + 2u, sizeof q->vis);
-            pos += 2u + sizeof q->vis;
-        }
+        pos = proj_get(q->fxr, b, pos, room, PB('F', 'X'), sizeof q->fxr);   /* (func-rate) */
+        pos = proj_get(q->vis, b, pos, room, PB('V', 'S'), sizeof q->vis);   /* (visgen) */
         if (pos + 3u <= room && b[pos] == 'D' && b[pos + 1u] == 'B') {   /* (FEEDBK) the kit's TONE */
             q->dwt = (int8_t)((b[pos + 2u] & 127u) - 64u);
             dbf = 1;
             pos += 3u;
         }
-        if (pos + 2u + sizeof q->ott <= room && b[pos] == 'O' && b[pos + 1u] == 'T') {   /* (BYTE ott) (else 0: OTT off) */
-            memcpy(q->ott, b + pos + 2u, sizeof q->ott);
-            pos += 2u + sizeof q->ott;
-        }
+        pos = proj_get(q->ott, b, pos, room, PB('O', 'T'), sizeof q->ott);   /* (BYTE ott) (else 0: OTT off) */
     }
     if (!dbf) {                                         /* (FEEDBK) a project of before: its DRUM part's WAVE the kit's
                                                          * TONE (every pad where it was, the noise as bright), FEEDBK 0 */

@@ -123,7 +123,7 @@ static void graph_adsr(const track_t *t, uint16_t c)
             cv_rect(x - 3, y, 9, 11, T_TEXT);
             cv_text_on(x - 1, y + 1 - AF_X_CAP_Y, &AF_X, L4[q], 0x0000u, T_TEXT);
             param_format(track_desc(t, pg->id[q]), t->p[pg->id[q]], vb, &u);   /* its value beside it */
-            str_cpy(vb + str_len(vb), u, sizeof vb - str_len(vb));
+            str_cat(vb, u, sizeof vb - str_len(vb));
             if (q < 3 || x + 8 + text_w(&AF_X, vb) < 236)
                 cv_text(x + 8, y + 1 - AF_X_CAP_Y, &AF_X, vb, T_MID);
         }
@@ -827,13 +827,13 @@ static void page_title(char *ti)
             }
     str_cpy(ti, pt ? pt : grid_on() && roll_view(pg) ? "GRID" : nb, 12);
     if (n > 1) {
-        str_cpy(ti + str_len(ti), " ", 4);
+        str_cat(ti, " ", 4);
         fmt_frac(ti + str_len(ti), (int32_t)k, (int32_t)n);
     }
     if (roll_view(pg) && !drum_track(t)) {          /* the piano roll: its tinted rows' scale ("C MIN") */
         str_cpy(ti, N_NOTE[(uint32_t)t->p[P_ROOT] % 12u], 4);
-        str_cpy(ti + str_len(ti), " ", 4);
-        str_cpy(ti + str_len(ti), PN_AT(N_SCALE, clamp(t->p[P_SCALE], 0, (int32_t)N_SCALE_N - 1)), 8);
+        str_cat(ti, " ", 4);
+        str_cat(ti, PN_AT(N_SCALE, clamp(t->p[P_SCALE], 0, (int32_t)N_SCALE_N - 1)), 8);
     }
 }
 /* the strip's title: L centred (M when L lacks a glyph or is too wide) */
@@ -1807,8 +1807,8 @@ static __attribute__((noinline)) void graph_psq(void)
         if (!((psq.st[r] >> at) & 1u) || ((seen >> e) & 1u))
             continue;
         if (seen)
-            str_cpy(b + str_len(b), " + ", sizeof b - str_len(b));
-        str_cpy(b + str_len(b), str_nth(PSQ_NM, e), sizeof b - str_len(b));
+            str_cat(b, " + ", sizeof b - str_len(b));
+        str_cat(b, str_nth(PSQ_NM, e), sizeof b - str_len(b));
         seen |= 1u << e;
     }
     if (at < 16u && !seen)

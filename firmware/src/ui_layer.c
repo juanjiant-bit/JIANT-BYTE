@@ -616,7 +616,7 @@ static void song_key(uint32_t p)
             char b[24] = "CHAIN";
             for (k = 0; k < lys.nqc && k < 8u; k++) {
                 char c[3] = {' ', (char)('A' + lys.qc[k]), 0};
-                str_cpy(b + str_len(b), c, sizeof b - str_len(b));
+                str_cat(b, c, sizeof b - str_len(b));
             }
             ui_message(b);
         }
@@ -988,11 +988,11 @@ static uint32_t macro_routes(uint32_t m, char *b, uint32_t n)
                 char e[16] = {'T', (char)('1' + i), ' ', 0};
                 uint32_t l0 = str_len(b);
                 str_cpy(e + 3, mod_dst_name(&trk[i], p[1]), sizeof e - 3);
-                str_cpy(e + str_len(e), p[2] > 0 ? "+" : "", sizeof e - str_len(e));
-                fmt_int(e + str_len(e), p[2] * 100 / 64);
+                str_cat(e, p[2] > 0 ? "+" : "", sizeof e - str_len(e));
+                fmt_cat(e, p[2] * 100 / 64);
                 if (l0)
                     str_cpy(b + l0, " ", n - l0);
-                str_cpy(b + str_len(b), e, n - str_len(b));
+                str_cat(b, e, n - str_len(b));
                 if (text_w(&AF_S, b) > LMC_TW) {
                     b[l0] = 0;
                     str_cpy(b + l0, " +", n - l0);
@@ -1086,8 +1086,8 @@ static uint32_t ly_keyname(uint32_t l, int blk, uint32_t p, char *nm)
             return LS_OFF;
         str_cpy(nm, str_nth(TL_NAME, p), 12);
         if (p >= TL_LCLR) {                             /* the lane's: "CLR BD" */
-            str_cpy(nm + str_len(nm), " ", 2);
-            str_cpy(nm + str_len(nm), drum_lane_abbr(TSEL, ui.lane), 12 - str_len(nm));
+            str_cat(nm, " ", 2);
+            str_cat(nm, drum_lane_abbr(TSEL, ui.lane), 12 - str_len(nm));
         }
         return busy;
     }
@@ -1351,10 +1351,10 @@ static void layer_knobs(uint32_t l)                     /* the four as gauges in
         if (ft[k].act) {
             uint32_t at = str_len(b);
             if (b[0])
-                str_cpy(b + str_len(b), " \xB7 ", sizeof b - str_len(b));
-            str_cpy(b + str_len(b), KC[ft[k].key % KC_COUNT].label, sizeof b - str_len(b));
-            str_cpy(b + str_len(b), " ", sizeof b - str_len(b));
-            str_cpy(b + str_len(b), ft[k].act, sizeof b - str_len(b));
+                str_cat(b, " \xB7 ", sizeof b - str_len(b));
+            str_cat(b, KC[ft[k].key % KC_COUNT].label, sizeof b - str_len(b));
+            str_cat(b, " ", sizeof b - str_len(b));
+            str_cat(b, ft[k].act, sizeof b - str_len(b));
             if (at && text_w(&AF_X, b) > 232) {         /* (V10.7.32: too wide, the last one a line under: FX's PRESETS) */
                 GFX_HOOK_ALIGN(4, 0, 236, 0, AL_H, "layer KNOBS keys' words centred");
                 cv_text_in(4, 112 - AF_X_CAP_Y, 232, &AF_X, b + at + 3u, T_TEXT, T_SURF);
@@ -1376,8 +1376,8 @@ static void lst_chip(const char *a, const char *v, int on)
     lst_n++;
     str_cpy(b, a, sizeof b);
     if (v) {
-        str_cpy(b + str_len(b), " ", sizeof b - str_len(b));
-        str_cpy(b + str_len(b), v, sizeof b - str_len(b));
+        str_cat(b, " ", sizeof b - str_len(b));
+        str_cat(b, v, sizeof b - str_len(b));
     }
     cv_rrect(x, y, 114, 13, 3, bg, T_SURF);
     if (on)
@@ -1390,7 +1390,7 @@ static __attribute__((noinline)) void layer_state(uint32_t l)
     uint32_t k, e;
     char b[48], v[8];
     str_cpy(b, LN[l], sizeof b);
-    str_cpy(b + str_len(b), l == LAYER_MACRO && !layer_open() ? " \xB7 LATCHED" : " \xB7 HELD", sizeof b - str_len(b));
+    str_cat(b, l == LAYER_MACRO && !layer_open() ? " \xB7 LATCHED" : " \xB7 HELD", sizeof b - str_len(b));
     cv_text(6, 5 - AF_X_CAP_Y, &AF_X, b, T_THEME);
     if (l == LAYER_FX && fx_lock)
         cv_text_r(234, 5 - AF_X_CAP_Y, &AF_X, "[FX] LOCKED", T_ACCENT, T_SURF);
@@ -1429,7 +1429,7 @@ static __attribute__((noinline)) void layer_state(uint32_t l)
         v[0] = live.cur >= 0 ? (char)('A' + live.cur) : '-'; v[1] = 0;
         lst_chip("PART", v, live.cur >= 0);
         str_cpy(b, "CHAIN ", sizeof b);
-        for (k = 0; k < lys.nqc && k < 8u; k++) { char c[2] = {(char)('A' + lys.qc[k]), 0}; str_cpy(b + str_len(b), c, sizeof b - str_len(b)); }
+        for (k = 0; k < lys.nqc && k < 8u; k++) { char c[2] = {(char)('A' + lys.qc[k]), 0}; str_cat(b, c, sizeof b - str_len(b)); }
         lst_chip(lys.nqc >= 2u ? b : "CHAIN -", 0, lys.nqc >= 2u);
         lst_chip(live.mode ? "SONG" : "LOOP", 0, 1);
         lst_chip("SONG REC", live.srec == 2u ? "ON" : live.srec ? "ARM" : "OFF", live.srec != 0u);

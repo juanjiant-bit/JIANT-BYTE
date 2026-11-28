@@ -84,6 +84,10 @@ static void fmt_fix(char *b, int32_t v, int decimals)
 }
 
 static void fmt_int(char *b, int32_t v) { fmt_fix(b, v, 0); }
+/* (v1.1b5, flash, as JIANT FM V10.8.71) s after d's end (max: the room there), v after b's end: one call each for the
+ * UI's appends */
+static __attribute__((noinline)) void str_cat(char *d, const char *s, unsigned max) { str_cpy(d + str_len(d), s, max); }
+static __attribute__((noinline)) void fmt_cat(char *b, int32_t v) { fmt_int(b + str_len(b), v); }
 static void fmt_frac(char *b, int32_t a, int32_t n) { fmt_int(b, a); b += str_len(b); *b++ = '/'; fmt_int(b, n); }   /* (V10.30) "a/n" */
 
 static uint32_t rng_state = 0x1234567u;

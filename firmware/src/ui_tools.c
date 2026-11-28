@@ -171,7 +171,7 @@ static const char *tl_do(track_t *t, uint32_t p, uint32_t l)
             n = tl_fill(t, len, l);
             msg = n == 1u ? " EVERY STEP" : n == 2u ? " EVERY 2ND" : n ? " EVERY 4TH" : " CLEARED";
         }
-        str_cpy(b + str_len(b), msg, sizeof b - str_len(b));
+        str_cat(b, msg, sizeof b - str_len(b));
         msg = b;
         break;
     }
