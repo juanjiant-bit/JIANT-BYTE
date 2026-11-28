@@ -297,8 +297,10 @@ static __attribute__((noinline)) void dist_eq(track_t *t, int32_t *b, uint32_t n
         v = v > 98304 ? 98304 : v < -98304 ? -98304 : v;
         /* Every formula distortion shares the same audible TONE stage. */
         int32_t tone=clamp(32000-t->p[P_DIST]*95+t->p[P_DTONE]*300+(na?(nzs[i]*na)>>8:0),2500,32767);
-        t->dist_lp1 += mulq15(v-t->dist_lp1,tone);
-        t->dist_lp2 += mulq15(t->dist_lp1-t->dist_lp2,tone);
+        tone >>= 2;                                  /* (rel15, as JIANT FM V10.8.72) Q13: v - lp up to 2 x 98304 times
+                                                      * the corner fits 32 bits (Q15 wrapped: a click, UB) */
+        t->dist_lp1 += ((v - t->dist_lp1) * tone) >> 13;
+        t->dist_lp2 += ((t->dist_lp1 - t->dist_lp2) * tone) >> 13;
         v=t->dist_lp2;
         b[i] = b[i] + ((((v - b[i]) >> 2) * (w0 + dw * (int32_t)(i + 1))) >> 10);   /* (DIST's blend: its amount in) */
     }
