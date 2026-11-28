@@ -52,17 +52,29 @@ static struct { uint8_t on, rn, go, arm; int8_t mood; int16_t bpm0; } grd __attr
 #define GMOOD ((int32_t)grd.mood + 50)
 #ifdef FELUCCA_WEB_EDITOR
 static uint32_t web_gen_n;                              /* (web only: JIANT Studio's RADIO page) every piece made */
+/* (v1.1b2, web only: felucca_web.c web_gen_cmd 5 and 6) a salt for the parts' streams (gseed: every one but the key's,
+ * the plan's, the form's and the mix's, GS_PICK GS_PLAN GS_FORM GS_MIX, so the key, the progression, the rows and the
+ * tempo stay), only while the section web_gs_sec being made is web_gen_ssec (0xFF: every one); 0 none (the device's
+ * pieces as ever) */
+static uint32_t web_gen_salt;
+static uint8_t web_gen_ssec = 0xFFu, web_gs_sec, web_gen_rn;
 #endif
 
 /* the generator's own random numbers: a stream a part, from the seed */
 static uint32_t gq = 1;
 static uint32_t gr(void) { gq ^= gq << 13; gq ^= gq >> 17; gq ^= gq << 5; return gq; }
+enum { GS_PICK, GS_DRUMS, GS_BASS, GS_CHORDS, GS_ARP, GS_LEAD, GS_SOUND, GS_FORM, GS_MIX, GS_TEX, GS_PLAN, GS_GRAM, GS_RICH };
 static uint32_t gseed_mix(uint32_t part);
 static void gseed(uint32_t part)
 {
     gq = ((uint32_t)gp.seed + 1u) * 2654435761u ^ (part + 1u) * 0x9E3779B9u ^ 0x6D2B79F5u ^
          gseed_mix(part);                               /* (0.8.3: a genre's own motifs, figures and drums; V10.6z10: a
                                                          * section's bass, chords and arp their own variation) */
+#ifdef FELUCCA_WEB_EDITOR
+    if (web_gen_salt && part != GS_PICK && part != GS_PLAN && part != GS_FORM && part != GS_MIX &&
+        (web_gen_ssec == 0xFFu || web_gen_ssec == web_gs_sec))
+        gq ^= web_gen_salt * 0x9E3779B1u ^ 0x5BD1E995u;
+#endif
     if (!gq) gq = 1;
     gr(); gr(); gr();
 }
@@ -77,7 +89,6 @@ static uint32_t gpickw(const uint8_t *w, uint32_t n)    /* an index by its weigh
     for (i = 0; i < n; i++) { if (r < w[i]) return i; r -= w[i]; }
     return n - 1u;
 }
-enum { GS_PICK, GS_DRUMS, GS_BASS, GS_CHORDS, GS_ARP, GS_LEAD, GS_SOUND, GS_FORM, GS_MIX, GS_TEX, GS_PLAN, GS_GRAM, GS_RICH };
 
 /* ------------------------------------------------------------------------------------------------ the piece --- */
 /* (0.8.3) a chord of the plan: its first step, its steps, its root's degree in the mode, its quality (QSTACK) and how
@@ -2442,6 +2453,10 @@ BTAPP_FN static void gen_parts(void)   /* (BYTE 0.17: the segment's, as gen_make
         uint32_t rot = 0;
         int32_t lift = 0;
         k = plan ? (0x2310u >> (4u * j)) & 15u : j;     /* (the plan: B D C, the build last: its loops four bars) */
+#ifdef FELUCCA_WEB_EDITOR
+        web_gs_sec = (uint8_t)k;                        /* (web_gen_cmd 6: this section's drums from the salt too) */
+        if (web_gen_salt && web_gen_ssec == k) gq ^= web_gen_salt * 0x85EBCA77u;
+#endif
         /* back to the whole piece, then this section's cut */
         for (i = 0; i < NTRK; i++) trk[i].p[P_MUTE] = (int16_t)((gls.mute >> i) & 1u);   /* (FROM LOOP: the player's
                                                          * muted tracks stay so) */
@@ -2578,6 +2593,9 @@ BTAPP_FN static void gen_parts(void)   /* (BYTE 0.17: the segment's, as gen_make
         if (live.cur == (int8_t)k) dice_secs |= (uint8_t)(1u << k);
     }
     memcpy(gs.pdeg, pdeg, sizeof pdeg); memcpy(gs.pq, pq, sizeof pq); gs.pn = pn; gs.sec = 0;
+#ifdef FELUCCA_WEB_EDITOR
+    web_gs_sec = 0;
+#endif
     gplan(0);                                           /* (A's plan: the music live is A) */
     section_load(0);                                    /* (the whole piece back, as A holds it) */
     live.cur = 0;
@@ -3146,6 +3164,9 @@ BTAPP_FN static void gen_make(void)
     }            /* (FROM LOOP: the loop's song, gen_loop.c) */
     grd.bpm0 = song.g[G_BPM];                           /* (RADIO: the piece before's tempo) */
     gen_clean();                                        /* (0.9.9-gen1) from NEW PROJECT's state, nothing of before */
+#ifdef FELUCCA_WEB_EDITOR
+    web_gs_sec = 0;                                     /* (A first) */
+#endif
     /* the choices from the seed: the genre (RANDOM), the root, the scale, the progression, the bass */
     gseed(GS_PICK);
     gx.on = (uint8_t)(dice_force_style < 0 && gp.genre == GEN_EXPLORE);
@@ -3417,6 +3438,9 @@ static void gen_go(void)
     if (!bt_hw_seg()) { seg_missing(); return; }        /* (V10.6y: gen_pick in the segment) */
     grd.rn = (uint8_t)(grd.go ? grd.rn + 1u : 0u);
     grd.go = 0;
+#ifdef FELUCCA_WEB_EDITOR
+    if (web_gen_rn) { grd.rn = web_gen_rn; web_gen_rn = 0; }   /* (web_gen_set_state: a RADIO piece's tempo again) */
+#endif
     if (play) {
         fm1_irq_off(); seq_stop(); transport_req = 0; fm1_irq_on();
         song_poll();

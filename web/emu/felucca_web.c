@@ -525,13 +525,16 @@ EXPORT const char *web_gen_last(void) { return gp.last; }
 EXPORT uint32_t web_gen_count(void) { return NGENRE; }
 EXPORT const char *web_gen_name(uint32_t i) { return GENRE[i % NGENRE].name; }
 
-/* (studio) JIANT Studio's RADIO page: the generator's state as eight numbers, a static the page reads: radio 0/1, the
+static uint32_t web_rg_salt;                            /* (v1.1b2: web_gen_cmd 5 / 6's last salt, web_regen) */
+/* (studio) JIANT Studio's RADIO page: the generator's state as eight numbers (v1.1b2: nine, [8] the salt web_gen_cmd 5
+ * or 6 used last), a static the page reads: radio 0/1, the
  * genre (-1 EXPLORE, -2 RANDOM, else web_gen_genre's index), the seed, MOOD -50..50, ENERGY 0..100, FORM (0 LOOP,
  * 1 PARTS, 2 SONG, 3 MY LOOP), the piece's number (gen.c web_gen_n: every piece made, OCT+'s, RADIO's, the page's),
  * playing */
 EXPORT int32_t *web_gen_info(void)
 {
-    static int32_t o[8];
+    static int32_t o[9];
+    o[8] = (int32_t)web_rg_salt;                        /* (v1.1b2) the salt web_gen_cmd 5 / 6 used last */
     o[0] = grd.on != 0;
     o[1] = gp.genre == GEN_EXPLORE ? -1 : gp.genre ? (int32_t)((gp.genre - 1u) % NGENRE) : -2;
     o[2] = gp.seed;
@@ -553,8 +556,150 @@ EXPORT int32_t *web_vis_info(void)
 }
 #endif
 EXPORT const char *web_gen_genre(uint32_t i) { return i < NGENRE ? GENRE[i].name : 0; }
+
+/* (v1.1b2) JIANT Studio: the generator's whole state, what makes the piece (gen.c gen_sig and what gen_make reads beside
+ * it), so a project made by GEN is made again identically from it: web_gen_state() the 19 numbers as they are (a static
+ * the page reads, and writes for web_gen_set_state):
+ *   [0] 1 (the layout)  [1] genre (0 RANDOM, 1 + the genre's index, web_gen_count() + 1 EXPLORE)  [2] seed 0..9999
+ *   [3] energy 0..100  [4] form 0 LOOP 1 PARTS 2 SONG  [5..9] the parts' amounts DRUMS BASS CHORDS ARP LEAD (0..100,
+ *   255 the genre's)  [10] complex 0..100  [11] swing 0..100 (255 the genre's)  [12] human 0..100  [13] mood -50..50
+ *   [14] the tracks live (4 or 6: MENU TRACKS)  [15] a RADIO piece's tempo before it (the one MOOD DANCE kept, gen.c
+ *   gmood_bpm), -1 none  [16] BPM LOCK (MENU) 0/1  [17] the tempo (G_BPM)  [18] RADIO on 0/1 */
+#define WEB_GEN_NS 19u
+_Static_assert(GP_N == 5u, "web_gen_state: five amounts");
+static int32_t web_gst[WEB_GEN_NS];
+EXPORT int32_t *web_gen_state(void)
+{
+    uint32_t k;
+    web_gst[0] = 1;
+    web_gst[1] = gp.genre; web_gst[2] = gp.seed; web_gst[3] = gp.energy; web_gst[4] = gp.form;
+    for (k = 0; k < GP_N; k++) web_gst[5 + k] = gp.amt[k];
+    web_gst[10] = gp.complex; web_gst[11] = gp.swing; web_gst[12] = gp.human; web_gst[13] = grd.mood;
+    web_gst[14] = (int32_t)trk_live;
+    web_gst[15] = grd.rn && grd.mood > 10 ? grd.bpm0 : -1;
+    web_gst[16] = (ui_prefs & PREF_BPM_LOCK) != 0;
+    web_gst[17] = song.g[G_BPM];
+    web_gst[18] = grd.on != 0;
+    return web_gst;
+}
+static int web_gen_amt_ok(int32_t v) { return (v >= 0 && v <= 100) || v == (int32_t)GA_AUTO; }
+/* web_gen_state()'s numbers (written there by the page) into the generator; regen 1: the piece made from them (as
+ * web_gen: identical to the one they were read after, its tempo too), 0 the settings alone. 0 done, 1 a number out of its
+ * range (nothing changed) */
+EXPORT uint32_t web_gen_set_state(uint32_t regen)
+{
+    const int32_t *s = web_gst;
+    uint32_t k, lock = ui_prefs & PREF_BPM_LOCK;
+    if (s[0] != 1 || s[1] < 0 || s[1] > (int32_t)NGENRE + 1 || s[2] < 0 || s[2] > 9999 || s[3] < 0 || s[3] > 100 ||
+        s[4] < 0 || s[4] > 2 || !web_gen_amt_ok(s[10]) || s[10] == (int32_t)GA_AUTO || !web_gen_amt_ok(s[11]) ||
+        !web_gen_amt_ok(s[12]) || s[12] == (int32_t)GA_AUTO || s[13] < -50 || s[13] > 50 || (s[14] != 4 && s[14] != NTRK) ||
+        s[15] < -1 || s[15] > 300 || (uint32_t)s[16] > 1u || s[17] < 20 || s[17] > 300 || (uint32_t)s[18] > 1u)
+        return 1;
+    for (k = 0; k < GP_N; k++)
+        if (!web_gen_amt_ok(s[5 + k])) return 1;
+    gp.genre = (uint8_t)s[1]; gp.seed = (uint16_t)s[2]; gp.energy = (uint8_t)s[3]; gp.form = (uint8_t)s[4];
+    for (k = 0; k < GP_N; k++) gp.amt[k] = (uint8_t)s[5 + k];
+    gp.complex = (uint8_t)s[10]; gp.swing = (uint8_t)s[11]; gp.human = (uint8_t)s[12];
+    grd.mood = (int8_t)s[13];
+    trks_put(s[14] == NTRK);
+    grd.on = (uint8_t)s[18];
+    if (regen) {
+        gsr.thrown = 0;                                 /* (the seed as given: never thrown again) */
+        if (s[15] >= 0) { song.g[G_BPM] = (int16_t)s[15]; grd.on = 1; web_gen_rn = 1; }   /* (a RADIO piece: its tempo kept) */
+        else if (s[16]) song.g[G_BPM] = (int16_t)s[17];
+        if (s[16]) ui_prefs |= PREF_BPM_LOCK; else ui_prefs &= ~PREF_BPM_LOCK;
+        gen_go();
+        ui_prefs = (ui_prefs & ~PREF_BPM_LOCK) | lock;  /* (the player's MENU as it was) */
+        grd.on = (uint8_t)s[18];
+        web_gen_rn = 0;
+    }
+    gp.sig = gen_sig();
+    ui.force = 1;
+    return 0;
+}
+
+/* (v1.1b2) web_gen_cmd 5 / 6: the piece made again from GEN's settings with a salt in the parts' streams (gen.c
+ * web_gen_salt: the key, the progression, the rows and the tempo as they were), then of it only one track (5) or one
+ * section (6) kept over what was there (the player's edits of the rest kept) */
+static project_store_t web_rg_slot[4];
+static project_t web_rg_old, web_rg_new;
+static uint32_t web_rg_n;
+static void web_rg_track(project_t *o, const project_t *n, uint32_t k)   /* track k of n into o */
+{
+    motion_store_t m = o->motion;
+    uint32_t i, c = 0, dr = o->t[k].engine == ENGI_DRUM || n->t[k].engine == ENGI_DRUM;
+    o->t[k] = n->t[k];
+    memcpy(o->fm6[k], n->fm6[k], sizeof o->fm6[k]);
+    o->dnz[k] = n->dnz[k]; o->cru[k] = n->cru[k]; o->life[LIFE_N + k] = n->life[LIFE_N + k];
+    o->voice_limit[k] = n->voice_limit[k]; o->fit[k] = n->fit[k]; o->fpx[k] = n->fpx[k]; o->fbl[k] = n->fbl[k];
+    memcpy(o->clay[k], n->clay[k], sizeof o->clay[k]); memcpy(o->clay_rec[k], n->clay_rec[k], sizeof o->clay_rec[k]);
+    memcpy(o->fugue[k], n->fugue[k], sizeof o->fugue[k]); memcpy(o->lyr[k], n->lyr[k], sizeof o->lyr[k]);
+    memcpy(o->fmo[k], n->fmo[k], sizeof o->fmo[k]); memcpy(o->fxr[k], n->fxr[k], sizeof o->fxr[k]);
+    if (dr) {                                           /* (a DRUM part: its kit, the project's one kit) */
+        memcpy(o->dx, n->dx, sizeof o->dx); o->dx_mute = n->dx_mute; memcpy(o->dx_mot, n->dx_mot, sizeof o->dx_mot);
+        o->dx_tone = n->dx_tone; o->dx_hands = n->dx_hands; memcpy(o->dx_snd, n->dx_snd, sizeof o->dx_snd);
+        memcpy(o->dx_lay, n->dx_lay, sizeof o->dx_lay); memcpy(o->dx_form, n->dx_form, sizeof o->dx_form);
+        memcpy(o->dw, n->dw, sizeof o->dw); memcpy(o->dx_text, n->dx_text, sizeof o->dx_text);
+        memcpy(o->dx_fmod, n->dx_fmod, sizeof o->dx_fmod); o->dwt = n->dwt;
+    }
+    for (i = 0; i < m.count; i++)                       /* its motion records the new ones, the others' as they were */
+        if (MOTION_TRK(&m.event[i]) != k) o->motion.event[c++] = m.event[i];
+    for (i = 0; i < n->motion.count && c < MOTION_MAX; i++)
+        if (MOTION_TRK(&n->motion.event[i]) == k) o->motion.event[c++] = n->motion.event[i];
+    o->motion.count = (uint8_t)c;
+    o->motion.on = (uint8_t)((m.on & ~(1u << k)) | (n->motion.on & (1u << k)));
+    o->sum = proj_sum(o);
+}
+/* (5) track tr (0..NTRK-1), (6) section sec (1..3; 0 A: the whole piece again, every section new): 0 done */
+static uint32_t web_regen(uint32_t cmd, uint32_t which, uint32_t salt)
+{
+    static chain_config_t cc;
+    static scene_t sc[CHAIN_ROWS];
+    static uint32_t ts[CHAIN_ROWS], tv[CHAIN_ROWS];
+    static int16_t g[G_COUNT];
+    uint32_t x, used = 0, all = cmd == 6u && !which;
+    if (cmd == 5u ? which >= trk_live : which > 3u) return 1;
+    if (live.cur >= 0 && live.cur < 4) section_store((uint32_t)live.cur);   /* (the music as it is now: its part's) */
+    for (x = 0; x < 4u; x++) used |= (uint32_t)project_used(x) << x;
+    memcpy(web_rg_slot, proj_slot, sizeof web_rg_slot);
+    cc = chain_config; memcpy(g, song.g, sizeof g);
+    memcpy(sc, song_idx.scene[song_cur], sizeof sc); memcpy(ts, song_idx.tsrc[song_cur], sizeof ts);
+    memcpy(tv, song_idx.tvar[song_cur], sizeof tv);
+    web_rg_salt = salt ? salt : ++web_rg_n * 0x2F6Bu + 1u;
+    web_gen_salt = web_rg_salt; web_gen_ssec = cmd == 5u || all ? 0xFFu : (uint8_t)which;
+    gsr.thrown = 0;
+    gen_go();
+    web_gen_salt = 0; web_gen_ssec = 0xFFu;
+    if (!all) {
+        for (x = 0; x < 4u; x++) {
+            if (cmd == 6u) {                            /* (6: every other section as it was) */
+                if (x != which) memcpy(&proj_slot[x], &web_rg_slot[x], sizeof proj_slot[x]);
+                continue;
+            }
+            if (!((used >> x) & 1u) || !proj_import(&web_rg_new, &proj_slot[x], sizeof proj_slot[x]) ||
+                !proj_import(&web_rg_old, &web_rg_slot[x], sizeof web_rg_slot[x])) {
+                memcpy(&proj_slot[x], &web_rg_slot[x], sizeof proj_slot[x]);   /* (no such part before, or none now) */
+                continue;
+            }
+            web_rg_track(&web_rg_old, &web_rg_new, which);
+            if (!proj_pack(&proj_slot[x], &web_rg_old)) memcpy(&proj_slot[x], &web_rg_slot[x], sizeof proj_slot[x]);
+        }
+        chain_config = cc;
+        memcpy(song_idx.scene[song_cur], sc, sizeof sc); memcpy(song_idx.tsrc[song_cur], ts, sizeof ts);
+        memcpy(song_idx.tvar[song_cur], tv, sizeof tv);
+        if (project_used(0)) section_load(0);           /* (A live, as GEN leaves it) */
+        memcpy(song.g, g, sizeof g);                    /* (the song's tempo and globals as they were) */
+    } else
+        song.g[G_BPM] = g[G_BPM];                       /* (A: everything new, the tempo kept) */
+    proj_wire_gen++;
+    ui.force = 1;
+    return 0;
+}
 /* 0 RADIO OFF / ON (arg); 1 the next piece now (RADIO on: its advance, a new seed and on playing; else OCT+ on GEN);
- * 2 GENRE = arg (-1 EXPLORE, -2 RANDOM, else the genre's index); 3 MOOD = arg (-50..50); 4 PLAY (arg 1) / STOP (0) */
+ * 2 GENRE = arg (-1 EXPLORE, -2 RANDOM, else the genre's index); 3 MOOD = arg (-50..50); 4 PLAY (arg 1) / STOP (0);
+ * (v1.1b2) 5 track arg & 15 made again (arg >> 4: the salt, 0 a new one; web_gen_info()[8] the one used), the rest as
+ * it is; 6 section arg & 15 made again (1 B .. 3 D: the others as they are; 0 A: the whole piece, its sections all new),
+ * the salt likewise. 5 and 6 keep the key and the tempo (and 5 / 6 B..D the rows and the song's globals) */
 EXPORT void web_gen_cmd(uint32_t cmd, int32_t arg)
 {
     if (cmd == 0u) grd.on = arg != 0;
@@ -570,7 +715,8 @@ EXPORT void web_gen_cmd(uint32_t cmd, int32_t arg)
         int busy = transport_busy();
         if (!arg && busy) transport_req = 2;
         else if (arg && !busy) { if (live.mode) chain_play_ui(); else transport_req = 1; }
-    }
+    } else if (cmd == 5u || cmd == 6u)
+        (void)web_regen(cmd, (uint32_t)arg & 15u, (uint32_t)arg >> 4);
     ui.force = 1;
 }
 

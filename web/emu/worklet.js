@@ -118,9 +118,16 @@ class Felucca extends AudioWorkletProcessor {
       }
       else if (m.type === "gen") {                 // (studio) the RADIO page: a command (cmd a number), then the state
         if (!ex.web_gen_info) { this.port.postMessage({ type: "gen", id: m.id, error: "This engine has no GEN for the page." }); return; }
+        let rc;
+        if (Array.isArray(m.state) && m.state.length === 19 && ex.web_gen_state) {   // (v1.1b2) the generator's whole state
+          new Int32Array(ex.memory.buffer, ex.web_gen_state(), 19).set(m.state.map((v) => v | 0));
+          rc = ex.web_gen_set_state(m.regen ? 1 : 0);
+        }
         if (typeof m.cmd === "number") ex.web_gen_cmd(m.cmd >>> 0, m.arg | 0);
-        const o = new Int32Array(ex.memory.buffer, ex.web_gen_info(), 8);
-        const info = { radio: o[0], genre: o[1], seed: o[2], mood: o[3], energy: o[4], form: o[5], n: o[6], playing: o[7] };
+        const o = new Int32Array(ex.memory.buffer, ex.web_gen_info(), ex.web_gen_state ? 9 : 8);
+        const info = { radio: o[0], genre: o[1], seed: o[2], mood: o[3], energy: o[4], form: o[5], n: o[6], playing: o[7],
+          salt: ex.web_gen_state ? o[8] : 0 };
+        const state = ex.web_gen_state ? Array.from(new Int32Array(ex.memory.buffer, ex.web_gen_state(), 19)) : null;
         let genres;
         if (m.genres) {
           genres = [];
@@ -130,7 +137,7 @@ class Felucca extends AudioWorkletProcessor {
             genres.push(t);
           }
         }
-        this.port.postMessage({ type: "gen", id: m.id, info, genres });
+        this.port.postMessage({ type: "gen", id: m.id, info, genres, state, rc });
       }
     }
 

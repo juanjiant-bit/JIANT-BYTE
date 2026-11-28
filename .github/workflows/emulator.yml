@@ -33,6 +33,7 @@ jobs:
         run: |
           EMU_PREVIEW=0 sh web/emu/build.sh
           node web/emu/emu_test.mjs build/emu/felucca.wasm
+          node web/emu/gen_state_test.mjs build/emu/felucca.wasm
       # (JIANT) the installer and the web editor next to the emulator: the package needs JieLi's toolchain (downloaded)
       # and three pinned AC79 SDK files. Publish only when the matching preview package is ready.
       - name: JieLi toolchain and SDK files (cached)

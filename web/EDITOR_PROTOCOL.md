@@ -323,6 +323,30 @@ these write flash and never stop the transport themselves), 4 the target holds a
 request still answers (rc 1, its bytes 127 where they were missing). Each write takes up to ~2 s (4 parts and the
 index for a COPY). The library on the device (SAVE > LIBRARY) shows the change at once.
 
+### The emulator's generator (not the protocol)
+
+JIANT Studio's emulator (`web/emu/felucca_web.c`, compiled with `FELUCCA_WEB_EDITOR`: nothing of this is on the device)
+adds to its GEN entry points (`web/emu/editor-api.h`; the page's `gen(cmd, arg, genres, opt)`, `web/emu/index.html`):
+
+- `web_gen_state()` → 19 int32, what makes the piece (more than the four numbers of `web_gen`): `[0]` 1 (the layout),
+  `[1]` genre (0 RANDOM, 1 + the genre's index, NGENRE + 1 EXPLORE), `[2]` seed 0..9999, `[3]` energy 0..100, `[4]`
+  form (0 LOOP, 1 PARTS, 2 SONG), `[5..9]` the amounts DRUMS BASS CHORDS ARP LEAD (0..100, 255 the genre's), `[10]`
+  complex, `[11]` swing (255 the genre's), `[12]` human, `[13]` mood −50..50, `[14]` the tracks live (4 or 6: MENU
+  TRACKS), `[15]` a RADIO piece's tempo before it (MOOD DANCE keeps it), −1 none, `[16]` BPM LOCK 0/1, `[17]` the tempo,
+  `[18]` RADIO 0/1.
+- `web_gen_set_state(regen)`: those 19, written into `web_gen_state()`'s buffer, into the generator (MENU TRACKS too;
+  BPM LOCK only while it makes the piece); `regen` 1 makes the piece again: the same piece, byte for byte (its sections,
+  its tracks, its tempo), a GEN OCT+ one (its seed thrown) too. 0 done, 1 a number out of its range (nothing changed).
+- `web_gen_cmd(5, track | salt << 4)`: that track made again: the piece made from the same settings with a salt in its
+  parts' streams (not in the key's, the progression's, the form's or the mix's: the key, the chords, the rows and the
+  tempo stay), and of it that track alone taken into every stored section (its sound, steps, motion, its kit if a DRUM
+  part); everything else as it is, the player's edits too (the music live first stored into its section).
+- `web_gen_cmd(6, section | salt << 4)`: that section (1..3, B..D) made again so (its drums too), the other sections byte
+  for byte, the rows and the song's globals as they are; 0 (A, which B..D are made from): the whole piece again, every
+  section new, the tempo kept.
+- The salt: 1.. (0: a new one each call); `web_gen_info()[8]` (a ninth number) the one used last. The same salt on the
+  same piece gives the same result.
+
 ## 1.1: the velocity diagnostic (81)
 
 `VEL` turns the key sensing of the velocity diagnostic on and off and reads what it measured

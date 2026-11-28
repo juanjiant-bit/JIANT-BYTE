@@ -10,7 +10,16 @@
  *   web_sysex_buf()      the request: F0 7D 46 4C cmd args.. F7
  *   web_sysex(n)         runs it (0 ok, 1 not an editor frame)
  *   web_editor_poll()    the live pushes, once a frame
- *   web_sysex_out()      the next reply or push's length (0: none), the message at web_sysex_msg() */
+ *   web_sysex_out()      the next reply or push's length (0: none), the message at web_sysex_msg()
+ * (v1.1b2) Beside the protocol, JIANT Studio's generator (felucca_web.c, the emulator's only: nothing of it on the FM-1;
+ * web/EDITOR_PROTOCOL.md "The emulator's generator"):
+ *   web_gen_state()      the generator's whole state, 19 int32 (genre seed energy form, the amounts, complex swing human,
+ *                        mood, the tracks live, a RADIO piece's tempo before it, BPM LOCK, the tempo, RADIO)
+ *   web_gen_set_state(r) those 19 (written into web_gen_state()'s) into the generator; r 1: the piece made again,
+ *                        identical; 0 done, 1 refused
+ *   web_gen_cmd(5, t | salt << 4)  track t made again (the key, the tempo, the rows and every other track as they are)
+ *   web_gen_cmd(6, s | salt << 4)  section s made again (1..3 B..D, the others byte for byte; 0 A: the whole piece)
+ *                        (salt 0: a new one; web_gen_info()[8] the one used; a salt again: the same result) */
 #ifndef JIANT_TRANSFER_API
 #define JIANT_TRANSFER_API 1
 #define JIANT_EDITOR_API 1
