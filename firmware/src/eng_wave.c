@@ -133,7 +133,7 @@ static const int16_t *wt_get(uint32_t tr, uint32_t r, uint32_t o, const fvm_prog
     if (!many || (f == 3u && o))                        /* (one voice, no unison: the formula as written; B's TRISY: its
                                                          * sync edges exact) */
         return 0;
-    if (wt_key[r][0] == key)
+    if (wt_key[r][0] == key || wt_key[r][0] == 0xFFFFu)   /* (wavefix: 0xFFFF a frame of A's kept, wf_grid) */
         return wt_tab[r][0];
     /* (BYTE, CPU: the owner, "one WAVE voice 453 us") a new POS redrawn a quarter a block (32 points), read meanwhile as
      * it is (the old POS's points and the new's: neighbours, alike); the first one whole. Was the whole table in one
@@ -207,6 +207,7 @@ typedef struct {
     uint8_t bf, bc, mx0, mx1;                        /* the frame being drawn, its step; MIX at the block's start, end */
     uint8_t uo1, uo3;                                /* (BYTE relief) how far out the unison's second and third voices
                                                       * are, its fourth on (0 whole .. 16 out: wave_block, a step a block) */
+    uint8_t hd;                                      /* (wavefix) blocks a way in held silent (wave_block) */
 } wf_t;
 static wf_t wf[NTRK] __attribute__((section(".pool")));
 static uint16_t wf_vpos[NTRK * NVOICE] __attribute__((section(".pool")));   /* a voice's POS at its last sample, Q8 + 1 */
@@ -400,6 +401,34 @@ static void wf_read(const int16_t *F, const uint32_t *W, uint32_t n, int32_t fi,
     }
 }
 
+/* (wavefix) the frames to be drawn again (key: what they will be, at g0 a step gs). POS or AMT moved under a spectral
+ * warp, their grid with them, A and the warp the same: the frame nearest what a sounding voice hears kept in the part's
+ * table row (wt_tab, A's table at POS: wt_get serves it, key 0xFFFF) and read until the new frames are whole; was the
+ * table at the new POS, drawn a quarter a block, without the spectral warp: the sound swapped twice a knob's step
+ * (SMEAR on a SINE: a click each). A or the warp changed (the dip covers it): the next table drawn whole (was a quarter
+ * a block over the old formula's points) */
+static int32_t wf_map(const wf_t *f, int32_t q);
+static __attribute__((noinline)) void wf_grid(const track_t *t, wf_t *f, uint32_t tr, uint32_t key, int32_t g0,
+                                               int32_t gs)
+{
+    uint32_t i, vp = 0;
+    if ((f->key ^ key) & (15u | 15u << 10))
+        wt_key[tr][0] = 0;
+    else if (key >> 10 & 15u && f->use) {          /* (being drawn already: the frame kept stays) */
+        for (i = 0; i < NVOICE && !vp; i++)
+            if (t->v[i].active)
+                vp = wf_vpos[tr * NVOICE + i];
+        if (vp--) {
+            memcpy(wt_tab[tr][0], comb_buf[tr] + (((uint32_t)wf_map(f, (int32_t)vp << 8) + 2048u) >> 12 & 7u) * WF_N,
+                   2u * WF_N);
+            wt_tab[tr][0][WT_N] = wt_tab[tr][0][0];
+            wt_key[tr][0] = 0xFFFFu;
+        }
+    }
+    f->key = key, f->g0 = g0, f->gs = gs, f->na = (uint8_t)(key >> 21 & 15u), f->nb = (uint8_t)(key >> 8 & 3u);
+    f->rq = gs ? (int32_t)((4096u << 16) / (uint32_t)gs) : 0;
+    f->ok = f->bf = f->bc = 0;
+}
 /* (waveframes) a block of the part, sounding or not: which frames it wants (A B, the warp, the grid), drawn a step at a
  * time when they are not those; MIX's ramp; the sides (WIDTH); then the warm-up as before */
 static void wave_block(track_t *t)
@@ -447,11 +476,8 @@ static void wave_block(track_t *t)
             if (a <= lo && b >= hi && f->gs <= 2 * gs + 512 && (gs || (f->gs ? !((base - a) % f->gs) : base == a)))
                 g0 = f->g0, gs = f->gs;
         }
-        if (f->key != key || f->g0 != g0 || f->gs != gs) {
-            f->key = key, f->g0 = g0, f->gs = gs, f->na = (uint8_t)na, f->nb = (uint8_t)nb;
-            f->rq = gs ? (int32_t)((4096u << 16) / (uint32_t)gs) : 0;
-            f->ok = f->bf = f->bc = 0;
-        }
+        if (f->key != key || f->g0 != g0 || f->gs != gs)
+            wf_grid(t, f, tr, key, g0, gs);
         if (!f->ok && fvm_warm_tok) {                /* (one step a block, one part's) */
             fvm_warm_tok = 0;
             wf_build(tr, f, kind, amt, &lofi_work[MC_CPU() & 1u]);
@@ -459,6 +485,14 @@ static void wave_block(track_t *t)
     } else
         f->key = f->ok = 0;
     f->use = f->ok && !WF_NOFRAMES;
+    /* (wavefix) a dip's way in (A, B, WARP changed while it sounds: voice.c engine_block) or a switch's held silent
+     * until A's formula is compiled (the main loop's, fvm_serve: meanwhile the slot's old one plays) and, a spectral
+     * warp, its frames drawn (meanwhile a table without it): was in on the old sound, then swapped at once; at most 32
+     * blocks (46 ms; track_render: no gain this block, the same way in next) */
+    if (t->xin < t->xin_len || !t->xin)
+        f->hd = 0;
+    else if ((lofi_prg_id[tr] != 0x100u + fa || (kind && !f->ok)) && f->hd < 32u)
+        t->xin = (uint8_t)(t->xin_len + 1u), f->hd++;
     if (fvm_warm_tok && trk_quiet(t) && wf_comp(tr, fa, fb, p[P_E5] > 0 || warp == WW_FM))   /* (engopt) the formulas
                                                          * compiled before the first note (no frames: BITS NOISE ..) */
         fvm_warm_tok = 0;
