@@ -154,11 +154,21 @@ async function device() {
   check("a count past 8: refused (1)", c.setState(bad2, 1) === 1);
   a.ex.web_gen_cmd(1, 0); a.render(2);                // OCT+: a new piece
   check("a new piece: the log empty", a.state()[19] === 0);
+  check("  (v1.1b5) every entry past the count 0", a.state().slice(20).every((v) => v === 0));
   for (let k = 0; k < 9; k++) a.ex.web_gen_cmd(5, 0 | (k + 1) << 4);
   const full = a.state();
   check("nine regenerations: [19] -1, the first eight kept", full[19] === -1 && full[20] === 5 && full[22] === 1 && full[43] === 8);
   const d = await device();
   check("  restored: the piece made, none replayed (rc 2)", d.setState(full, 1) === 2 && d.state()[19] === 0);
+  check("  (v1.1b5) its entries past the count 0", d.state().slice(20).every((v) => v === 0));
+  const two = st.slice(); two[19] = 2;                // (four triples written, the count 2: the last two not replayed)
+  const e = await device();
+  e.ex.web_gen(6, 1234, 70, 2); e.render(2);
+  for (let k = 0; k < 5; k++) e.ex.web_gen_cmd(5, 1 | (k + 1) << 4);
+  check("  a log of 2 over one of 5: 0, its two replayed, every entry past them 0", e.setState(two, 1) === 0 &&
+        e.state()[19] === 2 && same(e.state().slice(20, 26), st.slice(20, 26)) && e.state().slice(26).every((v) => v === 0));
+  e.ex.web_gen(3, 5, 50, 0);
+  check("  a fresh web_gen: the log all 0", e.state().slice(19).every((v) => v === 0));
 }
 
 console.log(fails ? `gen_state: ${fails} FAILED` : "gen_state: all ok");

@@ -512,6 +512,7 @@ EXPORT uint8_t *web_anim_levels(void)
 /* (0.6.91) the song generator from the page or a bench (web/emu/gen_bench.mjs): a genre (0 RANDOM, 1 + the genre's
  * index, 0.8.6: web_gen_count() + 1 EXPLORE), a seed 0..9999, an energy 0..100, a form (0 LOOP, 1 PARTS, 2 SONG); the
  * piece's name after */
+static void web_rg_clear(void);
 EXPORT void web_gen(uint32_t genre, uint32_t seed, uint32_t energy, uint32_t form)
 {
     gp.genre = (uint8_t)(genre % (NGENRE + 2u));
@@ -520,6 +521,7 @@ EXPORT void web_gen(uint32_t genre, uint32_t seed, uint32_t energy, uint32_t for
     gp.form = (uint8_t)(form % 3u);
     gen_go();
     gp.sig = gen_sig();
+    web_rg_clear();                                     /* (v1.1b5) a new piece: no regeneration of it, the log all 0 */
 }
 EXPORT const char *web_gen_last(void) { return gp.last; }
 EXPORT uint32_t web_gen_count(void) { return NGENRE; }
@@ -576,9 +578,11 @@ static int32_t web_gst[WEB_GEN_NL];
 static int32_t web_rg_log[1u + 3u * WEB_RG_LOG];        /* [0] the count (-1 full), then the triples */
 static uint32_t web_rg_at = ~0u;                        /* web_gen_n after the last regeneration logged (another: a new piece) */
 EXPORT uint32_t web_gen_state_len(void) { return WEB_GEN_NL; }
+static void web_rg_clear(void) { memset(web_rg_log, 0, sizeof web_rg_log); }   /* (v1.1b5) no entry left past the count */
 static void web_rg_note(uint32_t cmd, uint32_t which, uint32_t salt)   /* a regeneration done: into the log */
 {
     int32_t n = web_rg_at == web_gen_n - 1u ? web_rg_log[0] : 0;   /* (its own gen_go counted one: the piece before) */
+    if (!n) web_rg_clear();                             /* (v1.1b5) the first of a piece: the older entries gone */
     if (n >= 0 && (uint32_t)n < WEB_RG_LOG) {
         web_rg_log[1 + 3 * n] = (int32_t)cmd; web_rg_log[2 + 3 * n] = (int32_t)which; web_rg_log[3 + 3 * n] = (int32_t)salt;
         web_rg_log[0] = n + 1;
@@ -598,7 +602,7 @@ EXPORT int32_t *web_gen_state(void)
     web_gst[16] = (ui_prefs & PREF_BPM_LOCK) != 0;
     web_gst[17] = song.g[G_BPM];
     web_gst[18] = grd.on != 0;
-    if (web_rg_at != web_gen_n) web_rg_log[0] = 0;     /* (a piece made since: no regeneration of it) */
+    if (web_rg_at != web_gen_n) web_rg_clear();        /* (a piece made since: no regeneration of it; v1.1b5: every entry 0) */
     memcpy(web_gst + WEB_GEN_NS, web_rg_log, sizeof web_rg_log);
     return web_gst;
 }
@@ -638,6 +642,7 @@ EXPORT uint32_t web_gen_set_state(uint32_t regen)
         else if (s[16]) song.g[G_BPM] = (int16_t)s[17];
         if (s[16]) ui_prefs |= PREF_BPM_LOCK; else ui_prefs &= ~PREF_BPM_LOCK;
         gen_go();
+        web_rg_clear();                                 /* (v1.1b5) the piece's log from 0: only what is replayed below */
         ui_prefs = (ui_prefs & ~PREF_BPM_LOCK) | lock;  /* (the player's MENU as it was) */
         grd.on = (uint8_t)s[18];
         web_gen_rn = 0;
