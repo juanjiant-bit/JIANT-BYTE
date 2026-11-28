@@ -32,8 +32,9 @@ enum { ED_VIS_SONG = 98, ED_VIS_TICK };                              /* v6: song
 #define ED_PROTO_MINOR 6u   /* (V10.6z5) 1.1: VEL (81); (V10.6z6) 1.2: VEL ops 4, 5 (the keys' velocity); 1.3: INFO's 'X';
                              * 1.4: the UI push (43, WATCH bit 5); 1.5: VIS_SONG, VIS_TICK (98, 99: WATCH bit 7);
                              * (BYTE v1.1b2) 1.6: JIANT Studio's, INFO 44 01 caps (ED_STUDIO_CAPS) */
-/* (1.6) INFO 'D' 44 01 caps, a bit each: 0 the project library (PROJ_LIST / PROJ_NAME / PROJ_OP, 95..97) */
-#define ED_STUDIO_CAPS 1u
+/* (1.6) INFO 'D' 44 01 caps, a bit each: 0 the project library (PROJ_LIST / PROJ_NAME / PROJ_OP, 95..97); 1 the whole
+ * step (STEP_GET / TRACK_STEP flag 2: MICRO, LEN, DIV, EVERY, the components) */
+#define ED_STUDIO_CAPS 3u
 enum { ED_VM_READ = 80 };   /* (V10.10) read-only: 256 B of the stock VM (0xE7000 + 256 x a[0], a[0] < 48: the radio's
                               * RF trims and BT address, web/btcheck.html); reply: a[0], then 256 x (hi nibble, lo nibble) */
 /* (V10.6z5, 1.1) the velocity diagnostic (vel_diag.c, web/vel.html): op 0 status, 1 on (drive 0..4), 2 off, 3 the next
@@ -441,6 +442,25 @@ static const param_desc_t *ed_desc(uint32_t scope, uint32_t id, int16_t **vp)
     return 0;
 }
 
+/* (1.6, INFO 44 01 bit 1) the whole step, after the 8 lane modes (STEP_GET / TRACK_STEP's read with flag 2, a write of
+ * them): MICRO + 32 (0..63: -32..+31 64ths), LEN (0..15: 0 the track's GATE, n/16), DIV (0..5: CT_DIVS), EVERY (0..13,
+ * EV_*), then 8 x v14, each a stored byte 0..255: comp, carg, comp2, carg2 (ACTION | CONDITION << 4, VALUE), clen[0],
+ * clen[1] (LENGTH - 1, 0..31; 255 a legacy code still to migrate), cnm[0], cnm[1] (N - 1 | (M - 1) << 4) */
+#define ED_FULL_N 20u
+static const uint8_t ED_FULL_AT[8] = {0, 1, 2, 3, 9, 10, 11, 12};   /* each one's place from step_t's comp */
+_Static_assert(__builtin_offsetof(step_t, clen) - __builtin_offsetof(step_t, comp) == 9u &&
+               __builtin_offsetof(step_t, cnm) - __builtin_offsetof(step_t, comp) == 11u, "the whole step's places");
+static int ed_full_ok(const uint8_t *f)
+{
+    uint32_t i, v[8];
+    if (f[0] > 63u || f[1] > 15u || f[2] >= CT_NDIV || f[3] >= EV_N)
+        return 0;
+    for (i = 0; i < 8u; i++)
+        if ((v[i] = (uint32_t)ed_rv(f + 4 + 2u * i)) > 255u)   /* (below 0: far above) */
+            return 0;
+    return CO_COND(v[0]) < CC_N && CO_COND(v[2]) < CC_N && (v[4] < CL_MAX || v[4] == CL_LEGACY) &&
+           (v[5] < CL_MAX || v[5] == CL_LEGACY);
+}
 /* a step as STEP_SET / TRACK_STEP send it (na bytes): n, 4 notes, time, flags, vel, then (v5) the lane hits
  * and their accents: hit & 127, acc & 127, bit 7 of each (bit 0 hit, bit 1 acc), (v7) the chance, (RATCH, INFO
  * 52 01) the hits 1..4; each value made valid. 8 bytes (an editor of before the grid): the hits stay; without
@@ -463,13 +483,25 @@ static void ed_step_put(step_t *st, const uint8_t *a, uint32_t na)
     if (na >= 21u)                                        /* (0.8.5, INFO 4F 01 07) each lane's mode, 0..6 (core.h LM_*) */
         for (i = 0; i < NLANE; i++)
             step_set_lmode(st, i, a[13 + i] < LM_N ? a[13 + i] : LM_NONE);
+    if (na >= 21u + ED_FULL_N) {                          /* (1.6, INFO 44 bit 1) the whole step (ed_full_ok checked it) */
+        const uint8_t *f = a + 21;
+        uint8_t *c = &st->comp;
+        st_micro_set(st, (int32_t)f[0] - 32);
+        st->ctime = (uint8_t)(f[2] | f[1] << 3);
+        ST_EVERY_SET(st, f[3]);
+        for (i = 0; i < 8u; i++)
+            c[ED_FULL_AT[i]] = (uint8_t)ed_rv(f + 4 + 2u * i);
+    }
     ui.force = 1;
 }
-static void ed_step_reply(const step_t *st, int lanes)   /* the same 13 bytes; (0.8.5) then the 8 lanes' modes, when the
-                                                         * request asked for them (a write with them, a read with its
-                                                         * flag 1): every reply of before as it was */
+static void ed_step_reply(const step_t *st, uint32_t lanes)   /* the same 13 bytes; (0.8.5) then the 8 lanes' modes, when
+                                                         * the request asked for them (a write with them, a read with
+                                                         * its flag 1): every reply of before as it was; (1.6) bit 1:
+                                                         * then the whole step's 20 bytes (a write with them, a read
+                                                         * with its flag 2) */
 {
     uint32_t i;
+    const uint8_t *c = &st->comp;
     ed_b(st->n);
     for (i = 0; i < 4u; i++)
         ed_b(st->note[i]);
@@ -483,6 +515,12 @@ static void ed_step_reply(const step_t *st, int lanes)   /* the same 13 bytes; (
     ed_b(step_ratchet(st));
     for (i = 0; lanes && i < NLANE; i++)
         ed_b(step_lmode(st, i));
+    if (!(lanes & 2u))
+        return;
+    ed_b((uint32_t)(st_micro(st) + 32));
+    ed_b(CT_LEN(st)); ed_b(CT_DIV(st)); ed_b(ST_EVERY(st));
+    for (i = 0; i < 8u; i++)
+        ed_v(c[ED_FULL_AT[i]]);
 }
 
 /* a flash write from the editor while the transport runs: stop it first (the erase silences the audio and
@@ -539,7 +577,8 @@ static __attribute__((noinline)) int ed_args_ok(uint32_t cmd, const uint8_t *a, 
     case ED_SET:
         return n == 4u;
     case ED_STEP_GET:
-        return n == 1u || (n == 2u && a[1] == 1u);         /* (0.8.5: 1, the lanes' modes too) */
+        return n == 1u || (n == 2u && (a[1] == 1u || a[1] == 2u));   /* (0.8.5: 1, the lanes' modes too; 1.6: 2, and the
+                                                                   * whole step) */
     case ED_NAMES:
     case ED_UP_GET: case ED_UP_LOAD: case ED_UP_ERASE: case ED_TRACK_DUMP: case ED_MENU_DESC:
         return n == 1u;
@@ -550,15 +589,17 @@ static __attribute__((noinline)) int ed_args_ok(uint32_t cmd, const uint8_t *a, 
     case ED_STEP_SET:
         return n == 9u || n == 12u || (n == 13u && a[12] <= 100u) ||               /* notes only, or the complete grid extension, */
                (n == 14u && a[12] <= 100u && a[13] >= 1u && a[13] <= 4u) ||     /* its chance, its ratchet, */
-               (n == 22u && a[12] <= 100u && a[13] >= 1u && a[13] <= 4u && ed_lm_ok(a + 14));   /* (0.8.5) the lanes' modes */
+               ((n == 22u || (n == 22u + ED_FULL_N && ed_full_ok(a + 22))) && a[12] <= 100u && a[13] >= 1u && a[13] <= 4u &&
+                ed_lm_ok(a + 14));                         /* (0.8.5) the lanes' modes; (1.6) the whole step */
     case ED_TRACK:
         return n <= 1u;
     case ED_TRACK_MIX:
         return n == 1u || n == 4u;
     case ED_TRACK_STEP:
-        return n == 2u || (n == 3u && a[2] == 1u) || n == 10u || n == 13u || (n == 14u && a[13] <= 100u) ||
+        return n == 2u || (n == 3u && (a[2] == 1u || a[2] == 2u)) || n == 10u || n == 13u || (n == 14u && a[13] <= 100u) ||
                (n == 15u && a[13] <= 100u && a[14] >= 1u && a[14] <= 4u) ||
-               (n == 23u && a[13] <= 100u && a[14] >= 1u && a[14] <= 4u && ed_lm_ok(a + 15));
+               ((n == 23u || (n == 23u + ED_FULL_N && ed_full_ok(a + 23))) && a[13] <= 100u && a[14] >= 1u && a[14] <= 4u &&
+                ed_lm_ok(a + 15));
     case ED_MOTION:
         return (n == 1u || (n == 2u && (a[1] == 2u || a[1] == 7u)) || (n == 3u && a[1] == 1u && a[2] <= 1u) ||
                 (n == 6u && (a[1] == 3u || a[1] == 5u)) || (n == 4u && a[1] == 4u) || (n == 3u && a[1] == 6u)) &&
@@ -708,7 +749,8 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
         }
         ed_w.st[a[0]] = ed_step_sig(&seq_steps(TSEL)[a[0]]);
         ed_b(a[0]);
-        ed_step_reply(&seq_steps(TSEL)[a[0]], na == 22u || (cmd == ED_STEP_GET && na == 2u));
+        ed_step_reply(&seq_steps(TSEL)[a[0]], na == 22u + ED_FULL_N ? 3u : na == 22u || (cmd == ED_STEP_GET && na == 2u) ?
+                      (cmd == ED_STEP_GET ? a[1] | 1u : 1u) : 0u);
         break;
     }
     case ED_PRESET: {                                      /* engine, preset */
@@ -949,7 +991,7 @@ static void ed_handle(const uint8_t *f, uint32_t n)   /* f: the bytes between F0
             ed_w.st[a[1]] = ed_step_sig(&seq_steps(&trk[a[0]])[a[1]]);
         ed_b(a[0]);
         ed_b(a[1]);
-        ed_step_reply(&seq_steps(&trk[a[0]])[a[1]], na == 23u || na == 3u);
+        ed_step_reply(&seq_steps(&trk[a[0]])[a[1]], na == 23u + ED_FULL_N ? 3u : na == 23u ? 1u : na == 3u ? a[2] | 1u : 0u);
         break;
     }
     case ED_TRACK_PARAM: {                                 /* track, id [, v14] -> track, id, v14 */

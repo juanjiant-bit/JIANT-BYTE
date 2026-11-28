@@ -246,6 +246,31 @@ of before).
 | bit | addition |
 | --- | --- |
 | 0 | the project library: `PROJ_LIST` (95), `PROJ_NAME` (96), `PROJ_OP` (97) |
+| 1 | the whole step: `STEP_GET` / `TRACK_STEP` flag 2 and the writes with the 20 bytes after the lane modes |
+
+### The whole step (bit 1)
+
+What a step holds beyond the grid: its MICRO, LEN, DIV, EVERY and its two components (SEQ > NOTE, SEQ > COMP /
+COMP 2). A read asks for it with the flag 2 (`STEP_GET index 2`, `TRACK_STEP track index 2`: STEP_GET's reply 42
+bytes, TRACK_STEP's 43); a write sends it after the 8 lane modes (`STEP_SET` 42 bytes, `TRACK_STEP` 43) and gets the
+same long reply. Without it every request and reply is as before (a write of 22 / 23 bytes keeps all of these). The 20
+bytes:
+
+| byte | field | range |
+| --- | --- | --- |
+| 0 | MICRO + 32 | 0..63: −32..+31 64ths of a step off the grid (0.9.1) |
+| 1 | LEN | 0..15: the step's own gate n/16; 0 the track's GATE |
+| 2 | DIV | 0..5: RATCH's and ECHO's parts a step/2, /3, /4, /6, /8 apart (0: the step shared out) |
+| 3 | EVERY | 0..13: ALWAYS, 1:2, 2:2, SKIP, 1:3, 2:3, 3:3, 1:4, 2:4, 3:4, 4:4, 1:8, FIRST, NOT FIRST |
+| 4..19 | 8 × v14, each a stored byte 0..255 | comp, carg, comp2, carg2, clen0, clen1, cnm0, cnm1 |
+
+The components (v2, `core.h` "STEP COMPONENTS v2"): comp / comp2 = ACTION (bits 0..3: 0 none, 1 ARP, 2 SEQ, 3 OCT+,
+4 OCT−, 5 RATCHET, 6 STUTTER, 7 MUTE (VALUE 2: TRIG), 8 TRANSPOSE, 9 RANDOM, 10 LOCK, 11 RAMP, 12 SOUND, 13 BEND,
+14 SHIFT, 15 CHORD) | CONDITION << 4 (0 ALWAYS, 1 25 %, 2 50 %, 3 75 %, 4 FIRST, 5 NOT FIRST, 6 FILL, 7 NOT FILL, 8 PRE,
+9 NOT PRE, 10 NEI, 11 NOT NEI, 12 ELSE, 13 N:M, 14 NOT N:M); carg / carg2 the VALUE (the action's own); clen LENGTH − 1
+(0..31; 255 a legacy code not migrated yet, as read); cnm N − 1 | (M − 1) << 4. A write with any field out of its range
+(or a CONDITION 15) gets no reply and changes nothing; the VALUE is taken as it is. Refused like any step write while
+the song chain runs.
 
 ### Project library (95-97, bit 0)
 
@@ -434,8 +459,8 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 | 3 SET | scope, id, v14 | scope, id, v14 (the value after clamping). Setting global `G_ENGSEL` (id from DESC label "ENG") changes the engine: its defaults, then its first preset (as on the device) |
 | 4 DUMP | — | engine, preset, then P_COUNT × v14 (the selected track), then G_COUNT × v14 (globals) |
 | 5 DESC | scope, id | scope, id, fmt, min v14, max v14, def v14, label string, unit string, then for an enum (fmt 8) one name string per value (at most 32 since 0.7.0; 24 before it, 16 before the matrix) |
-| 6 STEP_GET | index 0..NSTEP−1 | index, n (0..4 notes), note0..note3, time (0 NOTE, 1 TIE, 2 REST), flags (1 accent, 2 slide), vel, then (v5) hits (3 bytes, below), then (v7) chance 0..100, then (`52 01`) ratchet 1..4, then (`4F 01`) 8 lane modes 0..6 |
-| 7 STEP_SET | index, n, note0..3, time, flags, vel [, hits (3 bytes, v5) [, chance 0..100 (v7) [, ratchet 1..4 [, 8 lane modes 0..6 (`4F 01`)]]]] | same as STEP_GET (after the write). Without the hits the step keeps its own; without the chance, the ratchet or the lane modes it keeps its own. The chance can only follow the hits, the ratchet the chance, the lane modes the ratchet |
+| 6 STEP_GET | index 0..NSTEP−1 [, flag: 1 the lane modes (`4F 01`), 2 (1.6, `44` bit 1) and the whole step] | index, n (0..4 notes), note0..note3, time (0 NOTE, 1 TIE, 2 REST), flags (1 accent, 2 slide), vel, then (v5) hits (3 bytes, below), then (v7) chance 0..100, then (`52 01`) ratchet 1..4, then (`4F 01`, flag 1 or 2) 8 lane modes 0..6, then (flag 2) the whole step's 20 bytes ("The whole step", below) |
+| 7 STEP_SET | index, n, note0..3, time, flags, vel [, hits (3 bytes, v5) [, chance 0..100 (v7) [, ratchet 1..4 [, 8 lane modes 0..6 (`4F 01`) [, the whole step's 20 bytes (1.6)]]]]] | same as STEP_GET (after the write; with the 20 bytes, with them). Without the hits the step keeps its own; without the chance, the ratchet, the lane modes or the 20 bytes it keeps its own. The chance can only follow the hits, the ratchet the chance, the lane modes the ratchet, the 20 bytes the lane modes |
 | 8 PRESET | engine, preset | engine, preset (applies the preset's sound to the selected track and sends; the steps and the track's own parameters stay, see "Sound loads and undo"). For another track, select it with `TRACK` first |
 | 9 PROJECT | op (0 load, 1 save, 2 query), slot 0..3 | op, slot, used (1/0). Save writes flash: allow ~2 s; it stops the transport first (see "Saves while playing") |
 | 10 NAMES | engine | engine, count, count preset-name strings, then the two edit-page titles |
@@ -457,7 +482,7 @@ at 1..3 and hides 6 5 8: what it sets still plays the right kit, and the device 
 | 27 TRACK | — (query), or track (select it) | selected track, NTRK, then per track: engine byte, preset, level v14, mute (0/1), armed (0/1, live recording) |
 | 28 TRACK_MIX | track (get), or track, level v14 (0..127), mute (set) | track, level v14, mute: the track's `P_LEVEL` and `P_MUTE` |
 | 29 TRACK_DUMP | track | track, engine byte, preset, P_COUNT × v14 (that track's parameters; no globals) |
-| 30 TRACK_STEP | track, index (get), or track, index, n, note0..3, time, flags, vel [, hits (v5) [, chance (v7) [, ratchet [, 8 lane modes]]]] (set) | track, index, n, note0..3, time, flags, vel, then (v5) hits, then (v7) chance, then (`52 01`) ratchet, then (`4F 01`) 8 lane modes |
+| 30 TRACK_STEP | track, index [, flag 1 or 2 (1.6)] (get), or track, index, n, note0..3, time, flags, vel [, hits (v5) [, chance (v7) [, ratchet [, 8 lane modes [, the whole step's 20 bytes (1.6)]]]]] (set) | track, index, n, note0..3, time, flags, vel, then (v5) hits, then (v7) chance, then (`52 01`) ratchet, then (`4F 01`) 8 lane modes, then (flag 2 or a write with them) the whole step's 20 bytes |
 
 | cmd (v4) | Request args | Reply args |
 | --- | --- | --- |
