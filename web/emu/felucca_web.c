@@ -567,7 +567,25 @@ EXPORT const char *web_gen_genre(uint32_t i) { return i < NGENRE ? GENRE[i].name
  *   gmood_bpm), -1 none  [16] BPM LOCK (MENU) 0/1  [17] the tempo (G_BPM)  [18] RADIO on 0/1 */
 #define WEB_GEN_NS 19u
 _Static_assert(GP_N == 5u, "web_gen_state: five amounts");
-static int32_t web_gst[WEB_GEN_NS];
+/* (v1.1b4) after the 19, the regenerations since the piece (web_gen_cmd 5 / 6), so a restore replays them: [19] how many
+ * (0..WEB_RG_LOG; -1 more than that: the first WEB_RG_LOG kept, not replayed), then a triple each, [20 + 3 i] the kind
+ * (5 a track, 6 a section), [21 + 3 i] its index, [22 + 3 i] its salt. web_gen_state_len() the whole length (44) */
+#define WEB_RG_LOG 8u
+#define WEB_GEN_NL (WEB_GEN_NS + 1u + 3u * WEB_RG_LOG)
+static int32_t web_gst[WEB_GEN_NL];
+static int32_t web_rg_log[1u + 3u * WEB_RG_LOG];        /* [0] the count (-1 full), then the triples */
+static uint32_t web_rg_at = ~0u;                        /* web_gen_n after the last regeneration logged (another: a new piece) */
+EXPORT uint32_t web_gen_state_len(void) { return WEB_GEN_NL; }
+static void web_rg_note(uint32_t cmd, uint32_t which, uint32_t salt)   /* a regeneration done: into the log */
+{
+    int32_t n = web_rg_at == web_gen_n - 1u ? web_rg_log[0] : 0;   /* (its own gen_go counted one: the piece before) */
+    if (n >= 0 && (uint32_t)n < WEB_RG_LOG) {
+        web_rg_log[1 + 3 * n] = (int32_t)cmd; web_rg_log[2 + 3 * n] = (int32_t)which; web_rg_log[3 + 3 * n] = (int32_t)salt;
+        web_rg_log[0] = n + 1;
+    } else
+        web_rg_log[0] = -1;
+    web_rg_at = web_gen_n;
+}
 EXPORT int32_t *web_gen_state(void)
 {
     uint32_t k;
@@ -580,12 +598,17 @@ EXPORT int32_t *web_gen_state(void)
     web_gst[16] = (ui_prefs & PREF_BPM_LOCK) != 0;
     web_gst[17] = song.g[G_BPM];
     web_gst[18] = grd.on != 0;
+    if (web_rg_at != web_gen_n) web_rg_log[0] = 0;     /* (a piece made since: no regeneration of it) */
+    memcpy(web_gst + WEB_GEN_NS, web_rg_log, sizeof web_rg_log);
     return web_gst;
 }
+static uint32_t web_regen(uint32_t cmd, uint32_t which, uint32_t salt);
 static int web_gen_amt_ok(int32_t v) { return (v >= 0 && v <= 100) || v == (int32_t)GA_AUTO; }
 /* web_gen_state()'s numbers (written there by the page) into the generator; regen 1: the piece made from them (as
- * web_gen: identical to the one they were read after, its tempo too), 0 the settings alone. 0 done, 1 a number out of its
- * range (nothing changed) */
+ * web_gen: identical to the one they were read after, its tempo too), (v1.1b4) then the regenerations of its log [19..]
+ * replayed in order (identical to the piece the state was read from); 0 the settings alone. 0 done, 1 a number out of
+ * its range (nothing changed), 2 made without its regenerations (the log was full, [19] -1). The log is consumed: a
+ * page writing only the first 19 sets [19] 0 (worklet.js does) */
 EXPORT uint32_t web_gen_set_state(uint32_t regen)
 {
     const int32_t *s = web_gst;
@@ -597,6 +620,12 @@ EXPORT uint32_t web_gen_set_state(uint32_t regen)
         return 1;
     for (k = 0; k < GP_N; k++)
         if (!web_gen_amt_ok(s[5 + k])) return 1;
+    if (s[19] < -1 || s[19] > (int32_t)WEB_RG_LOG) return 1;   /* (v1.1b4) the log: each entry checked first */
+    for (k = 0; s[19] > 0 && k < (uint32_t)s[19]; k++) {
+        const int32_t *e = s + WEB_GEN_NS + 1u + 3u * k;
+        if ((e[0] != 5 && e[0] != 6) || e[1] < 0 || e[1] > (e[0] == 5 ? (int32_t)s[14] - 1 : 3) || e[2] <= 0 || e[2] > 0x0FFFFFFF)
+            return 1;
+    }
     gp.genre = (uint8_t)s[1]; gp.seed = (uint16_t)s[2]; gp.energy = (uint8_t)s[3]; gp.form = (uint8_t)s[4];
     for (k = 0; k < GP_N; k++) gp.amt[k] = (uint8_t)s[5 + k];
     gp.complex = (uint8_t)s[10]; gp.swing = (uint8_t)s[11]; gp.human = (uint8_t)s[12];
@@ -612,10 +641,18 @@ EXPORT uint32_t web_gen_set_state(uint32_t regen)
         ui_prefs = (ui_prefs & ~PREF_BPM_LOCK) | lock;  /* (the player's MENU as it was) */
         grd.on = (uint8_t)s[18];
         web_gen_rn = 0;
+        if (s[19] > 0) {                                /* (v1.1b4) the regenerations replayed, in their order */
+            int32_t log[1u + 3u * WEB_RG_LOG];
+            memcpy(log, s + WEB_GEN_NS, sizeof log);
+            for (k = 0; k < (uint32_t)log[0]; k++)
+                (void)web_regen((uint32_t)log[1 + 3 * k], (uint32_t)log[2 + 3 * k], (uint32_t)log[3 + 3 * k]);
+        }
     }
+    k = regen && s[19] < 0;                             /* (a log past WEB_RG_LOG: the piece alone, rc 2) */
+    memset(web_gst + WEB_GEN_NS, 0, sizeof web_rg_log); /* (consumed: a 19-number write after it reads no log) */
     gp.sig = gen_sig();
     ui.force = 1;
-    return 0;
+    return k ? 2u : 0u;
 }
 
 /* (v1.1b2) web_gen_cmd 5 / 6: the piece made again from GEN's settings with a salt in the parts' streams (gen.c
@@ -691,6 +728,7 @@ static uint32_t web_regen(uint32_t cmd, uint32_t which, uint32_t salt)
         memcpy(song.g, g, sizeof g);                    /* (the song's tempo and globals as they were) */
     } else
         song.g[G_BPM] = g[G_BPM];                       /* (A: everything new, the tempo kept) */
+    web_rg_note(cmd, which, web_rg_salt);               /* (v1.1b4) the state's log: a restore replays it */
     proj_wire_gen++;
     ui.force = 1;
     return 0;

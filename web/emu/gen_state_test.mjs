@@ -5,7 +5,9 @@
 // web_gen_state / web_gen_set_state: a piece made again on a fresh device from the 19 numbers is the same piece (its
 // sections byte for byte, its tracks' steps and sounds, its tempo), a GEN OCT+ piece (a seed thrown) too; web_gen_cmd 5:
 // one track made again, every other track and the tempo as they were; web_gen_cmd 6: one section made again, the other
-// sections byte for byte; a salt given twice, the same result.
+// sections byte for byte; a salt given twice, the same result. (v1.1b4) The state's regeneration log (web_gen_state_len()
+// 44: the 19, [19] the count, a triple each): a piece with track and section regenerations restored on a fresh device
+// byte for byte; a 19-number state still taken (no replay); a bad log entry refused; a new piece clears the log.
 import fs from "fs";
 
 const wasmPath = process.argv[2] || "build/emu/felucca.wasm";
@@ -23,8 +25,12 @@ async function device() {
   const d = {
     ex,
     render(n = 10) { for (let k = 0; k < n; k++) ex.web_render(1024); },
-    state() { return Array.from(new Int32Array(mem(), ex.web_gen_state(), 19)); },
-    setState(s, regen) { new Int32Array(mem(), ex.web_gen_state(), 19).set(s); return ex.web_gen_set_state(regen ? 1 : 0); },
+    len: ex.web_gen_state_len ? ex.web_gen_state_len() : 19,
+    state() { return Array.from(new Int32Array(mem(), ex.web_gen_state(), d.len)); },
+    setState(s, regen) {                               // (as worklet.js: a 19-number state padded with zeros, no log)
+      const b = new Int32Array(d.len); b.set(s);
+      new Int32Array(mem(), ex.web_gen_state(), d.len).set(b); return ex.web_gen_set_state(regen ? 1 : 0);
+    },
     slot(k) { const n = ex.web_bk_len(40 + k); return n ? Array.from(new Uint8Array(mem(), ex.web_bk_buf(), n)) : []; },
     slots() { return [0, 1, 2, 3].map((k) => d.slot(k)); },
     req(cmd, args) {                                   // an editor request (editor-api.h): its reply's payload
@@ -53,8 +59,8 @@ async function device() {
   a.ex.web_gen(6, 1234, 70, 2);                        // TECHNO, seed 1234, ENERGY 70, SONG
   a.render();
   const st = a.state(), sl = a.slots(), tr = [0, 1, 2, 3].map((t) => a.track(t));
-  check(`web_gen_state: 19 numbers, the piece's (genre 6 seed 1234 energy 70 form 2, ${st[17]} BPM)`,
-        st.length === 19 && st[0] === 1 && st[1] === 6 && st[2] === 1234 && st[3] === 70 && st[4] === 2 && st[14] >= 4);
+  check(`web_gen_state: ${st.length} numbers (19 + the log), the piece's (genre 6 seed 1234 energy 70 form 2, ${st[17]} BPM)`,
+        st.length === 44 && a.ex.web_gen_state_len() === 44 && st[19] === 0 && st[0] === 1 && st[1] === 6 && st[2] === 1234 && st[3] === 70 && st[4] === 2 && st[14] >= 4);
   check("the piece has its sections (A..D stored)", sl.filter((s) => s.length).length >= 3);
   const b = await device();
   b.ex.web_gen(2, 77, 20, 0);                          // (another piece there first)
@@ -118,6 +124,41 @@ async function device() {
   const c = await device();
   c.setState(st6, 1); c.render();
   check("six tracks: made again the same", st6[14] === 6 && same(sl6, c.slot(0)) && same(c.track(5), a.track(5)));
+}
+
+{ /* (v1.1b4) the regenerations replayed: a piece, a track made again twice, a section, restored on a fresh device */
+  const a = await device();
+  a.ex.web_gen(6, 1234, 70, 2); a.render(4);
+  a.ex.web_gen_cmd(5, 1 | 7 << 4); a.render(2);
+  a.ex.web_gen_cmd(5, 2); a.render(2);               // (a salt of its own: logged)
+  a.ex.web_gen_cmd(6, 2 | 9 << 4); a.render(2);
+  a.ex.web_gen_cmd(5, 1 | 11 << 4); a.render();
+  const st = a.state(), sl = a.slots(), tr = [0, 1, 2, 3].map((t) => a.track(t));
+  check(`the log: 4 regenerations, in order (5 1 7, 5 2 ${st[25]}, 6 2 9, 5 1 11)`,
+        st[19] === 4 && same(st.slice(20, 23), [5, 1, 7]) && st[23] === 5 && st[24] === 2 && st[25] > 0 &&
+        same(st.slice(26, 29), [6, 2, 9]) && same(st.slice(29, 32), [5, 1, 11]));
+  const b = await device();
+  b.ex.web_gen(2, 77, 20, 0); b.render(4);
+  check("web_gen_set_state(1) with the log: 0", b.setState(st, 1) === 0);
+  b.render();
+  check("  the sections byte for byte, every track's sound and steps, the tempo", same(sl.flat(), b.slots().flat()) &&
+        sl.every((s, k) => same(s, b.slot(k))) && [0, 1, 2, 3].every((t) => same(tr[t], b.track(t))) && b.bpm() === st[17]);
+  check("  its state reads the same (the log replayed into it)", same(b.state(), st));
+  const c = await device();
+  c.setState(st.slice(0, 19), 1); c.render();
+  check("the first 19 alone: the piece without its regenerations (not the same tracks)",
+        c.state()[19] === 0 && ![0, 1, 2, 3].every((t) => same(tr[t], c.track(t))));
+  const bad = st.slice(); bad[21] = 9;                // (a track past the tracks live)
+  check("a log entry out of range: refused (1), nothing changed", c.setState(bad, 1) === 1);
+  const bad2 = st.slice(); bad2[19] = 9;
+  check("a count past 8: refused (1)", c.setState(bad2, 1) === 1);
+  a.ex.web_gen_cmd(1, 0); a.render(2);                // OCT+: a new piece
+  check("a new piece: the log empty", a.state()[19] === 0);
+  for (let k = 0; k < 9; k++) a.ex.web_gen_cmd(5, 0 | (k + 1) << 4);
+  const full = a.state();
+  check("nine regenerations: [19] -1, the first eight kept", full[19] === -1 && full[20] === 5 && full[22] === 1 && full[43] === 8);
+  const d = await device();
+  check("  restored: the piece made, none replayed (rc 2)", d.setState(full, 1) === 2 && d.state()[19] === 0);
 }
 
 console.log(fails ? `gen_state: ${fails} FAILED` : "gen_state: all ok");

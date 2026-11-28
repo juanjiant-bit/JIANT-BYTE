@@ -16,7 +16,10 @@
  *   web_gen_state()      the generator's whole state, 19 int32 (genre seed energy form, the amounts, complex swing human,
  *                        mood, the tracks live, a RADIO piece's tempo before it, BPM LOCK, the tempo, RADIO)
  *   web_gen_set_state(r) those 19 (written into web_gen_state()'s) into the generator; r 1: the piece made again,
- *                        identical; 0 done, 1 refused
+ *                        identical; 0 done, 1 refused, 2 made without its regenerations (the log was full)
+ *   web_gen_state_len()  (v1.1b4) the state's whole length, 44: the 19, then [19] the regenerations since the piece
+ *                        (0..8, -1 more: not replayed) and a triple each, kind (5 track / 6 section), index, salt;
+ *                        web_gen_set_state(1) replays them in order (a 19-number write: [19] 0)
  *   web_gen_cmd(5, t | salt << 4)  track t made again (the key, the tempo, the rows and every other track as they are)
  *   web_gen_cmd(6, s | salt << 4)  section s made again (1..3 B..D, the others byte for byte; 0 A: the whole piece)
  *                        (salt 0: a new one; web_gen_info()[8] the one used; a salt again: the same result) */

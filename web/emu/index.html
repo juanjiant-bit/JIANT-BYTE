@@ -549,8 +549,9 @@ window.jiantEmu = {
      asked }. cmd (felucca_web.c web_gen_cmd): 0 RADIO arg, 1 the next piece, 2 GENRE arg, 3 MOOD arg, 4 PLAY 1 / STOP 0;
      (v1.1b2) 5 track arg & 15 made again (arg >> 4 its salt, 0 a new one: info.salt), 6 section arg & 15 made again
      (0 A: the whole piece); null: the state alone. Every reply has state: the generator's whole state (19 numbers,
-     felucca_web.c web_gen_state); opt.state (those 19) sets it first, opt.regen the piece made again from it (rc 0, 1
-     refused) */
+     felucca_web.c web_gen_state; v1.1b4: 44, the 19 then the regenerations since the piece, [19] their count (-1 past
+     8), a triple each: kind 5 / 6, index, salt); opt.state (the 19 or the 44) sets it first, opt.regen the piece made
+     again from it, its regenerations replayed in order (rc 0, 1 refused, 2 made without them: the log was full) */
   gen: (cmd, arg, genres, opt) => new Promise((res, rej) => {
     if (!node) { rej(new Error("emulator off")); return; }
     const id = ++genId;
