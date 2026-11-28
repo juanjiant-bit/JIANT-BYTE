@@ -142,7 +142,7 @@ footer small { font-size: 11px; opacity: .8; }
 
 <p class="kofi" style="border-left:3px solid #ec6e50;padding:4px 0 4px 12px">If you resonate with my work, consider supporting me on <a href="https://ko-fi.com/juanjiant" target="_blank" rel="noopener" style="color:inherit;font-weight:600">Ko-fi</a> (in Argentina: <a href="https://cafecito.app/juanjiant" target="_blank" rel="noopener" style="color:inherit;font-weight:600">Cafecito</a>). Thanks for all the good energy, hope you enjoy this little beast 🫶✨🎹</p>
 <footer>
-  <small class="version">BYTE v1.0 · <a href="build.json">5aebdf5</a></small><br>
+  <small class="version">BYTE v1.1b4 · <a href="build.json">efb4b29</a></small><br>
   JIANT /B1T3 by Juan Jiant (a fork of JIANT FM) · <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0</a> · browser build after charlesvestal's <a href="https://github.com/charlesvestal/fm1-x0x">X0X</a> · DotGothic16 font, <a href="fonts/OFL.txt">SIL OFL 1.1</a><br>
   <nav><a href="../">JIANT /B1T3 home</a> · <a href="https://github.com/juanjiant-bit/JIANT-BYTE">Source</a> · <a href="../webapp/installer/">Install this version</a> ·
     <a href="../webapp/editor/">Editor</a></nav>
@@ -547,12 +547,17 @@ window.jiantEmu = {
   },  /* (studio) the RADIO page: gen(cmd, arg, genres) -> a promise of { info: { radio, genre (-1 EXPLORE, -2 RANDOM),
      seed, mood, energy, form (0 LOOP 1 PARTS 2 SONG 3 MY LOOP), n (the piece's number), playing }, genres: [names] when
      asked }. cmd (felucca_web.c web_gen_cmd): 0 RADIO arg, 1 the next piece, 2 GENRE arg, 3 MOOD arg, 4 PLAY 1 / STOP 0;
-     null: the state alone */
-  gen: (cmd, arg, genres) => new Promise((res, rej) => {
+     (v1.1b2) 5 track arg & 15 made again (arg >> 4 its salt, 0 a new one: info.salt), 6 section arg & 15 made again
+     (0 A: the whole piece); null: the state alone. Every reply has state: the generator's whole state (19 numbers,
+     felucca_web.c web_gen_state; v1.1b4: 44, the 19 then the regenerations since the piece, [19] their count (-1 past
+     8), a triple each: kind 5 / 6, index, salt); opt.state (the 19 or the 44) sets it first, opt.regen the piece made
+     again from it, its regenerations replayed in order (rc 0, 1 refused, 2 made without them: the log was full) */
+  gen: (cmd, arg, genres, opt) => new Promise((res, rej) => {
     if (!node) { rej(new Error("emulator off")); return; }
     const id = ++genId;
     genWait.set(id, { res, rej });
-    node.port.postMessage({ type: "gen", id, cmd: typeof cmd === "number" ? cmd : null, arg: arg | 0, genres: !!genres });
+    node.port.postMessage({ type: "gen", id, cmd: typeof cmd === "number" ? cmd : null, arg: arg | 0, genres: !!genres,
+      state: opt && opt.state, regen: !!(opt && opt.regen) });
   }),
   /* (visgen) JIANT Studio's VIS (docs/VISGEN.md): a promise of { seed, recipe, genre (27 none), energy, engines (mask),
      section (0..3), palette (K3: 0 AUTO), mix, deform, react, levels [T1..T6 0..127], hits (bits KICK SNARE HAT PERC
@@ -606,7 +611,7 @@ async function switchOn() {
         }
         else if (m.type === "gen") {
           const w = genWait.get(m.id);
-          if (w) { genWait.delete(m.id); if (m.error) w.rej(new Error(m.error)); else w.res({ info: m.info, genres: m.genres }); }
+          if (w) { genWait.delete(m.id); if (m.error) w.rej(new Error(m.error)); else w.res({ info: m.info, genres: m.genres, state: m.state, rc: m.rc }); }
         }
         else if (m.type === "frame") {
           if (m.sysex) sysexListeners.forEach((f) => m.sysex.forEach(f));
