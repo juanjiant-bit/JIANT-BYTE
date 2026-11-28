@@ -8,6 +8,11 @@ on:
     # (the owner) docs-only pushes don't republish the site (it would replace the beta's emulator and installer)
     paths-ignore: ['**.md', 'docs/**', 'LICENSE', 'LICENSES/**']
   workflow_dispatch:
+    inputs:
+      beta:
+        description: "publish only the emulator, under emu/beta/ (the public site untouched)"
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -133,8 +138,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Preserve other published assets; replace only directories built in this run.
+          # (v1.1b2) a beta: only its emulator, under emu/beta/; nothing else changes
+          if [ "${{ inputs.beta }}" = "true" ]; then
+            rm -rf emu/beta && mkdir -p emu/beta && cp -r /tmp/byte-site/emu/. emu/beta/
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add emu/beta
+            if ! git diff --cached --quiet; then
+              git commit -m "Publish JIANT /B1T3 beta emulator ${GITHUB_SHA::7}"
+              git push origin HEAD:gh-pages
+              gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds"
+            fi
+            exit 0
+          fi
+          # Preserve other published assets; replace only directories built in this run (the beta emulator kept).
+          if [ -d emu/beta ]; then mv emu/beta /tmp/emu-beta; fi
           for d in emu webapp firmware; do rm -rf "$d"; cp -r "/tmp/byte-site/$d" "$d"; done
+          if [ -d /tmp/emu-beta ]; then mv /tmp/emu-beta emu/beta; fi
           # (the front page, its second page and the docs it links: copied over, other files kept)
           for f in index.html frecuencia.html formulas.html; do if [ -e "/tmp/byte-site/$f" ]; then cp "/tmp/byte-site/$f" "$f"; fi; done
           if [ -d /tmp/byte-site/docs ]; then mkdir -p docs && cp -r /tmp/byte-site/docs/. docs/; fi
