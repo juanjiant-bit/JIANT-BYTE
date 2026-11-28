@@ -550,7 +550,7 @@ int main(int argc, char **argv)
             {16, 32, 0x04050C05u, 0x42909290u}, {15, 16, 0x0100u, 0u}, {19, 16, 0x1111u, 0u}, {20, 32, 0x04010401u, 0x10101010u}};
         static fvm_cc_t cc; static fvm_full_t pg;
         for (uint32_t w = 0; w < NELEM(W); w++) {
-            const char *s = MATH_FUNC_R[W[w].form - 5u];
+            const char *s = func_form_text((int32_t)W[w].form);
             uint32_t u[FU_N] = {0}, hk = 0, hs = 0, st;
             assert(!fvm_compile(&cc, FVM_FULL(&pg), s, strlen(s), 0) && !pg.p.nstate);
             for (f = 0; f < 4u; f++) { u[FU_A + f] = f == 1u && W[w].form == 16u ? 0u : 128u; u[FU_AF + f] = u[FU_A + f] * 512u; }

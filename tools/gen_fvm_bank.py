@@ -86,6 +86,14 @@ FLOAT = [
     "sin(w+sin(w*3)*sin(t/4096.))",
 ]
 
+def recipes():
+    """(v1.1b2, flash) FUNC's FORM recipes, eng_lofi.c's '#define MATH_FUNC_NAME_TEXT "..."' (not compiled), in its order"""
+    src = LOFI.read_text()
+    r = [(m.group(1), m.group(2).encode().decode("unicode_escape"))
+         for m in re.finditer(r'^#define MATH_FUNC_(\w+)_TEXT "((?:[^"\\]|\\.)*)"$', src, re.M)]
+    assert len(r) == 20 and r[0][0] == "DEFAULT", [n for n, _ in r]
+    return r
+
 def byte_forms():
     src = LOFI.read_text()
     start = src.index("uint32_t lofi_byte(")
@@ -213,7 +221,8 @@ def main():
         f.write(f"#define FVM_NBYTE {len(byte)}u\n#define FVM_NFLOAT {len(FLOAT)}u\n")
         # (partstate) one text, each formula ended by its 0: no pointer each (384 B of the image); (funcbank, flash) packed
         # by pairs (FVM_BPE), FUNC's BANK after BYTE's and FLOAT's
-        allf = [("B", s) for s in byte] + [("F", s) for s in FLOAT] + [("U", s) for (_, _, s) in FB]
+        rec = recipes()
+        allf = [("B", s) for s in byte] + [("F", s) for s in FLOAT] + [("U", s) for (_, _, s) in FB] + [("R", s) for _, s in rec]
         assert all(re.fullmatch(r"[A-Z0-9 ]{1,9}", nm) for nm, _, _ in FB), "BANK's names: the S face's, 9 at most"
         merges, seqs = bpe([s for _, s in allf])
         for (k, s), q in zip(allf, seqs):
@@ -221,6 +230,8 @@ def main():
         raw = sum(len(s) + 1 for _, s in allf)
         z = sum(len(q) + 1 for q in seqs)
         f.write(f"#define FB_N {len(FB)}u                  /* (funcbank) FUNC's BANK (eng_lofi.c FUNC_BANK) */\n")
+        f.write(f"#define FVM_RECIPE0 {2 * len(byte) + len(FB)}u           /* (v1.1b2) FUNC's FORM 1 .. recipes (eng_lofi.c MATH_FUNC_*_TEXT) from here */\n"
+                f"#define FVM_NRECIPE {len(rec)}u\n")
         f.write(f"#define FB_NPITCH {[n for n, _, _ in FB].index('KICK')}u            /* (the pitched first: keys, basses, leads, textures) */\n")
         f.write(f"/* (funcbank, flash) {len(allf)} texts, {raw} B, packed to {z} B and {2 * len(merges)} B of pairs: code c (1 .. 31, "
                 "127 .. 255) is FVM_BPE[c < 32 ? c - 1 : c - 96]'s two, each a character or a code again */\n")
@@ -232,7 +243,7 @@ def main():
         for i, ((k, s), q) in enumerate(zip(allf, seqs)):
             n = i + 1 if k == "B" else i + 1 - len(byte) if k == "F" else i + 1 - 2 * len(byte)
             last = i + 1 == len(allf)
-            nm = f"{k}{n:02d}" if k != "U" else FB[n - 1][0]
+            nm = f"{k}{n:02d}" if k in "BF" else FB[n - 1][0] if k == "U" else rec[i - 2 * len(byte) - len(FB)][0]
             f.write(f"    /* {nm} */ \"{cbytes(q)}{'' if last else chr(92) + '0'}\"{';' if last else ''}\n")
         f.write("/* (funcbank) BANK's names (str_nth) and levels (x / 128: tests/funcbank_test.c) */\n")
         f.write("static const char FB_NAMES[] = " + "".join(cstr(nm)[:-1] + ("\\0\"" if i + 1 < len(FB) else "\"") for i, (nm, _, _) in enumerate(FB)) + ";\n")
@@ -243,7 +254,8 @@ def main():
                 "        const uint8_t *q = FVM_BPE[c < 32u ? c - 1u : c - 96u];\n"
                 "        return fvm_unz1(fvm_unz1(o, q[0]), q[1]);\n    }\n"
                 "    *o = (char)c;\n    return o + 1;\n}\n"
-                "/* formula i of the whole (BYTE's 0 .., FLOAT's FVM_NBYTE .., BANK's 2 x FVM_NBYTE ..) into o (256 B), its length */\n"
+                "/* formula i of the whole (BYTE's 0 .., FLOAT's FVM_NBYTE .., BANK's 2 x FVM_NBYTE .., FUNC's recipes FVM_RECIPE0 ..)\n"
+                " * into o (256 B), its length */\n"
                 "static uint32_t fvm_bank_to(uint32_t i, char *o)\n{\n"
                 "    const uint8_t *s = (const uint8_t *)FVM_BANK_Z;\n    char *e = o;\n"
                 "    for (; i; i--)\n        while (*s++) {}\n"

@@ -31,7 +31,7 @@ int main(void){
  for(unsigned j=0;j<4;j++)mix_block(b,CTL);{unsigned k=0;for(unsigned i=0;i<NVOICE;i++)k+=TSEL->v[i].active&&TSEL->v[i].gate&&TSEL->v[i].note==72;assert(k==1&&song_voices()==1);}
  transport_req=2;for(unsigned j=0;j<FS/CTL;j++)mix_block(b,CTL);assert(!song.playing&&!song_voices());
  const char*custom="func{return sin(w)*A;}";lyr_set(0,custom);TSEL->p[P_E7]=0;math_poll();assert(!strcmp(math_func_text(TSEL,lyr_get(0)),custom));
- apply_preset_to(TSEL,1);math_poll();assert(!strcmp(lyr_get(0),custom)&&!strcmp(math_func_text(TSEL,custom),MATH_FUNC_BEAT));
+ apply_preset_to(TSEL,1);math_poll();assert(!strcmp(lyr_get(0),custom)&&({char beat[256];str_cpy(beat,MATH_FUNC_BEAT,sizeof beat);!strcmp(math_func_text(TSEL,custom),beat);}));
  TSEL->p[P_E7]=0;math_poll();assert(!strcmp(math_func_text(TSEL,lyr_get(0)),custom));
  /* Tempo alters the score clock, not the pitched sample-clock oscillators. */
  setup(0);transport_req=1;for(unsigned j=0;j<FS/CTL;j++)mix_block(b,CTL);

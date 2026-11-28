@@ -714,25 +714,25 @@ static __attribute__((noinline)) void lofi_float_render(track_t *t, voice_t *v, 
     v->ph[1] = tmc.lw ? tmc.wn + (tmc.iw < n) : ts;
 }
 
-static const char MATH_FUNC_DEFAULT[] = "func{let bt=P%64;let r=bt*(1<<int(D*2.99));return sat(chord(\"0573\"[int(bt/8)]+n-60,bt%8,A)*.5+note(\"0247\"[int(r)]+n-48,r%1,A)*.5+(int(bt)-8<40)*(kick(bt%1)*.75+snare((bt+1)%(2-(B>.5)))*.5+hat(bt*(2<<int(C*2.99))%1)*.75));}";
-static const char MATH_FUNC_BEAT[] = "func{let bt=P%32;let st=int(bt*4);return sat(note(n-24+(st^(st>>2))%5*3,bt*4%1,A)*.8+(bt<24)*(kick(bt%4%((\"324\"[int(D*2.99)]-48)*.5))*.8+snare((bt+1)%(2-(B>.5)))*.4+hat(bt*(2<<int(C*2.99))%1)*.6));}";
+#define MATH_FUNC_DEFAULT_TEXT "func{let bt=P%64;let r=bt*(1<<int(D*2.99));return sat(chord(\"0573\"[int(bt/8)]+n-60,bt%8,A)*.5+note(\"0247\"[int(r)]+n-48,r%1,A)*.5+(int(bt)-8<40)*(kick(bt%1)*.75+snare((bt+1)%(2-(B>.5)))*.5+hat(bt*(2<<int(C*2.99))%1)*.75));}"
+#define MATH_FUNC_BEAT_TEXT "func{let bt=P%32;let st=int(bt*4);return sat(note(n-24+(st^(st>>2))%5*3,bt*4%1,A)*.8+(bt<24)*(kick(bt%4%((\"324\"[int(D*2.99)]-48)*.5))*.8+snare((bt+1)%(2-(B>.5)))*.4+hat(bt*(2<<int(C*2.99))%1)*.6));}"
 /* (BYTE 0.16, FORM 4's first recipes, the owner's references 12 and 4, docs/FORM-REFERENCIAS.md) GROWL: two formants by
  * sync on the note's cycle, a trapezoid wobble moving the vowel (A the vowel, B the wobble 1/4 .. 1/16, C the drive),
  * the notes from a table fused by the seed (D) and the section, its action eu(): two euclidean rhythms drawn and joined.
  * HALFTIME: the wobble's speed by bits fused with the seed, a ring (B), the sub inside the saturation, kick and snare
  * at half time (A the wobble's depth, C the drive, D the seed). No state: they run by blocks */
-static const char MATH_FUNC_GROWL[] = "func{let k=int(P*4);let y=w*(\"44464348\"[k*3+rnd(k>>5^d)&7]-48)*.25;let f=y%1;let l=sin(P*(1+int(B*3))*.5)*.5+.5;return sat((sin(f*(3+l*6*A))*.6+sin(f*(9+l*25))*.4)*(1+C*6)*eu(k,d)+sin(y*.5)*.6);}";
-static const char MATH_FUNC_HALF[] = "func{let g=P%4;let k=int(P*4);let q=sin(P*(\"1248\"[(k>>2^k>>5^d)&3]-48)*.25)*.5+.5;return sat(sat(sin(w*.5%1*(2+q*q*12*A))*sin(w*(3+B*4))*(3+C*12)*eu(k,d)+sin(w*.5)*2)*.6+kick(g)+snare((g+2)%4)*.7);}";
+#define MATH_FUNC_GROWL_TEXT "func{let k=int(P*4);let y=w*(\"44464348\"[k*3+rnd(k>>5^d)&7]-48)*.25;let f=y%1;let l=sin(P*(1+int(B*3))*.5)*.5+.5;return sat((sin(f*(3+l*6*A))*.6+sin(f*(9+l*25))*.4)*(1+C*6)*eu(k,d)+sin(y*.5)*.6);}"
+#define MATH_FUNC_HALF_TEXT "func{let g=P%4;let k=int(P*4);let q=sin(P*(\"1248\"[(k>>2^k>>5^d)&3]-48)*.25)*.5+.5;return sat(sat(sin(w*.5%1*(2+q*q*12*A))*sin(w*(3+B*4))*(3+C*12)*eu(k,d)+sin(w*.5)*2)*.6+kick(g)+snare((g+2)%4)*.7);}"
 /* (BYTE 0.16) the rest of FORM 4's first ten, the references (docs/FORM-REFERENCIAS.md): ACID (5), REESE, HOUSE (2),
  * STRUM (1), JUST (3), PLUCK (9), NIBBLE (11), BITS (6, 8); each with the seed (D) and eu()'s action, none with state */
-static const char MATH_FUNC_R_ACID[] = "func{let k=int(P*4);let h=rnd(k%16^d);let e=1-P*4%1;let q=h%4==0;let y=w*(\"4446434844864368\"[h&15]-48)*.25;let f=y%1;return sat((saw(y)*.4+sin(f*(2+e*e*A*(4+q*C*12)))*(1-f)*(.3+B*.8))*(1.5+q*C*1.4)*eu(k,d)*e*e);}";
-static const char MATH_FUNC_R_REESE[] = "func{let k=int(P*2);let y=w*(\"4434\"[k+rnd(k>>3^d)&3]-48)*.25;let z=saw(y)+saw(y*(1.003+A*.01))+saw(y*.5)*.6;return sat(tri(z*(.25+B*.5))*(1+C*4))*(.6+eu(k,d)*.4);}";
-static const char MATH_FUNC_R_HOUSE[] = "func{let g=P%1;let k=int(P*4);let r=\"0573\"[(k>>3)+rnd(k>>5^d)&3]-48;return sat(chord(n+r+12,P%2,A)*g*.7+sin(w*.25+sin(w*.5)*B*.3)*eu(k,d)*.6*(1-g*.5)+kick(g)*C);}";
-static const char MATH_FUNC_R_STRUM[] = "func{let k=int(P*4);let g=((k%8>5?k%8-6:k%8%3)+P*4%1)/4;let r=n+\"0375\"[(k>>4)+rnd(k>>6^d)&3]-48;return sat((note(r,g,A)+note(r+3+int(B*2),g-.06,A)+note(r+7,g-.12,A))*(1+C*3)*.5);}";
-static const char MATH_FUNC_R_JUST[] = "func{let k=int(P);let y=w*(\"44564454\"[k+rnd(k>>3^d)&7]-48)*.25;let f=y%1;let e=1-P%1;return sat(sin(f*f*(2+A*12)+sin(y*2)*B*.3)*e*(.4+eu(k*4,d)*.6)*(1+C*3)+sin(w*(1+e*e*e*8))*e*e*e*.5);}";
-static const char MATH_FUNC_R_PLUCK[] = "func{let k=int(P*4);let y=w*(\"44464348\"[k*5+rnd(k>>4^d)&7]-48)*.25;let u=y%1*2-1;let z=u*u*u;let e=1-P*4%1;return sat(sin(z*z*z*(1+A*3)+y+sin(y*2)*B)*e*e*(.3+eu(k,d)*.7)*(1+C*3));}";
-static const char MATH_FUNC_R_NIBBLE[] = "func{let k=int(P*4);let g=P*4%1;let o=k&3;let j=k+int(rnd(k>>4^d)%4*C);return sat(kick(P%1)*.9+note(n-24+(o==3)*(A>.5)*12,g,.2)*(o>0)*.8+hat((P+.5)%1*.5)*.3+note(n+12+\"0137:<\"[j%6]-48,g,B)*eu(k,d)*.35);}";
-static const char MATH_FUNC_R_BITS[] = "func{let l=sin(P*(\"1213242334344344\"[int(A*3.99)*4+(rnd(int(P/4)^d)&3)]-48))*.5+.5;return sat(tri(sin(w*.5%1*(2+l*10*B))*(1+B*2))*l*.55+sin(w*.25)*C*.7+kick(P%4)*.9+snare((P+2)%4)*.7+hat(P*2%1)*.2);}";
+#define MATH_FUNC_R_ACID_TEXT "func{let k=int(P*4);let h=rnd(k%16^d);let e=1-P*4%1;let q=h%4==0;let y=w*(\"4446434844864368\"[h&15]-48)*.25;let f=y%1;return sat((saw(y)*.4+sin(f*(2+e*e*A*(4+q*C*12)))*(1-f)*(.3+B*.8))*(1.5+q*C*1.4)*eu(k,d)*e*e);}"
+#define MATH_FUNC_R_REESE_TEXT "func{let k=int(P*2);let y=w*(\"4434\"[k+rnd(k>>3^d)&3]-48)*.25;let z=saw(y)+saw(y*(1.003+A*.01))+saw(y*.5)*.6;return sat(tri(z*(.25+B*.5))*(1+C*4))*(.6+eu(k,d)*.4);}"
+#define MATH_FUNC_R_HOUSE_TEXT "func{let g=P%1;let k=int(P*4);let r=\"0573\"[(k>>3)+rnd(k>>5^d)&3]-48;return sat(chord(n+r+12,P%2,A)*g*.7+sin(w*.25+sin(w*.5)*B*.3)*eu(k,d)*.6*(1-g*.5)+kick(g)*C);}"
+#define MATH_FUNC_R_STRUM_TEXT "func{let k=int(P*4);let g=((k%8>5?k%8-6:k%8%3)+P*4%1)/4;let r=n+\"0375\"[(k>>4)+rnd(k>>6^d)&3]-48;return sat((note(r,g,A)+note(r+3+int(B*2),g-.06,A)+note(r+7,g-.12,A))*(1+C*3)*.5);}"
+#define MATH_FUNC_R_JUST_TEXT "func{let k=int(P);let y=w*(\"44564454\"[k+rnd(k>>3^d)&7]-48)*.25;let f=y%1;let e=1-P%1;return sat(sin(f*f*(2+A*12)+sin(y*2)*B*.3)*e*(.4+eu(k*4,d)*.6)*(1+C*3)+sin(w*(1+e*e*e*8))*e*e*e*.5);}"
+#define MATH_FUNC_R_PLUCK_TEXT "func{let k=int(P*4);let y=w*(\"44464348\"[k*5+rnd(k>>4^d)&7]-48)*.25;let u=y%1*2-1;let z=u*u*u;let e=1-P*4%1;return sat(sin(z*z*z*(1+A*3)+y+sin(y*2)*B)*e*e*(.3+eu(k,d)*.7)*(1+C*3));}"
+#define MATH_FUNC_R_NIBBLE_TEXT "func{let k=int(P*4);let g=P*4%1;let o=k&3;let j=k+int(rnd(k>>4^d)%4*C);return sat(kick(P%1)*.9+note(n-24+(o==3)*(A>.5)*12,g,.2)*(o>0)*.8+hat((P+.5)%1*.5)*.3+note(n+12+\"0137:<\"[j%6]-48,g,B)*eu(k,d)*.35);}"
+#define MATH_FUNC_R_BITS_TEXT "func{let l=sin(P*(\"1213242334344344\"[int(A*3.99)*4+(rnd(int(P/4)^d)&3)]-48))*.5+.5;return sat(tri(sin(w*.5%1*(2+l*10*B))*(1+B*2))*l*.55+sin(w*.25)*C*.7+kick(P%4)*.9+snare((P+2)%4)*.7+hat(P*2%1)*.2);}"
 /* (BYTE 0.16, the owner: "more extreme timbres in the palette") DRUMS: drums from the formula, no 808: a kick by a
  * folded falling sine (C its fold), a noise snare ringing (B its pitch) and square hats (A), each lane its own eu()
  * fused from the seed. (func-level, the owner: "SCREECH NIBBLE BITS noise, hard to use") their slots: PSY (11), a
@@ -744,8 +744,8 @@ static const char MATH_FUNC_R_BITS[] = "func{let l=sin(P*(\"1213242334344344\"[i
  * chord (slow attack, its tail) and a bass hard-synced 1 .. 8 times its cycle (SYNC). ACID (func-level): a 303's
  * sixteen steps by the seed, rests, accents (louder, more of the sweep: ACCENT), octave jumps, ENV MOD the decay's
  * sweep, RESO; AMBIENT breathing over eight bars */
-static const char MATH_FUNC_R_BEATS[] = "func{let k=int(P*4);let g=P*4%1;let q=(1-g)*(1-g);let z=rnd(T);return sat(tri(sin(g*(2+q*9))*(1+C*7))*q*eu(k,d)*1.5+z*q*(sin(g*(20+B*80))*eu(k+2,d+5)*.5+sqr(w*7)*q*eu(k*3,d+9)*A*.4));}";
-static const char MATH_FUNC_R_SCREECH[] = "func{let k=int(P);let i=rnd(k%8^d^int(P/8)%2*(k%8<6))%(2+int(A*5));return (note(n+12+\"024579<\"[i]-48,P%1,.3)*(rnd(k^d)%8>=B*6)+chord(n,P%4,0)*min(P%4,1)*.8+sin(w*.5%1*(1+C*7))*.25)*.5;}";
+#define MATH_FUNC_R_BEATS_TEXT "func{let k=int(P*4);let g=P*4%1;let q=(1-g)*(1-g);let z=rnd(T);return sat(tri(sin(g*(2+q*9))*(1+C*7))*q*eu(k,d)*1.5+z*q*(sin(g*(20+B*80))*eu(k+2,d+5)*.5+sqr(w*7)*q*eu(k*3,d+9)*A*.4));}"
+#define MATH_FUNC_R_SCREECH_TEXT "func{let k=int(P);let i=rnd(k%8^d^int(P/8)%2*(k%8<6))%(2+int(A*5));return (note(n+12+\"024579<\"[i]-48,P%1,.3)*(rnd(k^d)%8>=B*6)+chord(n,P%4,0)*min(P%4,1)*.8+sin(w*.5%1*(1+C*7))*.25)*.5;}"
 /* (BYTE 0.17, FUNC its own engine) six more, the gaps between the others: DUB, offbeat chord stabs repeated as an echo
  * (B its time: 1/16 1/8 3/16), the sub (C), a one-drop kick and rim on 3; AMEN, a two-bar break (kick and snare as
  * masks of its 32 steps, the beats shuffled by B, the seed's pick), 8th hats (A); TRANCE, a 16th arpeggio up and down a
@@ -753,15 +753,16 @@ static const char MATH_FUNC_R_SCREECH[] = "func{let k=int(P);let i=rnd(k%8^d^int
  * octave and sub, slowly phase-modulated (A), drifting (B), a high partial (C); MINIMAL, a 4/4 kick, offbeat hats (B),
  * a blip of FM (A) on eu()'s steps; JUNGLE, a sub on a fused table every two beats, growled (B), wobbling (A), its
  * break (kick on 1 and the "and" of 3, snare on 2 and 4). No state, drums on the 1/32 grid (tests/funcbeat_test.c) */
-static const char MATH_FUNC_R_DUB[] = "func{let g=(P+.5)%1;let k=int(P);let r=n+\"0573\"[(k>>2)+rnd(k>>4^d)&3]-48;let q=g%((\"246\"[int(B*2.99)]-48)*.125);return sat(chord(r,q,A)*max(1-q*5,0)*(1-g*.7)+note(r-24,P%1,0)*C*.8+kick((P+2)%4)*.8);}";
-static const char MATH_FUNC_R_AMEN[] = "func{let j=int(P*4);let m=rnd(j>>2^d);let i=((m&255)<b?m>>8&7:j>>2&7)*4+(j&3);let g=P*4%1*.25;return sat(kick(g+(4227527674>>i&1)*2)*.9+snare(g+(3178196335>>i&1)*2)*(.4+C*.5)+hat(P*2%1*.5)*A*.6);}";
-static const char MATH_FUNC_R_TRANCE[] = "func{let j=int(P*4);let r=n+\"083:\"[(j>>4)+rnd(j>>6^d)&3]-48;let g=P*4%1;let h=(P+.5)%1;return sat(note(r+\"037<C<73\"[(j+d)&7]-48,g*.25,A)*max(1-g*(4.2-B*3.5),0)*(.4+eu(j,d)*.6)*1.3+note(r-24,h,0)*C*max(1-h*2.5,0));}";
-static const char MATH_FUNC_R_AMBIENT[] = "func{let j=P*(.02+B*.12);return sat((sin(w+sin(w*2+j)*A*.7)*.5+sin(w*1.5+sin(j*3)*.2)*(.3+sin(j+d*.01)*.2)+sin(w*.5)*.35+sin(w*3.01)*C*.12*(1+sin(j*2.3)))*(.55+sin(P*.125)*.25));}";
-static const char MATH_FUNC_R_MINIMAL[] = "func{let k=int(P*4);let g=P*4%1;let e=(1-g)*(1-g)*(1-g);return sat(kick(P%1)*.9+hat((P+.5)%1)*B*.6+sin(w*(\"4568\"[k+rnd(k>>4^d)&3]-48)*.25+sin(w*2)*e*A*2)*e*eu(k,d)*(.5+C*2)*.5);}";
-static const char MATH_FUNC_R_JUNGLE[] = "func{let j=int(P*4);let g=P*4%1*.25;let y=w*(\"4436\"[(j>>3)+rnd(j>>5^d)&3]-48)*.125;return sat(sin(y+sin(y*2)*B*.6)*(.7+C*1.5)*(1-sin(P*.5)*A*.45)+kick(g+(4227791870>>j&1)*2)*.8+snare(g+(4025479151>>j&1)*2)*.5);}";
-static const char *const MATH_FUNC_R[] = {MATH_FUNC_R_ACID,MATH_FUNC_R_REESE,MATH_FUNC_R_HOUSE,MATH_FUNC_R_STRUM,MATH_FUNC_R_JUST,MATH_FUNC_R_PLUCK,MATH_FUNC_R_NIBBLE,MATH_FUNC_R_BITS,MATH_FUNC_R_BEATS,MATH_FUNC_R_SCREECH,
-    MATH_FUNC_R_DUB,MATH_FUNC_R_AMEN,MATH_FUNC_R_TRANCE,MATH_FUNC_R_AMBIENT,MATH_FUNC_R_MINIMAL,MATH_FUNC_R_JUNGLE};
-#define FUNC_NFORM (6u+NELEM(MATH_FUNC_R))       /* CUSTOM, SONG, BEAT, GROWL, HALFTIME and the rest; BANK last */
+#define MATH_FUNC_R_DUB_TEXT "func{let g=(P+.5)%1;let k=int(P);let r=n+\"0573\"[(k>>2)+rnd(k>>4^d)&3]-48;let q=g%((\"246\"[int(B*2.99)]-48)*.125);return sat(chord(r,q,A)*max(1-q*5,0)*(1-g*.7)+note(r-24,P%1,0)*C*.8+kick((P+2)%4)*.8);}"
+#define MATH_FUNC_R_AMEN_TEXT "func{let j=int(P*4);let m=rnd(j>>2^d);let i=((m&255)<b?m>>8&7:j>>2&7)*4+(j&3);let g=P*4%1*.25;return sat(kick(g+(4227527674>>i&1)*2)*.9+snare(g+(3178196335>>i&1)*2)*(.4+C*.5)+hat(P*2%1*.5)*A*.6);}"
+#define MATH_FUNC_R_TRANCE_TEXT "func{let j=int(P*4);let r=n+\"083:\"[(j>>4)+rnd(j>>6^d)&3]-48;let g=P*4%1;let h=(P+.5)%1;return sat(note(r+\"037<C<73\"[(j+d)&7]-48,g*.25,A)*max(1-g*(4.2-B*3.5),0)*(.4+eu(j,d)*.6)*1.3+note(r-24,h,0)*C*max(1-h*2.5,0));}"
+#define MATH_FUNC_R_AMBIENT_TEXT "func{let j=P*(.02+B*.12);return sat((sin(w+sin(w*2+j)*A*.7)*.5+sin(w*1.5+sin(j*3)*.2)*(.3+sin(j+d*.01)*.2)+sin(w*.5)*.35+sin(w*3.01)*C*.12*(1+sin(j*2.3)))*(.55+sin(P*.125)*.25));}"
+#define MATH_FUNC_R_MINIMAL_TEXT "func{let k=int(P*4);let g=P*4%1;let e=(1-g)*(1-g)*(1-g);return sat(kick(P%1)*.9+hat((P+.5)%1)*B*.6+sin(w*(\"4568\"[k+rnd(k>>4^d)&3]-48)*.25+sin(w*2)*e*A*2)*e*eu(k,d)*(.5+C*2)*.5);}"
+#define MATH_FUNC_R_JUNGLE_TEXT "func{let j=int(P*4);let g=P*4%1*.25;let y=w*(\"4436\"[(j>>3)+rnd(j>>5^d)&3]-48)*.125;return sat(sin(y+sin(y*2)*B*.6)*(.7+C*1.5)*(1-sin(P*.5)*A*.45)+kick(g+(4227791870>>j&1)*2)*.8+snare(g+(4025479151>>j&1)*2)*.5);}"
+/* (v1.1b2, flash) the recipes above are not compiled as they are: tools/gen_fvm_bank.py packs their texts (each
+ * MATH_FUNC_*_TEXT, in this order: FORM 1 ..) by pairs with the factory formulas (fvm_bank.c, FVM_NRECIPE of them after
+ * BANK's); func_form_text unpacks one into the main loop's fvm_tx (as BANK's), 2.1 KB of the image back */
+#define FUNC_NFORM (2u+FVM_NRECIPE)              /* CUSTOM, SONG, BEAT, GROWL, HALFTIME and the rest; BANK last */
 /* (funcbank, the owner: "the formulas of the first FUNC, the ones that made chords with the harmony") BANK: FORM 3's
  * formula bank (fvm_bank.c FB_*, curated: in families, each in tune with the chord and at its level) as a recipe: its
  * knobs FORM A, FORM B (by name), MORPH (A to B, equal power), DEF (the formula's A); w w3 w5 the chord's root, third
@@ -788,14 +789,18 @@ static inline int func_free(const track_t*t){return func_on(t)&&t->p[P_E0]==6;}
  * place); stopped, NOTE from the key, FREE its own */
 #define func_bar(t) (song.playing&&!func_free(t))
 static int math_is_func(const char*s){while(*s&&(uint8_t)*s<=32u)s++;return s[0]=='f'&&s[1]=='u'&&s[2]=='n'&&s[3]=='c';}
-static const char *func_form_text(int32_t f){return f==1?MATH_FUNC_DEFAULT:f==2?MATH_FUNC_BEAT:f==3?MATH_FUNC_GROWL:f==4?MATH_FUNC_HALF:f>=5&&f<(int)FUNC_BANK?MATH_FUNC_R[f-5]:0;}
+/* FORM f's recipe (1 .. FUNC_BANK - 1), unpacked into fvm_tx (the main loop's buffer, one at a time: a caller takes it
+ * before the next); 0 none (CUSTOM, BANK) */
+static const char *func_form_text(int32_t f){if(f<1||f>=(int)FUNC_BANK)return 0;fvm_bank_to(FVM_RECIPE0+(uint32_t)f-1u,fvm_tx);return fvm_tx;}
+#define MATH_FUNC_DEFAULT func_form_text(1)      /* (the host tests' names) */
+#define MATH_FUNC_BEAT func_form_text(2)
 /* (funcbank) BANK's formula k (0 A, 1 B) of part t, into o (256 B); its number */
 static uint32_t func_bank_f(const track_t*t,uint32_t k){return (uint32_t)clamp(t->p[P_E2+k],0,FB_N-1u);}
 static void func_bank_text(const track_t*t,uint32_t k,char*o){fvm_bank_to(2u*FVM_NBYTE+func_bank_f(t,k),o);}
 static const char *math_func_text(const track_t*t,const char*custom){
     const char*s=func_form_text(t->p[P_E7]);
     if(t->p[P_E7]==(int)FUNC_BANK){func_bank_text(t,0,fvm_tx);return fvm_tx;}   /* (funcbank: A's; the main loop's buffer) */
-    return s?s:math_is_func(custom)?custom:MATH_FUNC_DEFAULT;}
+    return s?s:math_is_func(custom)?custom:func_form_text(1);}
 /* (funcplay, the owner: "FUNC to play, not to listen to") FUNC played live (funcplay.c): its SECTION (GROOVE as written,
  * INTRO BUILD DROP BREAK: at the next bar line), a FILL held (ROLL STUTTER REVERSE DOUBLE: from the next 1/16 to the 1/16
  * after the key is let go), the mutations (NOTES RHYTHM SWAP FREEZE), the parts muted (bit 0 the drums, 1 the notes,

@@ -30,15 +30,19 @@ int main(void){
  unsigned crossings=0;int32_t previous=0;for(unsigned j=0;j<FS;j+=32){unsigned count=FS-j<32?FS-j:32;fvm_run(&code.p,&e,&scratch,count,out);for(unsigned k=0;k<count;k++){int32_t now=(int32_t)out[k];crossings+=previous<=0&&now>0;previous=now;}}
  assert(crossings>=439&&crossings<=441);
  reject("func{return - - - - - - - - - - - - - - - - - - - - 1.0;}");
- { const char*const fixed[]={MATH_FUNC_DEFAULT,MATH_FUNC_BEAT,MATH_FUNC_GROWL,MATH_FUNC_HALF}; /* every recipe in the FORM list compiles, and stateless (they run by blocks) */
-   for(unsigned i=0;i<NELEM(fixed)+NELEM(MATH_FUNC_R);i++){compile(i<NELEM(fixed)?fixed[i]:MATH_FUNC_R[i-NELEM(fixed)]);assert(i<2||!code.p.nstate);} }
+ { /* (v1.1b2) the recipes packed (tools/gen_fvm_bank.py, fvm_bank.c) as eng_lofi.c writes them, FORM 1 .. in order */
+   static const char*const src[]={MATH_FUNC_DEFAULT_TEXT,MATH_FUNC_BEAT_TEXT,MATH_FUNC_GROWL_TEXT,MATH_FUNC_HALF_TEXT,MATH_FUNC_R_ACID_TEXT,MATH_FUNC_R_REESE_TEXT,MATH_FUNC_R_HOUSE_TEXT,MATH_FUNC_R_STRUM_TEXT,MATH_FUNC_R_JUST_TEXT,MATH_FUNC_R_PLUCK_TEXT,MATH_FUNC_R_NIBBLE_TEXT,MATH_FUNC_R_BITS_TEXT,MATH_FUNC_R_BEATS_TEXT,MATH_FUNC_R_SCREECH_TEXT,MATH_FUNC_R_DUB_TEXT,MATH_FUNC_R_AMEN_TEXT,MATH_FUNC_R_TRANCE_TEXT,MATH_FUNC_R_AMBIENT_TEXT,MATH_FUNC_R_MINIMAL_TEXT,MATH_FUNC_R_JUNGLE_TEXT};
+   assert(NELEM(src)==FVM_NRECIPE&&FUNC_BANK==FVM_NRECIPE+1u);
+   for(unsigned i=0;i<NELEM(src);i++)assert(!strcmp(func_form_text((int32_t)i+1),src[i]));
+   assert(!func_form_text(0)&&!func_form_text((int32_t)FUNC_BANK)); }
+ for(unsigned f=1;f<FUNC_BANK;f++){compile(func_form_text((int32_t)f));assert(f<3||!code.p.nstate);}   /* every recipe in the FORM
+                                                         * list compiles, and stateless (they run by blocks) */
  { /* (func-tame, the owner: "B moves the drums out of tempo, out of phase") every drum hit of every recipe, at every
     * value of every knob, on the 1/32 grid of the song's beat: the program run as fvm_func_run runs it, a sample at a
     * time, kick() snare() hat()'s age read where they are called; a hit where the age falls back */
-   const char*const all[]={MATH_FUNC_DEFAULT,MATH_FUNC_BEAT,MATH_FUNC_GROWL,MATH_FUNC_HALF};
    unsigned checked=0,per[32]={0};
-   for(unsigned f=0;f<NELEM(all)+NELEM(MATH_FUNC_R);f++){
-     compile(f<NELEM(all)?all[f]:MATH_FUNC_R[f-NELEM(all)]);
+   for(unsigned f=0;f+1u<FUNC_BANK;f++){
+     compile(func_form_text((int32_t)f+1));
      unsigned drums=0;for(unsigned i=0;i<code.p.n;i++)drums|=code.p.ins[i].op==FO_MUSIC&&code.p.ins[i].k>=2u;
      if(!drums)continue;
      for(unsigned kn=0;kn<4;kn++)for(unsigned val=0;val<128;val=val<126u?val+3u:val+1u){
