@@ -122,6 +122,7 @@ static int16_t wt_tab[NTRK][1][WT_N + 1u];          /* (A's only: 1.5 KB of RAM,
 static uint16_t wt_key[NTRK][1], wt_bkey[NTRK][1];  /* 1 + formula x 128 + POS (0: none); the one being drawn */
 static uint8_t wt_bi[NTRK][1], wt_bn[NTRK][1], wt_go[NTRK];   /* .. its next point, its points drawn; a quarter allowed
                                                          * this block (wave_block), a bit an oscillator */
+static int wf_drawing(uint32_t r);                   /* (rel15) part r's frames being drawn (below) */
 static int wt_smooth(uint32_t f) { return f != 10u && f != 11u && f != 13u; }   /* (SAWSQ PULSE too: their edge a 1/128 turn ramp) */
 static const int16_t *wt_get(uint32_t tr, uint32_t r, uint32_t o, const fvm_prog_t *pg, uint32_t f, uint32_t pos, uint32_t many,
                              const fvm_env_t *e0, lofi_work_t *wk)
@@ -133,6 +134,10 @@ static const int16_t *wt_get(uint32_t tr, uint32_t r, uint32_t o, const fvm_prog
     if (!many || (f == 3u && o))                        /* (one voice, no unison: the formula as written; B's TRISY: its
                                                          * sync edges exact) */
         return 0;
+    if (wt_key[r][0] == 0xFFFFu && !wf_drawing(r))       /* (rel15) the frame kept let go once the frames are whole,
+                                                         * or none are drawn (COMB, METAL, HIVE on the line; CAOS ..):
+                                                         * was read on and on, WAVE frozen on it */
+        wt_key[r][0] = 0;
     if (wt_key[r][0] == key || wt_key[r][0] == 0xFFFFu)   /* (wavefix: 0xFFFF a frame of A's kept, wf_grid) */
         return wt_tab[r][0];
     /* (BYTE, CPU: the owner, "one WAVE voice 453 us") a new POS redrawn a quarter a block (32 points), read meanwhile as
@@ -210,6 +215,7 @@ typedef struct {
     uint8_t hd;                                      /* (wavefix) blocks a way in held silent (wave_block) */
 } wf_t;
 static wf_t wf[NTRK] __attribute__((section(".pool")));
+static int wf_drawing(uint32_t r) { return r < NTRK && wf[r].key && !wf[r].use; }
 static uint16_t wf_vpos[NTRK * NVOICE] __attribute__((section(".pool")));   /* a voice's POS at its last sample, Q8 + 1 */
 static int wf_line_busy(uint32_t tr);                /* (voice.c, after the COMB and the matrix) */
 static int wf_span(const track_t *t, int32_t base, uint32_t full, int32_t *lo, int32_t *hi);
