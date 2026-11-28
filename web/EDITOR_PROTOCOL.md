@@ -248,6 +248,7 @@ of before).
 | 0 | the project library: `PROJ_LIST` (95), `PROJ_NAME` (96), `PROJ_OP` (97) |
 | 1 | the whole step: `STEP_GET` / `TRACK_STEP` flag 2 and the writes with the 20 bytes after the lane modes |
 | 2 | a song row's scene, its tracks' sources and variations: `SONG` ops 4, 5 |
+| 3 | the MOD matrix's AMT1..AMT4 −128..127 ("MOD AMT", below) |
 
 ### The whole step (bit 1)
 
@@ -296,6 +297,14 @@ a mask byte before each 7, the last group 2 bytes): 8 the scene, then `tsrc` and
 
 rc 0 done, 1 a field out of its range (or the 19 bytes not 16 in pack7; nothing written), 2 the song chain is
 running (busy, as op 1: nothing written). A request of another length gets no reply.
+
+### MOD AMT −128..127 (bit 3)
+
+The matrix's AMT1..AMT4 (`P_M1AMT` .. `P_M4AMT`, BIPCT) run −128..127 (−200 % .. +198 %; 64 is 100 %: a full source
+sweeps the destination's whole range, 127 twice that, clamped at its ends), as JIANT FM V10.8.51; −64..63 before. `DESC`
+reports the range; `SET` / `TRACK_PARAM` / `UP_PUT` take it (`UP_PUT`'s values −128..127). Stored compatibly: a
+parameter is a byte value + 64 in projects and user presets, and 192..255 are now −128..−65 (every file of before has
+0..191, and loads as it did). Firmware before refuses a project or a preset holding an AMT below −64.
 
 ### Project library (95-97, bit 0)
 

@@ -729,7 +729,7 @@ static int proj_pack(project_store_t *out, const project_t *q)
             if (q->fm6[t][i] > 127u) return 0;
         proj_why = '4';
         for (i = 0; i < P_COUNT; i++)
-            if (q->t[t].p[i] < -64 || q->t[t].p[i] > 127) return 0;
+            if (q->t[t].p[i] < -128 || q->t[t].p[i] > 127) return 0;   /* (v1.1b2: -128, a matrix AMT's -200 %) */
         for (i = 0; i < NSTEP; i++) {
             const step_t *s = &q->t[t].step[i];
             proj_why = '5';
@@ -999,7 +999,7 @@ static int proj_pack_vb(project_store_t *out, const project_t *q)
     memcpy(b + 8, q->g, G_NSTORE * 2u); b[62] = q->sel; b[63] = q->parts; b[64] = q->phys; b[66] = P_COUNT;
     for (t = 0; t < PROJ_LT; t++) {
         for (i = 0; i < P_COUNT; i++) {
-            if (q->t[t].p[i] < -64 || q->t[t].p[i] > 127) return 0;
+            if (q->t[t].p[i] < -128 || q->t[t].p[i] > 127) return 0;   /* (v1.1b2: -128, a matrix AMT's -200 %) */
             b[pos++] = (uint8_t)(q->t[t].p[i] + 64);
         }
         b[pos++] = q->t[t].engine; b[pos++] = q->t[t].preset;
@@ -1080,8 +1080,9 @@ static int proj_unpack_c(project_t *q, const uint8_t *b)
                 values[i] = def[i < nc ? i : P_E0 + i - nc];
                 continue;
             }
-            if (pos >= room || b[pos] > 191u) return 0;
-            values[i] = (int16_t)b[pos++] - 64;
+            if (pos >= room) return 0;
+            values[i] = (int8_t)(b[pos++] - 64);        /* (v1.1b2, JIANT FM V10.8.51's: 192..255 are -128..-65, a matrix
+                                                         * AMT's; every file of before has 0..191: as it was) */
         }
         params_by_count(q->t[t].p, values, np, def);
         if (e == ENGI_DRUM && owave < 0)                /* (FEEDBK) WAVE, were it a project of before (64 unstored) */

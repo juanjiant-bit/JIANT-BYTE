@@ -79,7 +79,7 @@ static int motion_valid(const motion_store_t *m)
     if (m->count > MOTION_MAX || (m->on & ~((1u << NTRK) - 1u))) return 0;
     for (i = 0; i < m->count; i++) {
         const motion_event_t *e = &m->event[i];
-        if (!motion_param(MOTION_ID(e)) || MOTION_VAL(e) < -64 || MOTION_VAL(e) > 127 ||
+        if (!motion_param(MOTION_ID(e)) || MOTION_VAL(e) < -128 || MOTION_VAL(e) > 127 ||
             (MOTION_ID(e) == MOT_DJF && (e->param & MOTION_LOCK))) return 0;
         for (j = 0; j < i; j++)
             if (MOTION_PLACE(&m->event[j]) == MOTION_PLACE(e) && MOTION_ID(&m->event[j]) == MOTION_ID(e)) return 0;
@@ -308,7 +308,7 @@ static int motion_put(track_t *t, uint32_t step, uint32_t id, int16_t value, uin
     const param_desc_t *d;
     if (k >= NTRK || step >= NSTEP || !motion_param(id) || (id == MOT_DJF && kind)) return 1;   /* (MOT_DJF: no lock) */
     d = motion_desc(t, id);
-    if (value < d->min || value > d->max || value < -64 || value > 127) return 1;
+    if (value < d->min || value > d->max || value < -128 || value > 127) return 1;   /* (v1.1b2: -128, a matrix AMT's) */
     value = (int16_t)param_fit(d, value);                    /* (a retired KIT: the kit it plays) */
     f = motion_guard();
     for (i = 0; i < motion.count; i++)
@@ -522,7 +522,7 @@ static int motion_move(track_t *t, uint32_t i, uint32_t step, uint32_t id, int16
     if (at >= 0 && (uint32_t)at != i)
         return 1;
     d = motion_desc(t, id);
-    if (v < d->min || v > d->max || v < -64 || v > 127)
+    if (v < d->min || v > d->max || v < -128 || v > 127)
         return 1;
     f = motion_guard();
     if (MOTION_PLACE(&motion.event[i]) != (trk_index(t) << 6 | step) || MOTION_ID(&motion.event[i]) != id)

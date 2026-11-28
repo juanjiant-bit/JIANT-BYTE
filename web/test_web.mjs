@@ -205,7 +205,7 @@ async function editorMock() {
          L.RATE / L.PIT, F.CUT and LEVEL at the end: 32 DST names; V10.7.22: OCT+ OCT- appended; V10.7.34: the sources LIFE
          BEING, the destination LIFE appended: 33; funcmotion: FN HIT FN NOTE FN BAR) */
       && md[0].names.join() === "OFF,LFO,ENV,VEL,KEY,RAND,MODW,AT,EXPR,M1,M2,M3,M4,STEP,NOISE,PROX,ENV2,IN ENV,T1 ENV,T2 ENV,T3 ENV,T4 ENV,T5 ENV,T6 ENV,OCT+,OCT-,F.NOISE,LIFE,BEING,FN HIT,FN NOTE,FN BAR" && md[1].names.length === 40   /* (FORM 2: 47 DST names, FORM's 14 at the end; DESC carries 40) */
-      && md[1].names[11] === "L.PIT" && md[1].names[19] === "E8" && md[1].names[21] === "PNCH" && md[1].names[22] === "D.TIM" && md[1].names[29] === "C.DEP" && md[1].names[31] === "LEVEL" && md[1].names[32] === "LIFE" && md[2].min === -64 && md[2].max === 63 && md.every((d) => d.def === 0),
+      && md[1].names[11] === "L.PIT" && md[1].names[19] === "E8" && md[1].names[21] === "PNCH" && md[1].names[22] === "D.TIM" && md[1].names[29] === "C.DEP" && md[1].names[31] === "LEVEL" && md[1].names[32] === "LIFE" && md[2].min === -128 && md[2].max === 127 && md.every((d) => d.def === 0),
       "editor: matrix parameters 49..60 over DESC (40 of the 47 DST names: the macros M1..M4, the master CLIP PNCH, the FX buses, F.CUT LEVEL, LIFE, FORM's)");
     await rq(E.req.set(0, 52, 1));
     await rq(E.req.set(0, 53, 12));

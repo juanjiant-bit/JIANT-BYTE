@@ -203,6 +203,69 @@ static void song_rows(void)
     ok("SONG op 0 as before", n >= 6u && r[0] == 0u && r[2] == chain_config.count);
 }
 
+/* (1.6) MOD AMT -128..127 (JIANT FM V10.8.51's): a byte value + 64, 192..255 the negatives; old files as they were */
+static void mod_amt(void)
+{
+    static project_t q;
+    static up_rec_t u;
+    static motion_store_t ms;
+    const param_desc_t *da = &TP[P_M1AMT];
+    track_t *t = &trk[0];
+    uint32_t n;
+    uint8_t a[4];
+    ok("AMT -128..127", da->min == -128 && da->max == 127 && TP[P_M4AMT].min == -128);
+    a[0] = 0; a[1] = P_M2AMT; v14(a + 2, -128);
+    n = request(ED_TRACK_PARAM, a, 4);
+    ok("TRACK_PARAM AMT2 -128: taken (-200 %)", n == 4u && rv(r + 2) == -128 && t->p[P_M2AMT] == -128);
+    v14(a + 2, -129); n = request(ED_TRACK_PARAM, a, 4);
+    ok("  -129: clamped to -128", n == 4u && rv(r + 2) == -128);
+    t->p[P_M1AMT] = 127; t->p[P_M2AMT] = -128; t->p[P_M3AMT] = -65; t->p[P_M4AMT] = -64;
+    project_capture(&proj_scratch);
+    ok("a project with AMT 127 -128 -65 -64 packs", proj_pack(&proj_wire, &proj_scratch) != 0);
+    ok("  and loads them as they were", proj_import(&q, &proj_wire, sizeof proj_wire) && q.t[0].p[P_M1AMT] == 127 &&
+       q.t[0].p[P_M2AMT] == -128 && q.t[0].p[P_M3AMT] == -65 && q.t[0].p[P_M4AMT] == -64);
+    t->p[P_M2AMT] = -129;
+    project_capture(&proj_scratch);
+    ok("  -129 does not pack", !proj_pack(&proj_wire, &proj_scratch));
+    t->p[P_M1AMT] = t->p[P_M2AMT] = t->p[P_M3AMT] = t->p[P_M4AMT] = 0;
+    memset(&u, 0, sizeof u);
+    u.used = UP_USED; u.ver = UP_VER; u.engine = 0; u.np = P_COUNT; u.name[0] = 'A';
+    ok("a preset of v4+ stores a byte each", u.ver >= 4u);
+    up_set_value(&u, P_M1AMT, -128); up_set_value(&u, P_M2AMT, -65); up_set_value(&u, P_M3AMT, -64);
+    up_set_value(&u, P_M4AMT, 127);
+    ok("  -128 192, -65 255, -64 0, 127 191", u.packed[P_M1AMT] == 192u && u.packed[P_M2AMT] == 255u &&
+       u.packed[P_M3AMT] == 0u && u.packed[P_M4AMT] == 191u);
+    ok("  read back, and valid (192..255 no longer refused)", up_value(&u, P_M1AMT) == -128 && up_value(&u, P_M2AMT) == -65 &&
+       up_value(&u, P_M3AMT) == -64 && up_value(&u, P_M4AMT) == 127 && up_valid(&u));
+    for (n = 0; n < 192u; n++) { u.packed[0] = (uint8_t)n; if (up_value(&u, 0) != (int16_t)n - 64) break; }
+    ok("  every byte of before (0..191) reads as it did (value - 64)", n == 192u);
+    memset(&ms, 0, sizeof ms);
+    ms.count = 1; ms.on = 1;
+    motion_at(&ms.event[0], 3, -128);
+    ms.event[0].param = P_PAN;
+    ok("motion: a record of -128 valid, -129 not", motion_valid(&ms) && (motion_at(&ms.event[0], 3, -129), !motion_valid(&ms)));
+    /* the scaling (mod.c): AMT 64 a full source sweeps the destination's whole range; 127 twice, clamped */
+    t->p[P_REV] = 0; t->mw = 127;
+    t->p[P_M1SRC] = MS_MODW; t->p[P_M1DST] = MD_REV; t->p[P_M1AMT] = 64;
+    mod_begin(t);
+    ok("MODW -> REV 100 %: a full wheel to the top", t->p[P_REV] >= 126);
+    mod_end(t);
+    t->p[P_M1AMT] = 127; t->mw = 64;
+    mod_begin(t);
+    ok("  +198 %: half the wheel reaches the top", t->p[P_REV] >= 125);
+    mod_end(t);
+    t->mw = 127;
+    mod_begin(t);
+    ok("  a full wheel: clamped at 127", t->p[P_REV] == 127);
+    mod_end(t);
+    t->p[P_REV] = 100; t->p[P_M1AMT] = -128;
+    mod_begin(t);
+    ok("  -200 %: clamped at 0", t->p[P_REV] == 0);
+    mod_end(t);
+    ok("  the stored value back after the block", t->p[P_REV] == 100);
+    t->p[P_M1SRC] = t->p[P_M1DST] = t->p[P_M1AMT] = 0; t->mw = 0;
+}
+
 int main(void)
 {
     uint32_t n, i;
@@ -215,6 +278,7 @@ int main(void)
        r[i + 5] == 1 && r[i + 6] == 6);
     whole_step();
     song_rows();
+    mod_amt();
     printf("studio: %s\n", bad ? "FAIL" : "all ok");
     return bad != 0;
 }

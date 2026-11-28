@@ -168,7 +168,9 @@ static const param_desc_t TP[P_COUNT] = {
     [P_APWAVE] = PE("WAVE", N_LWAVE, 1),
     [P_APSYNC] = PE("SYNC", N_APSYNC, 1),
 #define MSLOT(k) [P_M##k##SRC] = PE("SRC" #k, N_MSRC, 0), [P_M##k##DST] = PE("DEST" #k, N_MDST, 0), \
-                 [P_M##k##AMT] = PD("AMT" #k, F_BIPCT, -64, 63, 0)
+                 [P_M##k##AMT] = PD("AMT" #k, F_BIPCT, -128, 127, 0)   /* (v1.1b2, JIANT FM V10.8.51's: -200 .. +198 %, 64 100 %;
+                                                         * was -64..63; stored as a byte value + 64, 192..255 the
+                                                         * negatives: project.c, upreset.c) */
     MSLOT(1), MSLOT(2), MSLOT(3), MSLOT(4),
 #undef MSLOT
 /* the OP ENV / OP LEVEL values of DIGITAL (ids 61..80): with FELUCCA_FM4 its operator envelopes; without it

@@ -34,8 +34,8 @@ enum { ED_VIS_SONG = 98, ED_VIS_TICK };                              /* v6: song
                              * (BYTE v1.1b2) 1.6: JIANT Studio's, INFO 44 01 caps (ED_STUDIO_CAPS) */
 /* (1.6) INFO 'D' 44 01 caps, a bit each: 0 the project library (PROJ_LIST / PROJ_NAME / PROJ_OP, 95..97); 1 the whole
  * step (STEP_GET / TRACK_STEP flag 2: MICRO, LEN, DIV, EVERY, the components); 2 SONG ops 4, 5 (a row's scene, its
- * tracks' sources and variations) */
-#define ED_STUDIO_CAPS 7u
+ * tracks' sources and variations); 3 the MOD matrix's AMT -128..127 (DESC says it too) */
+#define ED_STUDIO_CAPS 15u
 enum { ED_VM_READ = 80 };   /* (V10.10) read-only: 256 B of the stock VM (0xE7000 + 256 x a[0], a[0] < 48: the radio's
                               * RF trims and BT address, web/btcheck.html); reply: a[0], then 256 x (hi nibble, lo nibble) */
 /* (V10.6z5, 1.1) the velocity diagnostic (vel_diag.c, web/vel.html): op 0 status, 1 on (drive 0..4), 2 off, 3 the next
