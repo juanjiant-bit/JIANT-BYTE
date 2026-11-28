@@ -21,7 +21,7 @@ typedef struct {
 static fg_set_t fg_set[NTRK][FG_HEADS];
 static fg_head_t fg_head[NTRK][FG_HEADS];
 static const uint8_t FG_NUM[FG_NRATE] = {0, 1, 1, 1, 2, 1, 3, 2, 3, 4, 1, 1}, FG_DEN[FG_NRATE] = {1, 4, 3, 2, 3, 1, 2, 1, 1, 1, 8, 16};
-static const char *const N_FGRATE[FG_NRATE] = {"OFF", "1/4", "1/3", "1/2", "2/3", "x1", "3/2", "x2", "x3", "x4", "1/8", "1/16"};
+static const char N_FGRATE[] = "OFF\0" "1/4\0" "1/3\0" "1/2\0" "2/3\0x1\0" "3/2\0x2\0x3\0x4\0" "1/8\0" "1/16";   /* (str_nth: a text each, no pointer each) */
 static const uint8_t FG_ORD[FG_NRATE] = {0, 11, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9};   /* (the knob: OFF, slowest first) */
 static const char *const N_FGDIR[4] = {"FWD", "REV", "PING", "RND"};
 enum { FG_FWD, FG_REV, FG_PING, FG_RND };

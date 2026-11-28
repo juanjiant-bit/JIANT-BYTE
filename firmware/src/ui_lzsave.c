@@ -62,7 +62,7 @@ static void graph_lib(void)
  * wave, the song's rows, everything), at the right the scope's actions; under them a bar fills while OCT+ is held */
 static __attribute__((noinline)) void graph_lz_tools(void)
 {
-    static const char *const WHAT[6] = {"CLEAR PROJECT", "CLEAR SEQ", "INIT SOUND", "DELETE ROW", "CLEAR SONG", "CPU TEST"};
+    static const char WHAT[] = "CLEAR PROJECT\0CLEAR SEQ\0INIT SOUND\0DELETE ROW\0CLEAR SONG\0CPU TEST";   /* (str_nth: a text each, no pointer each) */
     static const char *const ON[6] = {"EVERYTHING", "STEPS + AUTO", "ENGINE DEFAULT", "", "ALL ROWS", "HEAVY SONG"};
     uint32_t a = ui.act ? ui.act - 1u : 0u, sc = TL_SC[a], c, n = 0, h = graph_h(), i;
     int32_t hold = tl_t0 ? (int32_t)(fm1_ms - tl_t0) * 232 / (int32_t)TL_HOLD : 0;
@@ -88,7 +88,7 @@ static __attribute__((noinline)) void graph_lz_tools(void)
         n++;
         cv_rect(88, y, 148, 24, bg);
         GFX_HOOK_ALIGN(0, y, 0, y + 12, AL_V, "tools row text centred up/down");
-        cv_text_on(94, y + CAP_IN(M, 14), &AF_M, WHAT[c], T_TEXT, bg);
+        cv_text_on(94, y + CAP_IN(M, 14), &AF_M, str_nth(WHAT, c), T_TEXT, bg);
         if (c == 3u) { str_cpy(b, "ROW ", sizeof b); fmt_int(b + 4, (int32_t)ui.song_row + 1); }
         cv_text(94, y + 15, &AF_X, c == 3u ? b : ON[c], T_TEXT);
     }

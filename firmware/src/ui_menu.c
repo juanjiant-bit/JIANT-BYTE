@@ -240,22 +240,22 @@ static int32_t about_load(int32_t y, int draw)
         uint32_t k;
         char d[96];
         str_cpy(d, "VOICES ", sizeof d); fmt_cat(d, voices_busy());
-        str_cpy(d+str_len(d), " CAP ", 6); fmt_cat(d, voice_cap());
+        str_cat(d, " CAP ", 12); fmt_cat(d, voice_cap());
         y = menu_text(d, y, T_TEXT, draw);
         str_cpy(d, "ALLOC CUT ", sizeof d); fmt_cat(d, voice_kills-voice_trims-shed_count);
-        str_cpy(d+str_len(d), " TRIM ", 7); fmt_cat(d, voice_trims);
+        str_cat(d, " TRIM ", 12); fmt_cat(d, voice_trims);
         y = menu_text(d, y, T_TEXT, draw);
         str_cpy(d, "FX ", sizeof d); fmt_cat(d, mc_fx_tk/24u);
-        str_cpy(d+str_len(d), " us PEAK ", 10); fmt_cat(d, mc_pk[NTRK]/24u);
+        str_cat(d, " us PEAK ", 12); fmt_cat(d, mc_pk[NTRK]/24u);
         y = menu_text(d, y, T_TEXT, draw);
         for (k=0; k<trk_live && k<NTRK; k++) {
             uint32_t v, live=0;
             for (v=0; v<NVOICE; v++) live += trk[k].v[v].active;
             str_cpy(d, "T", sizeof d); fmt_cat(d, k+1);
-            str_cpy(d+str_len(d), " ", 2); str_cpy(d+str_len(d), ENGINES[trk[k].engine]->name, 20);
-            str_cpy(d+str_len(d), " V", 3); fmt_cat(d, live);
-            str_cpy(d+str_len(d), " ", 2); fmt_cat(d, mc_tk[k]/24u);
-            str_cpy(d+str_len(d), " PK ", 5); fmt_cat(d, mc_pk[k]/24u);
+            str_cat(d, " ", 12); str_cat(d, ENGINES[trk[k].engine]->name, 20);
+            str_cat(d, " V", 12); fmt_cat(d, live);
+            str_cat(d, " ", 12); fmt_cat(d, mc_tk[k]/24u);
+            str_cat(d, " PK ", 12); fmt_cat(d, mc_pk[k]/24u);
             y = menu_text(d, y, T_TEXT, draw);
         }
         {   /* (BYTE, CPU) the engines' insides, us a block of 64 samples, over the last second (formula_perf.c prof_tk) */
@@ -287,16 +287,15 @@ static int32_t about_load(int32_t y, int draw)
 static int32_t menu_document(int32_t y, int draw)
 {
     if (draw) {
+        static const uint8_t AY[7] = {38, 82, 100, 118, 138, 156, 174};   /* (rel15, flash: the lines in one loop) */
+        const char *l = "Firmware for the MVAVE FM-1\0by Juan Jiant, Argentina\0Free, GPL-3.0-only, no warranty\0"
+                        "Made in Argentina\0github.com\0/juanjiant-bit\0/JIANT";   /* (0.6.96: the project's own) */
+        uint32_t i;
         cv_text(6, y + 2, &AF_L, "JIANT BYTE", T_THEME);
-        cv_text(6, y + 38, &AF_S, "Firmware for the MVAVE FM-1", T_TEXT);
         cv_text(6, y + 58, &AF_M, FELUCCA_VERSION, T_THEME);
         cv_text_r(232, y + 61, &AF_S, __DATE__, T_TEXT, T_BG);
-        cv_text(6, y + 82, &AF_S, "by Juan Jiant, Argentina", T_TEXT);   /* (0.6.96: the project's own) */
-        cv_text(6, y + 100, &AF_S, "Free, GPL-3.0-only, no warranty", T_TEXT);
-        cv_text(6, y + 118, &AF_S, "Made in Argentina", T_TEXT);
-        cv_text(6, y + 138, &AF_S, "github.com", T_TEXT);
-        cv_text(6, y + 156, &AF_S, "/juanjiant-bit", T_TEXT);
-        cv_text(6, y + 174, &AF_S, "/JIANT", T_TEXT);
+        for (i = 0; i < 7u; i++, l += str_len(l) + 1u)
+            cv_text(6, y + AY[i], &AF_S, l, T_TEXT);
         draw_about_qr(158, y + 122);
     }
     y = menu_lines(ABOUT_PROJECT_PACK, y + 216, draw);

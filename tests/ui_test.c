@@ -6113,7 +6113,7 @@ static int test_large_face(void)
     uint32_t i, missing = 0;
     const char *s;
     for (i = 0; i < NB + NE + 2u; i++)                              /* ui_input.c setup_show: the control names */
-        for (s = i < NB ? str_nth(B_NAME, i) : i < NB + NE ? E_NAME[i - NB] : FIXED[i - NB - NE]; *s; s++)
+        for (s = i < NB ? str_nth(B_NAME, i) : i < NB + NE ? str_nth(E_NAME, i - NB) : FIXED[i - NB - NE]; *s; s++)
             missing += glyph_at(&AF_L, (uint8_t)*s) < 0;
     return check("the L face holds every glyph of the strings drawn in it", !missing);
 }

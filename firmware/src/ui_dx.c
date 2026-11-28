@@ -91,12 +91,12 @@ static void dx_cards(const page_t *pg)
     dx_follow();
     if (pn >= 20u || !BYTE_DX_OLD) { dw_cards(pn); return; }   /* (DRUM-W's own pages; KIT LFO in no chain) */
     {                                                   /* (JIANT 0.5.1) KIT LFO */
-        static const char *const RT[9] = {"OFF", "4BAR", "2BAR", "1BAR", "1/2", "1/4", "1/8", "1/16", "1/32"};
-        static const char *const SH[5] = {"SINE", "TRI", "SAW", "RAMP", "S&H"};
-        gauge_column(0, "RATE", RT[dx_mot[XM_RATE] % 9u], dx_mot[XM_RATE] ? VAL(0u) : T_DIM, dx_mot[XM_RATE] * 125);
+        static const char RT[] = "OFF\0" "4BAR\0" "2BAR\0" "1BAR\0" "1/2\0" "1/4\0" "1/8\0" "1/16\0" "1/32";   /* (str_nth: a text each, no pointer each) */
+        static const char SH[] = "SINE\0TRI\0SAW\0RAMP\0S&H";   /* (str_nth: a text each, no pointer each) */
+        gauge_column(0, "RATE", str_nth(RT, dx_mot[XM_RATE] % 9u), dx_mot[XM_RATE] ? VAL(0u) : T_DIM, dx_mot[XM_RATE] * 125);
         fmt_int(val, dx_mot[XM_DPTH]);
         gauge_column(1, "DEPTH", val, dx_mot[XM_DPTH] ? VAL(1u) : T_DIM, dx_mot[XM_DPTH] * 1000 / 127);
-        hot_gauge_column(2, "SHAPE", SH[dx_mot[XM_SHPE] % 5u], dx_mot[XM_SHPE] * 250);
+        hot_gauge_column(2, "SHAPE", str_nth(SH, dx_mot[XM_SHPE] % 5u), dx_mot[XM_SHPE] * 250);
         fmt_int(val, dx_mot[XM_RAND]);
         gauge_column(3, "RAND", val, dx_mot[XM_RAND] ? VAL(3u) : T_DIM, dx_mot[XM_RAND] * 1000 / 127);
     }
@@ -135,7 +135,7 @@ static BTAPP_FN void sw_ui_knob_bt(const page_t *pg, uint32_t k, int32_t s)
 }
 static BTAPP_FN void sw_ui_cards_bt(const page_t *pg)
 {
-    static const char *const LB[8] = {"RATE", "MOVE", "TONE", "NOISE", "MOD", "SELF", "AIR", "PROX"};
+    static const char LB[] = "RATE\0MOVE\0TONE\0NOISE\0MOD\0SELF\0AIR\0PROX";   /* (str_nth: a text each, no pointer each) */
     uint32_t q = pg->title[5] == ' ' ? 3u : 0u, c, i;
     char val[8];
     hot_gauge_column(0, "SIDE", sw_ui_side ? "NEAR" : "FAR", sw_ui_side ? 1000 : 0);
@@ -143,7 +143,7 @@ static BTAPP_FN void sw_ui_cards_bt(const page_t *pg)
         int32_t v = (i = c + q - 1u) < SWS_N ? sw_sv(TSEL, sw_ui_side, i) : sm.mq;
         val[0] = '1', val[1] = '/';
         fmt_int(val + (i ? 0 : 2), i ? v : 1 << ((uint32_t)v * 6u >> 7));
-        hot_gauge_column(c, LB[i < SWS_N ? i : 5u + sm.src % 3u], val, v * 1000 / 128);
+        hot_gauge_column(c, str_nth(LB, i < SWS_N ? i : 5u + sm.src % 3u), val, v * 1000 / 128);
     }
 }
 static void sw_ui_knob(const page_t *pg, uint32_t k, int32_t s) { if (bt_hw_seg()) sw_ui_knob_bt(pg, k, s); }
@@ -192,9 +192,9 @@ static void dw_mod_box(const dw_lane_t *D, int lfo, int32_t x, int32_t y, int32_
     }
     cv_line(x + 1, y + 17, x + 65, y + 17, ux_mix(T_SURF, T_DIM, 60));
 }
-static const char DW_PADS[] = "KICK\0" "SNARE\0" "CLAP\0" "HAT C\0" "HAT O\0" "TOM\0" "RIM\0" "BELL";   /* (v1.1b5: packed, str_nth) */
+static const char DW_PADS[] = "KICK\0SNARE\0CLAP\0HAT C\0HAT O\0TOM\0RIM\0BELL";   /* (v1.1b5: packed, str_nth) */
 #define DW_PAD(k) str_nth(DW_PADS, (unsigned)(k))
-static const char DW_LPS[] = "FEEDBK\0" "MORPH\0" "DECAY\0" "STRIKE\0" "ATTACK\0" "FOLD\0" "GAIN\0" "CUTOFF";   /* (PLAY's, COLOR's:
+static const char DW_LPS[] = "FEEDBK\0MORPH\0DECAY\0STRIKE\0ATTACK\0FOLD\0GAIN\0CUTOFF";   /* (PLAY's, COLOR's:
                                                          * the kit's, DW_PL DW_CO) */
 #define DW_LP(k) str_nth(DW_LPS, (unsigned)(k))
 static const uint8_t DW_PL[4] = {P_E2, P_E0, P_E3, P_E5}, DW_CO[4] = {P_E1, P_E6, P_E7, P_FCUT};
@@ -223,13 +223,13 @@ static void dw_panel(void)
         cv_rect(xs + w + 4, ys - 2, 5, 5, heat_col(on ? 245 : 170));
     }
     if (pn == 23u) {                                    /* MOVE: the modulators */
-        cv_text(160, 4 - AF_S_CAP_Y, &AF_S, N_DWD[D->edst % DWD_N], T_ACCENT);
+        cv_text(160, 4 - AF_S_CAP_Y, &AF_S, str_nth(N_DWD, D->edst % DWD_N), T_ACCENT);
         dw_mod_box(D, 0, 160, 16, on);
-        cv_text(160, 54 - AF_S_CAP_Y, &AF_S, N_DWD[D->ldst % DWD_N], T_ACCENT);
+        cv_text(160, 54 - AF_S_CAP_Y, &AF_S, str_nth(N_DWD, D->ldst % DWD_N), T_ACCENT);
         dw_mod_box(D, 1, 160, 66, on);
     } else if (D->bamt) {                                /* B, at its place, by the STRUCT */
         int32_t bp = clamp(D->bpos * top / 127 + (on ? sp - p0 : 0), 0, top);
-        cv_text(160, 22 - AF_S_CAP_Y, &AF_S, N_DWS[D->str % DWS_N], T_ACCENT);
+        cv_text(160, 22 - AF_S_CAP_Y, &AF_S, str_nth(N_DWS, D->str % DWS_N), T_ACCENT);
         cv_text(160, 36 - AF_S_CAP_Y, &AF_S, N_WAVEF[D->tb & 15u], T_TEXT);
         cv_rect(160, 48, 74, 34, T_SURF);
         dw_frame(m, D->tb & 15u, bp);
@@ -253,7 +253,7 @@ static void dw_panel(void)
 enum { DWP_PLAY = 20, DWP_WAVE, DWP_SHAPE, DWP_MOVE, DWP_BODY, DWP_NOISE, DWP_COLOR, DWP_MIX };
 static const uint8_t DW_TYPE[10][2] = {{DWN_WHITE, DXF_HP}, {DWN_WHITE, DXF_BP}, {DWN_WHITE, DXF_LP}, {DWN_PINK, DXF_BP}, {DWN_PINK, DXF_LP},
                                        {DWN_BROWN, DXF_LP}, {DWN_VIOLET, DXF_HP}, {DWN_VIOLET, DXF_BP}, {DWN_RESON, DXF_BP}, {DWN_RESON, DXF_HP}};
-static const char *const N_DWTY[] = {"WHT HP", "WHT BP", "WHT LP", "PNK BP", "PNK LP", "BRN LP", "VIO HP", "VIO BP", "RES BP", "RES HP"};
+static const char N_DWTY[] = "WHT HP\0WHT BP\0WHT LP\0PNK BP\0PNK LP\0BRN LP\0VIO HP\0VIO BP\0RES BP\0RES HP";   /* (str_nth: a text each, no pointer each) */
 static uint32_t dw_side(void) { return TSEL->p[P_E0] >= 64; }   /* (the patch sounding) */
 static uint32_t dw_type_ix(const dx_lane_t *L, const dw_lane_t *D)
 {
@@ -330,9 +330,9 @@ static void dw_cards(uint32_t pn)
         hot_gauge_column(3, "TABLE B", N_WAVEF[D->tb & 15u], (int32_t)(D->tb & 15u) * 1000 / 15);
         break;
     case DWP_SHAPE:
-        hot_gauge_column(1, "STRUCT", N_DWS[D->str % DWS_N], (int32_t)(D->str % DWS_N) * 250);
+        hot_gauge_column(1, "STRUCT", str_nth(N_DWS, D->str % DWS_N), (int32_t)(D->str % DWS_N) * 250);
         fmt_int(val, D->bamt); gauge_column(2, "AMOUNT", D->bamt ? val : "OFF", D->bamt ? VAL(2u) : T_DIM, D->bamt * 1000 / 127);
-        hot_gauge_column(3, "RATIO", N_DWR[D->ratio % DW_NRAT], (int32_t)(D->ratio % DW_NRAT) * 1000 / (int32_t)(DW_NRAT - 1u));
+        hot_gauge_column(3, "RATIO", str_nth(N_DWR, D->ratio % DW_NRAT), (int32_t)(D->ratio % DW_NRAT) * 1000 / (int32_t)(DW_NRAT - 1u));
         break;
     case DWP_MOVE:
         fmt_int(val, (int32_t)D->eamt - 64); hot_gauge_column(1, "ENV", val, D->eamt * 1000 / 127);
@@ -347,7 +347,7 @@ static void dw_cards(uint32_t pn)
     case DWP_NOISE:
         fmt_int(val, v[DXP_NOISE]); hot_gauge_column(1, "NOISE", val, v[DXP_NOISE] * 1000 / 127);
         fmt_int(val, v[DXP_COLOR]); hot_gauge_column(2, "CUTOFF", val, v[DXP_COLOR] * 1000 / 127);
-        hot_gauge_column(3, "TYPE", N_DWTY[dw_type_ix(L, D)], (int32_t)dw_type_ix(L, D) * 111);
+        hot_gauge_column(3, "TYPE", str_nth(N_DWTY, dw_type_ix(L, D)), (int32_t)dw_type_ix(L, D) * 111);
         break;
     default:                                            /* MIX */
         fmt_int(val, p[P_LN0 + (dx_ui_lane & 7u)]); hot_gauge_column(1, "LEVEL", val, p[P_LN0 + (dx_ui_lane & 7u)] * 1000 / 127);
@@ -513,7 +513,7 @@ static void dw_noise_panel(const dx_lane_t *L, const dw_lane_t *D, const uint8_t
 {
     int32_t i, px = 0, py = 0, f = (L->mode >> 2) & 3u, c = v[DXP_COLOR] * 226 / 127;
     static const int8_t TILT[5] = {0, -10, -20, 12, 0};
-    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, N_DWN[D->noise % 5u], heat_col(220));
+    cv_text(6, 4 - AF_S_CAP_Y, &AF_S, str_nth(N_DWN, D->noise % 5u), heat_col(220));
     cv_rect(6, 16, 228, 84, T_SURF);
     for (i = 0; i <= 226; i++) {
         int32_t d = (i - c) * 3, r = f == DXF_LP ? (d < 0 ? 0 : d) : f == DXF_HP ? (d > 0 ? 0 : -d) : (d < 0 ? -d : d) * (D->noise == DWN_RESON ? 1 : 2) / 2;
@@ -563,7 +563,7 @@ static void dw_panel2(uint32_t pn)
     case DWP_MIX: dw_mix_panel(); break;
     default:
         dw_panel();                                     /* WAVE SHAPE MOVE: the table in depth */
-        if (pn == DWP_SHAPE) { cv_rect(160, 14, 76, 84, T_BG); cv_text(160, 22 - AF_S_CAP_Y, &AF_S, N_DWS[D->str % DWS_N], heat_col(220)); dw_shape_box(D, 160, 32); }
+        if (pn == DWP_SHAPE) { cv_rect(160, 14, 76, 84, T_BG); cv_text(160, 22 - AF_S_CAP_Y, &AF_S, str_nth(N_DWS, D->str % DWS_N), heat_col(220)); dw_shape_box(D, 160, 32); }
         break;
     }
 }

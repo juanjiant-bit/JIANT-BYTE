@@ -639,7 +639,7 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         return;
     }
     if (d == &LOFI_LOOPQ && v <= 8) {                   /* (loopq) MATH's LOOP in SYNC: the song's division */
-        str_cpy(val, N_LOOPQ[v < 0 ? 0 : v], 6);
+        str_cpy(val, str_nth(N_LOOPQ, v < 0 ? 0 : v), 6);
         fmt_named = 1;
         return;
     }

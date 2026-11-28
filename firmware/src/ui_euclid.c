@@ -515,7 +515,7 @@ static void eu_put(uint32_t k, int32_t v)
     if (al && k < EK_K4) eu_kit(e);                      /* (ALL: the kit again, of DENSITY, STEPS, ROTATE) */
     if (k < EK_K4) e->rs &= (uint16_t)(al ? 0u : ~(1u << (dr ? (e->lane + NLANE) % (NLANE + 1u) : 0u)));   /* (V10.28: the
                                                          * euclid's rhythm now, the notes still the recorded ones) */
-    if (chain_busy()) { ui_message("SONG PLAYS: STOP IT TO EDIT"); return; }
+    if (song_busy_say()) return;
     eu_anchor(song.sel);                                 /* (V10.16) what is dialled: MUTATE's anchor */
     eu_gen(song.sel, 1);
 }
@@ -585,7 +585,7 @@ static __attribute__((noinline)) void eu_every(int32_t steps)
 static void eu_oct(int up, int mu)
 {
     eu_t *e = eu_of(song.sel);
-    if (chain_busy()) { ui_message("SONG PLAYS: STOP IT TO EDIT"); return; }
+    if (song_busy_say()) return;
     if (mu) {
         if (up) eu_mutate(song.sel, e);
         else { memcpy((uint8_t *)e + EU_Z0, eu_z[song.sel], EU_ZN); e->seed = eu_zs[song.sel]; e->xm = 0; eu_gen(song.sel, 1); }

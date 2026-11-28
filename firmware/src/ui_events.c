@@ -114,13 +114,7 @@ static int ev_act_ready(void)
     return ev_row(n) < n || (motion.count < MOTION_MAX && ev_id_ok(TSEL, ui.ev_id));
 }
 
-static int ev_busy(void)
-{
-    if (!chain_busy())
-        return 0;
-    ui_message("SONG PLAYS: STOP IT TO EDIT");
-    return 1;
-}
+#define ev_busy song_busy_say                          /* (rel15, flash: ui.c's, the same) */
 
 /* KNOB slot turned s on AUTO LIST */
 static __attribute__((noinline)) void ev_knob(uint32_t slot, int32_t s)

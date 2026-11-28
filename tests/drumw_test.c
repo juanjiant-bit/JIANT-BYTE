@@ -88,7 +88,7 @@ int main(void)
     for (k = 1; k < DWS_N; k++) {                     /* each STRUCT not MIX */
         kit(); dw_kit[0].str = DWS_MIX; dw_kit[0].bamt = 110; hit(ya, 0);
         kit(); dw_kit[0].str = (uint8_t)k; dw_kit[0].bamt = 110; hit(yb, 0);
-        dw_t_ok(dlt(ya, yb) > 0.1, "STRUCT %s changes the hit (%.3f)", N_DWS[k], dlt(ya, yb));
+        dw_t_ok(dlt(ya, yb) > 0.1, "STRUCT %s changes the hit (%.3f)", str_nth(N_DWS, k), dlt(ya, yb));
     }
     {
         static const char *const NM[5] = {"TABLE A", "MOD ENV", "MOD LFO", "TABLE B", "RATIO"};
@@ -114,7 +114,7 @@ int main(void)
             if (lf) { D->lrate = 90; D->ldep = 127; D->ldst = (uint8_t)k; D->lshp = DWL_SQR; }
             else { D->eamt = k == DWD_PITCH ? 0 : 127; D->edec = 90; D->edst = (uint8_t)k; }
             hit(yb, 0);
-            dw_t_ok(dlt(ya, yb) > 0.03, "%s to %s changes the hit (%.3f)", lf ? "LFO" : "ENV", N_DWD[k], dlt(ya, yb));
+            dw_t_ok(dlt(ya, yb) > 0.03, "%s to %s changes the hit (%.3f)", lf ? "LFO" : "ENV", str_nth(N_DWD, k), dlt(ya, yb));
         }
     }
     {                                                 /* a soft hit elsewhere in the table (VEL) */

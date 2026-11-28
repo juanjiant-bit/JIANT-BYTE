@@ -870,6 +870,14 @@ static void ui_say(const char *a, const char *b)
 }
 
 static void ui_message(const char *s) { ui_say(s, ""); }
+/* (rel15, flash: one call for the 29 places) the song playing: its message, 1 (0: not playing) */
+static __attribute__((noinline)) int song_busy_say(void)
+{
+    if (!chain_busy())
+        return 0;
+    ui_message("SONG PLAYS: STOP IT TO EDIT");
+    return 1;
+}
 /* (V10.7.10, users read "NO SEG" as nothing) the Bluetooth segment (flash 0xEA000: Bluetooth, GEN, the songs' saving,
  * USB HOST, ..., bt_hw.c) missing or another build's: what to do, in two messages (the header's width) */
 #define SEG_MISS "BLUETOOTH PART MISSING"
@@ -2212,8 +2220,8 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
     if (0 /* (VOICE retired) */) return "PLACE";
     if (cur_page()->graph == GR_TRACKGEN) return "MAKE";
     if (cur_page()->graph == GR_TOOLS) {
-        static const char *const actions[] = {"CLEAR", "CLEAR", "INIT", "DELETE", "CLEAR", "INIT"};
-        return actions[c < 6u ? c : 5u];
+        static const char actions[] = "CLEAR\0CLEAR\0INIT\0DELETE\0CLEAR\0INIT";   /* (str_nth: a text each, no pointer each) */
+        return str_nth(actions, c < 6u ? c : 5u);
     }
     if (cur_page()->graph == GR_SONG)                   /* (0.8.5) SAVE's lens: OCT+ adds a row (PLAY plays); PARTS: */
         return !SONG_PARTS(cur_page()) ? "ADD" : ui.part & PART_CELL ? "GO" : "LOOP";   /* PARTS: the part loops (its head),

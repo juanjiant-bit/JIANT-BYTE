@@ -1124,7 +1124,7 @@ static const char *func_knob_tip(const param_desc_t*d){
 /* (BYTE 0.17) FUNC's EDIT k: RUN ROOT FORM its own, A B C D by FORM (WAVE 0: edit[], FUNC alone) */
 static const param_desc_t *func_desc(const track_t*t,uint32_t k){return k-2u<4u?func_knob(t,k-2u):k-1u?&ENG_FUNC.edit[k&7u]:0;}
 /* (loopq) LOOP while TIME is SYNC: 1 .. 8 the song's divisions by name (params.c param_format), 9 .. 127 its % */
-static const char *const N_LOOPQ[] = {"OFF", "4 BAR", "2 BAR", "1 BAR", "1/2", "1/4", "1/8", "1/16", "1/32"};
+static const char N_LOOPQ[] = "OFF\0" "4 BAR\0" "2 BAR\0" "1 BAR\0" "1/2\0" "1/4\0" "1/8\0" "1/16\0" "1/32";   /* (str_nth: a text each, no pointer each) */
 static const param_desc_t LOFI_LOOPQ = {"LOOP", F_PCT, 0, 127, 0, 0};
 static const param_desc_t *lofi_desc(const track_t *t, uint32_t k)
 {

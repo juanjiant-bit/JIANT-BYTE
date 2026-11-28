@@ -76,10 +76,10 @@ enum { DWL_TRI, DWL_SINE, DWL_SQR, DWL_RAMP, DWL_SH, DWL_N };
 enum { DWN_WHITE, DWN_PINK, DWN_BROWN, DWN_VIOLET, DWN_RESON };
 enum { DWT_OFF, DWT_PULSE, DWT_SAW, DWT_RECT, DWT_BURST, DWT_HF, DWT_CLICK };
 #define DW_NRAT 12u
-static const char *const N_DWS[] = {"MIX", "FM", "RING", "SYNC", "FOLD", 0};
-static const char *const N_DWD[] = {"POS A", "POS B", "POS AB", "B AMT", "PITCH", "NOISE", 0};
-static const char *const N_DWN[] = {"WHITE", "PINK", "BROWN", "VIOLET", "RESON", 0};
-static const char *const N_DWR[] = {"1/2", "1", "1.41", "1.5", "2", "2.76", "3", "3.5", "4", "5.4", "7", "8", 0};
+static const char N_DWS[] = "MIX\0FM\0RING\0SYNC\0FOLD";   /* (str_nth: a text each, no pointer each) */
+static const char N_DWD[] = "POS A\0POS B\0POS AB\0B AMT\0PITCH\0NOISE";   /* (str_nth: a text each, no pointer each) */
+static const char N_DWN[] = "WHITE\0PINK\0BROWN\0VIOLET\0RESON";   /* (str_nth: a text each, no pointer each) */
+static const char N_DWR[] = "1/2\0" "1\0" "1.41\0" "1.5\0" "2\0" "2.76\0" "3\0" "3.5\0" "4\0" "5.4\0" "7\0" "8";   /* (str_nth: a text each, no pointer each) */
 static const uint16_t DW_RAT[DW_NRAT] = {2048, 4096, 5793, 6144, 8192, 11305, 12288, 14336, 16384, 22118, 28672, 32768};   /* Q12 */
 /* the factory kit's pads: KICK SNARE CLAP HAT C HAT O TOM RIM BELL
  *  {A, B, POS, B POS, STRUCT, RATIO, AMOUNT, ENV: ATK DEC AMT DEST, LFO: RATE SHAPE DEPTH DEST, VEL, NOISE, TICK, LEVEL} */

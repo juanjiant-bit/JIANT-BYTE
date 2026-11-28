@@ -512,7 +512,7 @@ static void tools_key(uint32_t p)
     if (!tl_cell(TSEL, p))
         return;
     if (chain_busy()) {
-        ui_message("SONG PLAYS: STOP IT TO EDIT");
+        (void)song_busy_say();
         return;
     }
     if (!(m = tl_do(TSEL, p, ui.lane)))
@@ -524,8 +524,7 @@ static void tools_key(uint32_t p)
 /* Shared by GLO + G4 and REC + A3. One global undo/redo snapshot. */
 static void undo_ui(void)
 {
-    if (chain_busy())
-        ui_message("SONG PLAYS: STOP IT TO EDIT");
+    if (song_busy_say()) {}
     else {
         uint32_t g = gls.u && gls_sig == gls_hash();    /* (GEN's FROM LOOP: the loop as it was, in LOOP mode) */
         if (undo_do()) { ui_message("NOTHING TO UNDO"); return; }
@@ -541,7 +540,7 @@ static void rec_clear(void)
 {
     track_t *t = TSEL;
     if (chain_busy()) {
-        ui_message("SONG PLAYS: STOP IT TO EDIT");
+        (void)song_busy_say();
         return;
     }
     if (seq_is_empty(t) && !motion_count(t)) {
@@ -755,7 +754,7 @@ static __attribute__((noinline)) void layer_key(uint32_t l, uint32_t k)
         TSEL->p[P_ROOT] = (int16_t)((k + 5u) % 12u);    /* the key's note name (F3 = F) */
     } else if (l == LAYER_MACRO && !key_black(k) && p < 2u) {   /* (JIANT 0.4) F3 DICE, G3 CLEAR */
         if (chain_busy()) {
-            ui_message("SONG PLAYS: STOP IT TO EDIT");
+            (void)song_busy_say();
         } else {
             macro_dice(p ? 2u : 1u);
             ui_message(p ? "MACROS CLEARED" : "MACROS DICED");
@@ -763,8 +762,7 @@ static __attribute__((noinline)) void layer_key(uint32_t l, uint32_t k)
     } else if (l == LAYER_EDIT && key_black(k) && p < NLANE && drum_track(TSEL)) {
         dx_mute_set(dx_mute ^ DXM_LANE(p));             /* DRUM: black keys 1..8 mute each sound (lit = sounding) */
     } else if (l == LAYER_EDIT && !key_black(k) && p <= LY_RECALL) {
-        if (chain_busy())
-            ui_message("SONG PLAYS: STOP IT TO EDIT");
+        if (song_busy_say()) {}
         else if (p == LY_RECALL && !edit_recallable())
             ui_message("NOTHING SAVED");
         else
