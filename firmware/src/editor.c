@@ -446,7 +446,8 @@ static const param_desc_t *ed_desc(uint32_t scope, uint32_t id, int16_t **vp)
 /* (1.6, INFO 44 01 bit 1) the whole step, after the 8 lane modes (STEP_GET / TRACK_STEP's read with flag 2, a write of
  * them): MICRO + 32 (0..63: -32..+31 64ths), LEN (0..15: 0 the track's GATE, n/16), DIV (0..5: CT_DIVS), EVERY (0..13,
  * EV_*), then 8 x v14, each a stored byte 0..255: comp, carg, comp2, carg2 (ACTION | CONDITION << 4, VALUE), clen[0],
- * clen[1] (LENGTH - 1, 0..31; 255 a legacy code still to migrate), cnm[0], cnm[1] (N - 1 | (M - 1) << 4) */
+ * clen[1] (LENGTH - 1, 0..31; a read may show 255, a legacy code still to migrate; a write never), cnm[0], cnm[1]
+ * (N - 1 | (M - 1) << 4) */
 #define ED_FULL_N 20u
 static const uint8_t ED_FULL_AT[8] = {0, 1, 2, 3, 9, 10, 11, 12};   /* each one's place from step_t's comp */
 _Static_assert(__builtin_offsetof(step_t, clen) - __builtin_offsetof(step_t, comp) == 9u &&
@@ -459,8 +460,8 @@ static int ed_full_ok(const uint8_t *f)
     for (i = 0; i < 8u; i++)
         if ((v[i] = (uint32_t)ed_rv(f + 4 + 2u * i)) > 255u)   /* (below 0: far above) */
             return 0;
-    return CO_COND(v[0]) < CC_N && CO_COND(v[2]) < CC_N && (v[4] < CL_MAX || v[4] == CL_LEGACY) &&
-           (v[5] < CL_MAX || v[5] == CL_LEGACY);
+    return CO_COND(v[0]) < CC_N && CO_COND(v[2]) < CC_N && v[4] < CL_MAX && v[5] < CL_MAX;   /* (what proj_pack takes:
+                                                         * a legacy LENGTH 255 read is never written back) */
 }
 /* a step as STEP_SET / TRACK_STEP send it (na bytes): n, 4 notes, time, flags, vel, then (v5) the lane hits
  * and their accents: hit & 127, acc & 127, bit 7 of each (bit 0 hit, bit 1 acc), (v7) the chance, (RATCH, INFO

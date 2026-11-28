@@ -269,7 +269,7 @@ The components (v2, `core.h` "STEP COMPONENTS v2"): comp / comp2 = ACTION (bits 
 4 OCT−, 5 RATCHET, 6 STUTTER, 7 MUTE (VALUE 2: TRIG), 8 TRANSPOSE, 9 RANDOM, 10 LOCK, 11 RAMP, 12 SOUND, 13 BEND,
 14 SHIFT, 15 CHORD) | CONDITION << 4 (0 ALWAYS, 1 25 %, 2 50 %, 3 75 %, 4 FIRST, 5 NOT FIRST, 6 FILL, 7 NOT FILL, 8 PRE,
 9 NOT PRE, 10 NEI, 11 NOT NEI, 12 ELSE, 13 N:M, 14 NOT N:M); carg / carg2 the VALUE (the action's own); clen LENGTH − 1
-(0..31; 255 a legacy code not migrated yet, as read); cnm N − 1 | (M − 1) << 4. A write with any field out of its range
+(0..31; a read can show 255, a legacy code not migrated yet: a write of it is refused); cnm N − 1 | (M − 1) << 4. A write with any field out of its range
 (or a CONDITION 15) gets no reply and changes nothing; the VALUE is taken as it is. Refused like any step write while
 the song chain runs.
 

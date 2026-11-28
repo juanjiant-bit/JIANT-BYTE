@@ -95,14 +95,14 @@ static void whole_step(void)
     memcpy(b, r, 42);
     b[22] = 32 + 31; b[23] = 0; b[24] = 5; b[25] = EV_FIRST;
     v14(b + 26, CO_MAKE(CA_OCTU, CC_FIRST)); v14(b + 28, 2); v14(b + 30, 0); v14(b + 32, 0);
-    v14(b + 34, 31); v14(b + 36, CL_LEGACY); v14(b + 38, 0); v14(b + 40, 0x37);
+    v14(b + 34, 31); v14(b + 36, 7); v14(b + 38, 0); v14(b + 40, 0x37);
     n = request(ED_STEP_SET, b, 42);
     ok("STEP_SET 42 bytes: the reply is the whole step (42)", n == 42u && !memcmp(r, b, 42));
     ok("  stored: MICRO +31, LEN 0, DIV 5, EVERY FIRST, the components", st_micro(s) == 31 && CT_LEN(s) == 0u &&
        CT_DIV(s) == 5u && ST_EVERY(s) == EV_FIRST && s->comp == CO_MAKE(CA_OCTU, CC_FIRST) && s->carg == 2u &&
-       !s->comp2 && s->clen[0] == 31u && s->clen[1] == CL_LEGACY && s->cnm[1] == 0x37u && s->note[0] == 60u);
+       !s->comp2 && s->clen[0] == 31u && s->clen[1] == 7u && s->cnm[1] == 0x37u && s->note[0] == 60u);
     was = *s;
-    for (i = 0; i < 6u; i++) {                           /* each value out of its range: refused, nothing written */
+    for (i = 0; i < 7u; i++) {                           /* each value out of its range: refused, nothing written */
         memcpy(a, b, 42);
         if (i == 0) a[22] = 64;
         if (i == 1) a[23] = 16;
@@ -110,13 +110,14 @@ static void whole_step(void)
         if (i == 3) a[25] = EV_N;
         if (i == 4) v14(a + 28, 256);
         if (i == 5) v14(a + 34, CL_MAX);
+        if (i == 6) v14(a + 36, CL_LEGACY);              /* (a legacy LENGTH: proj_pack would refuse the project) */
         n = request(ED_STEP_SET, a, 42);
         ok("STEP_SET with a value out of its range: no reply, the step as it was", !n && !memcmp(&was, s, sizeof was));
     }
     memcpy(a, b, 22); a[1] = 1; a[2] = 62;
     n = request(ED_STEP_SET, a, 22);
     ok("STEP_SET of before (22): the note, MICRO and the components kept", n == 22u && s->n == 1u && s->note[0] == 62u &&
-       st_micro(s) == 31 && s->comp == was.comp && s->clen[1] == CL_LEGACY && s->ctime == was.ctime);
+       st_micro(s) == 31 && s->comp == was.comp && s->clen[1] == 7u && s->ctime == was.ctime);
 
     /* TRACK_STEP: any track's */
     memset(&trk[1].step[7], 0, sizeof(step_t));
@@ -127,6 +128,8 @@ static void whole_step(void)
     n = request(ED_TRACK_STEP, a, 43);
     ok("TRACK_STEP 43 bytes: written, the selection kept", n == 43u && st_micro(&trk[1].step[7]) == 31 &&
        trk[1].step[7].clen[0] == 31u && trk[1].step[7].cnm[1] == 0x37u && song.sel == 0u);
+    project_capture(&proj_scratch);
+    ok("the steps written so: the project still packs (SAVE takes it)", proj_pack(&proj_wire, &proj_scratch) != 0);
 }
 
 /* pack7 (as editor_backup.c ed_bk_pack): n bytes of p into o, its length */
