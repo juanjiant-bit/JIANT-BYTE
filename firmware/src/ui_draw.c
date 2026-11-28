@@ -1100,27 +1100,27 @@ static int clip_tag(char *b)
  * LIFE (253), TRACKS (254: GLO's mute and solo keys, as MIXER's; its panel shows the line too),
  * or its section's (100 + SEC_*); none: the breadcrumb. One string, the lines one after another */
 static const uint8_t HELP_K[] = {250, 251, 252, 253, 254, GR_BROWSE, GR_FOCUS, GR_ROLL, GR_COMP, GR_EUCLID, GR_SHAPE, GR_SCENE, GR_PUNCH, GR_TRK, 100u + SEC_EDIT, 100u + SEC_SEQ, 100u + SEC_FX, 100u + SEC_GLO, 100u + SEC_LFO, 100u + SEC_SCL};
-static const char HELP_S[] =
-    "HOME+SELECT DICE  HOME+PRESETS BPM\0"
-    "HOME+PRESETS BPM  HOME+SELECT GEN\0"
-    "OCT+ A PIECE  OCT- BACK\0"
-    "LIFE 0 STILL  LINES: WHO MOVES WHOM\0"
-    "GLO+BLACK KEYS MUTE  GLO+WHITE SOLO\0"
-    "OCT+ LOAD  OCT- CLOSE  REC FAVORITE\0"
-    "PICK A KNOB AND WHAT MOVES IT\0"
-    "REC: KEYS WRITE  SEQ+PRESETS STEP\0"
-    "KEYS PICK THE STEP  SEQ+PRESETS STEP\0"
-    "OCT+ NEW  OCT- THE ONE BEFORE\0"
-    "OCT- NUDGE ALL  OCT+ THE STEP\0"
-    "OCT+ DICE ROLES  OCT- ALL KEEP\0"
-    "KEYS TOGGLE STEPS  BLACK 1-4: ROW\0"
-    "GLO+BLACK KEYS MUTE  GLO+SELECT BPM\0"
-    "EDIT+SELECT DICE  EDIT+PRESETS ENGINE\0"
-    "SEQ+SELECT DICE  SEQ+PRESETS STEP\0"
-    "FX+SELECT DICE  HOLD FX: PERFORM KEYS\0"
-    "GLO+SELECT BPM  +F4 TAP  +G4 UNDO\0"
-    "LFO+SELECT DICE  HOLD LFO: MACROS\0"
-    "SCL+A KEY: ROOT\0";
+#define HELP_S_TEXT "HOME+SELECT DICE  HOME+PRESETS BPM\0" \
+    "HOME+PRESETS BPM  HOME+SELECT GEN\0" \
+    "OCT+ A PIECE  OCT- BACK\0" \
+    "LIFE 0 STILL  LINES: WHO MOVES WHOM\0" \
+    "GLO+BLACK KEYS MUTE  GLO+WHITE SOLO\0" \
+    "OCT+ LOAD  OCT- CLOSE  REC FAVORITE\0" \
+    "PICK A KNOB AND WHAT MOVES IT\0" \
+    "REC: KEYS WRITE  SEQ+PRESETS STEP\0" \
+    "KEYS PICK THE STEP  SEQ+PRESETS STEP\0" \
+    "OCT+ NEW  OCT- THE ONE BEFORE\0" \
+    "OCT- NUDGE ALL  OCT+ THE STEP\0" \
+    "OCT+ DICE ROLES  OCT- ALL KEEP\0" \
+    "KEYS TOGGLE STEPS  BLACK 1-4: ROW\0" \
+    "GLO+BLACK KEYS MUTE  GLO+SELECT BPM\0" \
+    "EDIT+SELECT DICE  EDIT+PRESETS ENGINE\0" \
+    "SEQ+SELECT DICE  SEQ+PRESETS STEP\0" \
+    "FX+SELECT DICE  HOLD FX: PERFORM KEYS\0" \
+    "GLO+SELECT BPM  +F4 TAP  +G4 UNDO\0" \
+    "LFO+SELECT DICE  HOLD LFO: MACROS\0" \
+    "SCL+A KEY: ROOT\0"
+#include "text_z.h"
 static const char *help_find(uint32_t k)
 {
     const char *s = HELP_S;
@@ -1346,11 +1346,7 @@ static void draw_columns(void)
     }
 #if FELUCCA_VIS
     if (home_vis()) {                                   /* (visgen) HOME > VIS: MIX DEFORM PALETTE REACT (ui_vis.c) */
-        for (c = 0; c < 4u; c++) {
-            const char *v = vis_card(c, val);
-            draw_column(c, str_nth(VIS_KN, c), v, c == 2u ? "" : "%", VAL(c), c == 2u ? vis_k[2] * 200 : vis_k[c] * 10,
-                        c == 2u ? ICON_CUTOFF : ICON_MOD);
-        }
+        vis_cols(val);
         return;
     }
 #endif
@@ -2366,18 +2362,9 @@ static void ui_draw(void)
     if (!scr_frame())                                   /* MENU > SCREEN OFF: dark (or waking), nothing drawn */
         return;
 #if FELUCCA_VIS
-    if (scrn.st == SCR_VIS || (home_vis() && !ui.menu && !dlg_on() && !name_on() && !ly_drawn() && !counting && !ui.uboot &&
-                               !ui.segbox)) {           /* (visgen) MENU > SAVER, HOME > VIS: the visual, the whole screen */
-        vis_saver();
+    if (vis_screen(counting)) {                         /* (visgen) MENU > SAVER, HOME > VIS: the visual, the whole screen */
         ui_timers();                                    /* (a toast meanwhile: its time runs, unseen) */
-        vis_ov |= 8u;                                   /* (a static of its own here would move the merged globals the
-                                                         * timer ISR reads: its code another) */
         return;
-    }
-    if (vis_ov & 8u) {                                  /* (back from it: the page drawn whole) */
-        vis_ov &= ~8u;
-        ui.force = 1;
-        ui.head_sig = ui.graph_sig = ui.foot_sig = ~0u;
     }
 #endif
     anim_st.non = 1;                                     /* (codex/anim: the lens's entries worked out once, ui_lens.c) */

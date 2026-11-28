@@ -208,7 +208,7 @@ static void graph_focus_lz(const track_t *t)
 /* (the history: ui_byte.c's hud_q, lanes 0..3 what each adds, 8 its zero; 4..7 its strikes) */
 #define ft_x hud_x
 static int32_t ft_v(uint32_t m,uint32_t i){return (int32_t)hud_get(m,i)-8;}
-static void ft_tag(int32_t x,int32_t y,const char*s,uint16_t fg,uint16_t bg){int32_t w=text_w(&AF_X,s)+4;cv_rect(x,y,w,11,bg);cv_text_on(x+2,y+1-AF_X_CAP_Y,&AF_X,s,fg,bg);}
+#define ft_tag hud_tag   /* (v1.1b1: ui_byte.c's, the same tag) */
 static void ft_frame(int32_t y,int32_t h){int32_t x;
  cv_rect(32,y,206,1,T_SURF);cv_rect(32,y+h-1,206,1,T_SURF);
  for(x=32;x<238;x+=3)cv_rect(x,y+h/2,1,1,T_LINE);

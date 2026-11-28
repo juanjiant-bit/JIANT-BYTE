@@ -43,19 +43,12 @@ static LIFE_SZ void life_master(void)
 {
     uint32_t i;
     life.on=life_v[LIFE_AMT]>0;life.fol=0;
-#if FELUCCA_VIS
-    if(vis_fol)vis_fol--;                              /* (visgen: the levels VIS reads, while it asks) */
-#endif
     if(!life.init){life.init=1;for(i=0;i<NTRK;i++){life.bx[i]=10000+i*8500;life.by[i]=i<3u?16000:46000;}}
     for(i=0;i<NTRK;i++){
         int32_t e=i<trk_live&&!trk[i].p[P_MUTE]?clamp(track_env[i]*2,0,32767):0;
         life.en[i]+=(int16_t)((e-life.en[i])/8);
         if((mns_clk&7u)==i)life_swim(i,life.en[i]);
-#if FELUCCA_VIS
-        if((life.on||vis_fol)&&i<trk_live&&!trk[i].p[P_MUTE])life.fol|=1u<<i;
-#else
         if(life.on&&i<trk_live&&!trk[i].p[P_MUTE])life.fol|=1u<<i;
-#endif
     }
     life.fol&=(uint8_t)~track_follow_mask;track_follow_mask|=life.fol;
 }

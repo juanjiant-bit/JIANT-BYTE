@@ -436,39 +436,12 @@ static inline void cv_pset0(int32_t x, int32_t y, uint16_t c)
     if (p)
         *p = swap16(c);
 }
-#ifndef FELUCCA_VIS
-#define FELUCCA_VIS 0                       /* (core.h's; gfx.c comes first) */
-#endif
-#if FELUCCA_VIS
-/* (visgen) HOME > VIS (ui_vis.c): while set, what the pages' pictures draw goes through it instead of onto the canvas:
- * a line, a box (a point, a small one; else its outline), a dot (a line of one point); text, cards and icons are left
- * out (cv_oy then far off the canvas: whatever draws straight into it lands nowhere) */
-typedef struct {
-    void (*line)(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c);
-    void (*rect)(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c);
-} cv_vmap_t;
-static const cv_vmap_t *cv_vmap __attribute__((section(".pool")));
-static __attribute__((noinline)) void cv_pset(int32_t x, int32_t y, uint16_t c)
-{
-    if (cv_vmap)
-        cv_vmap->line(x, y, x, y, c);
-    else
-        cv_pset0(x, y, c);
-}
-#else
-#define cv_pset cv_pset0                    /* (no VIS: no map) */
-#endif
+#define cv_pset cv_pset0                    /* (no point map: VIS lite draws its own lines, ui_vis.c) */
 
 static void cv_rect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
 {
     int32_t x1 = x + w, y1 = y + h + cv_oy - cv_by, i;
     uint16_t sc = swap16(c);
-#if FELUCCA_VIS
-    if (cv_vmap) {                          /* (visgen) */
-        cv_vmap->rect(x, y, w, h, c);
-        return;
-    }
-#endif
     y += cv_oy - cv_by;                     /* clipped once (to the band), then filled row by row */
     if (x < 0)
         x = 0;
@@ -497,12 +470,6 @@ static void cv_line(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c)
     int32_t dx = x1 > x0 ? x1 - x0 : x0 - x1, sx = x0 < x1 ? 1 : -1;
     int32_t dy = y1 > y0 ? y0 - y1 : y1 - y0, sy = y0 < y1 ? 1 : -1;
     int32_t err = dx + dy, guard = 2000;
-#if FELUCCA_VIS
-    if (cv_vmap) {                          /* (visgen) */
-        cv_vmap->line(x0, y0, x1, y1, c);
-        return;
-    }
-#endif
     if ((y0 > y1 ? y0 : y1) + cv_oy < cv_by || (y0 < y1 ? y0 : y1) + cv_oy >= cv_by + (int32_t)cv_bh)
         return;                             /* (devcpu3) none of it in the band */
     while (guard--) {                       /* bounded: a line is never longer than 480 px */

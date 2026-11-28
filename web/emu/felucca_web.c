@@ -329,9 +329,6 @@ static float ring[RING * 2];
 static uint32_t ring_w, ring_r, web_samples_due;
 
 /* one millisecond of the device: the clock, the audio halves due by now, the main loop */
-#if FELUCCA_VIS
-static uint8_t web_vis_read;                             /* (visgen) VIS read once (web_vis_info): the levels followed from then on */
-#endif
 static void web_ms(void)
 {
     fm1_ms++;
@@ -339,13 +336,6 @@ static void web_ms(void)
     web_samples_due += FS;
     if (web_stems_on && !fx_stems)                        /* (studio) the stems on while Studio records them (the menu's */
         fx_stems = 1;                                     /* USB setting sets it back each frame) */
-#if FELUCCA_VIS
-    if (web_vis_read)                                     /* (visgen) Studio's VIS: every part's level followed however
-                                                         * far apart its reads (vis_fol: 255 blocks, ~0.37 s, the
-                                                         * device's VIS_TICK looks every 5 ms; a page reading once a
-                                                         * second read the levels decayed to 0) */
-        vis_fol = 255;
-#endif
     while (web_samples_due >= 1000u * HALF_FRAMES) {      /* an I2S half: the audio ISR renders it */
         uint32_t k;
         const int32_t *o = &abuf[web_half * HALF_WORDS];
@@ -558,7 +548,6 @@ EXPORT int32_t *web_gen_info(void)
 EXPORT int32_t *web_vis_info(void)
 {
     static int32_t o[21];
-    web_vis_read = 1;
     vis_state(o);
     return o;
 }

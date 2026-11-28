@@ -259,9 +259,7 @@ BTAPP_FN static void graph_key(const track_t *t, const page_t *pg)   /* (BYTE, f
         if (!in) continue;
         if (front) {
             uint16_t bg = i == now ? HUD_YE : deg == 0u ? tc : HUD_BL;
-            int32_t tw = text_w(&AF_X, NN[i]) + 4;
-            cv_rect(x - tw / 2, y - 6, tw, 11, bg);
-            cv_text_on(x - tw / 2 + 2, y - 5 - AF_X_CAP_Y, &AF_X, NN[i], i == now || deg == 0u ? 0x0000u : T_TEXT, bg);
+            hud_tag(x - (text_w(&AF_X, NN[i]) + 4) / 2, y - 6, NN[i], i == now || deg == 0u ? 0x0000u : T_TEXT, bg);
         } else
             cv_rect(x - 1, y - 1, 3, 3, T_DIM);
     }
@@ -375,12 +373,11 @@ static __attribute__((noinline)) void graph_chord(const track_t *t)
         }
         for (d = 0; d < c; d++) {                       /* the degrees: their numeral, their chord's short name */
             uint8_t nt[8];
-            int32_t x = 8 + (int32_t)d * 32, tw = text_w(&AF_X, RN[d]) + 4;
+            int32_t x = 8 + (int32_t)d * 32;
             uint32_t m = t->p[P_CHRD] ? chord_peek(t, 48u + rt + deg[d], nt) : 0u, on = d == pd;
             uint16_t bg = on ? HUD_YE : d == 0u ? tc : HUD_BL;
             char sn[12];
-            cv_rect(x, 100, tw, 11, bg);
-            cv_text_on(x + 2, 101 - AF_X_CAP_Y, &AF_X, RN[d], on || d == 0u ? 0x0000u : T_TEXT, bg);
+            hud_tag(x, 100, RN[d], on || d == 0u ? 0x0000u : T_TEXT, bg);
             if (m) { chord_label(nt, m, sn, 0); cv_text(x, 116 - AF_X_CAP_Y, &AF_X, sn, on ? HUD_YE : T_TEXT); }
         }
     }

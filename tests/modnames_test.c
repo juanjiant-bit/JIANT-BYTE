@@ -13,9 +13,10 @@ int main(void)
     ui_power_on();
     song.sel = 0;
     {   /* (str_nth tables) a full name for every SRC and DEST, no more: the last ones' and nothing after them */
-        const char *ls = str_nth(MSRC_FULL, MS_N - 1u), *ld = str_nth(MDST_FULL, MD_N - 1u);
-        assert(!strncmp(ls, "FUNC BAR", 8) && !strncmp(ld, "FUNC RANGE", 10));
-        assert(ls + strlen(ls) + 1u == MSRC_FULL + sizeof MSRC_FULL && ld + strlen(ld) + 1u == MDST_FULL + sizeof MDST_FULL);
+        const char *ls = str_nth(MSRC_FULL, MS_N - 1u), *ld;   /* (packed, text_z.h: one at a time, gz.h's buffer) */
+        assert(!strncmp(ls, "FUNC BAR", 8) && ls + strlen(ls) + 1u == MSRC_FULL + MSRC_FULL_N);
+        ld = str_nth(MDST_FULL, MD_N - 1u);
+        assert(!strncmp(ld, "FUNC RANGE", 10) && ld + strlen(ld) + 1u == MDST_FULL + MDST_FULL_N);
     }
     for (v = 0; v < MS_N; v++) {
         mod_full(TSEL, 1u, (int32_t)v, b, sizeof b, w, sizeof w);

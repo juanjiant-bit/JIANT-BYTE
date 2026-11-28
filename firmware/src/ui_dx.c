@@ -406,8 +406,7 @@ static void dw_play_panel(void)
             uint16_t bg = lit ? ye : k == sel ? T_TEXT : bl, fg = lit || k == sel ? 0x0000u : T_TEXT;
             tw = text_w(&AF_X, nm) + 4;
             tx = clamp(tx - tw / 2, 0, 150 - tw); ty = clamp(ty - 5, 0, 110);
-            cv_rect(tx, ty, tw, 11, bg);
-            cv_text_on(tx + 2, ty + 1 - AF_X_CAP_Y, &AF_X, nm, fg, bg);
+            hud_tag(tx, ty, nm, fg, bg);
         }
         {   /* beside: its level (the hit's, falling) */
             int32_t lv = on ? 56 - (int32_t)(age > 600u ? 600u : age) * 56 / 600 : 0, y = 30 + (int32_t)k * 11;

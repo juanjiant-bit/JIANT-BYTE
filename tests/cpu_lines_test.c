@@ -149,8 +149,11 @@ static void cost_in(void)                                /* (the device's split:
 }
 static uint32_t scene(uint32_t mask, uint32_t nblk)
 {
-    uint32_t b, q, h = 2166136261u;
+    uint32_t b, q, h = 2166136261u, vis = (mask >> 12) & 1u;   /* (VIS lite) 1xxx: the scene with HOME > VIS on the
+                                                         * screen, the UI drawn between the blocks (~60 frames a second:
+                                                         * one each 11 blocks), outside the blocks the model reads */
     blk = 0;
+    mask &= 0xFFFu;
     if (mask == 0x200u) { project(); unmute(0x0Fu); }   /* the parts idle: on, no notes, stopped */
     else if (mask == 0x300u) { project(); unmute(0x0Fu); cpu_pause = 0x3F; }   /* .. asleep: the block without them */
     else if (mask >= 0x100u) {                           /* GEN songs: EXPLORE s123 (relief_test.c's heaviest), with CLOUD,
@@ -173,6 +176,11 @@ static uint32_t scene(uint32_t mask, uint32_t nblk)
         song.master_q12 = 4096;
     } else { project(); unmute(mask); }
     if (mask < 0x200u) { transport_req = 1; ui_input(); }
+#if FELUCCA_VIS
+    if (vis) { nav_go(SEC_HOME, HE_VIS, 0); ui.force = 1; }
+#else
+    (void)vis;
+#endif
     for (b = 0; b < 64u + nblk; b++) {
         if (mask < 0x100u && b == 0u && (mask & 1u)) trk_note_on(&trk[0], 60, 100);   /* (FUNC's chord held, the kit's */
         if (mask < 0x100u && b % 43u == 0u && (mask & 2u)) trk_note_on(&trk[1], 36u, 110);   /* hits ~1/8; WAVE and MATH:
@@ -183,6 +191,7 @@ static uint32_t scene(uint32_t mask, uint32_t nblk)
         mix_block(vo, CTL);
         if (b >= 64u) cl_mark = 2;
         if (b & 1u) main_loop_poll();
+        if (vis && b % 11u == 0u) { fm1_ms += 16u; ui_draw(); }
         for (q = 0; q < 2u * CTL; q++) h = (h ^ (uint32_t)vo[q]) * 16777619u;
     }
     return h;

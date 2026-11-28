@@ -46,7 +46,10 @@ static const uint8_t VIS_FDF[6][VD_N] = {                            /* TWIST FO
     {2, 0, 0, 1, 0, 3}, {2, 0, 2, 2, 0, 0}, {1, 2, 3, 0, 0, 0}, {1, 3, 0, 0, 0, 3}, {0, 0, 2, 2, 3, 0}, {2, 0, 0, 0, 2, 2}};
 static const uint8_t VIS_FPAL[6][3] = {{VP_THERM, VP_AMBER, 0}, {VP_THERM, VP_HUD, 0}, {VP_TRACKS, VP_THERM, 0},
                                        {VP_ICE, VP_THERM, 0}, {VP_ICE, VP_AMBER, VP_HUD}, {VP_AMBER, VP_THERM, 0}};
-static uint32_t vr_x;
+#ifndef VIS_POOL
+#define VIS_POOL __attribute__((section(".pool")))   /* (the device: in the pool, not among the globals the audio code addresses) */
+#endif
+static uint32_t vr_x VIS_POOL;
 static uint32_t vr_rnd(void) { vr_x ^= vr_x << 13; vr_x ^= vr_x >> 17; vr_x ^= vr_x << 5; return vr_x; }
 static uint32_t vr_pick(const uint32_t *w, uint32_t n)              /* an index by its weight (all 0: VI_NONE) */
 {

@@ -68,14 +68,11 @@ static void fxg_delay(int32_t x, int32_t y, int32_t w, int32_t h)
         fxg_frame(fx, fy, ww, wh, c, i == 0 || i == run ? 2 : 1);
     }
     if (w > 120) {                                      /* "1/16 . 6 ECHOES" */
-        int32_t tw;
         param_format(&GP[G_DTIME], song.g[G_DTIME], b, &u);
         str_cpy(b + str_len(b), " \xB7 ", 4);
         fmt_int(b + str_len(b), n);
         str_cpy(b + str_len(b), n == 1 ? " ECHO" : " ECHOES", 8);
-        tw = text_w(&AF_X, b) + 4;
-        cv_rect(x, y, tw, 11, HUD_BL);
-        cv_text_on(x + 2, y + 1 - AF_X_CAP_Y, &AF_X, b, T_TEXT, HUD_BL);
+        hud_tag(x, y, b, T_TEXT, HUD_BL);
     }
 }
 static void fxg_reverb(int32_t x, int32_t y, int32_t w, int32_t h)
@@ -177,6 +174,28 @@ static void fxg_slicer(int32_t x, int32_t y, int32_t w, int32_t h)
         }
     }
 }
+/* (v1.1b1, JIANT FM V10.8.53's fxg_curve: one routine for DIST's and MASTER CLIP's) a transfer curve in an s x s box at
+ * (x, y): bip DIST's (in -1 .. 1, out across the middle) else CLIP's (0 .. 1 from the bottom left), its guides dotted,
+ * the level now at column lx (< 0 none) a yellow dot on it (CLIP's: with a yellow line across the box) */
+static void fxg_curve(uint32_t type, int32_t x, int32_t y, int32_t s, int32_t d, int32_t lx, int bip)
+{
+    int32_t i, py = 0, ly = 0, g = d ? 4096 + d * d * 2 : 4096, hx = bip ? s / 2 : 0, cy = bip ? y + hx : y + s - 1;
+    int32_t sc = bip ? (hx - 1) * 9 / 10 : s - 2, li = lx < s ? lx : s - 1;
+    for (i = 0; i < s; i += 3) { cv_pset(x + i, cy, T_LINE); cv_pset(x + hx, y + i, T_LINE); }   /* (BYTE, the HUD) */
+    for (i = 0; i < s; i++) {
+        int32_t yy = clamp(cy - tk_dist_y(type, bip ? (i - hx) * 131072 / hx : i * 32768 / s, g, d) * sc / 32767, y + 1, y + s - 2);
+        if (i) cv_line_t(x + i - 1, py, x + i, yy, FXG_TC, 2);
+        if (i == li) ly = yy;
+        py = yy;
+    }
+    if (lx < 0)
+        return;
+    if (bip)
+        lx = clamp(lx, 3, s - 4), ly = clamp(ly, y + 3, y + s - 4);
+    else
+        cv_rect(x + lx, y, 1, s, HUD_YE);
+    cv_rect(x + lx - 2, ly - 2, 5, 5, HUD_YE);
+}
 static void fxg_master(int32_t x, int32_t y, int32_t w, int32_t h)
 {
     int32_t en = bg_energy(), lvl = song.playing || en > 2 ? 128 + en / 2 : 26, i, py = 0, duck = song.g[G_DUCK];
@@ -194,16 +213,8 @@ static void fxg_master(int32_t x, int32_t y, int32_t w, int32_t h)
     fxg_label(x, y + 14, b, T_TEXT, 0);
     if (w > 120) {                                      /* (V10.43) the page: CLIP's curve (in -> out, the level now a dot),
                                                          * PUNCH's bar (its push on the peaks now), then the duck */
-        int32_t s = ch, d = song.g[G_CLIP] * 127 / 100, g = 4096 + d * d * 2, dy = 0;
-        for (i = 0; i < s; i += 3) { cv_pset(x + i, cy + s - 1, T_LINE); cv_pset(x, cy + i, T_LINE); }
-        for (i = 0; i < s; i++) {
-            int32_t yy = cy + s - 1 - tk_dist_y(DT_SOFT, i * 32768 / s, d ? g : 4096, d) * (s - 2) / 32767;
-            if (i) cv_line_t(x + i - 1, py, x + i, yy, FXG_TC, 2);
-            if (i == lvl * s / 320) dy = yy;
-            py = yy;
-        }
-        cv_rect(x + lvl * s / 320, cy, 1, s, HUD_YE);
-        cv_rect(x + lvl * s / 320 - 2, dy - 2, 5, 5, HUD_YE);
+        int32_t s = ch;
+        fxg_curve(DT_SOFT, x, cy, s, song.g[G_CLIP] * 127 / 100, lvl * s / 320, 0);
         cv_rect(x + s + 6, cy, 6, s, T_RAISE);
         i = song.g[G_PUNCH] * s / 100 * (lvl - 26) / 230;
         if (i > 0) cv_rect(x + s + 6, cy + s - i, 6, i, FXG_H(230));
@@ -244,10 +255,7 @@ static void fxg_sends(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t
     char b[8];
     for (i = 0; i < 4; i++) {
         int32_t v = t->p[P_DIST + i], bx = x + i * (w / 4), on = v * nr / 127, ly = y + h - 2 - v * nr * 5 / 127;
-        uint16_t bg = HUD_BL;
-        int32_t tw = text_w(&AF_X, N[i]) + 4;
-        cv_rect(bx, y, tw, 11, bg);
-        cv_text_on(bx + 2, y + 1 - AF_X_CAP_Y, &AF_X, N[i], T_TEXT, bg);
+        hud_tag(bx, y, N[i], T_TEXT, HUD_BL);
         for (r = 0; r < nr; r++)
             cv_rect(bx, y + h - 6 - r * 5, cw, 4, r < on ? FXG_H(51 + r * 205 / (nr ? nr : 1)) : T_LINE);
         cv_rect(bx - 2, ly, cw + 4, 1, HUD_YE);
@@ -258,7 +266,7 @@ static void fxg_sends(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t
 }
 static void fxg_dist(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t h)
 {
-    int32_t d = t->p[P_DIST], g = 4096 + d * d * 2, i, py = 0, s = h, cy = y + s / 2;
+    int32_t d = t->p[P_DIST], s = h;
     uint32_t type = (uint32_t)clamp(t->p[P_DTYPE],0,NELEM(N_DTYPE)-1);
     char b[16];
     if(type>=DT_EQ0 && type<DT_EQ0+DIST_NEQ) {
@@ -276,19 +284,8 @@ static void fxg_dist(const track_t *t, int32_t x, int32_t y, int32_t w, int32_t 
         return;
     }
     if(type>DT_AMP)type=DT_SOFT;
-    for (i = 0; i < s; i += 3) { cv_pset(x + i, cy, T_LINE); cv_pset(x + s / 2, y + i, T_LINE); }   /* (BYTE, the HUD) */
-    for (i = 0; i < s; i++) {
-        int32_t xx = (i - s / 2) * 131072 / (s / 2), yy = cy - tk_dist_y(type, xx, d ? g : 4096, d) * (s / 2 - 1) * 9 / 10 / 32767;
-        yy = clamp(yy, y + 1, y + s - 2);
-        if (i)
-            cv_line_t(x + i - 1, py, x + i, yy, FXG_TC, 2);
-        py = yy;
-    }
-    if (fxg_en() && s > 20) {                           /* the level now, a dot on the curve */
-        int32_t xx = clamp(bg_energy(), 0, 256) * 131072 / 256, px = x + s / 2 + xx * (s / 2) / 131072;
-        int32_t yy = clamp(cy - tk_dist_y(type, xx, d ? g : 4096, d) * (s / 2 - 1) * 9 / 10 / 32767, y + 3, y + s - 4);
-        cv_rect(clamp(px, x + 3, x + s - 4) - 2, yy - 2, 5, 5, HUD_YE);
-    }
+    fxg_curve(type, x, y, s, d, fxg_en() && s > 20 ? s / 2 + clamp(bg_energy(), 0, 256) * (s / 2) / 256 : -1, 1);   /* (the
+                                                         * level now, a dot on the curve) */
     hud_tag(x + s + 8, y + 1, N_DTYPE[type], song.sel % 6u >= 4u ? 0xFFFFu : 0x0000u, FXG_TC);
     str_cpy(b, "TONE ", sizeof b);
     fmt_int(b + 5, t->p[P_DTONE]);

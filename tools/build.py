@@ -110,7 +110,10 @@ def generate():
             [tools / "gen_tables.py", GEN / "felucca_tables.h"],
             [tools / "gen_drum_maps.py", FW / "src" / "gen_tables.c", FW / "src" / "song_dice.c", GEN / "gen_drum_maps.h",
              GEN / "dice_bars.h", GEN / "gen_bass.h"],   # (0.9.7)
-            [tools / "gen_help_z.py", FW / "src" / "clay.c", GEN / "clay_how.h"]]   # (funcbank, flash) CLAY_HOW packed
+            [tools / "gen_help_z.py", FW / "src" / "clay.c", GEN / "clay_how.h"],   # (funcbank, flash) CLAY_HOW packed
+            [tools / "gen_help_z.py", GEN / "text_z.h", FW / "src" / "ui_input.c", "KNOB_HINT", FW / "src" / "ui_input.c",
+             "MSRC_FULL", FW / "src" / "ui_input.c", "MDST_FULL", FW / "src" / "eng_lofi.c", "FUNC_TIPS_S",
+             FW / "src" / "ui_draw.c", "HELP_S"]]   # (v1.1b1, VIS's room) the UI's longest texts packed the same way
     procs = [subprocess.Popen([sys.executable, *map(str, c)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                               text=True) for c in cmds]
     failed = []
@@ -481,14 +484,21 @@ def late_fns():
              "scr_rows"}   # (FM V10.8.26) the screen mirror's row check: past the tables
     for f in LATE_SRC:
         names |= set(re.findall(r"^static [^;=()]*?\b(\w+)\((?![^)]*\)\s*;)", (FW / "src" / f).read_text(), flags=re.M))
-    return names
+    return names | vis_fns()
+
+
+def vis_fns():
+    """(VIS lite) the code only FELUCCA_VIS builds (firmware/src/ui_vis.c, Studio's pushes, the recipe's helpers): past
+    the sound and out of the recorded order (FELUCCA_REPIN=1 too), so the sound's code sits where it does without VIS"""
+    return {"ed_vis_push", "vr_pick", "vr_rnd", "home_vis"} | set(
+        re.findall(r"^static [^;=()]*?\b(\w+)\((?![^)]*\)\s*;)", (FW / "src" / "ui_vis.c").read_text(), flags=re.M))
 
 
 def late_tables():
     """the generator's own constant tables (gen.c, gen_tables.c): out of .rodata like the UI's recorded ones ('n'), so a
     new one never moves the sound's merged constants after .rodata"""
     names = set()
-    for f in ("gen.c", "gen_tables.c", "eng_string.c", "eng_add.c", "ui_engvis.c"):   # (0.9.9-snd5: the two engines' own
+    for f in ("gen.c", "gen_tables.c", "eng_string.c", "eng_add.c", "ui_engvis.c", "ui_vis.c", "vis_recipe.c"):   # (0.9.9-snd5: the two engines' own
         # tables and descriptors, the creatures' new ones: out of .rodata too, the sound's tables where they were)
         if not (FW / "src" / f).exists():            # (JIANT BYTE: retired engines' files gone)
             continue
@@ -603,7 +613,7 @@ def build_app():
     flags = [*CFLAGS, "-Ifirmware/hal", "-Ifirmware/src", "-Ibuild/gen"]
     for flag in ("FELUCCA_FLASH", "FELUCCA_OTA", "FELUCCA_OTA_DRYRUN", "FELUCCA_OTA_RAMONLY", "FELUCCA_CDC", "FELUCCA_CONSOLE_VERBOSE",
                  "FELUCCA_UART", "FELUCCA_UAC", "FELUCCA_UAC_TONE", "FELUCCA_UAC_48K", "FELUCCA_ICONS", "FELUCCA_SLICE", "FELUCCA_FM4",
-                 "FELUCCA_CDC_DEFAULT", "FELUCCA_BT"):
+                 "FELUCCA_CDC_DEFAULT", "FELUCCA_BT", "FELUCCA_VIS"):
         v = os.environ.get(flag)    # unset: the default in firmware/src/felucca.c
         if v in ("0", "1"):
             flags.append(f"-D{flag}={v}")
@@ -719,6 +729,7 @@ def build_app():
             if not keep:
                 LAYOUT_LD.write_text("*(.text*)\n")   # (cpu3) a clean build/: the first probe link in the compiler's order
                 keep = order_after(map_inputs(link(probe=True)[0]))
+                keep = [n for n in keep if n not in vis_fns()]   # (VIS lite: past the sound, as laid out)
             LAYOUT_LD.write_text("".join(f"*(.text.{n})\n" for n in keep) + "*(.text*)\n")
             # This preliminary link has not packed UI tables into the audio
             # layout's holes yet. Use the same enlarged probe as below; the

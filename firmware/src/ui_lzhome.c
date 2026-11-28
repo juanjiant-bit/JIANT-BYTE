@@ -321,7 +321,7 @@ static void ob_sat(uint32_t c, int32_t x, int32_t y, int32_t bot)
     uint32_t i, a = ob_ang(c);
     int off = eco_off(c), sel = c == song.sel;
     uint16_t tc = off ? T_DIM : TRK_COL[c % 6u];
-    int32_t px = 0, py = 0, qx, qy, s = 3 + eco.en[c] / 40, tw, tx, ty;
+    int32_t px = 0, py = 0, qx, qy, s = 3 + eco.en[c] / 40, tx, ty;
     char tg[12];
     for (i = 0; i <= 32u; i++) {                        /* its orbit, dotted; the last eighth its trail */
         ob_orbit(c, a - 0x2000u + i * 2048u, &qx, &qy);
@@ -342,13 +342,11 @@ static void ob_sat(uint32_t c, int32_t x, int32_t y, int32_t bot)
         cv_rect(x + b - 2, y + b, 3, 1, T_TEXT); cv_rect(x + b, y + b - 2, 1, 3, T_TEXT);
     }
     tg[0] = (char)('1' + c); tg[1] = ' '; str_cpy(tg + 2, ENGINES[trk_eng(&trk[c])]->name, 10);
-    tw = text_w(&AF_X, tg) + 4;
     tx = 166; ty = 12 + (int32_t)c * 12;               /* (the tags a column: a leader from each, bent) */
     (void)bot;
     cv_line(x, y, tx - 12, ty + 5, ux_mix(T_BG, tc, 55));
     cv_line(tx - 12, ty + 5, tx, ty + 5, ux_mix(T_BG, tc, 55));
-    cv_rect(tx, ty, tw, 11, tc);
-    cv_text_on(tx + 2, ty + 1 - AF_X_CAP_Y, &AF_X, tg, (c % 6u) >= 4u && !off ? 0xFFFFu : 0x0000u, tc);
+    hud_tag(tx, ty, tg, (c % 6u) >= 4u && !off ? 0xFFFFu : 0x0000u, tc);
 }
 #endif
 /* (V10.7.34) and LIFE (lf 1; life.c): the beings where the sound has them (its swim: agitated loud, calm in silence; its
